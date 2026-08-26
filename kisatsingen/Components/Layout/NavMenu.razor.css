@@ -1,0 +1,41 @@
+.navbar {
+    padding: 1rem 0 1rem 1rem;
+
+    .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+    }
+}
+
+.navbar-brand {
+    font-size: 1.1rem;
+}
+
+.nav-item {
+    font-size: 1rem;
+}
+
+    .nav-item:first-of-type {
+        padding-top: 3rem;
+    }
+
+    .nav-item:last-of-type {
+        padding-bottom: 3rem;
+    }
+
+.nav-scrollable {
+    display: none;
+}
+
+@media (min-width: 641px) {
+    .nav-scrollable {
+        /* Never collapse the sidebar for wide screens */
+        display: block;
+
+        /* Allow sidebar to scroll for tall menus */
+        height: calc(100vh - 3.5rem);
+        overflow-y: auto;
+    }
+}
