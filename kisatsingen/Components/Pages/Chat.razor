@@ -1,40 +1,193 @@
 @page "/chat"
+@page "/chat/{ChatId:guid?}"
+@rendermode InteractiveServer
+@using Microsoft.Extensions.AI
 
-<div class="chat-page">
-    <div class="chat-container">
-        <div class="chat-greeting">
-            <span class="chat-greeting-emoji">🖕</span>
-            <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+<PageTitle>Chat</PageTitle>
+
+<div class="chat-layout">
+    <aside class="chat-sidebar" aria-label="Chat list">
+        <div class="chat-sidebar-header">
+            <h2>Chats</h2>
+            <button type="button" class="ds-button" @onclick="StartNewChatAsync" disabled="@isBusy">New</button>
         </div>
+        @if (chatList.Count == 0)
+        {
+            <p class="chat-sidebar-empty">No chats yet.</p>
+        }
+        else
+        {
+            <ul class="chat-sidebar-list">
+                @foreach (var summary in chatList)
+                {
+                    <li>
+                        <a class="chat-sidebar-item @(summary.Id == currentChatId ? "chat-sidebar-item-active" : null)"
+                           href="@($"/chat/{summary.Id}")">
+                            <span class="chat-sidebar-title">@summary.Title</span>
+                            <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("g")</span>
+                        </a>
+                    </li>
+                }
+            </ul>
+        }
+    </aside>
 
-        <div class="chat-composer">
-            <textarea id="chat-textarea"
-                      class="chat-textarea"
-                      placeholder="Spør om hva som helst..."
-                      rows="1"
-                      @bind="messageText"
-                      @bind:event="oninput"></textarea>
+    <div class="chat-page">
+        <div class="chat-container">
+            @if (HasVisibleMessages)
+            {
+                <div class="chat-log" role="log" aria-live="polite">
+                    @foreach (var message in messages)
+                    {
+                        @if (message.Role == ChatRole.System) { continue; }
+                        <div class="chat-message chat-message-@message.Role.Value.ToLowerInvariant()">
+                            <div class="chat-role">@message.Role.Value</div>
+                            @if (!string.IsNullOrEmpty(message.Text))
+                            {
+                                <div class="chat-text">@message.Text</div>
+                            }
+                            @foreach (var content in message.Contents)
+                            {
+                                @if (content is FunctionCallContent call)
+                                {
+                                    <div class="chat-tool-call">
+                                        <span class="chat-tool-tag">tool call</span>
+                                        <code>@(call.Name)(@FormatArgs(call.Arguments))</code>
+                                    </div>
+                                }
+                                else if (content is FunctionResultContent result)
+                                {
+                                    <div class="chat-tool-result">
+                                        <span class="chat-tool-tag">tool result</span>
+                                        <code>@FormatResult(result.Result)</code>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    }
+                    @if (streamingText.Length > 0)
+                    {
+                        <div class="chat-message chat-message-assistant">
+                            <div class="chat-role">assistant</div>
+                            <div class="chat-text">@streamingText</div>
+                        </div>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="chat-greeting">
+                    <span class="chat-greeting-emoji">🖕</span>
+                    <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+                </div>
+            }
 
-            <div class="chat-composer-actions">
-                <button class="composer-icon-button" type="button" aria-label="Legg ved fil">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="5" x2="12" y2="19"/>
-                        <line x1="5" y1="12" x2="19" y2="12"/>
-                    </svg>
-                </button>
-                <button class="composer-send-button" type="button" aria-label="Send melding" disabled="@(string.IsNullOrWhiteSpace(messageText))">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="12" y1="19" x2="12" y2="5"/>
-                        <polyline points="5 12 12 5 19 12"/>
-                    </svg>
-                </button>
+            <div class="chat-composer">
+                <textarea id="chat-textarea"
+                          class="chat-textarea"
+                          placeholder="Spør om hva som helst..."
+                          rows="1"
+                          disabled="@isBusy"
+                          @bind="messageText"
+                          @bind:event="oninput"
+                          @onkeydown="OnComposerKeyDownAsync"></textarea>
+
+                <div class="chat-composer-actions">
+                    <button class="composer-icon-button" type="button" aria-label="Legg ved fil" disabled="@isBusy">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                    </button>
+                    <button class="composer-send-button"
+                            type="button"
+                            aria-label="Send melding"
+                            disabled="@(isBusy || string.IsNullOrWhiteSpace(messageText))"
+                            @onclick="SendAsync">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="12" y1="19" x2="12" y2="5"/>
+                            <polyline points="5 12 12 5 19 12"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
+
+            <p class="chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>
+        </div>
+    </div>
+
+    <aside class="chat-debug" aria-label="Debug panel">
+        <div class="chat-debug-header">
+            <h2>Debug</h2>
+            <button type="button" class="ds-button" @onclick="ClearDebug" disabled="@isBusy">Clear</button>
         </div>
 
-        <p class="chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>
-    </div>
-</div>
+        <section class="chat-debug-section">
+            <h3>Messages (@messages.Count)</h3>
+            <pre class="chat-debug-block">@FormatMessages()</pre>
+        </section>
 
-@code {
-    private string messageText = string.Empty;
-}
+        <section class="chat-debug-section">
+            <h3>Tool activity (@toolLog.Count)</h3>
+            @if (toolLog.Count == 0)
+            {
+                <p class="chat-debug-empty">No tool calls yet.</p>
+            }
+            else
+            {
+                <ol class="chat-debug-updates">
+                    @foreach (var entry in toolLog)
+                    {
+                        <li>
+                            <span class="chat-debug-updates-time">@entry.Kind</span>
+                            <span class="chat-debug-updates-text">@entry.Text</span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+
+        <section class="chat-debug-section">
+            <h3>Last response</h3>
+            @if (lastResponseMeta is null)
+            {
+                <p class="chat-debug-empty">No response yet.</p>
+            }
+            else
+            {
+                <dl class="chat-debug-meta">
+                    <dt>Response id</dt><dd>@(lastResponseMeta.ResponseId ?? "—")</dd>
+                    <dt>Model id</dt><dd>@(lastResponseMeta.ModelId ?? "—")</dd>
+                    <dt>Finish reason</dt><dd>@(lastResponseMeta.FinishReason ?? "—")</dd>
+                    <dt>Updates</dt><dd>@lastResponseMeta.UpdateCount</dd>
+                    <dt>Chars</dt><dd>@lastResponseMeta.CharCount</dd>
+                    <dt>Duration</dt><dd>@($"{lastResponseMeta.DurationMs} ms")</dd>
+                    <dt>First token</dt><dd>@(lastResponseMeta.TimeToFirstTokenMs is { } ttft ? $"{ttft} ms" : "—")</dd>
+                    <dt>Input tokens</dt><dd>@(lastResponseMeta.InputTokens?.ToString() ?? "—")</dd>
+                    <dt>Output tokens</dt><dd>@(lastResponseMeta.OutputTokens?.ToString() ?? "—")</dd>
+                    <dt>Total tokens</dt><dd>@(lastResponseMeta.TotalTokens?.ToString() ?? "—")</dd>
+                </dl>
+            }
+        </section>
+
+        <section class="chat-debug-section">
+            <h3>Update log (@updateLog.Count)</h3>
+            @if (updateLog.Count == 0)
+            {
+                <p class="chat-debug-empty">No updates yet.</p>
+            }
+            else
+            {
+                <ol class="chat-debug-updates">
+                    @foreach (var entry in updateLog)
+                    {
+                        <li>
+                            <span class="chat-debug-updates-time">+@(entry.OffsetMs) ms</span>
+                            <span class="chat-debug-updates-text">@entry.Text</span>
+                        </li>
+                    }
+                </ol>
+            }
+        </section>
+    </aside>
+</div>
