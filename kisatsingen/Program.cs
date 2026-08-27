@@ -4,7 +4,6 @@ using kisatsingen.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.Identity.Web;
 using OpenAI;
 
@@ -18,18 +17,9 @@ builder.Services.AddCascadingAuthenticationState();
 
 // 2. Native Code-Level Microsoft Entra ID Authentication
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"))
-    // Injects the downstream API engine
-    .EnableTokenAcquisitionToCallDownstreamApi() 
-    // Local memory token cache. Swap to AddDistributedTokenCaches + Redis for prod web farms
-    .AddInMemoryTokenCaches();
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"));
 
-// 3. FORCE AUTOMATIC LOGIN GLOBALLY
-builder.Services.AddAuthorization(options =>
-{
-    // Sets the default application policy to require authentication everywhere
-    options.FallbackPolicy = options.DefaultPolicy; 
-});
+builder.Services.AddAuthorization();
 
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
@@ -72,14 +62,14 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
-app.UseAntiforgery();
-
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
-    .RequireAuthorization(); // Instructs the router to force authentication instantly
+    .RequireAuthorization();
 
 app.Run();
