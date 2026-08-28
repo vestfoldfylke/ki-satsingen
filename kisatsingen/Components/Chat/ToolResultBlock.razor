@@ -1,0 +1,18 @@
+@using Microsoft.Extensions.AI
+@using System.Text.Json
+
+<div class="chat-tool-result">
+    <span class="chat-tool-tag">tool result</span>
+    <code>@FormatResult(Result.Result)</code>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required FunctionResultContent Result { get; set; }
+
+    private static string FormatResult(object? result) => result switch
+    {
+        null => "null",
+        string s => s,
+        _ => JsonSerializer.Serialize(result),
+    };
+}

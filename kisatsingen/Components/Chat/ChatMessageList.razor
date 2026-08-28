@@ -1,0 +1,18 @@
+<div class="chat-log" role="log" aria-live="polite">
+    @foreach (var message in Messages)
+    {
+        switch (message)
+        {
+            case CommittedMessage committed:
+                <ChatMessage @key="committed.Id" Message="committed" />
+                break;
+            case StreamingMessage streaming:
+                <StreamingChatMessage @key="streaming.Id" Text="@streaming.Text" />
+                break;
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required IReadOnlyList<ChatMessageView> Messages { get; set; }
+}

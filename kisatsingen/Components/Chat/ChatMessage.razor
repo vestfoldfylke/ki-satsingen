@@ -1,0 +1,27 @@
+@using Microsoft.Extensions.AI
+
+<div class="chat-message chat-message-@Message.Role.Value.ToLowerInvariant()">
+    <div class="chat-role">@Message.Role.Value</div>
+
+    @if (!string.IsNullOrEmpty(Message.Text))
+    {
+        <MarkdownBlock Source="@Message.Text" />
+    }
+
+    @foreach (var content in Message.Contents)
+    {
+        switch (content)
+        {
+            case FunctionCallContent call:
+                <ToolCallBlock Call="call" />
+                break;
+            case FunctionResultContent result:
+                <ToolResultBlock Result="result" />
+                break;
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required CommittedMessage Message { get; set; }
+}

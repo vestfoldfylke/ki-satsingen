@@ -1,0 +1,14 @@
+@using Microsoft.Extensions.AI
+@using System.Text.Json
+
+<div class="chat-tool-call">
+    <span class="chat-tool-tag">tool call</span>
+    <code>@(Call.Name)(@FormatArgs(Call.Arguments))</code>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required FunctionCallContent Call { get; set; }
+
+    private static string FormatArgs(IDictionary<string, object?>? args)
+        => args is null || args.Count == 0 ? "" : JsonSerializer.Serialize(args);
+}
