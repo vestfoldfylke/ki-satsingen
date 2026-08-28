@@ -8,23 +8,23 @@
 <div class="chat-layout">
     <aside class="chat-sidebar" aria-label="Chat list">
         <div class="chat-sidebar-header">
-            <h2>Chats</h2>
+            <h2 class="ds-heading" data-size="sm">Chats</h2>
             <button type="button" class="ds-button" @onclick="StartNewChatAsync" disabled="@IsBusy">New</button>
         </div>
         @if (ChatList.Count == 0)
         {
-            <p class="chat-sidebar-empty">No chats yet.</p>
+            <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
         }
         else
         {
-            <ul class="chat-sidebar-list">
+            <ul class="ds-list chat-sidebar-list">
                 @foreach (var summary in ChatList)
                 {
                     <li>
-                        <a class="chat-sidebar-item @(summary.Id == CurrentChatId ? "chat-sidebar-item-active" : null)"
+                        <a class="ds-link chat-sidebar-item @(summary.Id == CurrentChatId ? "chat-sidebar-item-active" : null)"
                            href="@($"/chat/{summary.Id}")">
                             <span class="chat-sidebar-title">@summary.Title</span>
-                            <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("g")</span>
+                            <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span>
                         </a>
                     </li>
                 }
@@ -83,7 +83,7 @@
 
             <div class="chat-composer">
                 <textarea id="chat-textarea"
-                          class="chat-textarea"
+                          class="ds-textfield chat-textarea"
                           placeholder="Spør om hva som helst..."
                           rows="1"
                           disabled="@IsBusy"
@@ -111,30 +111,30 @@
                 </div>
             </div>
 
-            <p class="chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>
+            <p class="ds-paragraph chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>
         </div>
     </div>
 
     <aside class="chat-debug" aria-label="Debug panel">
         <div class="chat-debug-header">
-            <h2>Debug</h2>
+            <h2 class="ds-heading">Debug</h2>
             <button type="button" class="ds-button" @onclick="ClearDebug" disabled="@IsBusy">Clear</button>
         </div>
 
         <section class="chat-debug-section">
-            <h3>Messages (@Messages.Count)</h3>
+            <h3 class="ds-heading">Messages (@Messages.Count)</h3>
             <pre class="chat-debug-block">@FormatMessages()</pre>
         </section>
 
         <section class="chat-debug-section">
-            <h3>Tool activity (@ToolLog.Count)</h3>
+            <h3 class="ds-heading">Tool activity (@ToolLog.Count)</h3>
             @if (ToolLog.Count == 0)
             {
-                <p class="chat-debug-empty">No tool calls yet.</p>
+                <p class="ds-paragraph chat-debug-empty">No tool calls yet.</p>
             }
             else
             {
-                <ol class="chat-debug-updates">
+                <ol class="ds-list chat-debug-updates">
                     @foreach (var entry in ToolLog)
                     {
                         <li>
@@ -147,10 +147,10 @@
         </section>
 
         <section class="chat-debug-section">
-            <h3>Last response</h3>
+            <h3 class="ds-heading">Last response</h3>
             @if (LastResponseMeta is null)
             {
-                <p class="chat-debug-empty">No response yet.</p>
+                <p class="ds-paragraph chat-debug-empty">No response yet.</p>
             }
             else
             {
@@ -170,14 +170,14 @@
         </section>
 
         <section class="chat-debug-section">
-            <h3>Update log (@UpdateLog.Count)</h3>
+            <h3 class="ds-heading">Update log (@UpdateLog.Count)</h3>
             @if (UpdateLog.Count == 0)
             {
-                <p class="chat-debug-empty">No updates yet.</p>
+                <p class="ds-paragraph chat-debug-empty">No updates yet.</p>
             }
             else
             {
-                <ol class="chat-debug-updates">
+                <ol class="ds-list chat-debug-updates">
                     @foreach (var entry in UpdateLog)
                     {
                         <li>

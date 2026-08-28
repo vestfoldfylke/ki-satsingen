@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -24,6 +25,17 @@
 
     <ItemGroup>
       <Folder Include="dev-db\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Update="appsettings.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      </Content>
+      <Content Update="appsettings.Development.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      </Content>
     </ItemGroup>
 
     <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs">
