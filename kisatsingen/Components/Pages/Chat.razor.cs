@@ -1,10 +1,12 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
+using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.AI;
+using Vestfold.Extensions.Metrics.Services;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Components.Pages;
@@ -16,6 +18,12 @@ public partial class Chat : ComponentBase, IDisposable
     
     [Inject]
     public required IChatRepository ChatRepository { get; set; }
+    
+    [Inject]
+    public required ILogger<Chat> Logger { get; set; }
+    
+    [Inject]
+    public required IMetricsService MetricsService { get; set; }
     
     [Inject]
     public required NavigationManager Navigation { get; set; }
@@ -36,6 +44,8 @@ public partial class Chat : ComponentBase, IDisposable
     private CancellationTokenSource? _cts;
     private bool _hasInitialized;
     private Data.Entities.Chat? _currentChat;
+
+    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_Chat";
 
     private List<ChatMessage> Messages { get; } = [];
     private string MessageText { get; set; } = string.Empty;
@@ -132,6 +142,8 @@ public partial class Chat : ComponentBase, IDisposable
         await LoadChatAsync();
         await RefreshChatListAsync();
 
+        Logger.LogInformation("New chat created");
+
         Navigation.NavigateTo("/chat", replace: true);
     }
 
@@ -176,6 +188,7 @@ public partial class Chat : ComponentBase, IDisposable
             ContentsJson = JsonSerializer.Serialize(userMessage.Contents, ContentsJson)
         },  _cts.Token);
 
+        var duration = MetricsService.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
         var startedAt = DateTimeOffset.UtcNow;
         long? firstTokenMs = null;
         var updateCount = 0;
@@ -195,9 +208,11 @@ public partial class Chat : ComponentBase, IDisposable
                     {
                         case FunctionCallContent call:
                             ToolLog.Add(new ToolEntry("call", $"{call.Name}({FormatArgs(call.Arguments)})"));
+                            MetricsService.Count($"{MetricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
                             break;
                         case FunctionResultContent result:
                             ToolLog.Add(new ToolEntry("result", $"{result.CallId} → {FormatResult(result.Result)}"));
+                            MetricsService.Count($"{MetricPrefix}_ToolResult", "Number of tool results retrieved");
                             break;
                     }
                 }
@@ -214,7 +229,16 @@ public partial class Chat : ComponentBase, IDisposable
             }
 
             var response = updates.ToChatResponse();
-            var durationMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+            var responseDuration = (long)duration.ObserveDuration().TotalMilliseconds;
+
+            if (response.ModelId is not null)
+            {
+                MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent", ("Model", response.ModelId), (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultSuccessLabelValue));
+            }
+            else
+            {
+                MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent");
+            }
 
             LastResponseMeta = new ResponseMeta(
                 ResponseId: response.ResponseId,
@@ -222,7 +246,7 @@ public partial class Chat : ComponentBase, IDisposable
                 FinishReason: response.FinishReason?.Value,
                 UpdateCount: updateCount,
                 CharCount: StreamingText.Length,
-                DurationMs: durationMs,
+                DurationMs: responseDuration,
                 TimeToFirstTokenMs: firstTokenMs,
                 InputTokens: response.Usage?.InputTokenCount,
                 OutputTokens: response.Usage?.OutputTokenCount,
@@ -243,13 +267,15 @@ public partial class Chat : ComponentBase, IDisposable
                     InputTokens = isAssistant ? response.Usage?.InputTokenCount : null,
                     OutputTokens = isAssistant ? response.Usage?.OutputTokenCount : null,
                     TotalTokens = isAssistant ? response.Usage?.TotalTokenCount : null,
-                    DurationMs = isAssistant ? durationMs : null,
+                    DurationMs = isAssistant ? responseDuration : null,
                     TimeToFirstTokenMs = isAssistant ? firstTokenMs : null
                 }, _cts.Token);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            Logger.LogError(ex, "SendAsync cancelled");
+            MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
         }
         finally
         {
