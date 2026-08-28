@@ -8,9 +8,6 @@ main {
     flex: 1;
 }
 
-.sidebar {
-}
-
 @media (min-width: 641px) {
     .page {
         flex-direction: row;

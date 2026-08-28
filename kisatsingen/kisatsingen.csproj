@@ -6,6 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
+        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -20,10 +21,23 @@
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
       <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+      <PackageReference Include="Vestfold.Extensions.Logging" Version="3.4.1" />
+      <PackageReference Include="Vestfold.Extensions.Metrics" Version="1.0.2" />
     </ItemGroup>
 
     <ItemGroup>
       <Folder Include="dev-db\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Content Update="appsettings.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      </Content>
+      <Content Update="appsettings.Development.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      </Content>
     </ItemGroup>
 
     <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs">

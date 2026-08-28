@@ -8,11 +8,19 @@ using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using OpenAI;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Prometheus;
+using Vestfold.Extensions.Logging;
+using Vestfold.Extensions.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Logging.AddVestfoldLogging();
+
+builder.Services.AddVestfoldMetrics();
+builder.Services.UseHttpClientMetrics();
 
 // Cascades authentication state seamlessly to <AuthorizeView> components
 builder.Services.AddCascadingAuthenticationState();
@@ -24,6 +32,24 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
     options.ResponseType = OpenIdConnectResponseType.Code;
+    
+    // NOTE: Enable if you want metrics per Role per User signin
+    /*var existingOnTokenValidated = options.Events.OnTokenValidated;
+    options.Events.OnTokenValidated = async ctx =>
+    {
+        await existingOnTokenValidated(ctx);
+
+        var metricsService = ctx.HttpContext.RequestServices.GetRequiredService<IMetricsService>();
+
+        foreach (var role in AppConstants.Roles)
+        {
+            if (ctx.Principal?.IsInRole(role) ?? false)
+            {
+                metricsService.Count($"{MetricConstants.MetricsAppPrefix}_{role}LoginCount", $"Number of {role} logins");
+                break;
+            }
+        }
+    };*/
 });
 
 builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme, options =>
@@ -67,6 +93,9 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync();
     }
 }
+
+app.UseMetricServer();
+app.UseHttpMetrics();
 
 if (!app.Environment.IsDevelopment())
 {
