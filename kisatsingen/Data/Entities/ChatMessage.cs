@@ -5,19 +5,19 @@ public sealed class ChatMessage
     public Guid Id { get; set; }
     public Guid ChatId { get; set; }
     public int SequenceNumber { get; set; }
-    public string Role { get; set; } = string.Empty;
-    public string Content { get; set; } = string.Empty;
-    public string? ContentsJson { get; set; }
+    public required string Role { get; init; }
+    public required string Content { get; init; }
+    public string? ContentsJson { get; init; }
     public DateTimeOffset CreatedAt { get; set; }
 
-    public string? ResponseId { get; set; }
-    public string? ModelId { get; set; }
-    public string? FinishReason { get; set; }
-    public long? InputTokens { get; set; }
-    public long? OutputTokens { get; set; }
-    public long? TotalTokens { get; set; }
-    public long? DurationMs { get; set; }
-    public long? TimeToFirstTokenMs { get; set; }
+    public string? ResponseId { get; init; }
+    public string? ModelId { get; init; }
+    public string? FinishReason { get; init; }
+    public long? InputTokens { get; init; }
+    public long? OutputTokens { get; init; }
+    public long? TotalTokens { get; init; }
+    public long? DurationMs { get; init; }
+    public long? TimeToFirstTokenMs { get; init; }
 
-    public Chat? Chat { get; set; }
+    public Chat? Chat { get; init; }
 }

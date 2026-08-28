@@ -10,5 +10,3 @@ public interface IChatRepository
     Task<ChatMessage> AppendMessageAsync(Guid chatId, ChatMessage message, CancellationToken ct = default);
     Task RenameChatAsync(Guid chatId, string title, CancellationToken ct = default);
 }
-
-public sealed record ChatSummary(Guid Id, string Title, DateTimeOffset UpdatedAt);
