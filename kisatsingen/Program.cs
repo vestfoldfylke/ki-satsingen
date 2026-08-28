@@ -79,6 +79,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddSingleton<IMarkdownRenderer, MarkdownRenderer>();
+builder.Services.AddScoped<ChatSession>();
 
 var app = builder.Build();
 
