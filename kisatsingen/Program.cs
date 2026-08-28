@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using OpenAI;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,13 +17,18 @@ builder.Services.AddRazorComponents()
 // Cascades authentication state seamlessly to <AuthorizeView> components
 builder.Services.AddCascadingAuthenticationState();
 
-// 2. Native Code-Level Microsoft Entra ID Authentication
+// Native Code-Level Microsoft Entra ID Authentication
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"));
 
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
     options.ResponseType = OpenIdConnectResponseType.Code;
+});
+
+builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthenticationDefaults.AuthenticationScheme, options =>
+{
+    options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
 builder.Services.AddAuthorization();
@@ -35,7 +41,7 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .GetChatClient(openAiModel)
     .AsIChatClient())
     .UseFunctionInvocation();
-    
+
 var connectionString = builder.Configuration.GetConnectionString("AppDb")
     ?? "Data Source=./dev-db/local-test.db";
 
