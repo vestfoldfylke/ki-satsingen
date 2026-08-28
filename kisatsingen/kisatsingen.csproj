@@ -19,6 +19,10 @@
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="dev-db\" />
+    </ItemGroup>
+
     <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs">
       <Exec Command="npm install" WorkingDirectory="designsystemet" />
       <Exec Command="npm run build" WorkingDirectory="designsystemet" />
