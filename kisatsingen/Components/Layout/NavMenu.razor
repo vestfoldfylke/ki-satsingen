@@ -18,11 +18,23 @@
                 </NavLink>
             </div>
         </nav>
+
         <div class="user">
             <AuthorizeView>
                 <Authorized>
                     <span class="me-2">Connected: <strong>@context.User.Identity?.Name</strong></span>
                 </Authorized>
+            </AuthorizeView>
+            
+            <br />
+            
+            <AuthorizeView Policy="IsAdministrator">
+                <Authorized>
+                    <span>Du er admin du</span>
+                </Authorized>
+                <NotAuthorized>
+                    <span>Du er ikke admin du</span>
+                </NotAuthorized>
             </AuthorizeView>
         </div>
     </div>
