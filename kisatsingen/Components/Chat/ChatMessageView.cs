@@ -8,7 +8,7 @@ public sealed record CommittedMessage(
     Guid Id,
     ChatRole Role,
     string Text,
-    IReadOnlyList<AIContent> Contents) : ChatMessageView(Id, Role);
+    IList<AIContent> Contents) : ChatMessageView(Id, Role);
 
 public sealed record StreamingMessage(
     Guid Id,

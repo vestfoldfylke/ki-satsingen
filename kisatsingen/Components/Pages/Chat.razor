@@ -2,6 +2,7 @@
 @page "/chat/{ChatId:guid?}"
 @rendermode InteractiveServer
 @using Microsoft.Extensions.AI
+@using kisatsingen.Components.Chat
 
 <PageTitle>Chat</PageTitle>
 
@@ -36,42 +37,7 @@
         <div class="chat-container">
             @if (HasVisibleMessages)
             {
-                <div class="chat-log" role="log" aria-live="polite">
-                    @foreach (var message in Messages.Where(message => message.Role != ChatRole.System))
-                    {
-                        <div class="chat-message chat-message-@message.Role.Value.ToLowerInvariant()">
-                            <div class="chat-role">@message.Role.Value</div>
-                            @if (!string.IsNullOrEmpty(message.Text))
-                            {
-                                <div class="chat-text">@message.Text</div>
-                            }
-                            @foreach (var content in message.Contents)
-                            {
-                                @if (content is FunctionCallContent call)
-                                {
-                                    <div class="chat-tool-call">
-                                        <span class="chat-tool-tag">tool call</span>
-                                        <code>@(call.Name)(@FormatArgs(call.Arguments))</code>
-                                    </div>
-                                }
-                                else if (content is FunctionResultContent result)
-                                {
-                                    <div class="chat-tool-result">
-                                        <span class="chat-tool-tag">tool result</span>
-                                        <code>@FormatResult(result.Result)</code>
-                                    </div>
-                                }
-                            }
-                        </div>
-                    }
-                    @if (StreamingText.Length > 0)
-                    {
-                        <div class="chat-message chat-message-assistant">
-                            <div class="chat-role">assistant</div>
-                            <div class="chat-text">@StreamingText</div>
-                        </div>
-                    }
-                </div>
+                <ChatMessageList Messages="BuildView()" />
             }
             else
             {

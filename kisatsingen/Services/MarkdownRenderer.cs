@@ -3,6 +3,8 @@ using Ganss.Xss;
 using Markdig;
 using Microsoft.AspNetCore.Components;
 
+namespace kisatsingen.Services;
+
 public sealed class MarkdownRenderer : IMarkdownRenderer
 {
     private readonly MarkdownPipeline _pipeline;
