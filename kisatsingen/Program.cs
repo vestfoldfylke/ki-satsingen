@@ -31,7 +31,9 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("IsAdministrator", policy => policy.RequireRole("Administrator"))
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole("Contributor", "Administrator"));
 
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
