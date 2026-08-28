@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using Microsoft.Extensions.AI;
 
-namespace kisatsingen.Components.Pages;
+namespace kisatsingen.AIFunctions;
 
 internal static class ChatTools
 {
