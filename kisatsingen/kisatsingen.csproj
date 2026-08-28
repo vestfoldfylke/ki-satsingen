@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\**</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
