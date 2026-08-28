@@ -39,7 +39,6 @@ public partial class Chat : ComponentBase, IDisposable
     };
 
     private static readonly JsonSerializerOptions ContentsJson = AIJsonUtilities.DefaultOptions;
-    private static readonly JsonSerializerOptions DebugJson = new() { WriteIndented = true };
 
     private CancellationTokenSource? _cts;
     private bool _hasInitialized;
@@ -51,10 +50,6 @@ public partial class Chat : ComponentBase, IDisposable
     private string MessageText { get; set; } = string.Empty;
     private string StreamingText { get; set; } = string.Empty;
     private bool IsBusy { get; set; }
-
-    private List<UpdateEntry> UpdateLog { get; } = [];
-    private List<ToolEntry> ToolLog { get; } = [];
-    private ResponseMeta? LastResponseMeta { get; set; }
 
     private Guid? CurrentChatId { get; set; }
     private List<ChatSummary> ChatList { get; set; } = [];
@@ -80,9 +75,6 @@ public partial class Chat : ComponentBase, IDisposable
         Messages.Clear();
         Messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         StreamingText = string.Empty;
-        UpdateLog.Clear();
-        ToolLog.Clear();
-        LastResponseMeta = null;
         _currentChat = null;
 
         if (CurrentChatId is null)
@@ -170,10 +162,6 @@ public partial class Chat : ComponentBase, IDisposable
         StreamingText = string.Empty;
         _cts = new CancellationTokenSource();
 
-        UpdateLog.Clear();
-        ToolLog.Clear();
-        LastResponseMeta = null;
-
         if (_currentChat is null)
         {
             _currentChat = await ChatRepository.CreateChatAsync(ownerId: null, BuildTitle(userText), _cts.Token);
@@ -191,7 +179,6 @@ public partial class Chat : ComponentBase, IDisposable
         var duration = MetricsService.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
         var startedAt = DateTimeOffset.UtcNow;
         long? firstTokenMs = null;
-        var updateCount = 0;
         var updates = new List<ChatResponseUpdate>();
 
         try
@@ -199,7 +186,6 @@ public partial class Chat : ComponentBase, IDisposable
             await foreach (var update in ChatClient.GetStreamingResponseAsync(Messages, Options, _cts.Token))
             {
                 updates.Add(update);
-                updateCount++;
                 var offsetMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
 
                 foreach (var content in update.Contents)
@@ -207,11 +193,9 @@ public partial class Chat : ComponentBase, IDisposable
                     switch (content)
                     {
                         case FunctionCallContent call:
-                            ToolLog.Add(new ToolEntry("call", $"{call.Name}({FormatArgs(call.Arguments)})"));
                             MetricsService.Count($"{MetricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
                             break;
-                        case FunctionResultContent result:
-                            ToolLog.Add(new ToolEntry("result", $"{result.CallId} → {FormatResult(result.Result)}"));
+                        case FunctionResultContent:
                             MetricsService.Count($"{MetricPrefix}_ToolResult", "Number of tool results retrieved");
                             break;
                     }
@@ -224,7 +208,6 @@ public partial class Chat : ComponentBase, IDisposable
 
                 firstTokenMs ??= offsetMs;
                 StreamingText += update.Text;
-                UpdateLog.Add(new UpdateEntry(offsetMs, update.Text));
                 await InvokeAsync(StateHasChanged);
             }
 
@@ -239,18 +222,6 @@ public partial class Chat : ComponentBase, IDisposable
             {
                 MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent");
             }
-
-            LastResponseMeta = new ResponseMeta(
-                ResponseId: response.ResponseId,
-                ModelId: response.ModelId,
-                FinishReason: response.FinishReason?.Value,
-                UpdateCount: updateCount,
-                CharCount: StreamingText.Length,
-                DurationMs: responseDuration,
-                TimeToFirstTokenMs: firstTokenMs,
-                InputTokens: response.Usage?.InputTokenCount,
-                OutputTokens: response.Usage?.OutputTokenCount,
-                TotalTokens: response.Usage?.TotalTokenCount);
 
             foreach (var newMessage in response.Messages)
             {
@@ -317,26 +288,6 @@ public partial class Chat : ComponentBase, IDisposable
             string s => s,
             _ => JsonSerializer.Serialize(result, ContentsJson)
         };
-    }
-
-    private void ClearDebug()
-    {
-        UpdateLog.Clear();
-        ToolLog.Clear();
-        LastResponseMeta = null;
-    }
-
-    private string FormatMessages()
-    {
-        var view = Messages.Select(m => new
-        {
-            role = m.Role.Value,
-            authorName = m.AuthorName,
-            text = m.Text,
-            contentTypes = m.Contents.Select(c => c.GetType().Name).ToArray()
-        });
-
-        return JsonSerializer.Serialize(view, DebugJson);
     }
 
     public void Dispose()
