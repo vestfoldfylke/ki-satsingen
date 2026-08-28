@@ -23,8 +23,6 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
     options.ResponseType = OpenIdConnectResponseType.Code;
-    options.UsePkce = true;
-    options.SaveTokens = true;
 });
 
 builder.Services.AddAuthorization();
@@ -37,7 +35,7 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .GetChatClient(openAiModel)
     .AsIChatClient())
     .UseFunctionInvocation();
-
+    
 var connectionString = builder.Configuration.GetConnectionString("AppDb")
     ?? "Data Source=./dev-db/local-test.db";
 
