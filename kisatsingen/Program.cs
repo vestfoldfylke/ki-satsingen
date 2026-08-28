@@ -3,12 +3,23 @@ using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.Identity.Web;
 using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+// Cascades authentication state seamlessly to <AuthorizeView> components
+builder.Services.AddCascadingAuthenticationState();
+
+// 2. Native Code-Level Microsoft Entra ID Authentication
+builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"));
+
+builder.Services.AddAuthorization();
 
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
@@ -51,10 +62,14 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode()
+    .RequireAuthorization();
 
 app.Run();

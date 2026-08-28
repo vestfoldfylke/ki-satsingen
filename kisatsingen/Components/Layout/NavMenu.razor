@@ -24,5 +24,12 @@
                 </NavLink>
             </div>
         </nav>
+        <div class="user">
+            <AuthorizeView>
+                <Authorized>
+                    <span class="me-2">Connected: <strong>@context.User.Identity?.Name</strong></span>
+                </Authorized>
+            </AuthorizeView>
+        </div>
     </div>
 </div>
