@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using OpenAI;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,13 @@ builder.Services.AddCascadingAuthenticationState();
 // 2. Native Code-Level Microsoft Entra ID Authentication
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
     .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"));
+
+builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
+{
+    options.ResponseType = OpenIdConnectResponseType.Code;
+    options.UsePkce = true;
+    options.SaveTokens = true;
+});
 
 builder.Services.AddAuthorization();
 

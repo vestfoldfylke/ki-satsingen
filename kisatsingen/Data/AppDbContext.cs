@@ -31,20 +31,22 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(m => m.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        if (Database.ProviderName == "Microsoft.EntityFrameworkCore.Sqlite")
+        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.Sqlite")
         {
-            var dtoToTicks = new ValueConverter<DateTimeOffset, long>(
-                v => v.UtcTicks,
-                v => new DateTimeOffset(v, TimeSpan.Zero));
+            return;
+        }
 
-            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        var dtoToTicks = new ValueConverter<DateTimeOffset, long>(
+            v => v.UtcTicks,
+            v => new DateTimeOffset(v, TimeSpan.Zero));
+
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            foreach (var property in entityType.GetProperties())
             {
-                foreach (var property in entityType.GetProperties())
+                if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
                 {
-                    if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
-                    {
-                        property.SetValueConverter(dtoToTicks);
-                    }
+                    property.SetValueConverter(dtoToTicks);
                 }
             }
         }
