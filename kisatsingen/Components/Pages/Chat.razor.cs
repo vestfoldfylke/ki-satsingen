@@ -1,14 +1,36 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
+using kisatsingen.Constants;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.AI;
+using Vestfold.Extensions.Metrics.Services;
+using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Components.Pages;
 
 public partial class Chat : ComponentBase, IDisposable
 {
+    [Inject]
+    public required IChatClient ChatClient { get; set; }
+    
+    [Inject]
+    public required IChatRepository ChatRepository { get; set; }
+    
+    [Inject]
+    public required ILogger<Chat> Logger { get; set; }
+    
+    [Inject]
+    public required IMetricsService MetricsService { get; set; }
+    
+    [Inject]
+    public required NavigationManager Navigation { get; set; }
+
+    [Parameter]
+    public Guid? ChatId { get; set; }
+    
     private const string SystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
     private static readonly ChatOptions Options = new()
@@ -19,101 +41,115 @@ public partial class Chat : ComponentBase, IDisposable
     private static readonly JsonSerializerOptions ContentsJson = AIJsonUtilities.DefaultOptions;
     private static readonly JsonSerializerOptions DebugJson = new() { WriteIndented = true };
 
-    [Inject] private IChatClient ChatClient { get; set; } = default!;
-    [Inject] private IChatRepository ChatRepository { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    private CancellationTokenSource? _cts;
+    private bool _hasInitialized;
+    private Data.Entities.Chat? _currentChat;
 
-    [Parameter] public Guid? ChatId { get; set; }
+    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_Chat";
 
-    private readonly List<ChatMessage> messages = new();
-    private string messageText = string.Empty;
-    private string streamingText = string.Empty;
-    private bool isBusy;
-    private CancellationTokenSource? cts;
+    private List<ChatMessage> Messages { get; } = [];
+    private string MessageText { get; set; } = string.Empty;
+    private string StreamingText { get; set; } = string.Empty;
+    private bool IsBusy { get; set; }
 
-    private readonly List<UpdateEntry> updateLog = new();
-    private readonly List<ToolEntry> toolLog = new();
-    private ResponseMeta? lastResponseMeta;
+    private List<UpdateEntry> UpdateLog { get; } = [];
+    private List<ToolEntry> ToolLog { get; } = [];
+    private ResponseMeta? LastResponseMeta { get; set; }
 
-    private Data.Entities.Chat? currentChat;
-    private Guid? currentChatId;
-    private List<ChatSummary> chatList = new();
+    private Guid? CurrentChatId { get; set; }
+    private List<ChatSummary> ChatList { get; set; } = [];
 
-    private bool hasInitialized;
-
-    private bool HasVisibleMessages =>
-        messages.Any(m => m.Role != ChatRole.System) || streamingText.Length > 0;
+    private bool HasVisibleMessages => Messages.Any(m => m.Role != ChatRole.System) || StreamingText.Length > 0;
 
     protected override async Task OnParametersSetAsync()
     {
-        if (hasInitialized && currentChatId == ChatId) return;
+        if (_hasInitialized && CurrentChatId == ChatId)
+        {
+            return;
+        }
 
-        hasInitialized = true;
-        currentChatId = ChatId;
+        _hasInitialized = true;
+        CurrentChatId = ChatId;
+
         await LoadChatAsync();
         await RefreshChatListAsync();
     }
 
     private async Task LoadChatAsync()
     {
-        messages.Clear();
-        messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
-        streamingText = string.Empty;
-        updateLog.Clear();
-        toolLog.Clear();
-        lastResponseMeta = null;
-        currentChat = null;
+        Messages.Clear();
+        Messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
+        StreamingText = string.Empty;
+        UpdateLog.Clear();
+        ToolLog.Clear();
+        LastResponseMeta = null;
+        _currentChat = null;
 
-        if (currentChatId is null) return;
+        if (CurrentChatId is null)
+        {
+            return;
+        }
 
-        var chat = await ChatRepository.GetChatAsync(currentChatId.Value);
+        var chat = await ChatRepository.GetChatAsync(CurrentChatId.Value);
         if (chat is null)
         {
-            currentChatId = null;
+            CurrentChatId = null;
             Navigation.NavigateTo("/chat", replace: true);
             return;
         }
 
-        currentChat = chat;
+        _currentChat = chat;
         foreach (var stored in chat.Messages)
         {
-            messages.Add(RebuildMessage(stored));
+            Messages.Add(RebuildMessage(stored));
         }
     }
 
     private static ChatMessage RebuildMessage(Data.Entities.ChatMessage stored)
     {
         var role = new ChatRole(stored.Role);
-        if (!string.IsNullOrEmpty(stored.ContentsJson))
+
+        if (string.IsNullOrEmpty(stored.ContentsJson))
         {
-            var contents = JsonSerializer.Deserialize<List<AIContent>>(stored.ContentsJson, ContentsJson);
-            if (contents is not null && contents.Count > 0)
-            {
-                return new ChatMessage(role, contents);
-            }
+            return new ChatMessage(role, stored.Content);
         }
+
+        var contents = JsonSerializer.Deserialize<List<AIContent>>(stored.ContentsJson, ContentsJson);
+        if (contents is not null && contents.Count > 0)
+        {
+            return new ChatMessage(role, contents);
+        }
+
         return new ChatMessage(role, stored.Content);
     }
 
     private async Task RefreshChatListAsync()
     {
         var list = await ChatRepository.ListChatsAsync(ownerId: null);
-        chatList = list.ToList();
+        ChatList = list.ToList();
     }
 
     private async Task StartNewChatAsync()
     {
-        if (isBusy) return;
-        currentChatId = null;
-        currentChat = null;
+        if (IsBusy)
+        {
+            return;
+        }
+
+        CurrentChatId = null;
+        _currentChat = null;
+
         await LoadChatAsync();
         await RefreshChatListAsync();
+
+        Logger.LogInformation("New chat created");
+
         Navigation.NavigateTo("/chat", replace: true);
     }
 
     private async Task OnComposerKeyDownAsync(KeyboardEventArgs e)
     {
-        if (e.Key == "Enter" && !e.ShiftKey)
+        if (e is { Key: "Enter", ShiftKey: false })
         {
             await SendAsync();
         }
@@ -121,34 +157,38 @@ public partial class Chat : ComponentBase, IDisposable
 
     private async Task SendAsync()
     {
-        if (isBusy || string.IsNullOrWhiteSpace(messageText)) return;
-
-        var userText = messageText.Trim();
-        messageText = string.Empty;
-        var userMessage = new ChatMessage(ChatRole.User, userText);
-        messages.Add(userMessage);
-        isBusy = true;
-        streamingText = string.Empty;
-        cts = new CancellationTokenSource();
-
-        updateLog.Clear();
-        toolLog.Clear();
-        lastResponseMeta = null;
-
-        if (currentChat is null)
+        if (IsBusy || string.IsNullOrWhiteSpace(MessageText))
         {
-            currentChat = await ChatRepository.CreateChatAsync(ownerId: null, title: BuildTitle(userText));
-            currentChatId = currentChat.Id;
-            Navigation.NavigateTo($"/chat/{currentChat.Id}", replace: true);
+            return;
         }
 
-        await ChatRepository.AppendMessageAsync(currentChat.Id, new Data.Entities.ChatMessage
+        var userText = MessageText.Trim();
+        MessageText = string.Empty;
+        var userMessage = new ChatMessage(ChatRole.User, userText);
+        Messages.Add(userMessage);
+        IsBusy = true;
+        StreamingText = string.Empty;
+        _cts = new CancellationTokenSource();
+
+        UpdateLog.Clear();
+        ToolLog.Clear();
+        LastResponseMeta = null;
+
+        if (_currentChat is null)
+        {
+            _currentChat = await ChatRepository.CreateChatAsync(ownerId: null, BuildTitle(userText), _cts.Token);
+            CurrentChatId = _currentChat.Id;
+            Navigation.NavigateTo($"/chat/{_currentChat.Id}", replace: true);
+        }
+
+        await ChatRepository.AppendMessageAsync(_currentChat.Id, new Data.Entities.ChatMessage
         {
             Role = ChatRole.User.Value,
             Content = userText,
-            ContentsJson = JsonSerializer.Serialize<IList<AIContent>>(userMessage.Contents, ContentsJson)
-        });
+            ContentsJson = JsonSerializer.Serialize(userMessage.Contents, ContentsJson)
+        },  _cts.Token);
 
+        var duration = MetricsService.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
         var startedAt = DateTimeOffset.UtcNow;
         long? firstTokenMs = null;
         var updateCount = 0;
@@ -156,7 +196,7 @@ public partial class Chat : ComponentBase, IDisposable
 
         try
         {
-            await foreach (var update in ChatClient.GetStreamingResponseAsync(messages, Options, cts.Token))
+            await foreach (var update in ChatClient.GetStreamingResponseAsync(Messages, Options, _cts.Token))
             {
                 updates.Add(update);
                 updateCount++;
@@ -167,33 +207,46 @@ public partial class Chat : ComponentBase, IDisposable
                     switch (content)
                     {
                         case FunctionCallContent call:
-                            toolLog.Add(new ToolEntry("call", $"{call.Name}({FormatArgs(call.Arguments)})"));
+                            ToolLog.Add(new ToolEntry("call", $"{call.Name}({FormatArgs(call.Arguments)})"));
+                            MetricsService.Count($"{MetricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
                             break;
                         case FunctionResultContent result:
-                            toolLog.Add(new ToolEntry("result", $"{result.CallId} → {FormatResult(result.Result)}"));
+                            ToolLog.Add(new ToolEntry("result", $"{result.CallId} → {FormatResult(result.Result)}"));
+                            MetricsService.Count($"{MetricPrefix}_ToolResult", "Number of tool results retrieved");
                             break;
                     }
                 }
 
-                if (!string.IsNullOrEmpty(update.Text))
+                if (string.IsNullOrEmpty(update.Text))
                 {
-                    firstTokenMs ??= offsetMs;
-                    streamingText += update.Text;
-                    updateLog.Add(new UpdateEntry(offsetMs, update.Text));
-                    await InvokeAsync(StateHasChanged);
+                    continue;
                 }
+
+                firstTokenMs ??= offsetMs;
+                StreamingText += update.Text;
+                UpdateLog.Add(new UpdateEntry(offsetMs, update.Text));
+                await InvokeAsync(StateHasChanged);
             }
 
             var response = updates.ToChatResponse();
-            var durationMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+            var responseDuration = (long)duration.ObserveDuration().TotalMilliseconds;
 
-            lastResponseMeta = new ResponseMeta(
+            if (response.ModelId is not null)
+            {
+                MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent", ("Model", response.ModelId), (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultSuccessLabelValue));
+            }
+            else
+            {
+                MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent");
+            }
+
+            LastResponseMeta = new ResponseMeta(
                 ResponseId: response.ResponseId,
                 ModelId: response.ModelId,
                 FinishReason: response.FinishReason?.Value,
                 UpdateCount: updateCount,
-                CharCount: streamingText.Length,
-                DurationMs: durationMs,
+                CharCount: StreamingText.Length,
+                DurationMs: responseDuration,
                 TimeToFirstTokenMs: firstTokenMs,
                 InputTokens: response.Usage?.InputTokenCount,
                 OutputTokens: response.Usage?.OutputTokenCount,
@@ -201,33 +254,35 @@ public partial class Chat : ComponentBase, IDisposable
 
             foreach (var newMessage in response.Messages)
             {
-                messages.Add(newMessage);
+                Messages.Add(newMessage);
                 var isAssistant = newMessage.Role == ChatRole.Assistant;
-                await ChatRepository.AppendMessageAsync(currentChat!.Id, new Data.Entities.ChatMessage
+                await ChatRepository.AppendMessageAsync(_currentChat!.Id, new Data.Entities.ChatMessage
                 {
                     Role = newMessage.Role.Value,
-                    Content = newMessage.Text ?? string.Empty,
-                    ContentsJson = JsonSerializer.Serialize<IList<AIContent>>(newMessage.Contents, ContentsJson),
+                    Content = newMessage.Text,
+                    ContentsJson = JsonSerializer.Serialize(newMessage.Contents, ContentsJson),
                     ResponseId = isAssistant ? response.ResponseId : null,
                     ModelId = isAssistant ? response.ModelId : null,
                     FinishReason = isAssistant ? response.FinishReason?.Value : null,
                     InputTokens = isAssistant ? response.Usage?.InputTokenCount : null,
                     OutputTokens = isAssistant ? response.Usage?.OutputTokenCount : null,
                     TotalTokens = isAssistant ? response.Usage?.TotalTokenCount : null,
-                    DurationMs = isAssistant ? durationMs : null,
+                    DurationMs = isAssistant ? responseDuration : null,
                     TimeToFirstTokenMs = isAssistant ? firstTokenMs : null
-                });
+                }, _cts.Token);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
+            Logger.LogError(ex, "SendAsync cancelled");
+            MetricsService.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
         }
         finally
         {
-            streamingText = string.Empty;
-            isBusy = false;
-            cts?.Dispose();
-            cts = null;
+            StreamingText = string.Empty;
+            IsBusy = false;
+            _cts?.Dispose();
+            _cts = null;
 
             await RefreshChatListAsync();
         }
@@ -236,60 +291,59 @@ public partial class Chat : ComponentBase, IDisposable
     private static string BuildTitle(string userText)
     {
         var trimmed = userText.Trim();
-        if (trimmed.Length <= 60) return trimmed;
+        if (trimmed.Length <= 60)
+        {
+            return trimmed;
+        }
+
         return trimmed[..60].TrimEnd() + "…";
     }
 
     private static string FormatArgs(IDictionary<string, object?>? args)
     {
-        if (args is null || args.Count == 0) return "";
+        if (args is null || args.Count == 0)
+        {
+            return "";
+        }
+
         return JsonSerializer.Serialize(args, ContentsJson);
     }
 
     private static string FormatResult(object? result)
     {
-        if (result is null) return "null";
-        if (result is string s) return s;
-        return JsonSerializer.Serialize(result, ContentsJson);
+        return result switch
+        {
+            null => "null",
+            string s => s,
+            _ => JsonSerializer.Serialize(result, ContentsJson)
+        };
     }
 
     private void ClearDebug()
     {
-        updateLog.Clear();
-        toolLog.Clear();
-        lastResponseMeta = null;
+        UpdateLog.Clear();
+        ToolLog.Clear();
+        LastResponseMeta = null;
     }
 
     private string FormatMessages()
     {
-        var view = messages.Select(m => new
+        var view = Messages.Select(m => new
         {
             role = m.Role.Value,
             authorName = m.AuthorName,
             text = m.Text,
             contentTypes = m.Contents.Select(c => c.GetType().Name).ToArray()
         });
+
         return JsonSerializer.Serialize(view, DebugJson);
     }
 
     public void Dispose()
     {
-        cts?.Cancel();
-        cts?.Dispose();
+        GC.SuppressFinalize(this);
+
+        _cts?.Cancel();
+        _cts?.Dispose();
     }
-
-    private sealed record UpdateEntry(long OffsetMs, string Text);
-    private sealed record ToolEntry(string Kind, string Text);
-
-    private sealed record ResponseMeta(
-        string? ResponseId,
-        string? ModelId,
-        string? FinishReason,
-        int UpdateCount,
-        int CharCount,
-        long DurationMs,
-        long? TimeToFirstTokenMs,
-        long? InputTokens,
-        long? OutputTokens,
-        long? TotalTokens);
 }

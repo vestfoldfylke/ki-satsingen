@@ -9,6 +9,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
+
         var chat = new Chat
         {
             Id = Guid.NewGuid(),
@@ -17,8 +18,10 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             CreatedAt = now,
             UpdatedAt = now
         };
+        
         db.Chats.Add(chat);
         await db.SaveChangesAsync(ct);
+
         return chat;
     }
 
@@ -68,7 +71,10 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var trimmed = title.Trim();
-        if (string.IsNullOrEmpty(trimmed)) return;
+        if (string.IsNullOrEmpty(trimmed))
+        {
+            return;
+        }
 
         await db.Chats
             .Where(c => c.Id == chatId)
