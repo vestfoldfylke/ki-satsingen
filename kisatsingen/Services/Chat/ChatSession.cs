@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
@@ -27,7 +28,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
-    private string _streamingText = string.Empty;
+    private readonly StringBuilder _streamingText = new();
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
 
@@ -49,7 +50,7 @@ public sealed class ChatSession : IAsyncDisposable
     public bool IsBusy { get; private set; }
     public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingText.Length > 0;
 
-    public string? StreamingText => _streamingText.Length > 0 ? _streamingText : null;
+    public string? StreamingText => _streamingText.Length > 0 ? _streamingText.ToString() : null;
 
     public IReadOnlyList<ChatMessageView> Committed
     {
@@ -79,7 +80,7 @@ public sealed class ChatSession : IAsyncDisposable
         _messages.Clear();
         _messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         _messageIds.Clear();
-        _streamingText = string.Empty;
+        _streamingText.Clear();
         _currentChat = null;
 
         if (chatId is not null)
@@ -120,7 +121,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
         finally
         {
-            _streamingText = string.Empty;
+            _streamingText.Clear();
             IsBusy = false;
             _cts?.Dispose();
             _cts = null;
@@ -132,7 +133,7 @@ public sealed class ChatSession : IAsyncDisposable
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
-        _streamingText = string.Empty;
+        _streamingText.Clear();
         Notify();
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
@@ -170,7 +171,7 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             firstTokenMs ??= offsetMs;
-            _streamingText += update.Text;
+            _streamingText.Append(update.Text);
             Notify();
         }
 
@@ -190,7 +191,7 @@ public sealed class ChatSession : IAsyncDisposable
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
 
-        _streamingText = string.Empty;
+        _streamingText.Clear();
 
         foreach (var newMessage in response.Messages)
         {
@@ -233,8 +234,8 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
         
-            await _cts.CancelAsync();
-            _cts.Dispose();
-            _cts = null;
+        await _cts.CancelAsync();
+        _cts.Dispose();
+        _cts = null;
     }
 }
