@@ -6,12 +6,10 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*;chat-client\package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="HtmlSanitizer" Version="9.2.995" />
-      <PackageReference Include="Markdig" Version="1.3.2" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>
@@ -43,6 +41,11 @@
     <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs">
       <Exec Command="npm install" WorkingDirectory="designsystemet" />
       <Exec Command="npm run build" WorkingDirectory="designsystemet" />
+    </Target>
+
+    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="chat-client\src\chat-streaming.js;chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs">
+      <Exec Command="npm install" WorkingDirectory="chat-client" />
+      <Exec Command="npm run build" WorkingDirectory="chat-client" />
     </Target>
 
 </Project>
