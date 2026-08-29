@@ -36,7 +36,7 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
     options.ResponseType = OpenIdConnectResponseType.Code;
-    
+
     // NOTE: Enable if you want metrics per Role per User signin
     /*var existingOnTokenValidated = options.Events.OnTokenValidated;
     options.Events.OnTokenValidated = async ctx =>
@@ -101,6 +101,35 @@ using (var scope = app.Services.CreateScope())
         await db.Database.MigrateAsync();
     }
 }
+
+// ─── Security response headers (apply to every response) ───
+var scriptSrc = app.Environment.IsDevelopment()
+    ? "'self' 'unsafe-inline'"                          // dotnet-watch injects an inline bootstrapper
+    : "'self'";
+var connectSrc = app.Environment.IsDevelopment()
+    ? "'self' ws://localhost:* wss://localhost:*"       // browser-refresh WebSocket on a random port
+    : "'self'";
+
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        $"script-src {scriptSrc}; " +
+        "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
+        "font-src 'self' https://altinncdn.no data:; " +
+        "img-src 'self' data:; " +
+        $"connect-src {connectSrc}; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "object-src 'none'";
+
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    context.Response.Headers["X-Frame-Options"] = "DENY";
+
+    await next();
+});
 
 // ─── Errors & transport ────────────────────────────────
 if (!app.Environment.IsDevelopment())
