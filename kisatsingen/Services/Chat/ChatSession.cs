@@ -228,11 +228,13 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_cts is not null)
+        if (_cts is null)
         {
+            return;
+        }
+        
             await _cts.CancelAsync();
             _cts.Dispose();
             _cts = null;
-        }
     }
 }
