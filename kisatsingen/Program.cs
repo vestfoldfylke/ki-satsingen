@@ -1,6 +1,8 @@
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services.Chat;
+using kisatsingen.Services.Markdown;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -77,6 +79,8 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddSingleton<IMarkdownRenderer, MarkdownRenderer>();
+builder.Services.AddScoped<ChatSession>();
 
 var app = builder.Build();
 

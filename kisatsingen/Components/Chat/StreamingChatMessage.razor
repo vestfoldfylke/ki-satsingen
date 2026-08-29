@@ -1,0 +1,10 @@
+<div class="assistant-message assistant-streaming">
+    @if (!string.IsNullOrEmpty(Text))
+    {
+        <div class="assistant-streaming-text">@Text<span class="chat-streaming-cursor" aria-hidden="true"></span></div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required string Text { get; set; }
+}

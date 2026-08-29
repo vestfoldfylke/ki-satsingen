@@ -2,6 +2,7 @@
 @page "/chat/{ChatId:guid?}"
 @rendermode InteractiveServer
 @using Microsoft.Extensions.AI
+@using kisatsingen.Components.Chat
 
 <PageTitle>Chat</PageTitle>
 
@@ -9,7 +10,7 @@
     <aside class="chat-sidebar" aria-label="Chat list">
         <div class="chat-sidebar-header">
             <h2 class="ds-heading" data-size="sm">Chats</h2>
-            <button type="button" class="ds-button" @onclick="StartNewChatAsync" disabled="@IsBusy">New</button>
+            <button type="button" class="ds-button" @onclick="StartNewChatAsync" disabled="@Session.IsBusy">New</button>
         </div>
         @if (ChatList.Count == 0)
         {
@@ -21,7 +22,7 @@
                 @foreach (var summary in ChatList)
                 {
                     <li>
-                        <a class="ds-link chat-sidebar-item @(summary.Id == CurrentChatId ? "chat-sidebar-item-active" : null)"
+                        <a class="ds-link chat-sidebar-item @(summary.Id == Session.ChatId ? "chat-sidebar-item-active" : null)"
                            href="@($"/chat/{summary.Id}")">
                             <span class="chat-sidebar-title">@summary.Title</span>
                             <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span>
@@ -34,42 +35,23 @@
 
     <div class="chat-page">
         <div class="chat-container">
-            @if (HasVisibleMessages)
+            @if (Session.HasVisibleMessages)
             {
                 <div class="chat-log" role="log" aria-live="polite">
-                    @foreach (var message in Messages.Where(message => message.Role != ChatRole.System))
+                    @foreach (var message in Session.Committed)
                     {
-                        <div class="chat-message chat-message-@message.Role.Value.ToLowerInvariant()">
-                            <div class="chat-role">@message.Role.Value</div>
-                            @if (!string.IsNullOrEmpty(message.Text))
-                            {
-                                <div class="chat-text">@message.Text</div>
-                            }
-                            @foreach (var content in message.Contents)
-                            {
-                                @if (content is FunctionCallContent call)
-                                {
-                                    <div class="chat-tool-call">
-                                        <span class="chat-tool-tag">tool call</span>
-                                        <code>@(call.Name)(@FormatArgs(call.Arguments))</code>
-                                    </div>
-                                }
-                                else if (content is FunctionResultContent result)
-                                {
-                                    <div class="chat-tool-result">
-                                        <span class="chat-tool-tag">tool result</span>
-                                        <code>@FormatResult(result.Result)</code>
-                                    </div>
-                                }
-                            }
-                        </div>
+                        if (message.Role == ChatRole.User)
+                        {
+                            <UserBubble @key="message.Id" Message="message" />
+                        }
+                        else
+                        {
+                            <AssistantMessage @key="message.Id" Message="message" />
+                        }
                     }
-                    @if (StreamingText.Length > 0)
+                    @if (Session.StreamingText is not null)
                     {
-                        <div class="chat-message chat-message-assistant">
-                            <div class="chat-role">assistant</div>
-                            <div class="chat-text">@StreamingText</div>
-                        </div>
+                        <StreamingChatMessage Text="@Session.StreamingText" />
                     }
                 </div>
             }
@@ -86,13 +68,13 @@
                           class="ds-textfield chat-textarea"
                           placeholder="Spør om hva som helst..."
                           rows="1"
-                          disabled="@IsBusy"
+                          disabled="@Session.IsBusy"
                           @bind="MessageText"
                           @bind:event="oninput"
                           @onkeydown="OnComposerKeyDownAsync"></textarea>
 
                 <div class="chat-composer-actions">
-                    <button class="composer-icon-button" type="button" aria-label="Legg ved fil" disabled="@IsBusy">
+                    <button class="composer-icon-button" type="button" aria-label="Legg ved fil" disabled="@Session.IsBusy">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="5" x2="12" y2="19"/>
                             <line x1="5" y1="12" x2="19" y2="12"/>
@@ -101,7 +83,7 @@
                     <button class="composer-send-button"
                             type="button"
                             aria-label="Send melding"
-                            disabled="@(IsBusy || string.IsNullOrWhiteSpace(MessageText))"
+                            disabled="@(Session.IsBusy || string.IsNullOrWhiteSpace(MessageText))"
                             @onclick="SendAsync">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                             <line x1="12" y1="19" x2="12" y2="5"/>
@@ -114,79 +96,4 @@
             <p class="ds-paragraph chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>
         </div>
     </div>
-
-    <aside class="chat-debug" aria-label="Debug panel">
-        <div class="chat-debug-header">
-            <h2 class="ds-heading">Debug</h2>
-            <button type="button" class="ds-button" @onclick="ClearDebug" disabled="@IsBusy">Clear</button>
-        </div>
-
-        <section class="chat-debug-section">
-            <h3 class="ds-heading">Messages (@Messages.Count)</h3>
-            <pre class="chat-debug-block">@FormatMessages()</pre>
-        </section>
-
-        <section class="chat-debug-section">
-            <h3 class="ds-heading">Tool activity (@ToolLog.Count)</h3>
-            @if (ToolLog.Count == 0)
-            {
-                <p class="ds-paragraph chat-debug-empty">No tool calls yet.</p>
-            }
-            else
-            {
-                <ol class="ds-list chat-debug-updates">
-                    @foreach (var entry in ToolLog)
-                    {
-                        <li>
-                            <span class="chat-debug-updates-time">@entry.Kind</span>
-                            <span class="chat-debug-updates-text">@entry.Text</span>
-                        </li>
-                    }
-                </ol>
-            }
-        </section>
-
-        <section class="chat-debug-section">
-            <h3 class="ds-heading">Last response</h3>
-            @if (LastResponseMeta is null)
-            {
-                <p class="ds-paragraph chat-debug-empty">No response yet.</p>
-            }
-            else
-            {
-                <dl class="chat-debug-meta">
-                    <dt>Response id</dt><dd>@(LastResponseMeta.ResponseId ?? "—")</dd>
-                    <dt>Model id</dt><dd>@(LastResponseMeta.ModelId ?? "—")</dd>
-                    <dt>Finish reason</dt><dd>@(LastResponseMeta.FinishReason ?? "—")</dd>
-                    <dt>Updates</dt><dd>@LastResponseMeta.UpdateCount</dd>
-                    <dt>Chars</dt><dd>@LastResponseMeta.CharCount</dd>
-                    <dt>Duration</dt><dd>@($"{LastResponseMeta.DurationMs} ms")</dd>
-                    <dt>First token</dt><dd>@(LastResponseMeta.TimeToFirstTokenMs is { } timeToFirstTokenMs ? $"{timeToFirstTokenMs} ms" : "—")</dd>
-                    <dt>Input tokens</dt><dd>@(LastResponseMeta.InputTokens?.ToString() ?? "—")</dd>
-                    <dt>Output tokens</dt><dd>@(LastResponseMeta.OutputTokens?.ToString() ?? "—")</dd>
-                    <dt>Total tokens</dt><dd>@(LastResponseMeta.TotalTokens?.ToString() ?? "—")</dd>
-                </dl>
-            }
-        </section>
-
-        <section class="chat-debug-section">
-            <h3 class="ds-heading">Update log (@UpdateLog.Count)</h3>
-            @if (UpdateLog.Count == 0)
-            {
-                <p class="ds-paragraph chat-debug-empty">No updates yet.</p>
-            }
-            else
-            {
-                <ol class="ds-list chat-debug-updates">
-                    @foreach (var entry in UpdateLog)
-                    {
-                        <li>
-                            <span class="chat-debug-updates-time">+@(entry.OffsetMs) ms</span>
-                            <span class="chat-debug-updates-text">@entry.Text</span>
-                        </li>
-                    }
-                </ol>
-            }
-        </section>
-    </aside>
 </div>
