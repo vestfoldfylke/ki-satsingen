@@ -37,7 +37,23 @@
         <div class="chat-container">
             @if (Session.HasVisibleMessages)
             {
-                <ChatMessageList Messages="Session.View" />
+                <div class="chat-log" role="log" aria-live="polite">
+                    @foreach (var message in Session.Committed)
+                    {
+                        if (message.Role == ChatRole.User)
+                        {
+                            <UserBubble @key="message.Id" Message="message" />
+                        }
+                        else
+                        {
+                            <AssistantMessage @key="message.Id" Message="message" />
+                        }
+                    }
+                    @if (Session.StreamingText is not null)
+                    {
+                        <StreamingChatMessage Text="@Session.StreamingText" />
+                    }
+                </div>
             }
             else
             {

@@ -20,6 +20,13 @@
     padding: 1.5rem 0;
 }
 
+.chat-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 12rem;
+}
+
 .chat-greeting {
     display: flex;
     flex-direction: column;
@@ -38,57 +45,6 @@
     font-size: 1.75rem;
     font-weight: 600;
     text-align: center;
-}
-
-::deep .chat-log {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    min-height: 12rem;
-}
-
-::deep .chat-message {
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    background: #f5f5f5;
-}
-
-::deep .chat-message-user {
-    background: #e0eaff;
-}
-
-::deep .chat-message-tool {
-    background: #fef3c7;
-}
-
-::deep .chat-role {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    opacity: 0.6;
-    margin-bottom: 0.25rem;
-}
-
-::deep .chat-text {
-    white-space: pre-wrap;
-}
-
-::deep .chat-tool-call,
-::deep .chat-tool-result {
-    margin-top: 0.35rem;
-    font-family: ui-monospace, Menlo, monospace;
-    font-size: 0.8rem;
-}
-
-::deep .chat-tool-tag {
-    display: inline-block;
-    padding: 0.05rem 0.4rem;
-    margin-right: 0.4rem;
-    border-radius: 0.25rem;
-    background: #444;
-    color: #fff;
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
 .chat-composer {

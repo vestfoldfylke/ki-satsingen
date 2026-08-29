@@ -1,6 +1,6 @@
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
-using kisatsingen.Services;
+using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 

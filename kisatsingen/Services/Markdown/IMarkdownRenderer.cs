@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 
-namespace kisatsingen.Services;
+namespace kisatsingen.Services.Markdown;
 
 public interface IMarkdownRenderer
 {

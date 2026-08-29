@@ -1,7 +1,8 @@
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
-using kisatsingen.Services;
+using kisatsingen.Services.Chat;
+using kisatsingen.Services.Markdown;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;

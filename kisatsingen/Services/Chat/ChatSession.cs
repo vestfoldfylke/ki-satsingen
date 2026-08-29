@@ -1,6 +1,5 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
-using kisatsingen.Components.Chat;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
 using Microsoft.Extensions.AI;
@@ -8,7 +7,7 @@ using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
-namespace kisatsingen.Services;
+namespace kisatsingen.Services.Chat;
 
 public sealed class ChatSession : IAsyncDisposable
 {
@@ -28,7 +27,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
-    private Guid _streamingId = Guid.NewGuid();
     private string _streamingText = string.Empty;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
@@ -51,11 +49,13 @@ public sealed class ChatSession : IAsyncDisposable
     public bool IsBusy { get; private set; }
     public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingText.Length > 0;
 
-    public IReadOnlyList<ChatMessageView> View
+    public string? StreamingText => _streamingText.Length > 0 ? _streamingText : null;
+
+    public IReadOnlyList<ChatMessageView> Committed
     {
         get
         {
-            var list = new List<ChatMessageView>(_messages.Count + 1);
+            var list = new List<ChatMessageView>(_messages.Count);
             foreach (var message in _messages)
             {
                 if (message.Role == ChatRole.System)
@@ -63,16 +63,11 @@ public sealed class ChatSession : IAsyncDisposable
                     continue;
                 }
 
-                list.Add(new CommittedMessage(
+                list.Add(new ChatMessageView(
                     GetOrCreateId(message),
                     message.Role,
                     message.Text ?? string.Empty,
                     message.Contents));
-            }
-
-            if (_streamingText.Length > 0)
-            {
-                list.Add(new StreamingMessage(_streamingId, _streamingText));
             }
 
             return list;
@@ -85,7 +80,6 @@ public sealed class ChatSession : IAsyncDisposable
         _messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         _messageIds.Clear();
         _streamingText = string.Empty;
-        _streamingId = Guid.NewGuid();
         _currentChat = null;
 
         if (chatId is not null)
@@ -139,7 +133,6 @@ public sealed class ChatSession : IAsyncDisposable
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
         _streamingText = string.Empty;
-        _streamingId = Guid.NewGuid();
         Notify();
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);

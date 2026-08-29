@@ -1,0 +1,9 @@
+.user-bubble {
+    align-self: flex-end;
+    max-width: 80%;
+    padding: 0.75rem 1rem;
+    border-radius: 1rem;
+    background: #e0eaff;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}

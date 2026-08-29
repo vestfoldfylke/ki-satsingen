@@ -1,9 +1,8 @@
-
 using Ganss.Xss;
 using Markdig;
 using Microsoft.AspNetCore.Components;
 
-namespace kisatsingen.Services;
+namespace kisatsingen.Services.Markdown;
 
 public sealed class MarkdownRenderer : IMarkdownRenderer
 {
@@ -26,7 +25,7 @@ public sealed class MarkdownRenderer : IMarkdownRenderer
 
     public MarkupString Render(string markdown)
     {
-        var html = Markdown.ToHtml(markdown, _pipeline);
+        var html = Markdig.Markdown.ToHtml(markdown, _pipeline);
         return new MarkupString(_sanitizer.Sanitize(html));
     }
 }

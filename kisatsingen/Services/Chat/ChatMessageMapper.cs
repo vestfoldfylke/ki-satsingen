@@ -2,7 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.AI;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
-namespace kisatsingen.Services;
+namespace kisatsingen.Services.Chat;
 
 internal static class ChatMessageMapper
 {

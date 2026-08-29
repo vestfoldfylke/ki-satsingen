@@ -1,8 +1,7 @@
-<div class="chat-message chat-message-assistant chat-message-streaming">
-    <div class="chat-role">assistant</div>
+<div class="assistant-message assistant-streaming">
     @if (!string.IsNullOrEmpty(Text))
     {
-        <div class="chat-text">@Text<span class="chat-streaming-cursor" aria-hidden="true"></span></div>
+        <div class="assistant-streaming-text">@Text<span class="chat-streaming-cursor" aria-hidden="true"></span></div>
     }
 </div>
 

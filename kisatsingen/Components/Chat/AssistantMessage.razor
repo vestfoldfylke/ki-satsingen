@@ -1,8 +1,7 @@
 @using Microsoft.Extensions.AI
+@using kisatsingen.Services.Chat
 
-<div class="chat-message chat-message-@Message.Role.Value.ToLowerInvariant()">
-    <div class="chat-role">@Message.Role.Value</div>
-
+<div class="assistant-message">
     @if (!string.IsNullOrEmpty(Message.Text))
     {
         <MarkdownBlock Source="@Message.Text" />
@@ -23,5 +22,5 @@
 </div>
 
 @code {
-    [Parameter, EditorRequired] public required CommittedMessage Message { get; set; }
+    [Parameter, EditorRequired] public required ChatMessageView Message { get; set; }
 }
