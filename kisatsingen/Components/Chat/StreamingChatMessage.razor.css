@@ -3,9 +3,13 @@
     padding: 0.25rem 0;
 }
 
-.assistant-streaming-text {
+.assistant-streaming-fallback {
     white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+.assistant-streaming .assistant-markdown:not(:empty) + .assistant-streaming-fallback {
+    display: none;
 }
 
 .chat-streaming-cursor::after {

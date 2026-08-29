@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
@@ -25,10 +24,15 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IChatRepository _repo;
     private readonly IMetricsService _metrics;
     private readonly IJSRuntime _js;
+    private readonly ILogger<ChatSession> _logger;
+
+    private static readonly TimeSpan NotifyThrottle = TimeSpan.FromMilliseconds(150);
 
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
     private readonly StringBuilder _streamingText = new();
+    private Guid? _streamingId;
+    private DateTimeOffset _lastNotify = DateTimeOffset.MinValue;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
 
@@ -38,19 +42,22 @@ public sealed class ChatSession : IAsyncDisposable
         IChatClient client,
         IChatRepository repo,
         IMetricsService metrics,
-        IJSRuntime js)
+        IJSRuntime js,
+        ILogger<ChatSession> logger)
     {
         _client = client;
         _repo = repo;
         _metrics = metrics;
         _js = js;
+        _logger = logger;
     }
 
     public Guid? ChatId => _currentChat?.Id;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingText.Length > 0;
+    public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingId is not null;
 
-    public string? StreamingText => _streamingText.Length > 0 ? _streamingText.ToString() : null;
+    public Guid? StreamingId => _streamingId;
+    public string StreamingText => _streamingText.ToString();
 
     public IReadOnlyList<ChatMessageView> Committed
     {
@@ -81,6 +88,7 @@ public sealed class ChatSession : IAsyncDisposable
         _messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         _messageIds.Clear();
         _streamingText.Clear();
+        _streamingId = null;
         _currentChat = null;
 
         if (chatId is not null)
@@ -121,7 +129,12 @@ public sealed class ChatSession : IAsyncDisposable
         }
         finally
         {
+            if (_streamingId is Guid id)
+            {
+                FireAndForget("chatClient.streamEnd", id);
+            }
             _streamingText.Clear();
+            _streamingId = null;
             IsBusy = false;
             _cts?.Dispose();
             _cts = null;
@@ -134,7 +147,10 @@ public sealed class ChatSession : IAsyncDisposable
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
         _streamingText.Clear();
+        _streamingId = Guid.NewGuid();
         Notify();
+
+        FireAndForget("chatClient.streamStart", _streamingId);
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
         await _repo.AppendMessageAsync(_currentChat.Id, ChatMessageMapper.ToEntity(userMessage), ct);
@@ -172,7 +188,8 @@ public sealed class ChatSession : IAsyncDisposable
 
             firstTokenMs ??= offsetMs;
             _streamingText.Append(update.Text);
-            Notify();
+            FireAndForget("chatClient.streamAppend", _streamingId, update.Text);
+            NotifyIfDue();
         }
 
         var response = updates.ToChatResponse();
@@ -191,16 +208,9 @@ public sealed class ChatSession : IAsyncDisposable
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
 
-        _streamingText.Clear();
-
         foreach (var newMessage in response.Messages)
         {
             _messages.Add(newMessage);
-
-            // Remove below when done with console.logs
-            await _js.InvokeVoidAsync("console.log", "[chat]", JsonSerializer.SerializeToElement(newMessage, AIJsonUtilities.DefaultOptions));
-            await _js.InvokeVoidAsync("console.log", "[chat:meta]", new { response.ResponseId, response.ModelId, response.FinishReason, response.Usage, durationMs, firstTokenMs });
-
             await _repo.AppendMessageAsync(_currentChat!.Id, ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs), ct);
         }
     }
@@ -223,7 +233,39 @@ public sealed class ChatSession : IAsyncDisposable
         return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";
     }
 
-    private void Notify() => StateChanged?.Invoke();
+    private void Notify()
+    {
+        _lastNotify = DateTimeOffset.UtcNow;
+        StateChanged?.Invoke();
+    }
+
+    private void NotifyIfDue()
+    {
+        if (DateTimeOffset.UtcNow - _lastNotify < NotifyThrottle)
+        {
+            return;
+        }
+
+        Notify();
+    }
+
+    private void FireAndForget(string method, params object?[] args)
+    {
+        _ = ObserveAsync();
+        return;
+
+        async Task ObserveAsync()
+        {
+            try
+            {
+                await _js.InvokeVoidAsync(method, args);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "JS interop failed for {Method}", method);
+            }
+        }
+    }
 
     public void Cancel() => _cts?.Cancel();
 
