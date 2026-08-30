@@ -126,7 +126,6 @@ app.Use(async (context, next) =>
 
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
 
     await next();
 });

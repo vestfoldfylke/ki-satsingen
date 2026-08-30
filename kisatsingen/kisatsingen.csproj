@@ -38,12 +38,12 @@
       </Content>
     </ItemGroup>
 
-    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs">
+    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs;wwwroot\designsystemet\designsystemet.css">
       <Exec Command="npm install" WorkingDirectory="designsystemet" />
       <Exec Command="npm run build" WorkingDirectory="designsystemet" />
     </Target>
 
-    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="chat-client\src\chat-streaming.js;chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs">
+    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="chat-client\src\chat-streaming.js;chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
       <Exec Command="npm install" WorkingDirectory="chat-client" />
       <Exec Command="npm run build" WorkingDirectory="chat-client" />
     </Target>
