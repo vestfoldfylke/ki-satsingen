@@ -57,7 +57,9 @@ const md = new MarkdownIt({
 const streamStates = new Map();
 
 function renderInto(el, source, {highlight = false} = {}) {
-    if (!el) return;
+    if (!el) {
+        return;
+    }
     const html = md.render(source ?? '');
     el.innerHTML = DOMPurify.sanitize(html);
     if (highlight) {
@@ -76,7 +78,9 @@ function elForStream(id) {
 // when streamStart/streamAppend arrive (Blazor's render batch and this JS
 // interop call race over SignalR).
 function scheduleRender(state) {
-    if (state.rafHandle) return;
+    if (state.rafHandle) {
+        return;
+    }
     state.rafHandle = requestAnimationFrame(() => {
         state.rafHandle = 0;
         state.el ??= elForStream(state.id);
@@ -102,7 +106,9 @@ export function streamAppend(id, text) {
 // into a DOM node Blazor is about to remove.
 export function streamEnd(id) {
     const state = streamStates.get(id);
-    if (state?.rafHandle) cancelAnimationFrame(state.rafHandle);
+    if (state?.rafHandle) {
+        cancelAnimationFrame(state.rafHandle);
+    }
     streamStates.delete(id);
 }
 
