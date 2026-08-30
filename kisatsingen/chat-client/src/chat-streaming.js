@@ -61,7 +61,7 @@ function renderInto(el, source, {highlight = false} = {}) {
     const html = md.render(source ?? '');
     el.innerHTML = DOMPurify.sanitize(html);
     if (highlight) {
-        el.querySelectorAll('pre code').forEach(hljs.highlightElement);
+        el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node));
     }
 }
 
@@ -72,29 +72,29 @@ function elForStream(id) {
 // Coalesce rapid streamAppend calls into one render per animation frame.
 // Bounds work at display refresh (~60Hz) regardless of token arrival rate.
 // rafHandle: 0 = no frame queued; a positive integer = frame in flight.
+// Element lookup is deferred to render time: the DOM node may not exist yet
+// when streamStart/streamAppend arrive (Blazor's render batch and this JS
+// interop call race over SignalR).
 function scheduleRender(state) {
     if (state.rafHandle) return;
     state.rafHandle = requestAnimationFrame(() => {
         state.rafHandle = 0;
+        state.el ??= elForStream(state.id);
         renderInto(state.el, state.buffer);
     });
 }
 
-// Blazor may render <div id="stream-{id}"> either before or after this call
-// arrives (both travel over SignalR); if it hasn't yet, elForStream returns
-// null and streamAppend retries the lookup.
 export function streamStart(id) {
-    streamStates.set(id, { buffer: '', el: elForStream(id), rafHandle: 0 });
+    streamStates.set(id, { id, buffer: '', el: null, rafHandle: 0 });
 }
 
 export function streamAppend(id, text) {
     let state = streamStates.get(id);
     if (!state) {
-        state = { buffer: '', el: elForStream(id), rafHandle: 0 };
+        state = { id, buffer: '', el: null, rafHandle: 0 };
         streamStates.set(id, state);
     }
     state.buffer += text;
-    if (!state.el) state.el = elForStream(id);
     scheduleRender(state);
 }
 

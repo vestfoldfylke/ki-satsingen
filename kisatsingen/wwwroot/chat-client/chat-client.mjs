@@ -6427,30 +6427,32 @@ var Ca = new Or({
 function Ta(e, t, { highlight: n = !1 } = {}) {
 	if (!e) return;
 	let r = Ca.render(t ?? "");
-	e.innerHTML = Yi.sanitize(r), n && e.querySelectorAll("pre code").forEach($.highlightElement);
+	e.innerHTML = Yi.sanitize(r), n && e.querySelectorAll("pre code").forEach((e) => $.highlightElement(e));
 }
 function Ea(e) {
 	return document.getElementById(`stream-${e}`);
 }
 function Da(e) {
 	e.rafHandle ||= requestAnimationFrame(() => {
-		e.rafHandle = 0, Ta(e.el, e.buffer);
+		e.rafHandle = 0, e.el ??= Ea(e.id), Ta(e.el, e.buffer);
 	});
 }
 function Oa(e) {
 	wa.set(e, {
+		id: e,
 		buffer: "",
-		el: Ea(e),
+		el: null,
 		rafHandle: 0
 	});
 }
 function ka(e, t) {
 	let n = wa.get(e);
 	n || (n = {
+		id: e,
 		buffer: "",
-		el: Ea(e),
+		el: null,
 		rafHandle: 0
-	}, wa.set(e, n)), n.buffer += t, n.el || (n.el = Ea(e)), Da(n);
+	}, wa.set(e, n)), n.buffer += t, Da(n);
 }
 function Aa(e) {
 	let t = wa.get(e);

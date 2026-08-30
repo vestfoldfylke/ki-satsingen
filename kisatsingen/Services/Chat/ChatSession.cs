@@ -30,6 +30,7 @@ public sealed class ChatSession : IAsyncDisposable
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
+    private bool _circuitLost;
 
     public event Action? StateChanged;
 
@@ -226,6 +227,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void FireAndForget(string method, params object?[] args)
     {
+        if (_circuitLost) return;
         _ = ObserveAsync();
         return;
 
@@ -234,6 +236,13 @@ public sealed class ChatSession : IAsyncDisposable
             try
             {
                 await _js.InvokeVoidAsync(method, args);
+            }
+            catch (JSDisconnectedException)
+            {
+                if (_circuitLost) return;
+                _circuitLost = true;
+                _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
+                _cts?.Cancel();
             }
             catch (Exception ex)
             {
