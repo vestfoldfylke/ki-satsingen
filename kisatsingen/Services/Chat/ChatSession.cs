@@ -26,13 +26,10 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IJSRuntime _js;
     private readonly ILogger<ChatSession> _logger;
 
-    private static readonly TimeSpan NotifyThrottle = TimeSpan.FromMilliseconds(150);
-
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
     private readonly StringBuilder _streamingText = new();
     private Guid? _streamingId;
-    private DateTimeOffset _lastNotify = DateTimeOffset.MinValue;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
 
@@ -189,7 +186,6 @@ public sealed class ChatSession : IAsyncDisposable
             firstTokenMs ??= offsetMs;
             _streamingText.Append(update.Text);
             FireAndForget("chatClient.streamAppend", _streamingId, update.Text);
-            NotifyIfDue();
         }
 
         var response = updates.ToChatResponse();
@@ -233,21 +229,7 @@ public sealed class ChatSession : IAsyncDisposable
         return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";
     }
 
-    private void Notify()
-    {
-        _lastNotify = DateTimeOffset.UtcNow;
-        StateChanged?.Invoke();
-    }
-
-    private void NotifyIfDue()
-    {
-        if (DateTimeOffset.UtcNow - _lastNotify < NotifyThrottle)
-        {
-            return;
-        }
-
-        Notify();
-    }
+    private void Notify() => StateChanged?.Invoke();
 
     private void FireAndForget(string method, params object?[] args)
     {
