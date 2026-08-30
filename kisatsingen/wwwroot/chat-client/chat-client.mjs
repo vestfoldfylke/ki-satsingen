@@ -6422,49 +6422,48 @@ var Ca = new Or({
 	html: !1,
 	linkify: !0,
 	breaks: !1,
-	typographer: !1,
-	highlight: function(e, t) {
-		if (t && $.getLanguage(t)) try {
-			return `<pre><code class="hljs">${$.highlight(e, {
-				language: t,
-				ignoreIllegals: !0
-			}).value}</code></pre>`;
-		} catch {}
-		return `<pre><code class="hljs">${Ca.utils.escapeHtml(e)}</code></pre>`;
-	}
+	typographer: !1
 }), wa = /* @__PURE__ */ new Map();
-function Ta(e, t) {
+function Ta(e, t, { highlight: n = !1 } = {}) {
 	if (!e) return;
-	let n = Ca.render(t ?? "");
-	e.innerHTML = Yi.sanitize(n);
+	let r = Ca.render(t ?? "");
+	e.innerHTML = Yi.sanitize(r), n && e.querySelectorAll("pre code").forEach($.highlightElement);
 }
 function Ea(e) {
 	return document.getElementById(`stream-${e}`);
 }
 function Da(e) {
-	wa.set(e, {
-		buffer: "",
-		el: Ea(e)
+	e.rafHandle ||= requestAnimationFrame(() => {
+		e.rafHandle = 0, Ta(e.el, e.buffer);
 	});
 }
-function Oa(e, t) {
+function Oa(e) {
+	wa.set(e, {
+		buffer: "",
+		el: Ea(e),
+		rafHandle: 0
+	});
+}
+function ka(e, t) {
 	let n = wa.get(e);
 	n || (n = {
 		buffer: "",
-		el: Ea(e)
-	}, wa.set(e, n)), n.buffer += t, n.el || (n.el = Ea(e)), Ta(n.el, n.buffer);
+		el: Ea(e),
+		rafHandle: 0
+	}, wa.set(e, n)), n.buffer += t, n.el || (n.el = Ea(e)), Da(n);
 }
-function ka(e) {
-	wa.delete(e);
+function Aa(e) {
+	let t = wa.get(e);
+	t?.rafHandle && cancelAnimationFrame(t.rafHandle), wa.delete(e);
 }
-function Aa(e, t) {
-	Ta(e, t);
+function ja(e, t) {
+	Ta(e, t, { highlight: !0 });
 }
 window.chatClient = {
-	streamStart: Da,
-	streamAppend: Oa,
-	streamEnd: ka,
-	renderMarkdown: Aa
+	streamStart: Oa,
+	streamAppend: ka,
+	streamEnd: Aa,
+	renderMarkdown: ja
 };
 //#endregion
-export { Aa as renderMarkdown, Oa as streamAppend, ka as streamEnd, Da as streamStart };
+export { ja as renderMarkdown, ka as streamAppend, Aa as streamEnd, Oa as streamStart };

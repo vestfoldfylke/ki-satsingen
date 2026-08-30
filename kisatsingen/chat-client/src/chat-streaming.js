@@ -1,3 +1,17 @@
+// Client-side markdown renderer for chat.
+//
+// Lifecycle for one assistant response:
+//   streamStart(id)                → init buffer for a new stream (once)
+//   streamAppend(id, text) × N     → server pushes tokens over SignalR
+//   streamEnd(id)                  → drop buffer; Blazor then removes the
+//                                    stream-{id} div and renders the committed
+//                                    <AssistantMessage>, which calls renderMarkdown
+//   renderMarkdown(el, source)     → final render on the committed message,
+//                                    with hljs syntax highlighting
+//
+// Streaming skips hljs on purpose: re-highlighting every code block on every
+// token is O(n²) in response length. hljs runs once on the committed message.
+
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
@@ -29,56 +43,73 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('yaml', yaml);
 hljs.registerLanguage('yml', yaml);
 
+// No `highlight` callback: during streaming, code blocks emit plain
+// <pre><code class="language-xxx"> and hljs runs once against the finalized DOM
+// in renderInto({highlight: true}). Avoids re-highlighting every code block on
+// every token — the dominant O(n²) cost during a stream.
 const md = new MarkdownIt({
     html: false,        // no raw HTML in source
     linkify: true,      // auto-detect URLs
     breaks: false,      // require explicit hard breaks
     typographer: false,
-    highlight: function (str, lang) {
-        if (lang && hljs.getLanguage(lang)) {
-            try {
-                return `<pre><code class="hljs">${hljs.highlight(str,
-                { language: lang, ignoreIllegals: true }).value}</code></pre>`
-            } catch (__) {}
-        }
-
-        return `<pre><code class="hljs">${md.utils.escapeHtml(str)}</code></pre>`
-    }
 });
 
 const streamStates = new Map();
 
-function renderInto(el, source) {
+function renderInto(el, source, {highlight = false} = {}) {
     if (!el) return;
     const html = md.render(source ?? '');
     el.innerHTML = DOMPurify.sanitize(html);
+    if (highlight) {
+        el.querySelectorAll('pre code').forEach(hljs.highlightElement);
+    }
 }
 
 function elForStream(id) {
     return document.getElementById(`stream-${id}`);
 }
 
+// Coalesce rapid streamAppend calls into one render per animation frame.
+// Bounds work at display refresh (~60Hz) regardless of token arrival rate.
+// rafHandle: 0 = no frame queued; a positive integer = frame in flight.
+function scheduleRender(state) {
+    if (state.rafHandle) return;
+    state.rafHandle = requestAnimationFrame(() => {
+        state.rafHandle = 0;
+        renderInto(state.el, state.buffer);
+    });
+}
+
+// Blazor may render <div id="stream-{id}"> either before or after this call
+// arrives (both travel over SignalR); if it hasn't yet, elForStream returns
+// null and streamAppend retries the lookup.
 export function streamStart(id) {
-    streamStates.set(id, { buffer: '', el: elForStream(id) });
+    streamStates.set(id, { buffer: '', el: elForStream(id), rafHandle: 0 });
 }
 
 export function streamAppend(id, text) {
     let state = streamStates.get(id);
     if (!state) {
-        state = { buffer: '', el: elForStream(id) };
+        state = { buffer: '', el: elForStream(id), rafHandle: 0 };
         streamStates.set(id, state);
     }
     state.buffer += text;
     if (!state.el) state.el = elForStream(id);
-    renderInto(state.el, state.buffer);
+    scheduleRender(state);
 }
 
+// Cancel any in-flight frame before dropping state — otherwise it would render
+// into a DOM node Blazor is about to remove.
 export function streamEnd(id) {
+    const state = streamStates.get(id);
+    if (state?.rafHandle) cancelAnimationFrame(state.rafHandle);
     streamStates.delete(id);
 }
 
+// Called from AssistantMessage.OnAfterRenderAsync for every committed message.
+// This is the only path that runs hljs.
 export function renderMarkdown(element, source) {
-    renderInto(element, source);
+    renderInto(element, source, {highlight: true});
 }
 
 window.chatClient = {
