@@ -1,9 +1,7 @@
 <div class="assistant-message assistant-streaming">
     <div id="stream-@Id" class="assistant-markdown"></div>
-    <div class="assistant-streaming-fallback">@Text<span class="chat-streaming-cursor" aria-hidden="true"></span></div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public required Guid Id { get; set; }
-    [Parameter, EditorRequired] public required string Text { get; set; }
 }

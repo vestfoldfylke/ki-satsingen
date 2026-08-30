@@ -1,4 +1,3 @@
-using System.Text;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
@@ -28,7 +27,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
-    private readonly StringBuilder _streamingText = new();
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
@@ -54,7 +52,6 @@ public sealed class ChatSession : IAsyncDisposable
     public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
-    public string StreamingText => _streamingText.ToString();
 
     public IReadOnlyList<ChatMessageView> Committed
     {
@@ -84,7 +81,6 @@ public sealed class ChatSession : IAsyncDisposable
         _messages.Clear();
         _messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         _messageIds.Clear();
-        _streamingText.Clear();
         _streamingId = null;
         _currentChat = null;
 
@@ -130,7 +126,6 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 FireAndForget("chatClient.streamEnd", id);
             }
-            _streamingText.Clear();
             _streamingId = null;
             IsBusy = false;
             _cts?.Dispose();
@@ -143,7 +138,6 @@ public sealed class ChatSession : IAsyncDisposable
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
-        _streamingText.Clear();
         _streamingId = Guid.NewGuid();
         Notify();
 
@@ -184,7 +178,6 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             firstTokenMs ??= offsetMs;
-            _streamingText.Append(update.Text);
             FireAndForget("chatClient.streamAppend", _streamingId, update.Text);
         }
 
