@@ -2,6 +2,7 @@
 @using Microsoft.JSInterop
 @using kisatsingen.Services.Chat
 @inject IJSRuntime JS
+@inject ILogger<AssistantMessage> Logger
 
 <div class="assistant-message">
     @if (!string.IsNullOrEmpty(Message.Text))
@@ -42,9 +43,9 @@
             await JS.InvokeVoidAsync("chatClient.renderMarkdown", _markdownElement, Message.Text);
             _lastRendered = Message.Text;
         }
-        catch
+        catch (Exception ex)
         {
-            // JS interop failed; the .markdown-fallback sibling stays visible.
+            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.renderMarkdown");
         }
     }
 }
