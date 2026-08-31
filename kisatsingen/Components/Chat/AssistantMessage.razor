@@ -1,10 +1,14 @@
 @using Microsoft.Extensions.AI
+@using Microsoft.JSInterop
 @using kisatsingen.Services.Chat
+@inject IJSRuntime JS
+@inject ILogger<AssistantMessage> Logger
 
 <div class="assistant-message">
     @if (!string.IsNullOrEmpty(Message.Text))
     {
-        <MarkdownBlock Source="@Message.Text" />
+        <div class="assistant-markdown" @ref="_markdownElement"></div>
+        <div class="markdown-fallback">@Message.Text</div>
     }
 
     @foreach (var content in Message.Contents)
@@ -23,4 +27,25 @@
 
 @code {
     [Parameter, EditorRequired] public required ChatMessageView Message { get; set; }
+
+    private ElementReference _markdownElement;
+    private string? _lastRendered;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (string.IsNullOrEmpty(Message.Text) || Message.Text == _lastRendered)
+        {
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("chatClient.renderMarkdown", _markdownElement, Message.Text);
+            _lastRendered = Message.Text;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.renderMarkdown");
+        }
+    }
 }

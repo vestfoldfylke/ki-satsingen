@@ -1,29 +1,33 @@
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services;
 using kisatsingen.Services.Chat;
-using kisatsingen.Services.Markdown;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
-using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using OpenAI;
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Prometheus;
 using Vestfold.Extensions.Logging;
 using Vestfold.Extensions.Metrics;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ─── Framework ─────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// ─── Observability ─────────────────────────────────────
 builder.Logging.AddVestfoldLogging();
 
 builder.Services.AddVestfoldMetrics();
 builder.Services.UseHttpClientMetrics();
 
+// ─── Authentication & authorization ────────────────────
 // Cascades authentication state seamlessly to <AuthorizeView> components
 builder.Services.AddCascadingAuthenticationState();
 
@@ -34,7 +38,7 @@ builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
     options.ResponseType = OpenIdConnectResponseType.Code;
-    
+
     // NOTE: Enable if you want metrics per Role per User signin
     /*var existingOnTokenValidated = options.Events.OnTokenValidated;
     options.Events.OnTokenValidated = async ctx =>
@@ -63,6 +67,7 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("IsAdministrator", policy => policy.RequireRole("Administrator"))
     .AddPolicy("CanContributeAppWide", policy => policy.RequireRole("Contributor", "Administrator"));
 
+// ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
 var openAiModel = builder.Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
@@ -78,12 +83,14 @@ var connectionString = builder.Configuration.GetConnectionString("AppDb")
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseSqlite(connectionString));
 
+// ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
-builder.Services.AddSingleton<IMarkdownRenderer, MarkdownRenderer>();
 builder.Services.AddScoped<ChatSession>();
+builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
 var app = builder.Build();
 
+// ─── One-time startup: database ────────────────────────
 using (var scope = app.Services.CreateScope())
 {
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
@@ -98,9 +105,35 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.UseMetricServer();
-app.UseHttpMetrics();
+// ─── Security response headers (apply to every response) ───
+var scriptSrc = app.Environment.IsDevelopment()
+    ? "'self' 'unsafe-inline'"                          // dotnet-watch injects an inline bootstrapper
+    : "'self'";
+var connectSrc = app.Environment.IsDevelopment()
+    ? "'self' ws://localhost:* wss://localhost:*"       // browser-refresh WebSocket on a random port
+    : "'self'";
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        $"script-src {scriptSrc}; " +
+        "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
+        "font-src 'self' https://altinncdn.no data:; " +
+        "img-src 'self' data:; " +
+        $"connect-src {connectSrc}; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "object-src 'none'";
+
+    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+
+    await next();
+});
+
+// ─── Errors & transport ────────────────────────────────
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -109,11 +142,16 @@ if (!app.Environment.IsDevelopment())
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 
+// ─── Observability endpoints ───────────────────────────
+app.UseMetricServer();
+app.UseHttpMetrics();
+
+// ─── Auth ──────────────────────────────────────────────
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseAntiforgery();
 
+// ─── Endpoints ─────────────────────────────────────────
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()

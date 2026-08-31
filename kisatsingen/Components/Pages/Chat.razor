@@ -49,9 +49,9 @@
                             <AssistantMessage @key="message.Id" Message="message" />
                         }
                     }
-                    @if (Session.StreamingText is not null)
+                    @if (Session.StreamingId is Guid streamingId)
                     {
-                        <StreamingChatMessage Text="@Session.StreamingText" />
+                        <StreamingChatMessage Id="streamingId" />
                     }
                 </div>
             }
