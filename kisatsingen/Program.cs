@@ -1,8 +1,10 @@
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
@@ -84,6 +86,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ChatSession>();
+builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
 var app = builder.Build();
 
