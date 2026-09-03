@@ -179,8 +179,15 @@ export function initChatLog() {
             pill.hidden = true;
         }
 
+        // Observe the inner max-width wrapper — that's where Blazor adds
+        // message children.
+        const inner = log.querySelector('.chat-log-inner');
+        if (!inner) {
+            console.error('.chat-log-inner missing inside .chat-log — DOM structure changed');
+            return;
+        }
         mutationObserver = new MutationObserver(onLogMutation);
-        mutationObserver.observe(log, { childList: true });
+        mutationObserver.observe(inner, { childList: true });
     }
 
     // Initial scroll target after wire (or on chat switch / visibility flip):

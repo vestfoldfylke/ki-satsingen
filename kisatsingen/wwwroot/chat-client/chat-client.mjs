@@ -4391,7 +4391,15 @@ function _a(e) {
 function va() {
 	let e = document.querySelector(".chat-log"), t = document.querySelector(".chat-jump-latest");
 	if (!e) return;
-	e !== $ && (ia &&= (ia.disconnect(), null), $ && ($.removeEventListener("scroll", ma), $.removeEventListener("wheel", ua), $.removeEventListener("touchstart", ua), $.removeEventListener("pointerdown", ua), $.removeEventListener("keydown", ga)), ea && ea.removeEventListener("click", ha), $ = e, ea = t, ta = e.querySelector(".chat-log-spacer"), e.addEventListener("scroll", ma, { passive: !0 }), e.addEventListener("wheel", ua, { passive: !0 }), e.addEventListener("touchstart", ua, { passive: !0 }), e.addEventListener("pointerdown", ua), e.addEventListener("keydown", ga), t && (t.addEventListener("click", ha), t.hidden = !0), ia = new MutationObserver(_a), ia.observe(e, { childList: !0 }));
+	if (e !== $) {
+		ia &&= (ia.disconnect(), null), $ && ($.removeEventListener("scroll", ma), $.removeEventListener("wheel", ua), $.removeEventListener("touchstart", ua), $.removeEventListener("pointerdown", ua), $.removeEventListener("keydown", ga)), ea && ea.removeEventListener("click", ha), $ = e, ea = t, ta = e.querySelector(".chat-log-spacer"), e.addEventListener("scroll", ma, { passive: !0 }), e.addEventListener("wheel", ua, { passive: !0 }), e.addEventListener("touchstart", ua, { passive: !0 }), e.addEventListener("pointerdown", ua), e.addEventListener("keydown", ga), t && (t.addEventListener("click", ha), t.hidden = !0);
+		let n = e.querySelector(".chat-log-inner");
+		if (!n) {
+			console.error(".chat-log-inner missing inside .chat-log — DOM structure changed");
+			return;
+		}
+		ia = new MutationObserver(_a), ia.observe(n, { childList: !0 });
+	}
 	let n = e.querySelector(".assistant-streaming") !== null, r = e.querySelectorAll(".user-bubble"), i = r[r.length - 1];
 	n && i ? pa(i, !1) : fa(!1);
 }

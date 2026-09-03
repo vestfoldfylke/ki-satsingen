@@ -7,32 +7,56 @@
 
 .chat-page {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
     min-width: 0;
     height: calc(100dvh - 2rem);
 }
 
-.chat-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    width: 100%;
-    max-width: 44rem;
-    padding: 1.5rem 0;
-    min-height: 0;
-    height: 100%;
-    position: relative;
-}
-
+/* Full-width scroll container: the scrollbar sits at the far right of the
+   page (the chat is "the page content"). Message content is centered inside
+   via .chat-log-inner. */
 .chat-log {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
     flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
     scrollbar-gutter: stable;
     scroll-padding-top: 1rem;
+}
+
+.chat-log-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 1.5rem 0.75rem;
+    min-height: 100%;
+    box-sizing: border-box;
+}
+
+.chat-tail {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    width: 100%;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 0.75rem 1.5rem;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+.chat-greeting-wrapper {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: 0 0.75rem;
+    box-sizing: border-box;
 }
 
 .chat-log-spacer {
@@ -42,9 +66,11 @@
 
 /* Reserve ~1 viewport of scroll space only while a stream is active — that's
    when popToTop needs somewhere to scroll into and the response needs a
-   whitespace canvas to fill. Collapses to zero once the stream commits. */
+   whitespace canvas to fill. Collapses to zero once the stream commits.
+   Uses dvh (not %) because .chat-log-inner is content-sized once messages
+   push it beyond viewport, at which point a percentage would over-reserve. */
 .assistant-streaming ~ .chat-log-spacer {
-    min-height: 100%;
+    min-height: 100dvh;
 }
 
 .chat-jump-latest {
