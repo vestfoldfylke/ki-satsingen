@@ -1,0 +1,170 @@
+@using Microsoft.Extensions.AI
+@using Microsoft.JSInterop
+@using kisatsingen.Services.Chat
+@inject IJSRuntime JS
+@inject ILogger<AssistantTurn> Logger
+
+<div class="assistant-turn">
+    @foreach (var (part, index) in Turn.Parts.Select((p, i) => (p, i)))
+    {
+        if (!string.IsNullOrEmpty(part.Text))
+        {
+            <div class="assistant-markdown" @ref="_markdownRefs![index]"></div>
+            <div class="markdown-fallback">@part.Text</div>
+        }
+        foreach (var content in part.Contents)
+        {
+            switch (content)
+            {
+                case FunctionCallContent call:
+                    <ToolCallBlock Call="call" />
+                    break;
+                case FunctionResultContent result:
+                    <ToolResultBlock Result="result" />
+                    break;
+            }
+        }
+    }
+
+    <footer class="assistant-turn-footer">
+        @if (Turn.StartedAt is { } startedAt)
+        {
+            <time datetime="@startedAt.ToString("o")">@startedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</time>
+        }
+        <div class="assistant-turn-actions">
+            @if (HasCopyableText)
+            {
+                <button type="button"
+                        class="assistant-turn-copy"
+                        data-copy-turn-id="@Turn.Id"
+                        aria-label="Copy response">
+                        copy
+                </button>
+            }
+            <button type="button"
+                    popovertarget="@PopoverId"
+                    aria-controls="@PopoverId"
+                    aria-label="Show message metadata">
+                    metadata
+            </button>
+        </div>
+    </footer>
+
+    <div id="@PopoverId" class="assistant-metadata" popover="auto">
+        @if (Turn.Metadata is { } meta)
+        {
+            <dl class="assistant-metadata-list">
+                @if (meta.ModelId is { } model)
+                {
+                    <dt>Model</dt>
+                    <dd>@model</dd>
+                }
+                @if (meta.ResponseId is { } responseId)
+                {
+                    <dt>Response ID</dt>
+                    <dd>@responseId</dd>
+                }
+                @if (meta.FinishReason is { } finish)
+                {
+                    <dt>Finish reason</dt>
+                    <dd>@finish</dd>
+                }
+                @if (meta.Usage is { } usage)
+                {
+                    <dt>Tokens</dt>
+                    <dd class="assistant-metadata-usage">
+                        @if (usage.InputTokens is { } input)
+                        {
+                            <span>in @input.ToString("N0")</span>
+                        }
+                        @if (usage.OutputTokens is { } output)
+                        {
+                            <span>out @output.ToString("N0")</span>
+                        }
+                        @if (usage.TotalTokens is { } total)
+                        {
+                            <span>total @total.ToString("N0")</span>
+                        }
+                    </dd>
+                }
+                @if (meta.DurationMs is { } duration)
+                {
+                    <dt>Duration</dt>
+                    <dd>@FormatMs(duration)</dd>
+                }
+                @if (meta.TimeToFirstTokenMs is { } ttft)
+                {
+                    <dt>Time to first token</dt>
+                    <dd>@FormatMs(ttft)</dd>
+                }
+                <dt>System instructions</dt>
+                @if (meta.SystemPrompt is { } systemPrompt)
+                {
+                    <dd class="assistant-metadata-system">@systemPrompt</dd>
+                }
+                else
+                {
+                    <dd class="assistant-metadata-empty">Not recorded for this turn.</dd>
+                }
+            </dl>
+        }
+        else
+        {
+            <p class="assistant-metadata-empty">No metadata recorded for this turn.</p>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required AssistantTurnView Turn { get; set; }
+
+    private ElementReference[]? _markdownRefs;
+    private readonly Dictionary<int, string> _lastRendered = new();
+
+    private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
+
+    private bool HasCopyableText => Turn.Parts.Any(p => !string.IsNullOrEmpty(p.Text));
+
+    private static string FormatMs(long ms) => ms < 1000
+        ? $"{ms} ms"
+        : $"{ms / 1000.0:0.##} s";
+
+    protected override void OnParametersSet()
+    {
+        if (_markdownRefs is null || _markdownRefs.Length != Turn.Parts.Count)
+        {
+            _markdownRefs = new ElementReference[Turn.Parts.Count];
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_markdownRefs is null)
+        {
+            return;
+        }
+
+        for (var i = 0; i < Turn.Parts.Count; i++)
+        {
+            var text = Turn.Parts[i].Text;
+            if (string.IsNullOrEmpty(text))
+            {
+                continue;
+            }
+            if (_lastRendered.TryGetValue(i, out var last) && last == text)
+            {
+                continue;
+            }
+
+            try
+            {
+                await JS.InvokeVoidAsync("chatClient.renderMarkdown", _markdownRefs[i], text);
+                _lastRendered[i] = text;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.renderMarkdown");
+            }
+        }
+    }
+}

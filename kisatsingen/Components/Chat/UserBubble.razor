@@ -1,7 +1,7 @@
 @using kisatsingen.Services.Chat
 
-<div class="user-bubble">@Message.Text</div>
+<div class="user-bubble">@Bubble.Text</div>
 
 @code {
-    [Parameter, EditorRequired] public required ChatMessageView Message { get; set; }
+    [Parameter, EditorRequired] public required UserBubbleView Bubble { get; set; }
 }

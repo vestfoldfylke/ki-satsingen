@@ -5,17 +5,19 @@
 //   streamAppend(id, text) × N     → server pushes tokens over SignalR
 //   streamEnd(id)                  → drop buffer; Blazor then removes the
 //                                    stream-{id} div and renders the committed
-//                                    <AssistantMessage>, which calls renderMarkdown
+//                                    <AssistantTurn>, which calls renderMarkdown
 //   renderMarkdown(el, source)     → final render on the committed message,
-//                                    with hljs syntax highlighting
+//                                    with hljs syntax highlighting and code-copy
+//                                    buttons injected per <pre>
 //
 // Streaming skips hljs on purpose: re-highlighting every code block on every
-// token is O(n²) in response length. hljs runs once on the committed message.
+// token is O(n²) in response length. hljs and copy buttons run once on commit.
 
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
+import './copy-buttons.css';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -55,6 +57,69 @@ const md = new MarkdownIt({
 });
 
 const streamStates = new Map();
+const COPIED_FEEDBACK_MS = 1200;
+const COPY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+async function copyToClipboard(text, button) {
+    if (!text) {
+        return;
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+        button.classList.add('is-copied');
+        setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
+    } catch (err) {
+        console.warn('Copy failed', err);
+    }
+}
+
+// Wrap each <pre> in a positioned container and drop a copy button in.
+// Idempotent: skips already-wrapped <pre> so re-renders of the same content
+// don't stack duplicates.
+function injectCodeBlockCopy(el) {
+    el.querySelectorAll('pre').forEach(pre => {
+        if (pre.parentElement?.classList.contains('chat-code-block')) {
+            return;
+        }
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chat-code-block';
+        pre.parentNode.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'chat-code-copy';
+        button.setAttribute('aria-label', 'Copy code');
+        button.innerHTML = COPY_ICON_SVG;
+        button.addEventListener('click', () => {
+            const code = pre.querySelector('code');
+            copyToClipboard(code?.textContent ?? '', button);
+        });
+        wrapper.appendChild(button);
+    });
+}
+
+// Message-level copy: read joined prose from the turn's .markdown-fallback divs.
+// Delegated at document to catch any AssistantTurn Blazor inserts later.
+document.addEventListener('click', event => {
+    const button = event.target.closest('[data-copy-turn-id]');
+    if (!button) {
+        return;
+    }
+
+    const turn = button.closest('.assistant-turn');
+    if (!turn) {
+        return;
+    }
+
+    const parts = turn.querySelectorAll('.markdown-fallback');
+    const text = Array.from(parts)
+        .map(el => el.textContent)
+        .filter(t => t)
+        .join('\n\n');
+    copyToClipboard(text, button);
+});
 
 function renderInto(el, source, {highlight = false} = {}) {
     if (!el) {
@@ -64,6 +129,7 @@ function renderInto(el, source, {highlight = false} = {}) {
     el.innerHTML = DOMPurify.sanitize(html);
     if (highlight) {
         el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node));
+        injectCodeBlockCopy(el);
     }
 }
 
@@ -112,8 +178,8 @@ export function streamEnd(id) {
     streamStates.delete(id);
 }
 
-// Called from AssistantMessage.OnAfterRenderAsync for every committed message.
-// This is the only path that runs hljs.
+// Called from AssistantTurn.OnAfterRenderAsync for every committed message.
+// This is the only path that runs hljs and injects copy buttons.
 export function renderMarkdown(element, source) {
     renderInto(element, source, {highlight: true});
 }

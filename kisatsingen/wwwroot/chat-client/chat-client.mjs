@@ -6423,21 +6423,47 @@ var Ca = new Or({
 	linkify: !0,
 	breaks: !1,
 	typographer: !1
-}), wa = /* @__PURE__ */ new Map();
-function Ta(e, t, { highlight: n = !1 } = {}) {
-	if (!e) return;
-	let r = Ca.render(t ?? "");
-	e.innerHTML = Yi.sanitize(r), n && e.querySelectorAll("pre code").forEach((e) => $.highlightElement(e));
-}
-function Ea(e) {
-	return document.getElementById(`stream-${e}`);
-}
-function Da(e) {
-	e.rafHandle ||= requestAnimationFrame(() => {
-		e.rafHandle = 0, e.el ??= Ea(e.id), Ta(e.el, e.buffer);
-	});
+}), wa = /* @__PURE__ */ new Map(), Ta = 1200, Ea = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>";
+async function Da(e, t) {
+	if (e) try {
+		await navigator.clipboard.writeText(e), t.classList.add("is-copied"), setTimeout(() => t.classList.remove("is-copied"), Ta);
+	} catch (e) {
+		console.warn("Copy failed", e);
+	}
 }
 function Oa(e) {
+	e.querySelectorAll("pre").forEach((e) => {
+		if (e.parentElement?.classList.contains("chat-code-block")) return;
+		let t = document.createElement("div");
+		t.className = "chat-code-block", e.parentNode.insertBefore(t, e), t.appendChild(e);
+		let n = document.createElement("button");
+		n.type = "button", n.className = "chat-code-copy", n.setAttribute("aria-label", "Copy code"), n.innerHTML = Ea, n.addEventListener("click", () => {
+			Da(e.querySelector("code")?.textContent ?? "", n);
+		}), t.appendChild(n);
+	});
+}
+document.addEventListener("click", (e) => {
+	let t = e.target.closest("[data-copy-turn-id]");
+	if (!t) return;
+	let n = t.closest(".assistant-turn");
+	if (!n) return;
+	let r = n.querySelectorAll(".markdown-fallback");
+	Da(Array.from(r).map((e) => e.textContent).filter((e) => e).join("\n\n"), t);
+});
+function ka(e, t, { highlight: n = !1 } = {}) {
+	if (!e) return;
+	let r = Ca.render(t ?? "");
+	e.innerHTML = Yi.sanitize(r), n && (e.querySelectorAll("pre code").forEach((e) => $.highlightElement(e)), Oa(e));
+}
+function Aa(e) {
+	return document.getElementById(`stream-${e}`);
+}
+function ja(e) {
+	e.rafHandle ||= requestAnimationFrame(() => {
+		e.rafHandle = 0, e.el ??= Aa(e.id), ka(e.el, e.buffer);
+	});
+}
+function Ma(e) {
 	wa.set(e, {
 		id: e,
 		buffer: "",
@@ -6445,27 +6471,27 @@ function Oa(e) {
 		rafHandle: 0
 	});
 }
-function ka(e, t) {
+function Na(e, t) {
 	let n = wa.get(e);
 	n || (n = {
 		id: e,
 		buffer: "",
 		el: null,
 		rafHandle: 0
-	}, wa.set(e, n)), n.buffer += t, Da(n);
+	}, wa.set(e, n)), n.buffer += t, ja(n);
 }
-function Aa(e) {
+function Pa(e) {
 	let t = wa.get(e);
 	t?.rafHandle && cancelAnimationFrame(t.rafHandle), wa.delete(e);
 }
-function ja(e, t) {
-	Ta(e, t, { highlight: !0 });
+function Fa(e, t) {
+	ka(e, t, { highlight: !0 });
 }
 window.chatClient = {
-	streamStart: Oa,
-	streamAppend: ka,
-	streamEnd: Aa,
-	renderMarkdown: ja
+	streamStart: Ma,
+	streamAppend: Na,
+	streamEnd: Pa,
+	renderMarkdown: Fa
 };
 //#endregion
-export { ja as renderMarkdown, ka as streamAppend, Aa as streamEnd, Oa as streamStart };
+export { Fa as renderMarkdown, Na as streamAppend, Pa as streamEnd, Ma as streamStart };
