@@ -21,6 +21,13 @@
 // vs programmatic is distinguished by a "user activity in the last ~400ms"
 // timestamp fed by wheel / touchstart / pointerdown / scroll keys.
 //
+// On stream commit: the CSS spacer-during-streaming rule stops applying and
+// scrollHeight would shrink, potentially clamping scrollTop and jerking the
+// viewport. We prevent that by setting an inline min-height on the spacer that
+// keeps scrollHeight >= scrollTop + clientHeight — the current view stays
+// exactly where it was. If the user was following, we scrollToBottom instead
+// (they wanted to be at the tail, not preserve mid-scroll position).
+//
 // Chat load / switch: scroll to bottom + following=true (most-recent state).
 // Chat load with an active stream: popToTop the last user bubble + following=false.
 //
@@ -37,6 +44,7 @@ let isPinned = true;
 let following = false;
 let mutationObserver = null;
 let userActivityAt = 0;
+let lastScrollTop = 0;
 
 function remToPx(rem) {
     const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -77,6 +85,12 @@ function isRecentUserActivity() {
     return performance.now() - userActivityAt < USER_ACTIVITY_WINDOW_MS;
 }
 
+function clearSpacerInlineHeight() {
+    if (spacerElement) {
+        spacerElement.style.minHeight = '';
+    }
+}
+
 function scrollToBottom(smooth) {
     if (!chatLogElement) {
         return;
@@ -101,7 +115,43 @@ function popToTop(el, smooth) {
     // isPinned + pill state update via the scroll listener that fires from scrollIntoView.
 }
 
+// Called when the streaming placeholder is removed (stream just committed).
+// Prevents the viewport from jerking down when the CSS-driven spacer collapses
+// by pinning the spacer to a specific inline height that keeps scrollHeight >=
+// scrollTop + clientHeight. If the user was following the stream, we skip the
+// preservation and scroll to the new content bottom instead — that's what they
+// were watching.
+function preserveScrollAfterCommit() {
+    if (following) {
+        scrollToBottom(false);
+        clearSpacerInlineHeight();
+        return;
+    }
+
+    if (!spacerElement) {
+        return;
+    }
+
+    const desiredScrollTop = lastScrollTop;
+    const clientHeight = chatLogElement.clientHeight;
+    const contentEnd = spacerElement.offsetTop;
+    const neededSpacerPx = Math.max(0, desiredScrollTop + clientHeight - contentEnd);
+
+    spacerElement.style.minHeight = `${neededSpacerPx}px`;
+
+    // If the browser has already clamped scrollTop between the mutation and
+    // this callback, put it back — the inline min-height guarantees the target
+    // is valid now.
+    if (chatLogElement.scrollTop !== desiredScrollTop) {
+        chatLogElement.scrollTop = desiredScrollTop;
+    }
+
+    isPinned = computeIsPinned();
+    updatePill();
+}
+
 function onScroll() {
+    lastScrollTop = chatLogElement.scrollTop;
     isPinned = computeIsPinned();
     // Only user-initiated scrolls toggle `following`. Programmatic scrolls
     // (popToTop, scrollToBottom during streaming) manage `following` directly.
@@ -121,22 +171,38 @@ function onKeyDown(e) {
     }
 }
 
+function hasClass(node, className) {
+    return node.nodeType === 1 && node.classList?.contains(className);
+}
+
 function onLogMutation(mutations) {
-    // Newly-added user bubble → user just sent a message → pop it to the top.
+    // New user bubble → user just sent → pop it to the top. The next stream
+    // gets a fresh 100dvh spacer via the CSS sibling rule, so clear any inline
+    // height left over from the previous commit.
     for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
-            if (node.nodeType !== 1) {
-                continue;
-            }
-            if (node.classList?.contains('user-bubble')) {
+            if (hasClass(node, 'user-bubble')) {
+                clearSpacerInlineHeight();
                 popToTop(node, true);
                 return;
             }
         }
     }
-    // Other mutations (streaming placeholder appearing, assistant turn commit
-    // swap): behave like any content change — scroll if following, else refresh
-    // pill state.
+
+    // Streaming placeholder removed → stream just committed. Preserve the
+    // viewport position so a short response doesn't cause a downward jump when
+    // the spacer collapses.
+    for (const mutation of mutations) {
+        for (const node of mutation.removedNodes) {
+            if (hasClass(node, 'assistant-streaming')) {
+                preserveScrollAfterCommit();
+                return;
+            }
+        }
+    }
+
+    // Anything else (e.g., streaming placeholder appearing on send, though that
+    // hits the user-bubble branch first): treat as a regular content change.
     notifyContentChanged();
 }
 
@@ -189,6 +255,9 @@ export function initChatLog() {
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
     }
+
+    // Any inline spacer height from a previous session's commit is stale here.
+    clearSpacerInlineHeight();
 
     // Initial scroll target after wire (or on chat switch / visibility flip):
     //   - active stream + user bubble present → user just sent; pop to top,

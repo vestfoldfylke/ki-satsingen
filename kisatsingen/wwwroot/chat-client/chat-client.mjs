@@ -4339,76 +4339,96 @@ var Xi = Yi(), Q = (/* @__PURE__ */ l((/* @__PURE__ */ o(((e, t) => {
 	"Home",
 	"End",
 	" "
-]), $ = null, ea = null, ta = null, na = !0, ra = !1, ia = null, aa = 0;
-function oa(e) {
+]), $ = null, ea = null, ta = null, na = !0, ra = !1, ia = null, aa = 0, oa = 0;
+function sa(e) {
 	return e * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16);
 }
-function sa() {
+function ca() {
 	return $ ? ta ? ta.offsetTop : $.scrollHeight : 0;
 }
-function ca() {
-	return !$ || sa() - $.scrollTop - $.clientHeight <= oa(Zi);
-}
 function la() {
-	ea && (ea.hidden = na);
+	return !$ || ca() - $.scrollTop - $.clientHeight <= sa(Zi);
 }
 function ua() {
-	aa = performance.now();
+	ea && (ea.hidden = na);
 }
 function da() {
+	aa = performance.now();
+}
+function fa() {
 	return performance.now() - aa < Qi;
 }
-function fa(e) {
+function pa() {
+	ta && (ta.style.minHeight = "");
+}
+function ma(e) {
 	if (!$) return;
-	let t = Math.max(0, sa() - $.clientHeight);
+	let t = Math.max(0, ca() - $.clientHeight);
 	$.scrollTo({
 		top: t,
 		behavior: e ? "smooth" : "auto"
-	}), na = !0, ra = !0, la();
+	}), na = !0, ra = !0, ua();
 }
-function pa(e, t) {
+function ha(e, t) {
 	!$ || !e || (e.scrollIntoView({
 		block: "start",
 		behavior: t ? "smooth" : "auto"
 	}), ra = !1);
 }
-function ma() {
-	na = ca(), da() && (ra = na), la();
-}
-function ha() {
-	fa(!0);
-}
-function ga(e) {
-	$i.has(e.key) && ua();
-}
-function _a(e) {
-	for (let t of e) for (let e of t.addedNodes) if (e.nodeType === 1 && e.classList?.contains("user-bubble")) {
-		pa(e, !0);
+function ga() {
+	if (ra) {
+		ma(!1), pa();
 		return;
 	}
-	ya();
+	if (!ta) return;
+	let e = oa, t = $.clientHeight, n = ta.offsetTop, r = Math.max(0, e + t - n);
+	ta.style.minHeight = `${r}px`, $.scrollTop !== e && ($.scrollTop = e), na = la(), ua();
+}
+function _a() {
+	oa = $.scrollTop, na = la(), fa() && (ra = na), ua();
 }
 function va() {
+	ma(!0);
+}
+function ya(e) {
+	$i.has(e.key) && da();
+}
+function ba(e, t) {
+	return e.nodeType === 1 && e.classList?.contains(t);
+}
+function xa(e) {
+	for (let t of e) for (let e of t.addedNodes) if (ba(e, "user-bubble")) {
+		pa(), ha(e, !0);
+		return;
+	}
+	for (let t of e) for (let e of t.removedNodes) if (ba(e, "assistant-streaming")) {
+		ga();
+		return;
+	}
+	Ca();
+}
+function Sa() {
 	let e = document.querySelector(".chat-log"), t = document.querySelector(".chat-jump-latest");
 	if (!e) return;
 	if (e !== $) {
-		ia &&= (ia.disconnect(), null), $ && ($.removeEventListener("scroll", ma), $.removeEventListener("wheel", ua), $.removeEventListener("touchstart", ua), $.removeEventListener("pointerdown", ua), $.removeEventListener("keydown", ga)), ea && ea.removeEventListener("click", ha), $ = e, ea = t, ta = e.querySelector(".chat-log-spacer"), e.addEventListener("scroll", ma, { passive: !0 }), e.addEventListener("wheel", ua, { passive: !0 }), e.addEventListener("touchstart", ua, { passive: !0 }), e.addEventListener("pointerdown", ua), e.addEventListener("keydown", ga), t && (t.addEventListener("click", ha), t.hidden = !0);
+		ia &&= (ia.disconnect(), null), $ && ($.removeEventListener("scroll", _a), $.removeEventListener("wheel", da), $.removeEventListener("touchstart", da), $.removeEventListener("pointerdown", da), $.removeEventListener("keydown", ya)), ea && ea.removeEventListener("click", va), $ = e, ea = t, ta = e.querySelector(".chat-log-spacer"), e.addEventListener("scroll", _a, { passive: !0 }), e.addEventListener("wheel", da, { passive: !0 }), e.addEventListener("touchstart", da, { passive: !0 }), e.addEventListener("pointerdown", da), e.addEventListener("keydown", ya), t && (t.addEventListener("click", va), t.hidden = !0);
 		let n = e.querySelector(".chat-log-inner");
 		if (!n) {
 			console.error(".chat-log-inner missing inside .chat-log — DOM structure changed");
 			return;
 		}
-		ia = new MutationObserver(_a), ia.observe(n, { childList: !0 });
+		ia = new MutationObserver(xa), ia.observe(n, { childList: !0 });
 	}
+	pa();
 	let n = e.querySelector(".assistant-streaming") !== null, r = e.querySelectorAll(".user-bubble"), i = r[r.length - 1];
-	n && i ? pa(i, !1) : fa(!1);
+	n && i ? ha(i, !1) : ma(!1);
 }
-function ya() {
-	$ && (ra ? fa(!1) : (na = ca(), la()));
+function Ca() {
+	$ && (ra ? ma(!1) : (na = la(), ua()));
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/bash.js
-function ba(e) {
+function wa(e) {
 	let t = e.regex, n = {}, r = {
 		begin: /\$\{/,
 		end: /\}/,
@@ -4576,7 +4596,7 @@ function ba(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/csharp.js
-function xa(e) {
+function Ta(e) {
 	let t = [
 		"bool",
 		"byte",
@@ -4835,14 +4855,14 @@ function xa(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/javascript.js
-var Sa = "[A-Za-z$_][0-9A-Za-z$_]*", Ca = /* @__PURE__ */ "as.in.of.if.for.while.finally.var.new.function.do.return.void.else.break.catch.instanceof.with.throw.case.default.try.switch.continue.typeof.delete.let.yield.const.class.debugger.async.await.static.import.from.export.extends.using".split("."), wa = [
+var Ea = "[A-Za-z$_][0-9A-Za-z$_]*", Da = /* @__PURE__ */ "as.in.of.if.for.while.finally.var.new.function.do.return.void.else.break.catch.instanceof.with.throw.case.default.try.switch.continue.typeof.delete.let.yield.const.class.debugger.async.await.static.import.from.export.extends.using".split("."), Oa = [
 	"true",
 	"false",
 	"null",
 	"undefined",
 	"NaN",
 	"Infinity"
-], Ta = /* @__PURE__ */ "Object.Function.Boolean.Symbol.Math.Date.Number.BigInt.String.RegExp.Array.Float32Array.Float64Array.Int8Array.Uint8Array.Uint8ClampedArray.Int16Array.Int32Array.Uint16Array.Uint32Array.BigInt64Array.BigUint64Array.Set.Map.WeakSet.WeakMap.ArrayBuffer.SharedArrayBuffer.Atomics.DataView.JSON.Promise.Generator.GeneratorFunction.AsyncFunction.Reflect.Proxy.Intl.WebAssembly".split("."), Ea = [
+], ka = /* @__PURE__ */ "Object.Function.Boolean.Symbol.Math.Date.Number.BigInt.String.RegExp.Array.Float32Array.Float64Array.Int8Array.Uint8Array.Uint8ClampedArray.Int16Array.Int32Array.Uint16Array.Uint32Array.BigInt64Array.BigUint64Array.Set.Map.WeakSet.WeakMap.ArrayBuffer.SharedArrayBuffer.Atomics.DataView.JSON.Promise.Generator.GeneratorFunction.AsyncFunction.Reflect.Proxy.Intl.WebAssembly".split("."), Aa = [
 	"Error",
 	"EvalError",
 	"InternalError",
@@ -4851,7 +4871,7 @@ var Sa = "[A-Za-z$_][0-9A-Za-z$_]*", Ca = /* @__PURE__ */ "as.in.of.if.for.while
 	"SyntaxError",
 	"TypeError",
 	"URIError"
-], Da = [
+], ja = [
 	"setInterval",
 	"setTimeout",
 	"clearInterval",
@@ -4869,7 +4889,7 @@ var Sa = "[A-Za-z$_][0-9A-Za-z$_]*", Ca = /* @__PURE__ */ "as.in.of.if.for.while
 	"encodeURIComponent",
 	"escape",
 	"unescape"
-], Oa = [
+], Ma = [
 	"arguments",
 	"this",
 	"super",
@@ -4881,12 +4901,12 @@ var Sa = "[A-Za-z$_][0-9A-Za-z$_]*", Ca = /* @__PURE__ */ "as.in.of.if.for.while
 	"module",
 	"self",
 	"global"
-], ka = [].concat(Da, Ta, Ea);
-function Aa(e) {
+], Na = [].concat(ja, ka, Aa);
+function Pa(e) {
 	let t = e.regex, n = (e, { after: t }) => {
 		let n = "</" + e[0].slice(1);
 		return e.input.indexOf(n, t) !== -1;
-	}, r = Sa, i = {
+	}, r = Ea, i = {
 		begin: "<>",
 		end: "</>"
 	}, a = /<[A-Za-z0-9\\._:-]+\s*\/>/, o = {
@@ -4910,11 +4930,11 @@ function Aa(e) {
 			}
 		}
 	}, s = {
-		$pattern: Sa,
-		keyword: Ca,
-		literal: wa,
-		built_in: ka,
-		"variable.language": Oa
+		$pattern: Ea,
+		keyword: Da,
+		literal: Oa,
+		built_in: Na,
+		"variable.language": Ma
 	}, c = "[0-9](_?[0-9])*", l = `\\.(${c})`, u = "0|[1-9](_?[0-9])*|0[0-7]*[89][0-9]*", d = {
 		className: "number",
 		variants: [
@@ -5061,7 +5081,7 @@ function Aa(e) {
 		relevance: 0,
 		match: t.either(/\bJSON/, /\b[A-Z][a-z]+([A-Z][a-z]*|\d)*/, /\b[A-Z]{2,}([A-Z][a-z]+|\d)+([A-Z][a-z]*)*/, /\b[A-Z]{2,}[a-z]+([A-Z][a-z]+|\d)*([A-Z][a-z]*)*/),
 		className: "title.class",
-		keywords: { _: [...Ta, ...Ea] }
+		keywords: { _: [...ka, ...Aa] }
 	}, w = {
 		label: "use_strict",
 		className: "meta",
@@ -5091,7 +5111,7 @@ function Aa(e) {
 	}
 	let D = {
 		match: t.concat(/\b/, E([
-			...Da,
+			...ja,
 			"super",
 			"import",
 			"await"
@@ -5272,12 +5292,12 @@ function Aa(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/json.js
-var ja = {
+var Fa = {
 	scope: "number",
 	match: "([-+]?)(\\b0[xX][a-fA-F0-9]+|(\\b\\d+(\\.\\d*)?|\\.\\d+)([eE][-+]?\\d+)?)|NaN|[-+]?Infinity",
 	relevance: 0
 };
-function Ma(e) {
+function Ia(e) {
 	let t = {
 		className: "attr",
 		begin: /(("(\\.|[^\\"\r\n])*")|('(\\.|[^\\'\r\n])*'))(?=\s*:)/,
@@ -5304,7 +5324,7 @@ function Ma(e) {
 			e.APOS_STRING_MODE,
 			e.QUOTE_STRING_MODE,
 			i,
-			ja,
+			Fa,
 			e.C_LINE_COMMENT_MODE,
 			e.C_BLOCK_COMMENT_MODE
 		],
@@ -5313,7 +5333,7 @@ function Ma(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/python.js
-function Na(e) {
+function La(e) {
 	let t = e.regex, n = /[\p{XID_Start}_]\p{XID_Continue}*/u, r = /* @__PURE__ */ "and.as.assert.async.await.break.case.class.continue.def.del.elif.else.except.finally.for.from.global.if.import.in.is.lambda.lazy.match.nonlocal|10.not.or.pass.raise.return.try.while.with.yield".split("."), i = {
 		$pattern: /[A-Za-z]\w+|__\w+__/,
 		keyword: r,
@@ -5550,7 +5570,7 @@ function Na(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/sql.js
-function Pa(e) {
+function Ra(e) {
 	let t = e.regex, n = e.COMMENT("--", "$"), r = {
 		scope: "string",
 		variants: [{
@@ -5667,14 +5687,14 @@ function Pa(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/typescript.js
-var Fa = "[A-Za-z$_][0-9A-Za-z$_]*", Ia = /* @__PURE__ */ "as.in.of.if.for.while.finally.var.new.function.do.return.void.else.break.catch.instanceof.with.throw.case.default.try.switch.continue.typeof.delete.let.yield.const.class.debugger.async.await.static.import.from.export.extends.using".split("."), La = [
+var za = "[A-Za-z$_][0-9A-Za-z$_]*", Ba = /* @__PURE__ */ "as.in.of.if.for.while.finally.var.new.function.do.return.void.else.break.catch.instanceof.with.throw.case.default.try.switch.continue.typeof.delete.let.yield.const.class.debugger.async.await.static.import.from.export.extends.using".split("."), Va = [
 	"true",
 	"false",
 	"null",
 	"undefined",
 	"NaN",
 	"Infinity"
-], Ra = /* @__PURE__ */ "Object.Function.Boolean.Symbol.Math.Date.Number.BigInt.String.RegExp.Array.Float32Array.Float64Array.Int8Array.Uint8Array.Uint8ClampedArray.Int16Array.Int32Array.Uint16Array.Uint32Array.BigInt64Array.BigUint64Array.Set.Map.WeakSet.WeakMap.ArrayBuffer.SharedArrayBuffer.Atomics.DataView.JSON.Promise.Generator.GeneratorFunction.AsyncFunction.Reflect.Proxy.Intl.WebAssembly".split("."), za = [
+], Ha = /* @__PURE__ */ "Object.Function.Boolean.Symbol.Math.Date.Number.BigInt.String.RegExp.Array.Float32Array.Float64Array.Int8Array.Uint8Array.Uint8ClampedArray.Int16Array.Int32Array.Uint16Array.Uint32Array.BigInt64Array.BigUint64Array.Set.Map.WeakSet.WeakMap.ArrayBuffer.SharedArrayBuffer.Atomics.DataView.JSON.Promise.Generator.GeneratorFunction.AsyncFunction.Reflect.Proxy.Intl.WebAssembly".split("."), Ua = [
 	"Error",
 	"EvalError",
 	"InternalError",
@@ -5683,7 +5703,7 @@ var Fa = "[A-Za-z$_][0-9A-Za-z$_]*", Ia = /* @__PURE__ */ "as.in.of.if.for.while
 	"SyntaxError",
 	"TypeError",
 	"URIError"
-], Ba = [
+], Wa = [
 	"setInterval",
 	"setTimeout",
 	"clearInterval",
@@ -5701,7 +5721,7 @@ var Fa = "[A-Za-z$_][0-9A-Za-z$_]*", Ia = /* @__PURE__ */ "as.in.of.if.for.while
 	"encodeURIComponent",
 	"escape",
 	"unescape"
-], Va = [
+], Ga = [
 	"arguments",
 	"this",
 	"super",
@@ -5713,12 +5733,12 @@ var Fa = "[A-Za-z$_][0-9A-Za-z$_]*", Ia = /* @__PURE__ */ "as.in.of.if.for.while
 	"module",
 	"self",
 	"global"
-], Ha = [].concat(Ba, Ra, za);
-function Ua(e) {
+], Ka = [].concat(Wa, Ha, Ua);
+function qa(e) {
 	let t = e.regex, n = (e, { after: t }) => {
 		let n = "</" + e[0].slice(1);
 		return e.input.indexOf(n, t) !== -1;
-	}, r = Fa, i = {
+	}, r = za, i = {
 		begin: "<>",
 		end: "</>"
 	}, a = /<[A-Za-z0-9\\._:-]+\s*\/>/, o = {
@@ -5742,11 +5762,11 @@ function Ua(e) {
 			}
 		}
 	}, s = {
-		$pattern: Fa,
-		keyword: Ia,
-		literal: La,
-		built_in: Ha,
-		"variable.language": Va
+		$pattern: za,
+		keyword: Ba,
+		literal: Va,
+		built_in: Ka,
+		"variable.language": Ga
 	}, c = "[0-9](_?[0-9])*", l = `\\.(${c})`, u = "0|[1-9](_?[0-9])*|0[0-7]*[89][0-9]*", d = {
 		className: "number",
 		variants: [
@@ -5893,7 +5913,7 @@ function Ua(e) {
 		relevance: 0,
 		match: t.either(/\bJSON/, /\b[A-Z][a-z]+([A-Z][a-z]*|\d)*/, /\b[A-Z]{2,}([A-Z][a-z]+|\d)+([A-Z][a-z]*)*/, /\b[A-Z]{2,}[a-z]+([A-Z][a-z]+|\d)*([A-Z][a-z]*)*/),
 		className: "title.class",
-		keywords: { _: [...Ra, ...za] }
+		keywords: { _: [...Ha, ...Ua] }
 	}, w = {
 		label: "use_strict",
 		className: "meta",
@@ -5923,7 +5943,7 @@ function Ua(e) {
 	}
 	let D = {
 		match: t.concat(/\b/, E([
-			...Ba,
+			...Wa,
 			"super",
 			"import",
 			"await"
@@ -6102,8 +6122,8 @@ function Ua(e) {
 		]
 	};
 }
-function Wa(e) {
-	let t = e.regex, n = Ua(e), r = Fa, i = [
+function Ja(e) {
+	let t = e.regex, n = qa(e), r = za, i = [
 		"any",
 		"void",
 		"number",
@@ -6138,8 +6158,8 @@ function Wa(e) {
 		relevance: 10,
 		begin: /^\s*['"]use strict['"]/
 	}, c = {
-		$pattern: Fa,
-		keyword: Ia.concat([
+		$pattern: za,
+		keyword: Ba.concat([
 			"type",
 			"interface",
 			"public",
@@ -6153,9 +6173,9 @@ function Wa(e) {
 			"override",
 			"satisfies"
 		]),
-		literal: La,
-		built_in: Ha.concat(i),
-		"variable.language": Va
+		literal: Va,
+		built_in: Ka.concat(i),
+		"variable.language": Ga
 	}, l = {
 		className: "meta",
 		begin: "@" + r
@@ -6189,7 +6209,7 @@ function Wa(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/xml.js
-function Ga(e) {
+function Ya(e) {
 	let t = e.regex, n = t.concat(/[\p{L}_]/u, t.optional(/[\p{L}0-9_.-]*:/u), /[\p{L}0-9_.-]*/u), r = /[\p{L}0-9._:-]+/u, i = {
 		className: "symbol",
 		begin: /&[a-z]+;|&#[0-9]+;|&#x[a-f0-9]+;/
@@ -6350,7 +6370,7 @@ function Ga(e) {
 }
 //#endregion
 //#region node_modules/highlight.js/es/languages/yaml.js
-function Ka(e) {
+function Xa(e) {
 	let t = "true false yes no null", n = "[\\w#;/?:@&=+$,.~*'()[\\]]+", r = {
 		className: "attr",
 		variants: [
@@ -6491,28 +6511,28 @@ function Ka(e) {
 		contains: f
 	};
 }
-Q.registerLanguage("bash", ba), Q.registerLanguage("csharp", xa), Q.registerLanguage("cs", xa), Q.registerLanguage("javascript", Aa), Q.registerLanguage("js", Aa), Q.registerLanguage("json", Ma), Q.registerLanguage("python", Na), Q.registerLanguage("py", Na), Q.registerLanguage("sql", Pa), Q.registerLanguage("typescript", Wa), Q.registerLanguage("ts", Wa), Q.registerLanguage("html", Ga), Q.registerLanguage("xml", Ga), Q.registerLanguage("yaml", Ka), Q.registerLanguage("yml", Ka);
-var qa = new Ar({
+Q.registerLanguage("bash", wa), Q.registerLanguage("csharp", Ta), Q.registerLanguage("cs", Ta), Q.registerLanguage("javascript", Pa), Q.registerLanguage("js", Pa), Q.registerLanguage("json", Ia), Q.registerLanguage("python", La), Q.registerLanguage("py", La), Q.registerLanguage("sql", Ra), Q.registerLanguage("typescript", Ja), Q.registerLanguage("ts", Ja), Q.registerLanguage("html", Ya), Q.registerLanguage("xml", Ya), Q.registerLanguage("yaml", Xa), Q.registerLanguage("yml", Xa);
+var Za = new Ar({
 	html: !1,
 	linkify: !0,
 	breaks: !1,
 	typographer: !1
-}), Ja = /* @__PURE__ */ new Map(), Ya = 1200, Xa = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>";
-async function Za(e, t) {
+}), Qa = /* @__PURE__ */ new Map(), $a = 1200, eo = "<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"9\" y=\"9\" width=\"13\" height=\"13\" rx=\"2\" ry=\"2\"/><path d=\"M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1\"/></svg>";
+async function to(e, t) {
 	if (e) try {
-		await navigator.clipboard.writeText(e), t.classList.add("is-copied"), setTimeout(() => t.classList.remove("is-copied"), Ya);
+		await navigator.clipboard.writeText(e), t.classList.add("is-copied"), setTimeout(() => t.classList.remove("is-copied"), $a);
 	} catch (e) {
 		console.warn("Copy failed", e);
 	}
 }
-function Qa(e) {
+function no(e) {
 	e.querySelectorAll("pre").forEach((e) => {
 		if (e.parentElement?.classList.contains("chat-code-block")) return;
 		let t = document.createElement("div");
 		t.className = "chat-code-block", e.parentNode.insertBefore(t, e), t.appendChild(e);
 		let n = document.createElement("button");
-		n.type = "button", n.className = "chat-code-copy", n.setAttribute("aria-label", "Copy code"), n.innerHTML = Xa, n.addEventListener("click", () => {
-			Za(e.querySelector("code")?.textContent ?? "", n);
+		n.type = "button", n.className = "chat-code-copy", n.setAttribute("aria-label", "Copy code"), n.innerHTML = eo, n.addEventListener("click", () => {
+			to(e.querySelector("code")?.textContent ?? "", n);
 		}), t.appendChild(n);
 	});
 }
@@ -6522,51 +6542,51 @@ document.addEventListener("click", (e) => {
 	let n = t.closest(".assistant-turn");
 	if (!n) return;
 	let r = n.querySelectorAll(".markdown-fallback");
-	Za(Array.from(r).map((e) => e.textContent).filter((e) => e).join("\n\n"), t);
+	to(Array.from(r).map((e) => e.textContent).filter((e) => e).join("\n\n"), t);
 });
-function $a(e, t, { highlight: n = !1 } = {}) {
+function ro(e, t, { highlight: n = !1 } = {}) {
 	if (!e) return;
-	let r = qa.render(t ?? "");
-	e.innerHTML = Xi.sanitize(r), n && (e.querySelectorAll("pre code").forEach((e) => Q.highlightElement(e)), Qa(e)), ya();
+	let r = Za.render(t ?? "");
+	e.innerHTML = Xi.sanitize(r), n && (e.querySelectorAll("pre code").forEach((e) => Q.highlightElement(e)), no(e)), Ca();
 }
-function eo(e) {
+function io(e) {
 	return document.getElementById(`stream-${e}`);
 }
-function to(e) {
+function ao(e) {
 	e.rafHandle ||= requestAnimationFrame(() => {
-		e.rafHandle = 0, e.el ??= eo(e.id), $a(e.el, e.buffer);
+		e.rafHandle = 0, e.el ??= io(e.id), ro(e.el, e.buffer);
 	});
 }
-function no(e) {
-	Ja.set(e, {
+function oo(e) {
+	Qa.set(e, {
 		id: e,
 		buffer: "",
 		el: null,
 		rafHandle: 0
 	});
 }
-function ro(e, t) {
-	let n = Ja.get(e);
+function so(e, t) {
+	let n = Qa.get(e);
 	n || (n = {
 		id: e,
 		buffer: "",
 		el: null,
 		rafHandle: 0
-	}, Ja.set(e, n)), n.buffer += t, to(n);
+	}, Qa.set(e, n)), n.buffer += t, ao(n);
 }
-function io(e) {
-	let t = Ja.get(e);
-	t?.rafHandle && cancelAnimationFrame(t.rafHandle), Ja.delete(e);
+function co(e) {
+	let t = Qa.get(e);
+	t?.rafHandle && cancelAnimationFrame(t.rafHandle), Qa.delete(e);
 }
-function ao(e, t) {
-	$a(e, t, { highlight: !0 });
+function lo(e, t) {
+	ro(e, t, { highlight: !0 });
 }
 window.chatClient = {
-	streamStart: no,
-	streamAppend: ro,
-	streamEnd: io,
-	renderMarkdown: ao,
-	initChatLog: va
+	streamStart: oo,
+	streamAppend: so,
+	streamEnd: co,
+	renderMarkdown: lo,
+	initChatLog: Sa
 };
 //#endregion
-export { ao as renderMarkdown, ro as streamAppend, io as streamEnd, no as streamStart };
+export { lo as renderMarkdown, so as streamAppend, co as streamEnd, oo as streamStart };
