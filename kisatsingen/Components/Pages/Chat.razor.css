@@ -9,6 +9,7 @@
     display: flex;
     justify-content: center;
     min-width: 0;
+    height: calc(100dvh - 2rem);
 }
 
 .chat-container {
@@ -18,13 +19,53 @@
     width: 100%;
     max-width: 44rem;
     padding: 1.5rem 0;
+    min-height: 0;
+    height: 100%;
+    position: relative;
 }
 
 .chat-log {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    min-height: 12rem;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+    scroll-padding-top: 1rem;
+}
+
+.chat-log-spacer {
+    flex-shrink: 0;
+    pointer-events: none;
+}
+
+/* Reserve ~1 viewport of scroll space only while a stream is active — that's
+   when popToTop needs somewhere to scroll into and the response needs a
+   whitespace canvas to fill. Collapses to zero once the stream commits. */
+.assistant-streaming ~ .chat-log-spacer {
+    min-height: 100%;
+}
+
+.chat-jump-latest {
+    position: sticky;
+    bottom: 0.5rem;
+    align-self: center;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem 0.6rem;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.08);
+    color: #475569;
+}
+
+.chat-jump-latest[hidden] {
+    display: none;
 }
 
 .chat-greeting {

@@ -18,6 +18,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
 import './copy-buttons.css';
+import { initChatLog, notifyContentChanged } from './chat-scroll.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -131,6 +132,8 @@ function renderInto(el, source, {highlight = false} = {}) {
         el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node));
         injectCodeBlockCopy(el);
     }
+    // Notify content changed, so that we can do fancy auto-scrolling
+    notifyContentChanged();
 }
 
 function elForStream(id) {
@@ -189,4 +192,5 @@ window.chatClient = {
     streamAppend,
     streamEnd,
     renderMarkdown,
+    initChatLog,
 };
