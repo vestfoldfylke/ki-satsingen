@@ -1,3 +1,4 @@
+using System.Text;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
@@ -31,7 +32,9 @@ public sealed class ChatSession : IAsyncDisposable
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
-    private bool _circuitLost;
+    private const int CircuitLive = 0;
+    private const int CircuitLost = 1;
+    private int _circuitState;
     private string? _effectiveSystemPrompt;
 
     public event Action? StateChanged;
@@ -245,15 +248,24 @@ public sealed class ChatSession : IAsyncDisposable
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
 
+        var toPersist = new List<Data.Entities.ChatMessage>(2);
         if (_effectiveSystemPrompt != SystemPrompt)
         {
-            var systemMessage = new ChatMessage(ChatRole.System, SystemPrompt);
-            await _repo.AppendMessageAsync(_currentChat.Id, ChatMessageMapper.ToEntity(systemMessage), ct);
+            toPersist.Add(ChatMessageMapper.ToEntity(new ChatMessage(ChatRole.System, SystemPrompt)));
             _effectiveSystemPrompt = SystemPrompt;
         }
+        toPersist.Add(ChatMessageMapper.ToEntity(userMessage));
 
-        await _repo.AppendMessageAsync(_currentChat.Id, ChatMessageMapper.ToEntity(userMessage), ct);
+        await _repo.AppendMessagesAsync(_currentChat.Id, toPersist, ct);
     }
+
+    // Flush thresholds tuned for streams roughly in the 20-200 tok/s range.
+    // Flush more often -> more SignalR msgs/s and higher server CPU under fan-out;
+    // less often -> visible pauses in the streaming UI. Retune if either shows up
+    // under load. The rule below is cadence-adaptive (Nagle-style): a solitary
+    // token in a slow stream is flushed immediately; a burst is coalesced.
+    private const long FlushIntervalMs = 50;
+    private const int FlushCharThreshold = 400;
 
     private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(CancellationToken ct)
     {
@@ -261,6 +273,11 @@ public sealed class ChatSession : IAsyncDisposable
         var startedAt = DateTimeOffset.UtcNow;
         long? firstTokenMs = null;
         var updates = new List<ChatResponseUpdate>();
+        var buffer = new StringBuilder();
+        // Seed so the first token counts as "long-idle since last flush/token"
+        // and gets flushed eagerly, giving a truthful TTFT on the client.
+        var lastFlushMs = -FlushIntervalMs;
+        var lastTokenMs = -FlushIntervalMs;
 
         await foreach (var update in _client.GetStreamingResponseAsync(_messages, Options, ct))
         {
@@ -286,7 +303,24 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             firstTokenMs ??= offsetMs;
-            FireAndForget("chatClient.streamAppend", _streamingId, update.Text);
+            buffer.Append(update.Text);
+
+            var slowStream = offsetMs - lastTokenMs >= FlushIntervalMs;
+            var windowElapsed = offsetMs - lastFlushMs >= FlushIntervalMs;
+            var bufferFull = buffer.Length >= FlushCharThreshold;
+            lastTokenMs = offsetMs;
+
+            if (slowStream || windowElapsed || bufferFull)
+            {
+                FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
+                buffer.Clear();
+                lastFlushMs = offsetMs;
+            }
+        }
+
+        if (buffer.Length > 0)
+        {
+            FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
         }
 
         var response = updates.ToChatResponse();
@@ -307,6 +341,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
+        var toPersist = new List<Data.Entities.ChatMessage>(response.Messages.Count);
         foreach (var newMessage in response.Messages)
         {
             _messages.Add(newMessage);
@@ -328,11 +363,10 @@ public sealed class ChatSession : IAsyncDisposable
                     _effectiveSystemPrompt);
             }
 
-            await _repo.AppendMessageAsync(
-                _currentChat!.Id,
-                ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage),
-                ct);
+            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
         }
+
+        await _repo.AppendMessagesAsync(_currentChat!.Id, toPersist, ct);
     }
 
     private Guid GetOrCreateId(ChatMessage message)
@@ -355,9 +389,15 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void Notify() => StateChanged?.Invoke();
 
+    private bool IsCircuitLost =>
+        Volatile.Read(ref _circuitState) == CircuitLost;
+
+    private bool TryMarkCircuitLost() =>
+        Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive;
+
     private void FireAndForget(string method, params object?[] args)
     {
-        if (_circuitLost) return;
+        if (IsCircuitLost) return;
         _ = ObserveAsync();
         return;
 
@@ -369,10 +409,11 @@ public sealed class ChatSession : IAsyncDisposable
             }
             catch (JSDisconnectedException)
             {
-                if (_circuitLost) return;
-                _circuitLost = true;
-                _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
-                _cts?.Cancel();
+                if (TryMarkCircuitLost())
+                {
+                    _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
+                    TryCancel();
+                }
             }
             catch (Exception ex)
             {
@@ -381,7 +422,21 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    public void Cancel() => _cts?.Cancel();
+    public void Cancel() => TryCancel();
+
+    // Guards against _cts being disposed by SendAsync's finally block on a
+    // parallel thread. A disposed CTS is already cancelled from a caller's
+    // perspective, so swallowing is correct.
+    private void TryCancel()
+    {
+        try
+        {
+            _cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
