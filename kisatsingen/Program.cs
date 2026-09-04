@@ -118,8 +118,8 @@ app.Use(async (context, next) =>
     context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; " +
         $"script-src {scriptSrc}; " +
-        "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
-        "font-src 'self' https://altinncdn.no data:; " +
+        "style-src 'self' 'unsafe-inline' https://altinncdn.no https://fonts.googleapis.com https://fonts.gstatic.com; " +
+        "font-src 'self' https://altinncdn.no https://fonts.googleapis.com https://fonts.gstatic.com data:; " +
         "img-src 'self' data:; " +
         $"connect-src {connectSrc}; " +
         "frame-ancestors 'none'; " +
