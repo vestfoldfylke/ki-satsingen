@@ -10,21 +10,23 @@ namespace kisatsingen.Tests.Data.Repositories;
 
 public sealed class ChatRepositoryTests : IAsyncLifetime
 {
-    private DbConnection _connection = null!;
-    private IDbContextFactory<AppDbContext> _factory = null!;
-    private ChatRepository _repo = null!;
+    private readonly DbConnection _connection;
+    private readonly IDbContextFactory<AppDbContext> _factory;
+    private readonly ChatRepository _repo;
+
+    public ChatRepositoryTests()
+    {
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _factory = new SharedConnectionDbContextFactory(_connection);
+        _repo = new ChatRepository(_factory);
+    }
 
     public async Task InitializeAsync()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
         await _connection.OpenAsync();
-
-        _factory = new SharedConnectionDbContextFactory(_connection);
 
         await using var db = await _factory.CreateDbContextAsync();
         await db.Database.EnsureCreatedAsync();
-
-        _repo = new ChatRepository(_factory);
     }
 
     public async Task DisposeAsync()
