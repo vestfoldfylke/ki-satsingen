@@ -11,7 +11,7 @@ namespace kisatsingen.Services.Chat;
 
 public sealed class ChatSession : IAsyncDisposable
 {
-    private const string SystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
+    private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
     private static readonly ChatOptions Options = new()
     {
@@ -35,7 +35,7 @@ public sealed class ChatSession : IAsyncDisposable
     private const int CircuitLive = 0;
     private const int CircuitLost = 1;
     private int _circuitState;
-    private string? _effectiveSystemPrompt;
+    private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     public event Action? StateChanged;
 
@@ -55,7 +55,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? ChatId => _currentChat?.Id;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingId is not null;
+    public bool HasVisibleMessages => _messages.Count > 0 || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
 
@@ -68,11 +68,6 @@ public sealed class ChatSession : IAsyncDisposable
 
             foreach (var message in _messages)
             {
-                if (message.Role == ChatRole.System)
-                {
-                    continue;
-                }
-
                 if (message.Role == ChatRole.User)
                 {
                     if (currentTurn is not null)
@@ -160,7 +155,7 @@ public sealed class ChatSession : IAsyncDisposable
         _messageMetadata.Clear();
         _streamingId = null;
         _currentChat = null;
-        _effectiveSystemPrompt = null;
+        _effectiveSystemPrompt = DefaultSystemPrompt;
 
         if (chatId is not null)
         {
@@ -168,18 +163,29 @@ public sealed class ChatSession : IAsyncDisposable
             if (chat is not null)
             {
                 _currentChat = chat;
+                _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
+
+                // Legacy chats may still have ChatRole.System rows in the sequence.
+                // Consume them for snapshot fallback, but don't add them to _messages —
+                // the system prompt is prepended synthetically at LLM-call time.
+                var currentSnapshot = _effectiveSystemPrompt;
                 foreach (var stored in chat.Messages)
                 {
-                    var message = ChatMessageMapper.FromEntity(stored);
-                    _messages.Add(message);
-
-                    if (message.Role == ChatRole.System)
+                    var role = new ChatRole(stored.Role);
+                    if (role == ChatRole.System)
                     {
-                        _effectiveSystemPrompt = stored.Content;
+                        currentSnapshot = stored.Content;
                         continue;
                     }
 
-                    if (message.Role == ChatRole.Assistant)
+                    var message = ChatMessageMapper.FromEntity(stored);
+                    _messages.Add(message);
+
+                    if (role == ChatRole.User)
+                    {
+                        currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
+                    }
+                    else if (role == ChatRole.Assistant)
                     {
                         _messageMetadata[message] = new AssistantMetadata(
                             stored.ModelId,
@@ -189,15 +195,10 @@ public sealed class ChatSession : IAsyncDisposable
                             stored.DurationMs,
                             stored.TimeToFirstTokenMs,
                             stored.CreatedAt,
-                            _effectiveSystemPrompt);
+                            currentSnapshot);
                     }
                 }
             }
-        }
-
-        if (!_messages.Any(m => m.Role == ChatRole.System))
-        {
-            _messages.Insert(0, new ChatMessage(ChatRole.System, SystemPrompt));
         }
 
         Notify();
@@ -248,15 +249,8 @@ public sealed class ChatSession : IAsyncDisposable
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
 
-        var toPersist = new List<Data.Entities.ChatMessage>(2);
-        if (_effectiveSystemPrompt != SystemPrompt)
-        {
-            toPersist.Add(ChatMessageMapper.ToEntity(new ChatMessage(ChatRole.System, SystemPrompt)));
-            _effectiveSystemPrompt = SystemPrompt;
-        }
-        toPersist.Add(ChatMessageMapper.ToEntity(userMessage));
-
-        await _repo.AppendMessagesAsync(_currentChat.Id, toPersist, ct);
+        var entity = ChatMessageMapper.ToEntity(userMessage, _effectiveSystemPrompt);
+        await _repo.AppendMessagesAsync(_currentChat.Id, [entity], ct);
     }
 
     // Flush thresholds tuned for streams roughly in the 20-200 tok/s range.
@@ -279,7 +273,13 @@ public sealed class ChatSession : IAsyncDisposable
         var lastFlushMs = -FlushIntervalMs;
         var lastTokenMs = -FlushIntervalMs;
 
-        await foreach (var update in _client.GetStreamingResponseAsync(_messages, Options, ct))
+        var request = new List<ChatMessage>(_messages.Count + 1)
+        {
+            new(ChatRole.System, _effectiveSystemPrompt)
+        };
+        request.AddRange(_messages);
+
+        await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
         {
             updates.Add(update);
             var offsetMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
@@ -381,7 +381,7 @@ public sealed class ChatSession : IAsyncDisposable
         return id;
     }
 
-    private static string BuildTitle(string userText)
+private static string BuildTitle(string userText)
     {
         var trimmed = userText.Trim();
         return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";

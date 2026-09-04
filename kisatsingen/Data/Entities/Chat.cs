@@ -7,6 +7,7 @@ public sealed class Chat
     public required string Title { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
+    public string? SystemPrompt { get; set; }
 
     public List<ChatMessage> Messages { get; init; } = [];
 }

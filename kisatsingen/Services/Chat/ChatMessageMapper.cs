@@ -23,11 +23,12 @@ internal static class ChatMessageMapper
             : new ChatMessage(role, stored.Content);
     }
 
-    public static Data.Entities.ChatMessage ToEntity(ChatMessage message) => new()
+    public static Data.Entities.ChatMessage ToEntity(ChatMessage message, string? systemPromptSnapshot = null) => new()
     {
         Role = message.Role.Value,
         Content = message.Text,
-        ContentsJson = JsonSerializer.Serialize(message.Contents, ContentsJson)
+        ContentsJson = JsonSerializer.Serialize(message.Contents, ContentsJson),
+        SystemPromptSnapshot = systemPromptSnapshot
     };
 
     public static Data.Entities.ChatMessage ToEntity(
