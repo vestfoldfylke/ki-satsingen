@@ -31,7 +31,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private List<ChatSummary> ChatList { get; set; } = [];
     private bool _stateWired;
     private Guid? _lastInitChatId;
-    private bool _lastInitHadVisible;
+    private bool _lastInitChatHadVisibleMessages;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -100,14 +100,14 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         var chatSwitched = _lastInitChatId != Session.ChatId;
-        var visibilityFlipped = _lastInitHadVisible != Session.HasVisibleMessages;
+        var visibilityFlipped = _lastInitChatHadVisibleMessages != Session.HasVisibleMessages;
         if (!firstRender && !chatSwitched && !visibilityFlipped)
         {
             return;
         }
 
         _lastInitChatId = Session.ChatId;
-        _lastInitHadVisible = Session.HasVisibleMessages;
+        _lastInitChatHadVisibleMessages = Session.HasVisibleMessages;
 
         try
         {
