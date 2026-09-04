@@ -216,9 +216,10 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            await PersistUserTurnAsync(text.Trim(), _cts.Token);
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(_cts.Token);
-            await PersistResponseAsync(response, durationMs, firstTokenMs, _cts.Token);
+            var systemPromptForThisTurn = _effectiveSystemPrompt;
+            await PersistUserTurnAsync(text.Trim(), systemPromptForThisTurn, _cts.Token);
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(systemPromptForThisTurn, _cts.Token);
+            await PersistResponseAsync(response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -238,7 +239,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private async Task PersistUserTurnAsync(string text, CancellationToken ct)
+    private async Task PersistUserTurnAsync(string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
@@ -249,7 +250,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
 
-        var entity = ChatMessageMapper.ToEntity(userMessage, _effectiveSystemPrompt);
+        var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
         await _repo.AppendMessagesAsync(_currentChat.Id, [entity], ct);
     }
 
@@ -261,7 +262,7 @@ public sealed class ChatSession : IAsyncDisposable
     private const long FlushIntervalMs = 50;
     private const int FlushCharThreshold = 400;
 
-    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(CancellationToken ct)
+    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(string systemPromptForThisTurn, CancellationToken ct)
     {
         var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
         var startedAt = DateTimeOffset.UtcNow;
@@ -275,7 +276,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         var request = new List<ChatMessage>(_messages.Count + 1)
         {
-            new(ChatRole.System, _effectiveSystemPrompt)
+            new(ChatRole.System, systemPromptForThisTurn)
         };
         request.AddRange(_messages);
 
@@ -328,7 +329,7 @@ public sealed class ChatSession : IAsyncDisposable
         return (response, durationMs, firstTokenMs);
     }
 
-    private async Task PersistResponseAsync(ChatResponse response, long durationMs, long? firstTokenMs, CancellationToken ct)
+    private async Task PersistResponseAsync(ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
     {
         if (response.ModelId is not null)
         {
@@ -360,7 +361,7 @@ public sealed class ChatSession : IAsyncDisposable
                     durationMs,
                     firstTokenMs,
                     now,
-                    _effectiveSystemPrompt);
+                    systemPromptForThisTurn);
             }
 
             toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
