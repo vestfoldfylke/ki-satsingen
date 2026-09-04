@@ -280,9 +280,10 @@ export function initChatLog() {
 
     if (hasStream && lastUser) {
         popToTop(lastUser, false);
-    } else {
-        scrollToBottom(false);
+        return
     }
+    
+    scrollToBottom(false);
 }
 
 // Called from chat-streaming.js after every renderInto (streaming tokens),
@@ -296,9 +297,10 @@ export function notifyContentChanged() {
     }
     if (following) {
         scrollToBottom(false);
-    } else {
-        // Content grew; scrollHeight changed. Refresh pill visibility.
-        isPinned = computeIsPinned();
-        updatePill();
+        return
     }
+    
+    // Content grew; scrollHeight changed. Refresh pill visibility.
+    isPinned = computeIsPinned();
+    updatePill();
 }

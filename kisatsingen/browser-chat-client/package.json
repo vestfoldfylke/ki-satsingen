@@ -1,5 +1,5 @@
 {
-  "name": "chat-client",
+  "name": "browser-chat-client",
   "version": "1.0.0",
   "description": "Client-side markdown streaming + syntax highlighting for the chat feature",
   "type": "module",
