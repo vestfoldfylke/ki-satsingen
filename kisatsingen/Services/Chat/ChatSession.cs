@@ -382,7 +382,7 @@ public sealed class ChatSession : IAsyncDisposable
         return id;
     }
 
-private static string BuildTitle(string userText)
+    private static string BuildTitle(string userText)
     {
         var trimmed = userText.Trim();
         return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";

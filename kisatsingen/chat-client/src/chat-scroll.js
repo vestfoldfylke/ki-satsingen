@@ -45,7 +45,7 @@ let following = false;
 let mutationObserver = null;
 let userActivityAt = 0;
 let lastScrollTop = 0;
-let ignoreNextScrollEvent = false;
+let shouldIgnoreNextScrollEvent = false;
 
 function remToPx(rem) {
     const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -148,7 +148,7 @@ function preserveScrollAfterCommit() {
     // this correction for a real drag and reassign `following`. Suppress that
     // one event; it carries no user intent.
     if (chatLogElement.scrollTop !== desiredScrollTop) {
-        ignoreNextScrollEvent = true;
+        shouldIgnoreNextScrollEvent = true;
         chatLogElement.scrollTop = desiredScrollTop;
     }
 
@@ -164,8 +164,8 @@ function onScroll() {
     // preserveScrollAfterCommit's clamp-correction is programmatic too, but it
     // can't set `following` itself — it fires this event asynchronously after
     // returning — so it flags the resulting event to skip instead.
-    if (ignoreNextScrollEvent) {
-        ignoreNextScrollEvent = false;
+    if (shouldIgnoreNextScrollEvent) {
+        shouldIgnoreNextScrollEvent = false;
     } else if (isRecentUserActivity()) {
         following = isPinned;
     }
