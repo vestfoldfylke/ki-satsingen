@@ -81,6 +81,26 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AppendMessagesAsync_leaves_UpdatedAt_unchanged_when_the_insert_fails()
+    {
+        var chat = await _repo.CreateChatAsync(ownerId: null, "hello");
+        await _repo.AppendMessagesAsync(chat.Id, [Message("user", "hi")]);
+
+        await using var before = await _factory.CreateDbContextAsync();
+        var existingId = (await before.ChatMessages.SingleAsync()).Id;
+        var updatedAtBeforeFailure = (await before.Chats.SingleAsync(c => c.Id == chat.Id)).UpdatedAt;
+
+        var colliding = Message("assistant", "boom");
+        colliding.Id = existingId;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => _repo.AppendMessagesAsync(chat.Id, [colliding]));
+
+        await using var after = await _factory.CreateDbContextAsync();
+        var reloaded = await after.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Equal(updatedAtBeforeFailure, reloaded.UpdatedAt);
+    }
+
+    [Fact]
     public async Task AppendMessagesAsync_bumps_chat_UpdatedAt_to_last_CreatedAt()
     {
         var chat = await _repo.CreateChatAsync(ownerId: null, "hello");

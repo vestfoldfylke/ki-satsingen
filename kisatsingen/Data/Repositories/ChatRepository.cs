@@ -71,9 +71,9 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             db.ChatMessages.Add(message);
         }
 
-        await db.Chats
-            .Where(c => c.Id == chatId)
-            .ExecuteUpdateAsync(s => s.SetProperty(c => c.UpdatedAt, lastCreatedAt), ct);
+        var chatStub = new Chat { Id = chatId, Title = string.Empty, UpdatedAt = lastCreatedAt };
+        db.Chats.Attach(chatStub);
+        db.Entry(chatStub).Property(c => c.UpdatedAt).IsModified = true;
 
         await db.SaveChangesAsync(ct);
     }
