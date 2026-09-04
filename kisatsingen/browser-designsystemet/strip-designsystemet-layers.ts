@@ -23,10 +23,13 @@ function findMatchingBrace(str: string, openIdx: number): number {
   let depth = 0;
   for (let i = openIdx; i < str.length; i++) {
     const c = str[i];
-    if (c === '{') depth++;
-    else if (c === '}') {
+    if (c === '{') {
+      depth++;
+    } else if (c === '}') {
       depth--;
-      if (depth === 0) return i;
+      if (depth === 0) {
+        return i;
+      }
     }
   }
   return -1;
@@ -45,7 +48,9 @@ function stripLayerBlocks(css: string): string {
 
     while (true) {
       const idx = css.indexOf('@layer ', searchFrom);
-      if (idx === -1) break;
+      if (idx === -1) {
+        break;
+      }
 
       const braceIdx = css.indexOf('{', idx);
       const semiIdx = css.indexOf(';', idx);
