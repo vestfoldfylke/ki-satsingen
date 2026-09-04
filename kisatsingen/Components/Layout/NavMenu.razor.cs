@@ -21,8 +21,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     [Parameter]
     public Guid? ChatId { get; set; }
-
-    private string MessageText { get; set; } = string.Empty;
     private List<ChatSummary> ChatList { get; set; } = [];
     private bool _stateWired;
 
@@ -57,27 +55,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 
         Logger.LogInformation("New chat started");
         Navigation.NavigateTo("/chat", replace: true);
-    }
-
-    private async Task SendAsync()
-    {
-        if (string.IsNullOrWhiteSpace(MessageText))
-        {
-            return;
-        }
-
-        var text = MessageText;
-        MessageText = string.Empty;
-        var wasNew = Session.ChatId is null;
-
-        await Session.SendAsync(text);
-
-        if (wasNew && Session.ChatId is { } id)
-        {
-            Navigation.NavigateTo($"/chat/{id}", replace: true);
-        }
-
-        await RefreshChatListAsync();
     }
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);

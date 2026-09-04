@@ -12,8 +12,8 @@
     font-size: 1.1rem;
 }
 
-.nav-item {
-    font-size: 1rem;
+.nav-item > button > span {
+    font-size: .85rem;
 }
 
     .nav-item:first-of-type {
@@ -123,7 +123,7 @@
 }
 
 .chat-sidebar-item-option-button > span.material-symbols-outlined {
-    font-size: 20px;
+    font-size: 1.3rem;
 }
 
 .chat-sidebar-item-option-dropdown-menu {
@@ -141,7 +141,7 @@
 }
 
 .chat-sidebar-item-option-dropdown-menu ul > li > a {
-    font-size: 14px;
+    font-size: .925rem;
 }
 
 .chat-sidebar-link {
