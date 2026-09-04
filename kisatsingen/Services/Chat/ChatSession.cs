@@ -398,7 +398,11 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void FireAndForget(string method, params object?[] args)
     {
-        if (IsCircuitLost) return;
+        if (IsCircuitLost)
+        {
+            return;
+        }
+
         _ = ObserveAsync();
         return;
 
