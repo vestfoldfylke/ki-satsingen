@@ -57,11 +57,18 @@ const md = new MarkdownIt({
     typographer: false,
 });
 
-const streamStates = new Map();
+interface StreamState {
+    id: string;
+    buffer: string;
+    el: HTMLElement | null;
+    rafHandle: number;
+}
+
+const streamStates = new Map<string, StreamState>();
 const COPIED_FEEDBACK_MS = 1200;
 const COPY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
-async function copyToClipboard(text, button) {
+async function copyToClipboard(text: string, button: HTMLElement): Promise<void> {
     if (!text) {
         return;
     }
@@ -77,7 +84,7 @@ async function copyToClipboard(text, button) {
 // Wrap each <pre> in a positioned container and drop a copy button in.
 // Idempotent: skips already-wrapped <pre> so re-renders of the same content
 // don't stack duplicates.
-function injectCodeBlockCopy(el) {
+function injectCodeBlockCopy(el: HTMLElement): void {
     el.querySelectorAll('pre').forEach(pre => {
         if (pre.parentElement?.classList.contains('chat-code-block')) {
             return;
@@ -85,7 +92,7 @@ function injectCodeBlockCopy(el) {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'chat-code-block';
-        pre.parentNode.insertBefore(wrapper, pre);
+        pre.parentNode?.insertBefore(wrapper, pre);
         wrapper.appendChild(pre);
 
         const button = document.createElement('button');
@@ -104,12 +111,12 @@ function injectCodeBlockCopy(el) {
 // Message-level copy: read joined prose from the turn's .markdown-fallback divs.
 // Delegated at document to catch any AssistantTurn Blazor inserts later.
 document.addEventListener('click', event => {
-    const button = event.target.closest('[data-copy-turn-id]');
+    const button = (event.target as Element | null)?.closest<HTMLElement>('[data-copy-turn-id]');
     if (!button) {
         return;
     }
 
-    const turn = button.closest('.assistant-turn');
+    const turn = button.closest<HTMLElement>('.assistant-turn');
     if (!turn) {
         return;
     }
@@ -122,21 +129,21 @@ document.addEventListener('click', event => {
     copyToClipboard(text, button);
 });
 
-function renderInto(el, source, {highlight = false} = {}) {
+function renderInto(el: HTMLElement | null, source: string | null | undefined, { highlight = false }: { highlight?: boolean } = {}): void {
     if (!el) {
         return;
     }
     const html = md.render(source ?? '');
     el.innerHTML = DOMPurify.sanitize(html);
     if (highlight) {
-        el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node));
+        el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node as HTMLElement));
         injectCodeBlockCopy(el);
     }
     // Notify content changed, so that we can do fancy auto-scrolling
     notifyContentChanged();
 }
 
-function elForStream(id) {
+function elForStream(id: string): HTMLElement | null {
     return document.getElementById(`stream-${id}`);
 }
 
@@ -146,7 +153,7 @@ function elForStream(id) {
 // Element lookup is deferred to render time: the DOM node may not exist yet
 // when streamStart/streamAppend arrive (Blazor's render batch and this JS
 // interop call race over SignalR).
-function scheduleRender(state) {
+function scheduleRender(state: StreamState): void {
     if (state.rafHandle) {
         return;
     }
@@ -157,11 +164,11 @@ function scheduleRender(state) {
     });
 }
 
-export function streamStart(id) {
+export function streamStart(id: string): void {
     streamStates.set(id, { id, buffer: '', el: null, rafHandle: 0 });
 }
 
-export function streamAppend(id, text) {
+export function streamAppend(id: string, text: string): void {
     let state = streamStates.get(id);
     if (!state) {
         state = { id, buffer: '', el: null, rafHandle: 0 };
@@ -173,7 +180,7 @@ export function streamAppend(id, text) {
 
 // Cancel any in-flight frame before dropping state — otherwise it would render
 // into a DOM node Blazor is about to remove.
-export function streamEnd(id) {
+export function streamEnd(id: string): void {
     const state = streamStates.get(id);
     if (state?.rafHandle) {
         cancelAnimationFrame(state.rafHandle);
@@ -183,8 +190,20 @@ export function streamEnd(id) {
 
 // Called from AssistantTurn.OnAfterRenderAsync for every committed message.
 // This is the only path that runs hljs and injects copy buttons.
-export function renderMarkdown(element, source) {
+export function renderMarkdown(element: HTMLElement | null, source: string): void {
     renderInto(element, source, {highlight: true});
+}
+
+declare global {
+    interface Window {
+        chatClient: {
+            streamStart: typeof streamStart;
+            streamAppend: typeof streamAppend;
+            streamEnd: typeof streamEnd;
+            renderMarkdown: typeof renderMarkdown;
+            initChatLog: typeof initChatLog;
+        };
+    }
 }
 
 window.chatClient = {

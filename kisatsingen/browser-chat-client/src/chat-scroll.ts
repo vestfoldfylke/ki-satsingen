@@ -37,17 +37,17 @@ const PIN_THRESHOLD_REM = 3;
 const USER_ACTIVITY_WINDOW_MS = 400;
 const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
 
-let chatLogElement = null;
-let scrollToBottomPillElement = null;
-let spacerElement = null;
+let chatLogElement: HTMLElement | null = null;
+let scrollToBottomPillElement: HTMLElement | null = null;
+let spacerElement: HTMLElement | null = null;
 let isPinned = true;
 let following = false;
-let mutationObserver = null;
+let mutationObserver: MutationObserver | null = null;
 let userActivityAt = 0;
 let lastScrollTop = 0;
 let shouldIgnoreNextScrollEvent = false;
 
-function remToPx(rem) {
+function remToPx(rem: number): number {
     const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
     return rem * rootSize;
 }
@@ -57,42 +57,42 @@ function remToPx(rem) {
 // can actually place the user bubble at the top; we exclude it from the
 // pin / scroll-to-bottom math so we treat the end of real content — not the
 // end of the reserved area — as the bottom.
-function contentEndPx() {
+function contentEndPx(): number {
     if (!chatLogElement) {
         return 0;
     }
     return spacerElement ? spacerElement.offsetTop : chatLogElement.scrollHeight;
 }
 
-function computeIsPinned() {
+function computeIsPinned(): boolean {
     if (!chatLogElement) {
         return true;
     }
     return contentEndPx() - chatLogElement.scrollTop - chatLogElement.clientHeight <= remToPx(PIN_THRESHOLD_REM);
 }
 
-function updatePill() {
+function updatePill(): void {
     if (!scrollToBottomPillElement) {
         return;
     }
     scrollToBottomPillElement.hidden = isPinned;
 }
 
-function markUserActivity() {
+function markUserActivity(): void {
     userActivityAt = performance.now();
 }
 
-function isRecentUserActivity() {
+function isRecentUserActivity(): boolean {
     return performance.now() - userActivityAt < USER_ACTIVITY_WINDOW_MS;
 }
 
-function clearSpacerInlineHeight() {
+function clearSpacerInlineHeight(): void {
     if (spacerElement) {
         spacerElement.style.minHeight = '';
     }
 }
 
-function scrollToBottom(smooth) {
+function scrollToBottom(smooth: boolean): void {
     if (!chatLogElement) {
         return;
     }
@@ -107,7 +107,7 @@ function scrollToBottom(smooth) {
 
 // Align `el` to the top of the scroll container (padding via scroll-padding-top).
 // Explicitly turns following OFF — the user hasn't asked us to follow the stream.
-function popToTop(el, smooth) {
+function popToTop(el: HTMLElement | null, smooth: boolean): void {
     if (!chatLogElement || !el) {
         return;
     }
@@ -122,14 +122,14 @@ function popToTop(el, smooth) {
 // scrollTop + clientHeight. If the user was following the stream, we skip the
 // preservation and scroll to the new content bottom instead — that's what they
 // were watching.
-function preserveScrollAfterCommit() {
+function preserveScrollAfterCommit(): void {
     if (following) {
         scrollToBottom(false);
         clearSpacerInlineHeight();
         return;
     }
 
-    if (!spacerElement) {
+    if (!spacerElement || !chatLogElement) {
         return;
     }
 
@@ -156,7 +156,10 @@ function preserveScrollAfterCommit() {
     updatePill();
 }
 
-function onScroll() {
+function onScroll(): void {
+    if (!chatLogElement) {
+        return;
+    }
     lastScrollTop = chatLogElement.scrollTop;
     isPinned = computeIsPinned();
     // Only user-initiated scrolls toggle `following`. Programmatic scrolls
@@ -172,21 +175,21 @@ function onScroll() {
     updatePill();
 }
 
-function onPillClick() {
+function onPillClick(): void {
     scrollToBottom(true);
 }
 
-function onKeyDown(e) {
+function onKeyDown(e: KeyboardEvent): void {
     if (SCROLL_KEYS.has(e.key)) {
         markUserActivity();
     }
 }
 
-function hasClass(node, className) {
-    return node.nodeType === 1 && node.classList?.contains(className);
+function hasClass(node: Node, className: string): node is HTMLElement {
+    return node.nodeType === 1 && (node as HTMLElement).classList?.contains(className) === true;
 }
 
-function onLogMutation(mutations) {
+function onLogMutation(mutations: MutationRecord[]): void {
     // New user bubble → user just sent → pop it to the top. The next stream
     // gets a fresh 100dvh spacer via the CSS sibling rule, so clear any inline
     // height left over from the previous commit.
@@ -217,9 +220,9 @@ function onLogMutation(mutations) {
     notifyContentChanged();
 }
 
-export function initChatLog() {
-    const log = document.querySelector('.chat-log');
-    const pill = document.querySelector('.chat-jump-latest');
+export function initChatLog(): void {
+    const log = document.querySelector<HTMLElement>('.chat-log');
+    const pill = document.querySelector<HTMLElement>('.chat-jump-latest');
 
     if (!log) {
         return;
@@ -243,7 +246,7 @@ export function initChatLog() {
 
         chatLogElement = log;
         scrollToBottomPillElement = pill;
-        spacerElement = log.querySelector('.chat-log-spacer');
+        spacerElement = log.querySelector<HTMLElement>('.chat-log-spacer');
 
         log.addEventListener('scroll', onScroll, { passive: true });
         log.addEventListener('wheel', markUserActivity, { passive: true });
@@ -275,14 +278,14 @@ export function initChatLog() {
     //     following stays false so streaming doesn't drag them back.
     //   - otherwise → scroll to bottom, following true (most-recent state).
     const hasStream = log.querySelector('.assistant-streaming') !== null;
-    const bubbles = log.querySelectorAll('.user-bubble');
-    const lastUser = bubbles[bubbles.length - 1];
+    const bubbles = log.querySelectorAll<HTMLElement>('.user-bubble');
+    const lastUser = bubbles[bubbles.length - 1] ?? null;
 
     if (hasStream && lastUser) {
         popToTop(lastUser, false);
         return
     }
-    
+
     scrollToBottom(false);
 }
 
@@ -291,7 +294,7 @@ export function initChatLog() {
 // Gated on `following` — user intent, not DOM position — so popToTop's
 // "no auto-scroll after send" survives even on short chats where the user
 // bubble happens to end up near the bottom.
-export function notifyContentChanged() {
+export function notifyContentChanged(): void {
     if (!chatLogElement) {
         return;
     }
@@ -299,7 +302,7 @@ export function notifyContentChanged() {
         scrollToBottom(false);
         return
     }
-    
+
     // Content grew; scrollHeight changed. Refresh pill visibility.
     isPinned = computeIsPinned();
     updatePill();

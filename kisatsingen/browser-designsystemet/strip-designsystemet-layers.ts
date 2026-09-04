@@ -1,5 +1,5 @@
 /**
- * strip-layers.js
+ * strip-layers.ts
  *
  * Removes @layer wrapping from a CSS file, while keeping all the rules
  * inside those layers intact. Useful as an IDE-only helper file for tools
@@ -12,14 +12,14 @@
  * changes how the CSS competes with other, unlayered CSS in your project.
  *
  * Usage:
- *   node strip-layers.js index.min.css
- *   node strip-layers.js index.min.css custom-output-name.css
+ *   node strip-layers.ts index.min.css
+ *   node strip-layers.ts index.min.css custom-output-name.css
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
+import fs from 'node:fs';
+import path from 'node:path';
 
-function findMatchingBrace(str, openIdx) {
+function findMatchingBrace(str: string, openIdx: number): number {
   let depth = 0;
   for (let i = openIdx; i < str.length; i++) {
     const c = str[i];
@@ -32,12 +32,12 @@ function findMatchingBrace(str, openIdx) {
   return -1;
 }
 
-function stripLayerStatements(css) {
+function stripLayerStatements(css: string): string {
   // Removes "@layer name, name2, ...;" (order-only declarations, no body)
   return css.replace(/@layer\s+[a-zA-Z0-9_.\-,\s]+;/g, '');
 }
 
-function stripLayerBlocks(css) {
+function stripLayerBlocks(css: string): string {
   let changed = true;
   while (changed) {
     changed = false;
@@ -79,11 +79,11 @@ function stripLayerBlocks(css) {
   return css;
 }
 
-function main() {
+function main(): void {
   const [, , inputArg, outputArg] = process.argv;
 
   if (!inputArg) {
-    console.error('Usage: node strip-layers.js <input.css> [output.css]');
+    console.error('Usage: node strip-layers.ts <input.css> [output.css]');
     process.exit(1);
   }
 
