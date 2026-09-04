@@ -45,6 +45,7 @@ let following = false;
 let mutationObserver = null;
 let userActivityAt = 0;
 let lastScrollTop = 0;
+let ignoreNextScrollEvent = false;
 
 function remToPx(rem) {
     const rootSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
@@ -141,8 +142,13 @@ function preserveScrollAfterCommit() {
 
     // If the browser has already clamped scrollTop between the mutation and
     // this callback, put it back — the inline min-height guarantees the target
-    // is valid now.
+    // is valid now. This write fires a native 'scroll' event asynchronously,
+    // which would otherwise reach onScroll and — if recent user activity is
+    // still in its window — let the isRecentUserActivity heuristic mistake
+    // this correction for a real drag and reassign `following`. Suppress that
+    // one event; it carries no user intent.
     if (chatLogElement.scrollTop !== desiredScrollTop) {
+        ignoreNextScrollEvent = true;
         chatLogElement.scrollTop = desiredScrollTop;
     }
 
@@ -155,7 +161,12 @@ function onScroll() {
     isPinned = computeIsPinned();
     // Only user-initiated scrolls toggle `following`. Programmatic scrolls
     // (popToTop, scrollToBottom during streaming) manage `following` directly.
-    if (isRecentUserActivity()) {
+    // preserveScrollAfterCommit's clamp-correction is programmatic too, but it
+    // can't set `following` itself — it fires this event asynchronously after
+    // returning — so it flags the resulting event to skip instead.
+    if (ignoreNextScrollEvent) {
+        ignoreNextScrollEvent = false;
+    } else if (isRecentUserActivity()) {
         following = isPinned;
     }
     updatePill();
