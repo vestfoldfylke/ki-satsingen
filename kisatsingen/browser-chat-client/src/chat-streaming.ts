@@ -111,7 +111,9 @@ function injectCodeBlockCopy(el: HTMLElement): void {
 // Message-level copy: read joined prose from the turn's .markdown-fallback divs.
 // Delegated at document to catch any AssistantTurn Blazor inserts later.
 document.addEventListener('click', event => {
-    const button = (event.target as Element | null)?.closest<HTMLElement>('[data-copy-turn-id]');
+    const button = event.target instanceof Element
+        ? event.target.closest<HTMLElement>('[data-copy-turn-id]')
+        : null;
     if (!button) {
         return;
     }

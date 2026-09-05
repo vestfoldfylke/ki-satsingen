@@ -186,7 +186,7 @@ function onKeyDown(e: KeyboardEvent): void {
 }
 
 function hasClass(node: Node, className: string): node is HTMLElement {
-    return node.nodeType === 1 && (node as HTMLElement).classList?.contains(className) === true;
+    return node instanceof HTMLElement && node.classList.contains(className);
 }
 
 function onLogMutation(mutations: MutationRecord[]): void {
