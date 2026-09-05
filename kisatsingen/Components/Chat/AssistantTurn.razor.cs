@@ -29,7 +29,7 @@ public partial class AssistantTurn : ComponentBase
         if (_markdownRefs is null || _markdownRefs.Length != Turn.Parts.Count)
         {
             _markdownRefs = new ElementReference[Turn.Parts.Count];
-            _lastRendered = new string?[Turn.Parts.Count];
+            Array.Resize(ref _lastRendered, Turn.Parts.Count);
         }
     }
 
