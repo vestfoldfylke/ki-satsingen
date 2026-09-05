@@ -1,0 +1,17 @@
+.chat-code-block {
+    position: relative;
+}
+
+.chat-code-copy {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    opacity: 0;
+    transition: opacity 120ms ease;
+    cursor: pointer;
+}
+
+.chat-code-block:hover .chat-code-copy,
+.chat-code-block:focus-within .chat-code-copy {
+    opacity: 1;
+}

@@ -1,3 +1,4 @@
+using System.Text;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
@@ -10,7 +11,7 @@ namespace kisatsingen.Services.Chat;
 
 public sealed class ChatSession : IAsyncDisposable
 {
-    private const string SystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
+    private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
     private static readonly ChatOptions Options = new()
     {
@@ -27,10 +28,14 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<ChatMessage> _messages = [];
     private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
+    private readonly Dictionary<ChatMessage, AssistantMetadata> _messageMetadata = [];
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
-    private bool _circuitLost;
+    private const int CircuitLive = 0;
+    private const int CircuitLost = 1;
+    private int _circuitState;
+    private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     public event Action? StateChanged;
 
@@ -50,50 +55,148 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? ChatId => _currentChat?.Id;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _messages.Any(m => m.Role != ChatRole.System) || _streamingId is not null;
+    public bool HasVisibleMessages => _messages.Count > 0 || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
 
-    public IReadOnlyList<ChatMessageView> Committed
+    public IReadOnlyList<ChatItemView> Committed
     {
         get
         {
-            var list = new List<ChatMessageView>(_messages.Count);
+            var list = new List<ChatItemView>();
+            List<ChatMessage>? currentTurn = null;
+
             foreach (var message in _messages)
             {
-                if (message.Role == ChatRole.System)
+                if (message.Role == ChatRole.User)
                 {
+                    if (currentTurn is not null)
+                    {
+                        list.Add(BuildTurnView(currentTurn));
+                        currentTurn = null;
+                    }
+                    list.Add(new UserBubbleView(GetOrCreateId(message), message.Text ?? string.Empty));
                     continue;
                 }
 
-                list.Add(new ChatMessageView(
-                    GetOrCreateId(message),
-                    message.Role,
-                    message.Text ?? string.Empty,
-                    message.Contents));
+                currentTurn ??= [];
+                currentTurn.Add(message);
+            }
+
+            if (currentTurn is not null)
+            {
+                list.Add(BuildTurnView(currentTurn));
             }
 
             return list;
         }
     }
 
+    private AssistantTurnView BuildTurnView(List<ChatMessage> turnMessages)
+    {
+        var parts = new List<TurnPart>(turnMessages.Count);
+        foreach (var message in turnMessages)
+        {
+            parts.Add(new TurnPart(message.Text ?? string.Empty, message.Contents));
+        }
+
+        AssistantMetadata? firstMetadata = null;
+        AssistantMetadata? lastMetadata = null;
+        foreach (var message in turnMessages)
+        {
+            if (message.Role != ChatRole.Assistant)
+            {
+                continue;
+            }
+            if (!_messageMetadata.TryGetValue(message, out var found))
+            {
+                continue;
+            }
+            firstMetadata ??= found;
+            lastMetadata = found;
+        }
+
+        return new AssistantTurnView(
+            GetOrCreateId(turnMessages[0]),
+            parts,
+            lastMetadata,
+            firstMetadata?.CreatedAt);
+    }
+
+    public MessageUsage? ConversationUsage
+    {
+        get
+        {
+            long input = 0;
+            long output = 0;
+            long total = 0;
+            var hasAny = false;
+            foreach (var metadata in _messageMetadata.Values)
+            {
+                if (metadata.Usage is not { } usage)
+                {
+                    continue;
+                }
+
+                hasAny = true;
+                input += usage.InputTokens ?? 0;
+                output += usage.OutputTokens ?? 0;
+                total += usage.TotalTokens ?? 0;
+            }
+
+            return hasAny ? new MessageUsage(input, output, total) : null;
+        }
+    }
+
     public async Task LoadAsync(Guid? chatId, CancellationToken ct = default)
     {
         _messages.Clear();
-        _messages.Add(new ChatMessage(ChatRole.System, SystemPrompt));
         _messageIds.Clear();
+        _messageMetadata.Clear();
         _streamingId = null;
         _currentChat = null;
+        _effectiveSystemPrompt = DefaultSystemPrompt;
 
         if (chatId is not null)
         {
-            var chat = await _repo.GetChatAsync(chatId.Value);
+            var chat = await _repo.GetChatAsync(chatId.Value, ct);
             if (chat is not null)
             {
                 _currentChat = chat;
+                _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
+
+                // Legacy chats may still have ChatRole.System rows in the sequence.
+                // Consume them for snapshot fallback, but don't add them to _messages —
+                // the system prompt is prepended synthetically at LLM-call time.
+                var currentSnapshot = _effectiveSystemPrompt;
                 foreach (var stored in chat.Messages)
                 {
-                    _messages.Add(ChatMessageMapper.FromEntity(stored));
+                    var role = new ChatRole(stored.Role);
+                    if (role == ChatRole.System)
+                    {
+                        currentSnapshot = stored.Content;
+                        continue;
+                    }
+
+                    var message = ChatMessageMapper.FromEntity(stored);
+                    _messages.Add(message);
+
+                    if (role == ChatRole.User)
+                    {
+                        currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
+                    }
+                    else if (role == ChatRole.Assistant)
+                    {
+                        _messageMetadata[message] = new AssistantMetadata(
+                            stored.ModelId,
+                            stored.ResponseId,
+                            stored.FinishReason,
+                            MessageUsage.FromEntity(stored),
+                            stored.DurationMs,
+                            stored.TimeToFirstTokenMs,
+                            stored.CreatedAt,
+                            currentSnapshot);
+                    }
                 }
             }
         }
@@ -113,9 +216,10 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            await PersistUserTurnAsync(text.Trim(), _cts.Token);
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(_cts.Token);
-            await PersistResponseAsync(response, durationMs, firstTokenMs, _cts.Token);
+            var systemPromptForThisTurn = _effectiveSystemPrompt;
+            await PersistUserTurnAsync(text.Trim(), systemPromptForThisTurn, _cts.Token);
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(systemPromptForThisTurn, _cts.Token);
+            await PersistResponseAsync(response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -135,7 +239,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private async Task PersistUserTurnAsync(string text, CancellationToken ct)
+    private async Task PersistUserTurnAsync(string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
@@ -145,17 +249,38 @@ public sealed class ChatSession : IAsyncDisposable
         FireAndForget("chatClient.streamStart", _streamingId);
 
         _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
-        await _repo.AppendMessageAsync(_currentChat.Id, ChatMessageMapper.ToEntity(userMessage), ct);
+
+        var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
+        await _repo.AppendMessagesAsync(_currentChat.Id, [entity], ct);
     }
 
-    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(CancellationToken ct)
+    // Flush thresholds tuned for streams roughly in the 20-200 tok/s range.
+    // Flush more often -> more SignalR msgs/s and higher server CPU under fan-out;
+    // less often -> visible pauses in the streaming UI. Retune if either shows up
+    // under load. The rule below is cadence-adaptive (Nagle-style): a solitary
+    // token in a slow stream is flushed immediately; a burst is coalesced.
+    private const long FlushIntervalMs = 50;
+    private const int FlushCharThreshold = 400;
+
+    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(string systemPromptForThisTurn, CancellationToken ct)
     {
         var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
         var startedAt = DateTimeOffset.UtcNow;
         long? firstTokenMs = null;
         var updates = new List<ChatResponseUpdate>();
+        var buffer = new StringBuilder();
+        // Seed so the first token counts as "long-idle since last flush/token"
+        // and gets flushed eagerly, giving a truthful TTFT on the client.
+        var lastFlushMs = -FlushIntervalMs;
+        var lastTokenMs = -FlushIntervalMs;
 
-        await foreach (var update in _client.GetStreamingResponseAsync(_messages, Options, ct))
+        var request = new List<ChatMessage>(_messages.Count + 1)
+        {
+            new(ChatRole.System, systemPromptForThisTurn)
+        };
+        request.AddRange(_messages);
+
+        await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
         {
             updates.Add(update);
             var offsetMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
@@ -179,7 +304,24 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             firstTokenMs ??= offsetMs;
-            FireAndForget("chatClient.streamAppend", _streamingId, update.Text);
+            buffer.Append(update.Text);
+
+            var slowStream = offsetMs - lastTokenMs >= FlushIntervalMs;
+            var windowElapsed = offsetMs - lastFlushMs >= FlushIntervalMs;
+            var bufferFull = buffer.Length >= FlushCharThreshold;
+            lastTokenMs = offsetMs;
+
+            if (slowStream || windowElapsed || bufferFull)
+            {
+                FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
+                buffer.Clear();
+                lastFlushMs = offsetMs;
+            }
+        }
+
+        if (buffer.Length > 0)
+        {
+            FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
         }
 
         var response = updates.ToChatResponse();
@@ -187,7 +329,7 @@ public sealed class ChatSession : IAsyncDisposable
         return (response, durationMs, firstTokenMs);
     }
 
-    private async Task PersistResponseAsync(ChatResponse response, long durationMs, long? firstTokenMs, CancellationToken ct)
+    private async Task PersistResponseAsync(ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
     {
         if (response.ModelId is not null)
         {
@@ -198,11 +340,34 @@ public sealed class ChatSession : IAsyncDisposable
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
 
+        var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
+        var now = DateTimeOffset.UtcNow;
+        var toPersist = new List<Data.Entities.ChatMessage>(response.Messages.Count);
         foreach (var newMessage in response.Messages)
         {
             _messages.Add(newMessage);
-            await _repo.AppendMessageAsync(_currentChat!.Id, ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs), ct);
+            var includeUsage = ReferenceEquals(newMessage, lastAssistant);
+
+            if (newMessage.Role == ChatRole.Assistant)
+            {
+                var usage = includeUsage && response.Usage is { } u
+                    ? new MessageUsage(u.InputTokenCount, u.OutputTokenCount, u.TotalTokenCount)
+                    : null;
+                _messageMetadata[newMessage] = new AssistantMetadata(
+                    response.ModelId,
+                    response.ResponseId,
+                    response.FinishReason?.Value,
+                    usage,
+                    durationMs,
+                    firstTokenMs,
+                    now,
+                    systemPromptForThisTurn);
+            }
+
+            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
         }
+
+        await _repo.AppendMessagesAsync(_currentChat!.Id, toPersist, ct);
     }
 
     private Guid GetOrCreateId(ChatMessage message)
@@ -225,9 +390,19 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void Notify() => StateChanged?.Invoke();
 
+    private bool IsCircuitLost =>
+        Volatile.Read(ref _circuitState) == CircuitLost;
+
+    private bool TryMarkCircuitLost() =>
+        Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive;
+
     private void FireAndForget(string method, params object?[] args)
     {
-        if (_circuitLost) return;
+        if (IsCircuitLost)
+        {
+            return;
+        }
+
         _ = ObserveAsync();
         return;
 
@@ -239,10 +414,11 @@ public sealed class ChatSession : IAsyncDisposable
             }
             catch (JSDisconnectedException)
             {
-                if (_circuitLost) return;
-                _circuitLost = true;
-                _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
-                _cts?.Cancel();
+                if (TryMarkCircuitLost())
+                {
+                    _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
+                    TryCancel();
+                }
             }
             catch (Exception ex)
             {
@@ -251,7 +427,21 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    public void Cancel() => _cts?.Cancel();
+    public void Cancel() => TryCancel();
+
+    // Guards against _cts being disposed by SendAsync's finally block on a
+    // parallel thread. A disposed CTS is already cancelled from a caller's
+    // perspective, so swallowing is correct.
+    private void TryCancel()
+    {
+        try
+        {
+            _cts?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
 
     public async ValueTask DisposeAsync()
     {
@@ -259,7 +449,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             return;
         }
-        
+
         await _cts.CancelAsync();
         _cts.Dispose();
         _cts = null;

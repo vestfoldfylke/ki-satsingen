@@ -2,7 +2,9 @@ bin/
 obj/
 riderModule.iml
 node_modules
-/kisatsingen/designsystemet/designsystemet.flat.css
+/kisatsingen/browser-designsystemet/designsystemet.flat.css
+/kisatsingen/wwwroot/chat-client/
+/kisatsingen/wwwroot/designsystemet/
 
 # Specific to the EFCore-Blazor sample app
 *.db

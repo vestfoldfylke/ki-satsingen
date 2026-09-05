@@ -19,5 +19,7 @@ public sealed class ChatMessage
     public long? DurationMs { get; init; }
     public long? TimeToFirstTokenMs { get; init; }
 
+    public string? SystemPromptSnapshot { get; init; }
+
     public Chat? Chat { get; init; }
 }

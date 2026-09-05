@@ -1,16 +1,19 @@
 {
-  "name": "designsystemet-builder",
+  "name": "browser-designsystemet",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
+  "engines": {
+    "node": ">=22.6.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "vite build && node strip-designsystemet-layers.js ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
+    "build": "tsc --noEmit && vite build && node --experimental-strip-types strip-designsystemet-layers.ts ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+  "type": "module",
   "dependencies": {
     "@digdir/designsystemet-css": "^1.20.0",
     "@digdir/designsystemet-web": "^1.20.0"

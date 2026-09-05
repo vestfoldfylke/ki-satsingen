@@ -1,0 +1,7 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "browser-chat-client/src/**/*.ts",
+    "browser-designsystemet/**/*.ts"
+  ]
+}

@@ -3,4 +3,4 @@ import '@digdir/designsystemet-web';
 
 // Import the core CSS layout and default theme
 import '@digdir/designsystemet-css';
-import '@digdir/designsystemet-css/theme'; 
+import '@digdir/designsystemet-css/theme';

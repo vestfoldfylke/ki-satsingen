@@ -6,7 +6,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-        <DefaultItemExcludes>$(DefaultItemExcludes);designsystemet\package*;chat-client\package*</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);browser-designsystemet\package*;browser-chat-client\package*;package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <ItemGroup>
@@ -38,14 +38,14 @@
       </Content>
     </ItemGroup>
 
-    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="designsystemet\index.js;designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs;wwwroot\designsystemet\designsystemet.css">
-      <Exec Command="npm install" WorkingDirectory="designsystemet" />
-      <Exec Command="npm run build" WorkingDirectory="designsystemet" />
+    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="browser-designsystemet\index.ts;browser-designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs;wwwroot\designsystemet\designsystemet.css">
+      <Exec Command="npm install" WorkingDirectory="browser-designsystemet" />
+      <Exec Command="npm run build" WorkingDirectory="browser-designsystemet" />
     </Target>
 
-    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="chat-client\src\chat-streaming.js;chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
-      <Exec Command="npm install" WorkingDirectory="chat-client" />
-      <Exec Command="npm run build" WorkingDirectory="chat-client" />
+    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="browser-chat-client\src\chat-streaming.ts;browser-chat-client\src\chat-scroll.ts;browser-chat-client\src\copy-button.css;browser-chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
+      <Exec Command="npm install" WorkingDirectory="browser-chat-client" />
+      <Exec Command="npm run build" WorkingDirectory="browser-chat-client" />
     </Target>
 
 </Project>

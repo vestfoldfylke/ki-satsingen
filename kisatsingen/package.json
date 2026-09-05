@@ -1,0 +1,17 @@
+{
+  "name": "kisatsingen-web",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "browser-chat-client",
+    "browser-designsystemet"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2"
+  }
+}
