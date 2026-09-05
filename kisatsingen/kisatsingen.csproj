@@ -43,7 +43,7 @@
       <Exec Command="npm run build" WorkingDirectory="browser-designsystemet" />
     </Target>
 
-    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="browser-chat-client\src\chat-streaming.ts;browser-chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
+    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="browser-chat-client\src\chat-streaming.ts;browser-chat-client\src\chat-scroll.ts;browser-chat-client\src\copy-button.css;browser-chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
       <Exec Command="npm install" WorkingDirectory="browser-chat-client" />
       <Exec Command="npm run build" WorkingDirectory="browser-chat-client" />
     </Target>

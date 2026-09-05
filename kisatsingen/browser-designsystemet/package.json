@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
+  "engines": {
+    "node": ">=22.6.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc --noEmit && vite build && node strip-designsystemet-layers.ts ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
+    "build": "tsc --noEmit && vite build && node --experimental-strip-types strip-designsystemet-layers.ts ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
   },
   "keywords": [],
   "author": "",
