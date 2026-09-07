@@ -1,6 +1,5 @@
 .navbar {
-    padding: 1rem 0 1rem 1rem;
-
+    padding: .2rem;
     .logo-container {
         display: flex;
         align-items: center;
@@ -13,29 +12,160 @@
     font-size: 1.1rem;
 }
 
-.nav-item {
-    font-size: 1rem;
+.nav-item > button > span {
+    font-size: .85rem;
 }
 
     .nav-item:first-of-type {
-        padding-top: 3rem;
+        padding-top: 2rem;
     }
 
     .nav-item:last-of-type {
-        padding-bottom: 3rem;
+        padding-bottom: 2rem;
     }
 
 .nav-scrollable {
     display: none;
+    padding: .2rem .4rem .4rem .4rem;
+}
+
+.user {
+    margin-top: auto;
 }
 
 @media (min-width: 641px) {
     .nav-scrollable {
         /* Never collapse the sidebar for wide screens */
-        display: block;
+        display: flex;
+        flex-direction: column;
 
         /* Allow sidebar to scroll for tall menus */
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
     }
 }
+
+.chat-sidebar {
+    padding: 0;
+    position: sticky;
+    top: 1rem;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+.chat-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.chat-sidebar-header h2 {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.chat-sidebar-empty {
+    opacity: 0.6;
+    font-size: 0.85rem;
+    margin: 0.5rem 0 0;
+}
+
+.chat-sidebar-list {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.chat-sidebar-list > li {
+    margin-top: 0.1rem;
+}
+
+.chat-sidebar-item {
+    display:flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    padding-right: 0;
+    border-radius: 0.375rem;
+    height: 2rem;
+    overflow: hidden;
+}
+
+.chat-sidebar-item:hover {
+    background: #eef2f6;
+}
+
+.chat-sidebar-item:hover .chat-sidebar-item-option-button {
+    opacity: 1;
+    transition: opacity 0.02sease-in-out;
+}
+
+.chat-sidebar-item-active {
+    background: #e0eaff;
+}
+
+.chat-sidebar-item-dropdown[popover] {
+    display: block;
+}
+
+.chat-sidebar-item-option-button {
+    --dsc-button-size: 1.7rem;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0.2rem 0.4rem;
+    opacity: 0;
+}
+
+.chat-sidebar-item-option-button > span.material-symbols-outlined {
+    font-size: 1.3rem;
+}
+
+.chat-sidebar-item-option-dropdown-menu {
+    --dsc-dropdown-padding: 0.25rem;
+    --dsc-dropdown-item-size: 1rem;
+    --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem .3rem;
+    min-width: 0;
+    width: max-content;
+}
+
+.chat-sidebar-item-option-dropdown-menu ul {
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.chat-sidebar-item-option-dropdown-menu ul > li > a {
+    font-size: .925rem;
+}
+
+.chat-sidebar-link {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: inherit;
+}
+
+.chat-sidebar-menu-trigger {
+    flex-shrink: 0;
+}
+
+.chat-sidebar-title {
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-sidebar-time {
+    font-size: 0.7rem;
+    opacity: 0.55;
+}
+

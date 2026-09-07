@@ -119,7 +119,7 @@ app.Use(async (context, next) =>
         "default-src 'self'; " +
         $"script-src {scriptSrc}; " +
         "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
-        "font-src 'self' https://altinncdn.no data:; " +
+        "font-src 'self' https://altinncdn.no; " +
         "img-src 'self' data:; " +
         $"connect-src {connectSrc}; " +
         "frame-ancestors 'none'; " +

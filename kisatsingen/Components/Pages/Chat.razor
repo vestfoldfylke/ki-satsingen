@@ -7,32 +7,6 @@
 <PageTitle>Chat</PageTitle>
 
 <div class="chat-layout">
-    <aside class="chat-sidebar" aria-label="Chat list">
-        <div class="chat-sidebar-header">
-            <h2 class="ds-heading" data-size="sm">Chats</h2>
-            <button type="button" class="ds-button" @onclick="StartNewChatAsync" disabled="@Session.IsBusy">New</button>
-        </div>
-        @if (ChatList.Count == 0)
-        {
-            <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
-        }
-        else
-        {
-            <ul class="ds-list chat-sidebar-list">
-                @foreach (var summary in ChatList)
-                {
-                    <li>
-                        <a class="ds-link chat-sidebar-item @(summary.Id == Session.ChatId ? "chat-sidebar-item-active" : null)"
-                           href="@($"/chat/{summary.Id}")">
-                            <span class="chat-sidebar-title">@summary.Title</span>
-                            <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span>
-                        </a>
-                    </li>
-                }
-            </ul>
-        }
-    </aside>
-
     <div class="chat-page">
         @if (Session.HasVisibleMessages)
         {
