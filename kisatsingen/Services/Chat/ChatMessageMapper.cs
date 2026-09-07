@@ -23,18 +23,20 @@ internal static class ChatMessageMapper
             : new ChatMessage(role, stored.Content);
     }
 
-    public static Data.Entities.ChatMessage ToEntity(ChatMessage message) => new()
+    public static Data.Entities.ChatMessage ToEntity(ChatMessage message, string? systemPromptSnapshot = null) => new()
     {
         Role = message.Role.Value,
         Content = message.Text,
-        ContentsJson = JsonSerializer.Serialize(message.Contents, ContentsJson)
+        ContentsJson = JsonSerializer.Serialize(message.Contents, ContentsJson),
+        SystemPromptSnapshot = systemPromptSnapshot
     };
 
     public static Data.Entities.ChatMessage ToEntity(
         ChatMessage message,
         ChatResponse response,
         long durationMs,
-        long? firstTokenMs)
+        long? firstTokenMs,
+        bool includeUsage)
     {
         var isAssistant = message.Role == ChatRole.Assistant;
         return new Data.Entities.ChatMessage
@@ -45,9 +47,9 @@ internal static class ChatMessageMapper
             ResponseId = isAssistant ? response.ResponseId : null,
             ModelId = isAssistant ? response.ModelId : null,
             FinishReason = isAssistant ? response.FinishReason?.Value : null,
-            InputTokens = isAssistant ? response.Usage?.InputTokenCount : null,
-            OutputTokens = isAssistant ? response.Usage?.OutputTokenCount : null,
-            TotalTokens = isAssistant ? response.Usage?.TotalTokenCount : null,
+            InputTokens = isAssistant && includeUsage ? response.Usage?.InputTokenCount : null,
+            OutputTokens = isAssistant && includeUsage ? response.Usage?.OutputTokenCount : null,
+            TotalTokens = isAssistant && includeUsage ? response.Usage?.TotalTokenCount : null,
             DurationMs = isAssistant ? durationMs : null,
             TimeToFirstTokenMs = isAssistant ? firstTokenMs : null
         };

@@ -1,39 +1,68 @@
 @page "/chat"
 @page "/chat/{ChatId:guid?}"
 @rendermode InteractiveServer
-@using Microsoft.Extensions.AI
 @using kisatsingen.Components.Chat
+@using kisatsingen.Services.Chat
 
 <PageTitle>Chat</PageTitle>
 
 <div class="chat-layout">
     <div class="chat-page">
-        <div class="chat-container">
-            @if (Session.HasVisibleMessages)
-            {
-                <div class="chat-log" role="log" aria-live="polite">
-                    @foreach (var message in Session.Committed)
+        @if (Session.HasVisibleMessages)
+        {
+            <div class="chat-log" role="log" aria-live="polite">
+                <div class="chat-log-inner">
+                    @foreach (var item in Session.Committed)
                     {
-                        if (message.Role == ChatRole.User)
+                        if (item is UserBubbleView bubble)
                         {
-                            <UserBubble @key="message.Id" Message="message" />
+                            <UserBubble @key="item.Id" Bubble="bubble" />
                         }
-                        else
+                        else if (item is AssistantTurnView turn)
                         {
-                            <AssistantMessage @key="message.Id" Message="message" />
+                            <AssistantTurn @key="item.Id" Turn="turn" />
                         }
                     }
                     @if (Session.StreamingId is Guid streamingId)
                     {
                         <StreamingChatMessage Id="streamingId" />
                     }
+                    <div class="chat-log-spacer" aria-hidden="true"></div>
+                    <button type="button" class="chat-jump-latest" hidden aria-label="Jump to latest">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <line x1="12" y1="5" x2="12" y2="19"/>
+                            <polyline points="19 12 12 19 5 12"/>
+                        </svg>
+                    </button>
                 </div>
-            }
-            else
-            {
+            </div>
+        }
+        else
+        {
+            <div class="chat-greeting-wrapper">
                 <div class="chat-greeting">
                     <span class="chat-greeting-emoji">🖕</span>
                     <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+                </div>
+            </div>
+        }
+
+        <div class="chat-tail">
+            @if (Session.ConversationUsage is { } totalUsage)
+            {
+                <div class="chat-usage-total" aria-label="Total token usage for this conversation">
+                    @if (totalUsage.InputTokens is { } input)
+                    {
+                        <span>in @input.ToString("N0")</span>
+                    }
+                    @if (totalUsage.OutputTokens is { } output)
+                    {
+                        <span>out @output.ToString("N0")</span>
+                    }
+                    @if (totalUsage.TotalTokens is { } total)
+                    {
+                        <span>total @total.ToString("N0")</span>
+                    }
                 </div>
             }
 

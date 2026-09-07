@@ -1,11 +1,11 @@
 {
-  "name": "chat-client",
+  "name": "browser-chat-client",
   "version": "1.0.0",
   "description": "Client-side markdown streaming + syntax highlighting for the chat feature",
   "type": "module",
   "private": true,
   "scripts": {
-    "build": "vite build"
+    "build": "tsc --noEmit && vite build"
   },
   "dependencies": {
     "dompurify": "^3.2.4",

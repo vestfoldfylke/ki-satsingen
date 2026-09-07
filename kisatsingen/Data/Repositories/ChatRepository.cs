@@ -18,7 +18,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             CreatedAt = now,
             UpdatedAt = now
         };
-        
+
         db.Chats.Add(chat);
         await db.SaveChangesAsync(ct);
 
@@ -44,27 +44,38 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .ToListAsync(ct);
     }
 
-    public async Task<ChatMessage> AppendMessageAsync(Guid chatId, ChatMessage message, CancellationToken ct = default)
+    public async Task AppendMessagesAsync(Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default)
     {
+        if (messages.Count == 0)
+        {
+            return;
+        }
+
         await using var db = await factory.CreateDbContextAsync(ct);
         var nextSequence = await db.ChatMessages
             .Where(m => m.ChatId == chatId)
             .Select(m => (int?)m.SequenceNumber)
             .MaxAsync(ct) ?? -1;
 
-        message.Id = message.Id == Guid.Empty ? Guid.NewGuid() : message.Id;
-        message.ChatId = chatId;
-        message.SequenceNumber = nextSequence + 1;
-        message.CreatedAt = message.CreatedAt == default ? DateTimeOffset.UtcNow : message.CreatedAt;
+        var now = DateTimeOffset.UtcNow;
+        var lastCreatedAt = now;
 
-        db.ChatMessages.Add(message);
+        for (var i = 0; i < messages.Count; i++)
+        {
+            var message = messages[i];
+            message.Id = message.Id == Guid.Empty ? Guid.NewGuid() : message.Id;
+            message.ChatId = chatId;
+            message.SequenceNumber = nextSequence + 1 + i;
+            message.CreatedAt = message.CreatedAt == default ? now : message.CreatedAt;
+            lastCreatedAt = message.CreatedAt;
+            db.ChatMessages.Add(message);
+        }
 
-        await db.Chats
-            .Where(c => c.Id == chatId)
-            .ExecuteUpdateAsync(s => s.SetProperty(c => c.UpdatedAt, message.CreatedAt), ct);
+        var chatStub = new Chat { Id = chatId, Title = string.Empty, UpdatedAt = lastCreatedAt };
+        db.Chats.Attach(chatStub);
+        db.Entry(chatStub).Property(c => c.UpdatedAt).IsModified = true;
 
         await db.SaveChangesAsync(ct);
-        return message;
     }
 
     public async Task RenameChatAsync(Guid chatId, string title, CancellationToken ct = default)

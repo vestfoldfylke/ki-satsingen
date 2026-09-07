@@ -3,10 +3,11 @@ using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Pages;
 
-public partial class Chat : ComponentBase, IDisposable
+public sealed partial class Chat : ComponentBase, IAsyncDisposable
 {
     [Inject]
     public required ChatSession Session { get; set; }
@@ -20,12 +21,17 @@ public partial class Chat : ComponentBase, IDisposable
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
+    [Inject]
+    public required IJSRuntime JS { get; set; }
+
     [Parameter]
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
     private List<ChatSummary> ChatList { get; set; } = [];
     private bool _stateWired;
+    private Guid? _lastInitChatId;
+    private bool _lastInitChatHadVisibleMessages;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -91,13 +97,37 @@ public partial class Chat : ComponentBase, IDisposable
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        GC.SuppressFinalize(this);
+        var chatSwitched = _lastInitChatId != Session.ChatId;
+        var visibilityFlipped = _lastInitChatHadVisibleMessages != Session.HasVisibleMessages;
+        if (!firstRender && !chatSwitched && !visibilityFlipped)
+        {
+            return;
+        }
+
+        _lastInitChatId = Session.ChatId;
+        _lastInitChatHadVisibleMessages = Session.HasVisibleMessages;
+
+        try
+        {
+            await JS.InvokeVoidAsync("chatClient.initChatLog");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.initChatLog");
+        }
+    }
+
+    public ValueTask DisposeAsync()
+    {
         if (_stateWired)
         {
             Session.StateChanged -= OnSessionChanged;
         }
+        // Cancel any in-flight send. Session is scoped, so DI owns its full
+        // disposal — we don't call Session.DisposeAsync here.
         Session.Cancel();
+        return ValueTask.CompletedTask;
     }
 }
