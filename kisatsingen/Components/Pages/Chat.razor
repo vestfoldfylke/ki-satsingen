@@ -9,7 +9,8 @@
 <div class="chat-layout">
     <div class="chat-page">
         <div class="chat-container">
-            @if (Session.HasVisibleMessages) {
+            @if (Session.HasVisibleMessages)
+            {
                 <div class="chat-log" role="log" aria-live="polite">
                     @foreach (var message in Session.Committed)
                     {
@@ -27,7 +28,9 @@
                         <StreamingChatMessage Id="streamingId" />
                     }
                 </div>
-            } else {
+            }
+            else
+            {
                 <div class="chat-greeting">
                     <span class="chat-greeting-emoji">🖕</span>
                     <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
