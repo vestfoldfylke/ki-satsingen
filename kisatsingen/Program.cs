@@ -77,11 +77,10 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .AsIChatClient())
     .UseFunctionInvocation();
 
-var connectionString = builder.Configuration.GetConnectionString("AppDb")
-    ?? "Data Source=./dev-db/local-test.db";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseNpgsql(connectionString));
 
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -95,14 +94,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    await using var db = await factory.CreateDbContextAsync();
-    if (db.Database.IsSqlite())
+    using var db = factory.CreateDbContext();
+
+    var pending = db.Database.GetPendingMigrations().ToArray();
+    if (pending.Length != 0)
     {
-        await db.Database.EnsureCreatedAsync();
-    }
-    else
-    {
-        await db.Database.MigrateAsync();
+        Console.WriteLine($"[WARNING]: -------------- {pending.Length} pending migration(s). You should run \"dotnet ef database update\" before continuing! --------------");
     }
 }
 

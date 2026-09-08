@@ -7,8 +7,16 @@ public sealed class AppDbContextDesignTimeFactory : IDesignTimeDbContextFactory<
 {
     public AppDbContext CreateDbContext(string[] args)
     {
+        var config = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json")
+            .AddJsonFile("appsettings.Development.json", true)
+            .Build();
+
+        var connectionString = config.GetConnectionString("DefaultConnection");
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql("Host=localhost;Database=kisatsingen_design;Username=design_time")
+            .UseNpgsql(connectionString)
             .Options;
 
         return new AppDbContext(options);
