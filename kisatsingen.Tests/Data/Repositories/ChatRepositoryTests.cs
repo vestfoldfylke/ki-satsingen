@@ -13,6 +13,8 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     private readonly DbConnection _connection;
     private readonly IDbContextFactory<AppDbContext> _factory;
 
+    private const string OwnerId = "Whatever";
+
     private ChatRepository Repo => new(_factory);
 
     public ChatRepositoryTests()
@@ -37,9 +39,9 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task AppendMessagesAsync_with_empty_list_is_a_noop()
     {
-        var chat = await Repo.CreateChatAsync(ownerId: null, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
-        await Repo.AppendMessagesAsync(chat.Id, []);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, []);
 
         await using var db = await _factory.CreateDbContextAsync();
         var count = await db.ChatMessages.CountAsync();
@@ -49,9 +51,9 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task AppendMessagesAsync_writes_a_single_message_at_sequence_zero()
     {
-        var chat = await Repo.CreateChatAsync(ownerId: null, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
-        await Repo.AppendMessagesAsync(chat.Id, [Message("user", "hi")]);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
         await using var db = await _factory.CreateDbContextAsync();
         var stored = await db.ChatMessages.SingleAsync();
@@ -63,10 +65,10 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task AppendMessagesAsync_assigns_monotonic_sequences_after_max()
     {
-        var chat = await Repo.CreateChatAsync(ownerId: null, "hello");
-        await Repo.AppendMessagesAsync(chat.Id, [Message("system", "sys"), Message("user", "hi")]);
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("system", "sys"), Message("user", "hi")]);
 
-        await Repo.AppendMessagesAsync(chat.Id, [
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("assistant", "a1"),
             Message("assistant", "a2"),
             Message("assistant", "a3")
@@ -85,8 +87,8 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task AppendMessagesAsync_leaves_UpdatedAt_unchanged_when_the_insert_fails()
     {
-        var chat = await Repo.CreateChatAsync(ownerId: null, "hello");
-        await Repo.AppendMessagesAsync(chat.Id, [Message("user", "hi")]);
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
         await using var before = await _factory.CreateDbContextAsync();
         var existingId = (await before.ChatMessages.SingleAsync()).Id;
@@ -95,7 +97,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
         var colliding = Message("assistant", "boom");
         colliding.Id = existingId;
 
-        await Assert.ThrowsAsync<DbUpdateException>(() => Repo.AppendMessagesAsync(chat.Id, [colliding]));
+        await Assert.ThrowsAsync<DbUpdateException>(() => Repo.AppendMessagesAsync(OwnerId, chat.Id, [colliding]));
 
         await using var after = await _factory.CreateDbContextAsync();
         var reloaded = await after.Chats.SingleAsync(c => c.Id == chat.Id);
@@ -105,11 +107,11 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     [Fact]
     public async Task AppendMessagesAsync_bumps_chat_UpdatedAt_to_last_CreatedAt()
     {
-        var chat = await Repo.CreateChatAsync(ownerId: null, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         var first = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
         var last = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
 
-        await Repo.AppendMessagesAsync(chat.Id, [
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("user", "one", first),
             Message("assistant", "two", last)
         ]);

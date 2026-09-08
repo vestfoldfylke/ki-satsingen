@@ -1,6 +1,7 @@
 using kisatsingen.Components.Chat;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -9,6 +10,9 @@ namespace kisatsingen.Components.Pages;
 
 public sealed partial class Chat : ComponentBase, IAsyncDisposable
 {
+    [Inject]
+    public required IAuthenticationService AuthService { get; set; }
+    
     [Inject]
     public required ChatSession Session { get; set; }
 
@@ -27,6 +31,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     [Parameter]
     public Guid? ChatId { get; set; }
 
+    private string MessageText { get; set; } = string.Empty;
+    // TODO: ChatList isn't retrieved anywhere. Only updated. Probably not needed?
     private List<ChatSummary> ChatList { get; set; } = [];
     private ChatComposer? _composer;
     private bool _stateWired;
@@ -52,19 +58,14 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
     private async Task RefreshChatListAsync()
     {
-        var list = await ChatRepository.ListChatsAsync(ownerId: null);
-        ChatList = list.ToList();
-    }
-
-    private void StartNewChatAsync()
-    {
-        if (Session.IsBusy)
+        var userObjectId = await AuthService.GetUserObjectIdentifierAsync();
+        if (string.IsNullOrEmpty(userObjectId))
         {
-            return;
+            throw new Exception("UserObjectId not found");
         }
 
-        Logger.LogInformation("New chat started");
-        Navigation.NavigateTo("/chat", replace: true);
+        var list = await ChatRepository.ListChatsAsync(userObjectId);
+        ChatList = list.ToList();
     }
 
     private async Task SendAsync()

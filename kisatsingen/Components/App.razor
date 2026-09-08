@@ -2,25 +2,19 @@
 <html lang="en">
 
 <head>
+    <title>Will be replaced</title>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <base href="/"/>
     <ResourcePreloader/>
 
     <!-- Designsystemet CSS + tema -->
-    <link rel="stylesheet" href="designsystemet/designsystemet.css" />
+    <link rel="stylesheet" href="designsystemet/designsystemet.css"/>
 
     <!-- Chat client (markdown streaming + syntax highlighting) -->
-    <link rel="stylesheet" href="chat-client/chat-client.css" />
+    <link rel="stylesheet" href="chat-client/chat-client.css"/>
 
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-
-    <!-- Inter-font (anbefalt av designsystemet) -->
-    <link
-        rel="stylesheet"
-        href="https://altinncdn.no/fonts/inter/v4.1/inter.css"
-        integrity="sha384-OcHzc/By/OPw9uJREawUCjP2inbOGKtKb4A/I2iXxmknUfog2H8Adx71tWVZRscD"
-        crossorigin="anonymous" />
+    <link rel="stylesheet" href="@Assets["app.css"]"/>
 
     <!-- Standard Blazor -->
     <link rel="stylesheet" href="@Assets["app.css"]"/>
@@ -30,7 +24,9 @@
     <link rel="icon" type="image/png" href="favicon.png"/>
     <HeadOutlet @rendermode="InteractiveServer"/>
 
-    <link href="_content/MudBlazor.FontIcons.MaterialSymbols/css/font.min.css" rel="stylesheet" />
+    @* ReSharper disable Html.PathNotResolved *@
+    <link href="_content/MudBlazor.FontIcons.MaterialSymbols/css/font.min.css" rel="stylesheet"/>
+    @* ReSharper restore Html.PathNotResolved *@
 </head>
 
 <body>

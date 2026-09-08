@@ -5,7 +5,7 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
-    public async Task<Chat> CreateChatAsync(string? ownerId, string title, CancellationToken ct = default)
+    public async Task<Chat> CreateChatAsync(string ownerId, string title, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
@@ -34,7 +34,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .FirstOrDefaultAsync(c => c.Id == chatId, ct);
     }
 
-    public async Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string? ownerId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Chats
@@ -44,7 +44,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .ToListAsync(ct);
     }
 
-    public async Task AppendMessagesAsync(Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default)
+    public async Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default)
     {
         if (messages.Count == 0)
         {
@@ -71,7 +71,13 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             db.ChatMessages.Add(message);
         }
 
-        var chatStub = new Chat { Id = chatId, Title = string.Empty, UpdatedAt = lastCreatedAt };
+        var chatStub = new Chat
+        {
+            OwnerId = ownerId,
+            Id = chatId,
+            Title = string.Empty,
+            UpdatedAt = lastCreatedAt
+        };
         db.Chats.Attach(chatStub);
         db.Entry(chatStub).Property(c => c.UpdatedAt).IsModified = true;
 
