@@ -31,6 +31,14 @@
 // Chat load / switch: scroll to bottom + following=true (most-recent state).
 // Chat load with an active stream: popToTop the last user bubble + following=false.
 //
+// The composer (.chat-tail) is sticky INSIDE this scrollport, so the bottom
+// `bottomInsetPx` of clientHeight is covered by it. Every "is the end of the
+// content visible" question is therefore about clientHeight - bottomInsetPx,
+// not clientHeight — otherwise scrollToBottom parks the last message behind
+// the composer. The inset is republished by a ResizeObserver (the usage row
+// appears and disappears, the footer rewraps) and mirrored into CSS as
+// --chat-tail-height for the jump pill's offset and the streaming spacer.
+//
 // Wiring is idempotent, driven by Blazor's OnAfterRenderAsync (gated).
 
 const PIN_THRESHOLD_REM = 3;
@@ -40,9 +48,12 @@ const SCROLL_KEYS = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home
 let chatLogElement: HTMLElement | null = null;
 let scrollToBottomPillElement: HTMLElement | null = null;
 let spacerElement: HTMLElement | null = null;
+let chatTailElement: HTMLElement | null = null;
 let isPinned = true;
 let following = false;
 let mutationObserver: MutationObserver | null = null;
+let tailResizeObserver: ResizeObserver | null = null;
+let bottomInsetPx = 0;
 let userActivityAt = 0;
 let lastScrollTop = 0;
 let shouldIgnoreNextScrollEvent = false;
@@ -53,10 +64,12 @@ function remToPx(rem: number): number {
 }
 
 // "Content end" is the top of the trailing spacer (or scrollHeight if there
-// isn't one). The spacer reserves ~1 viewport of scroll space so popToTop
-// can actually place the user bubble at the top; we exclude it from the
-// pin / scroll-to-bottom math so we treat the end of real content — not the
-// end of the reserved area — as the bottom.
+// isn't one). The spacer reserves ~1 screenful of visible transcript so
+// popToTop can actually place the user bubble at the top; we exclude it from
+// the pin / scroll-to-bottom math so we treat the end of real content — not
+// the end of the reserved area — as the bottom.
+// offsetTop is measured from .chat-log (position:relative), which puts it in
+// the same coordinate space as scrollTop.
 function contentEndPx(): number {
     if (!chatLogElement) {
         return 0;
@@ -64,11 +77,30 @@ function contentEndPx(): number {
     return spacerElement ? spacerElement.offsetTop : chatLogElement.scrollHeight;
 }
 
+// Height of the strip that isn't covered by the sticky composer — the part of
+// the scrollport a message can actually be read in.
+function visibleHeightPx(): number {
+    if (!chatLogElement) {
+        return 0;
+    }
+    return Math.max(0, chatLogElement.clientHeight - bottomInsetPx);
+}
+
+// Cache the composer's height rather than reading offsetHeight inside the
+// scroll handler — that would force a layout on every scroll event.
+function publishTailHeight(): void {
+    if (!chatLogElement) {
+        return;
+    }
+    bottomInsetPx = chatTailElement ? chatTailElement.offsetHeight : 0;
+    chatLogElement.style.setProperty('--chat-tail-height', `${bottomInsetPx}px`);
+}
+
 function computeIsPinned(): boolean {
     if (!chatLogElement) {
         return true;
     }
-    return contentEndPx() - chatLogElement.scrollTop - chatLogElement.clientHeight <= remToPx(PIN_THRESHOLD_REM);
+    return contentEndPx() - chatLogElement.scrollTop - visibleHeightPx() <= remToPx(PIN_THRESHOLD_REM);
 }
 
 function updatePill(): void {
@@ -96,9 +128,9 @@ function scrollToBottom(smooth: boolean): void {
     if (!chatLogElement) {
         return;
     }
-    // Scroll so the end of real content sits at the viewport bottom — not
-    // into the spacer reservoir below.
-    const target = Math.max(0, contentEndPx() - chatLogElement.clientHeight);
+    // Scroll so the end of real content sits at the top edge of the composer
+    // — not into the spacer reservoir below it, and not behind the composer.
+    const target = Math.max(0, contentEndPx() - visibleHeightPx());
     chatLogElement.scrollTo({ top: target, behavior: smooth ? 'smooth' : 'auto' });
     isPinned = true;
     following = true;
@@ -135,8 +167,13 @@ function preserveScrollAfterCommit(): void {
 
     const desiredScrollTop = lastScrollTop;
     const clientHeight = chatLogElement.clientHeight;
-    const contentEnd = spacerElement.offsetTop;
-    const neededSpacerPx = Math.max(0, desiredScrollTop + clientHeight - contentEnd);
+    // Measure the scrollport's content with the spacer's own current
+    // contribution removed, then reserve the difference. Deriving it from
+    // scrollHeight keeps this correct no matter what else sits below the
+    // transcript in flow (the jump pill, the sticky composer) — enumerating
+    // those here would rot the moment the tail changes.
+    const contentWithoutSpacer = chatLogElement.scrollHeight - spacerElement.offsetHeight;
+    const neededSpacerPx = Math.max(0, desiredScrollTop + clientHeight - contentWithoutSpacer);
 
     spacerElement.style.minHeight = `${neededSpacerPx}px`;
 
@@ -233,6 +270,10 @@ export function initChatLog(): void {
             mutationObserver.disconnect();
             mutationObserver = null;
         }
+        if (tailResizeObserver) {
+            tailResizeObserver.disconnect();
+            tailResizeObserver = null;
+        }
         if (chatLogElement) {
             chatLogElement.removeEventListener('scroll', onScroll);
             chatLogElement.removeEventListener('wheel', markUserActivity);
@@ -247,6 +288,7 @@ export function initChatLog(): void {
         chatLogElement = log;
         scrollToBottomPillElement = pill;
         spacerElement = log.querySelector<HTMLElement>('.chat-log-spacer');
+        chatTailElement = log.querySelector<HTMLElement>('.chat-tail');
 
         log.addEventListener('scroll', onScroll, { passive: true });
         log.addEventListener('wheel', markUserActivity, { passive: true });
@@ -268,7 +310,16 @@ export function initChatLog(): void {
         }
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
+
+        if (chatTailElement) {
+            tailResizeObserver = new ResizeObserver(publishTailHeight);
+            tailResizeObserver.observe(chatTailElement);
+        }
     }
+
+    // Synchronously, before any scroll positioning below: the observer's first
+    // callback is async and every scroll target depends on this inset.
+    publishTailHeight();
 
     // Any inline spacer height from a previous session's commit is stale here.
     clearSpacerInlineHeight();

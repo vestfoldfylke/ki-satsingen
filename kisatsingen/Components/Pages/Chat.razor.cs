@@ -1,8 +1,8 @@
+using kisatsingen.Components.Chat;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Pages;
@@ -29,6 +29,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
     private string MessageText { get; set; } = string.Empty;
     private List<ChatSummary> ChatList { get; set; } = [];
+    private ChatComposer? _composer;
     private bool _stateWired;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
@@ -66,14 +67,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         Navigation.NavigateTo("/chat", replace: true);
     }
 
-    private async Task OnComposerKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e is { Key: "Enter", ShiftKey: false })
-        {
-            await SendAsync();
-        }
-    }
-
     private async Task SendAsync()
     {
         if (string.IsNullOrWhiteSpace(MessageText))
@@ -106,6 +99,11 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             return;
         }
 
+        // Sending the first message swaps the empty-state layout for the
+        // transcript layout. They're separate branches, so the composer's DOM
+        // is rebuilt and the caret is lost — restore it below.
+        var becameActive = !firstRender && !_lastInitChatHadVisibleMessages && Session.HasVisibleMessages;
+
         _lastInitChatId = Session.ChatId;
         _lastInitChatHadVisibleMessages = Session.HasVisibleMessages;
 
@@ -116,6 +114,11 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.initChatLog");
+        }
+
+        if (becameActive && _composer is not null)
+        {
+            await _composer.FocusAsync();
         }
     }
 

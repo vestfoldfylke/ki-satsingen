@@ -1,10 +1,17 @@
+/* Fills .sidebar's height (MainLayout.razor.css), which itself is stretched
+   to .page's real height — no vh/dvh math needed at this level. */
 .navbar {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
     padding: .2rem;
     .logo-container {
         display: flex;
         align-items: center;
         gap: 0.5rem;
         font-weight: 600;
+        flex-shrink: 0;
     }
 }
 
@@ -29,28 +36,33 @@
     padding: .2rem .4rem .4rem .4rem;
 }
 
-.user {
-    margin-top: auto;
-}
-
+/* Fixed-size top (nav-primary) and bottom (user) rows; .chat-sidebar is the
+   sole flexible, scrolling middle — so it (not this container) owns
+   flex:1/min-height:0/overflow-y:auto. No margin-top:auto needed on .user:
+   .chat-sidebar's flex-grow already claims all leftover space. */
 @media (min-width: 641px) {
     .nav-scrollable {
         /* Never collapse the sidebar for wide screens */
         display: flex;
         flex-direction: column;
-
-        /* Allow sidebar to scroll for tall menus */
-        height: calc(100vh - 3.5rem);
-        overflow-y: auto;
+        flex: 1;
+        min-height: 0;
     }
+}
+
+.nav-primary {
+    flex-shrink: 0;
 }
 
 .chat-sidebar {
     padding: 0;
-    position: sticky;
-    top: 1rem;
-    max-height: calc(100vh - 2rem);
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
+}
+
+.user {
+    flex-shrink: 0;
 }
 
 .chat-sidebar-header {
