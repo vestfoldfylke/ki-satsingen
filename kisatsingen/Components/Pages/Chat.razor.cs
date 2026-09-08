@@ -1,5 +1,6 @@
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
@@ -9,6 +10,9 @@ namespace kisatsingen.Components.Pages;
 
 public sealed partial class Chat : ComponentBase, IAsyncDisposable
 {
+    [Inject]
+    public required IAuthenticationService AuthService { get; set; }
+    
     [Inject]
     public required ChatSession Session { get; set; }
 
@@ -51,7 +55,13 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
     private async Task RefreshChatListAsync()
     {
-        var list = await ChatRepository.ListChatsAsync(ownerId: null);
+        var userObjectId = await AuthService.GetUserObjectIdentifierAsync();
+        if (string.IsNullOrEmpty(userObjectId))
+        {
+            throw new Exception("UserObjectId not found");
+        }
+
+        var list = await ChatRepository.ListChatsAsync(userObjectId);
         ChatList = list.ToList();
     }
 
