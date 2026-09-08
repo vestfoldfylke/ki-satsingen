@@ -32,6 +32,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
+    // TODO: ChatList isn't retrieved anywhere. Only updated. Probably not needed?
     private List<ChatSummary> ChatList { get; set; } = [];
     private bool _stateWired;
     private Guid? _lastInitChatId;
@@ -63,17 +64,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
         var list = await ChatRepository.ListChatsAsync(userObjectId);
         ChatList = list.ToList();
-    }
-
-    private void StartNewChatAsync()
-    {
-        if (Session.IsBusy)
-        {
-            return;
-        }
-
-        Logger.LogInformation("New chat started");
-        Navigation.NavigateTo("/chat", replace: true);
     }
 
     private async Task OnComposerKeyDownAsync(KeyboardEventArgs e)

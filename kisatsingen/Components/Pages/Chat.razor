@@ -23,7 +23,7 @@
                             <AssistantTurn @key="item.Id" Turn="turn" />
                         }
                     }
-                    @if (Session.StreamingId is Guid streamingId)
+                    @if (Session.StreamingId is { } streamingId)
                     {
                         <StreamingChatMessage Id="streamingId" />
                     }

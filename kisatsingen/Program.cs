@@ -114,7 +114,7 @@ var connectSrc = app.Environment.IsDevelopment()
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["Content-Security-Policy"] =
+    context.Response.Headers.ContentSecurityPolicy =
         "default-src 'self'; " +
         $"script-src {scriptSrc}; " +
         "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
@@ -126,7 +126,7 @@ app.Use(async (context, next) =>
         "form-action 'self'; " +
         "object-src 'none'";
 
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
     await next();
