@@ -1,14 +1,14 @@
-// Client-side markdown renderer for chat.
+// Client-side Markdown renderer for chat.
 //
 // Lifecycle for one assistant response:
-//   streamStart(id)                → init buffer for a new stream (once)
-//   streamAppend(id, text) × N     → server pushes tokens over SignalR
+//   streamStart(id)                → init buffer for a new stream (once).
+//   streamAppend(id, text) × N     → server pushes tokens over SignalR.
 //   streamEnd(id)                  → drop buffer; Blazor then removes the
 //                                    stream-{id} div and renders the committed
-//                                    <AssistantTurn>, which calls renderMarkdown
+//                                    <AssistantTurn>, which calls renderMarkdown.
 //   renderMarkdown(el, source)     → final render on the committed message,
 //                                    with hljs syntax highlighting and code-copy
-//                                    buttons injected per <pre>
+//                                    buttons injected per <pre>.
 //
 // Streaming skips hljs on purpose: re-highlighting every code block on every
 // token is O(n²) in response length. hljs and copy buttons run once on commit.

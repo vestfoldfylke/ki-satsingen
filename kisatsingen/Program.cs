@@ -1,4 +1,5 @@
 using kisatsingen.Components;
+using kisatsingen.Constants;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -47,7 +48,7 @@ builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.Authe
 
         var metricsService = ctx.HttpContext.RequestServices.GetRequiredService<IMetricsService>();
 
-        foreach (var role in AppConstants.Roles)
+        foreach (var role in AppConstants.ContributionRoles)
         {
             if (ctx.Principal?.IsInRole(role) ?? false)
             {
@@ -64,8 +65,8 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
 });
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole("Administrator"))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole("Contributor", "Administrator"));
+    .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
@@ -77,13 +78,13 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .AsIChatClient())
     .UseFunctionInvocation();
 
-var connectionString = builder.Configuration.GetConnectionString("AppDb")
-    ?? "Data Source=./dev-db/local-test.db";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseNpgsql(connectionString));
 
 // ─── Application services ──────────────────────────────
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
@@ -94,14 +95,12 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    await using var db = await factory.CreateDbContextAsync();
-    if (db.Database.IsSqlite())
+    using var db = factory.CreateDbContext();
+
+    var pending = db.Database.GetPendingMigrations().ToArray();
+    if (pending.Length != 0)
     {
-        await db.Database.EnsureCreatedAsync();
-    }
-    else
-    {
-        await db.Database.MigrateAsync();
+        Console.WriteLine($"[WARNING]: -------------- {pending.Length} pending migration(s). You should run \"dotnet ef database update\" before continuing! --------------");
     }
 }
 
@@ -115,7 +114,7 @@ var connectSrc = app.Environment.IsDevelopment()
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers["Content-Security-Policy"] =
+    context.Response.Headers.ContentSecurityPolicy =
         "default-src 'self'; " +
         $"script-src {scriptSrc}; " +
         "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
@@ -127,7 +126,7 @@ app.Use(async (context, next) =>
         "form-action 'self'; " +
         "object-src 'none'";
 
-    context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
     await next();

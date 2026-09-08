@@ -87,8 +87,7 @@
     display:flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.2rem 0.5rem;
-    padding-right: 0;
+    padding: 0.2rem 0 0.2rem 0.5rem;
     border-radius: 0.375rem;
     height: 2rem;
     overflow: hidden;
@@ -100,7 +99,7 @@
 
 .chat-sidebar-item:hover .chat-sidebar-item-option-button {
     opacity: 1;
-    transition: opacity 0.02sease-in-out;
+    transition: opacity 0.02s ease-in-out;
 }
 
 .chat-sidebar-item-active {

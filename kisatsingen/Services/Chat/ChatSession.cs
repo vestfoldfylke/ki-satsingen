@@ -20,6 +20,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_Chat";
 
+    private readonly IAuthenticationService _authenticationService;
     private readonly IChatClient _client;
     private readonly IChatRepository _repo;
     private readonly IMetricsService _metrics;
@@ -40,12 +41,14 @@ public sealed class ChatSession : IAsyncDisposable
     public event Action? StateChanged;
 
     public ChatSession(
+        IAuthenticationService authenticationService,
         IChatClient client,
         IChatRepository repo,
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger)
     {
+        _authenticationService = authenticationService;
         _client = client;
         _repo = repo;
         _metrics = metrics;
@@ -248,10 +251,16 @@ public sealed class ChatSession : IAsyncDisposable
 
         FireAndForget("chatClient.streamStart", _streamingId);
 
-        _currentChat ??= await _repo.CreateChatAsync(ownerId: null, BuildTitle(text), ct);
+        var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
+        if (string.IsNullOrEmpty(userObjectId))
+        {
+            throw new Exception("UserObjectId not found");
+        }
+
+        _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
 
         var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
-        await _repo.AppendMessagesAsync(_currentChat.Id, [entity], ct);
+        await _repo.AppendMessagesAsync(userObjectId, _currentChat.Id, [entity], ct);
     }
 
     // Flush thresholds tuned for streams roughly in the 20-200 tok/s range.
@@ -339,6 +348,12 @@ public sealed class ChatSession : IAsyncDisposable
         {
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
+        
+        var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
+        if (string.IsNullOrEmpty(userObjectId))
+        {
+            throw new Exception("UserObjectId not found");
+        }
 
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
@@ -367,7 +382,7 @@ public sealed class ChatSession : IAsyncDisposable
             toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
         }
 
-        await _repo.AppendMessagesAsync(_currentChat!.Id, toPersist, ct);
+        await _repo.AppendMessagesAsync(userObjectId, _currentChat!.Id, toPersist, ct);
     }
 
     private Guid GetOrCreateId(ChatMessage message)
