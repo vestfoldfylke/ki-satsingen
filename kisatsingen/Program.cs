@@ -1,4 +1,5 @@
 using kisatsingen.Components;
+using kisatsingen.Constants;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -47,7 +48,7 @@ builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.Authe
 
         var metricsService = ctx.HttpContext.RequestServices.GetRequiredService<IMetricsService>();
 
-        foreach (var role in AppConstants.Roles)
+        foreach (var role in AppConstants.ContributionRoles)
         {
             if (ctx.Principal?.IsInRole(role) ?? false)
             {
@@ -64,8 +65,8 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
 });
 
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole("Administrator"))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole("Contributor", "Administrator"));
+    .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
