@@ -23,8 +23,9 @@
                             <AssistantTurn @key="item.Id" Turn="turn" />
                         }
                     }
-                    @if (Session.StreamingId is { } streamingId)
+                    @if (Session.StreamingId is not null)
                     {
+                        var streamingId = Session.StreamingId.Value;
                         <StreamingChatMessage Id="streamingId" />
                     }
                     <div class="chat-log-spacer" aria-hidden="true"></div>
