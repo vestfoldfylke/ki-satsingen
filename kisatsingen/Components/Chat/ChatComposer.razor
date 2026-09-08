@@ -3,10 +3,7 @@
               id="chat-textarea"
               class="ds-input chat-textarea"
               placeholder="Spør om hva som helst..."
-              disabled="@IsBusy"
-              value="@Text"
-              @oninput="OnInputAsync"
-              @onkeydown="OnKeyDownAsync"></textarea>
+              disabled="@IsBusy"></textarea>
 
     <div class="chat-composer-actions">
         <button class="composer-icon-button" type="button" aria-label="Legg ved fil" disabled="@IsBusy">
@@ -15,10 +12,13 @@
                 <line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
         </button>
+        @* disabled is static: the textarea always starts empty, so this is the
+           correct initial state. chat-composer.ts owns it from here on (busy
+           + emptiness combined) — Blazor never re-touches it. *@
         <button class="composer-send-button"
                 type="button"
                 aria-label="Send melding"
-                disabled="@(IsBusy || string.IsNullOrWhiteSpace(Text))"
+                disabled
                 @onclick="OnSend">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5"/>

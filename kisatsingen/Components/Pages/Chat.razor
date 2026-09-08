@@ -56,7 +56,6 @@
                     }
 
                     <ChatComposer @ref="_composer"
-                                  @bind-Text="MessageText"
                                   IsBusy="Session.IsBusy"
                                   OnSend="SendAsync" />
                 </div>
@@ -71,7 +70,6 @@
                 </div>
 
                 <ChatComposer @ref="_composer"
-                              @bind-Text="MessageText"
                               IsBusy="Session.IsBusy"
                               OnSend="SendAsync" />
             </div>

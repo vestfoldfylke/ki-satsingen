@@ -27,10 +27,10 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     [Parameter]
     public Guid? ChatId { get; set; }
 
-    private string MessageText { get; set; } = string.Empty;
     private List<ChatSummary> ChatList { get; set; } = [];
     private ChatComposer? _composer;
     private bool _stateWired;
+    private bool _isSending;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
 
@@ -69,23 +69,38 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
     private async Task SendAsync()
     {
-        if (string.IsNullOrWhiteSpace(MessageText))
+        // Synchronous, checked before any await: a rapid double-trigger (e.g.
+        // Enter racing a click) is rejected here at zero network cost, rather
+        // than after a wasted round trip to read the composer's text.
+        if (_isSending || _composer is null)
         {
             return;
         }
 
-        var text = MessageText;
-        MessageText = string.Empty;
-        var wasNew = Session.ChatId is null;
-
-        await Session.SendAsync(text);
-
-        if (wasNew && Session.ChatId is { } id)
+        _isSending = true;
+        try
         {
-            Navigation.NavigateTo($"/chat/{id}", replace: true);
-        }
+            var text = await _composer.TakeTextAsync();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
 
-        await RefreshChatListAsync();
+            var wasNew = Session.ChatId is null;
+
+            await Session.SendAsync(text);
+
+            if (wasNew && Session.ChatId is { } id)
+            {
+                Navigation.NavigateTo($"/chat/{id}", replace: true);
+            }
+
+            await RefreshChatListAsync();
+        }
+        finally
+        {
+            _isSending = false;
+        }
     }
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);

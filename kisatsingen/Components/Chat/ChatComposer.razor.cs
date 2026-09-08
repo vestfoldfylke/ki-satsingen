@@ -1,17 +1,18 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Chat;
 
 public sealed partial class ChatComposer : ComponentBase
 {
     private ElementReference _textarea;
+    private bool? _previousIsBusy;
 
-    [Parameter]
-    public required string Text { get; set; }
+    [Inject]
+    public required IJSRuntime JS { get; set; }
 
-    [Parameter]
-    public EventCallback<string> TextChanged { get; set; }
+    [Inject]
+    public required ILogger<ChatComposer> Logger { get; set; }
 
     [Parameter]
     public bool IsBusy { get; set; }
@@ -24,16 +25,38 @@ public sealed partial class ChatComposer : ComponentBase
     // caret. The page calls this afterwards to put focus back.
     public ValueTask FocusAsync() => _textarea.FocusAsync();
 
-    private Task OnInputAsync(ChangeEventArgs e) =>
-        TextChanged.InvokeAsync(e.Value as string ?? string.Empty);
+    // Reads and clears the textarea in one round trip — see chat-composer.ts's
+    // takeComposerValue for why read+clear must happen atomically, not as two
+    // separate calls.
+    public ValueTask<string> TakeTextAsync() =>
+        JS.InvokeAsync<string>("chatClient.takeComposerValue");
 
-    // Enter sends, Shift+Enter inserts a newline. The composer owns its own
-    // keyboard contract so callers only have to handle "send".
-    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (e is { Key: "Enter", ShiftKey: false })
+        try
         {
-            await OnSend.InvokeAsync();
+            // A fresh DOM node always means a fresh component instance (see
+            // FocusAsync's comment) — wiring once on firstRender is enough,
+            // there's no later point where the textarea gets swapped out from
+            // under this same instance.
+            if (firstRender)
+            {
+                await JS.InvokeVoidAsync("chatClient.initComposer");
+            }
+
+            // This component re-renders on every streamed token (the page
+            // re-renders as a whole while a response streams in), but IsBusy
+            // itself only flips twice per turn — only push it to JS when it
+            // actually changes, not on every render.
+            if (firstRender || IsBusy != _previousIsBusy)
+            {
+                _previousIsBusy = IsBusy;
+                await JS.InvokeVoidAsync("chatClient.setComposerBusy", IsBusy);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.initComposer/setComposerBusy");
         }
     }
 }
