@@ -20,6 +20,9 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback OnSend { get; set; }
 
+    [Parameter]
+    public EventCallback OnStop { get; set; }
+
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the
     // caret. The page calls this afterwards to put focus back.
@@ -50,13 +53,23 @@ public sealed partial class ChatComposer : ComponentBase
             // actually changes, not on every render.
             if (firstRender || IsBusy != _previousIsBusy)
             {
+                var completingTurn = _previousIsBusy == true && !IsBusy;
                 _previousIsBusy = IsBusy;
                 await JS.InvokeVoidAsync("chatClient.setComposerBusy", IsBusy);
+
+                // A busy→idle transition means the turn just ended (natural
+                // completion or Stop). The textarea was disabled during the
+                // turn, so focus is nowhere useful — put it back so the next
+                // message can be typed without clicking.
+                if (completingTurn)
+                {
+                    await _textarea.FocusAsync();
+                }
             }
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.initComposer/setComposerBusy");
+            Logger.LogWarning(ex, "ChatComposer JS interop failed");
         }
     }
 }

@@ -103,6 +103,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         }
     }
 
+    private void Stop() => Session.Cancel();
+
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

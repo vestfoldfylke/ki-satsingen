@@ -43,7 +43,14 @@
     gap: 0.5rem;
 }
 
+.composer-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .composer-icon-button,
+.composer-stop-button,
 .composer-send-button {
     display: inline-flex;
     align-items: center;
@@ -64,6 +71,19 @@
 }
 
 .composer-icon-button:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.composer-stop-button {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: transparent;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.composer-stop-button:hover {
     background: #f1f5f9;
     color: #0f172a;
 }
