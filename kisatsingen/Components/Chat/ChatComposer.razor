@@ -1,9 +1,8 @@
 <div class="chat-composer">
     <textarea @ref="_textarea"
               id="chat-textarea"
-              class="ds-textfield chat-textarea"
+              class="ds-input chat-textarea"
               placeholder="Spør om hva som helst..."
-              rows="1"
               disabled="@IsBusy"
               value="@Text"
               @oninput="OnInputAsync"
