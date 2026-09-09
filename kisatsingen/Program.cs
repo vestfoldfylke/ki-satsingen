@@ -35,7 +35,7 @@ builder.Services.AddCascadingAuthenticationState();
 
 // Native Code-Level Microsoft Entra ID Authentication
 builder.Services.AddAuthentication(OpenIdConnectDefaults.AuthenticationScheme)
-    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraConfiguration"));
+    .AddMicrosoftIdentityWebApp(builder.Configuration.GetSection("EntraAuthConfiguration"));
 
 builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.AuthenticationScheme, options =>
 {
