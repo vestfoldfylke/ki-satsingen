@@ -95,17 +95,17 @@ var app = builder.Build();
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())
 {
-    using var migrationContext = AppDbContext.CreateForMigrations(app.Configuration);
-    migrationContext.Database.Migrate();
+    await using var migrationContext = AppDbContext.CreateForMigrations(app.Configuration);
+    await migrationContext.Database.MigrateAsync();
 }
 else
 {
     // Pending-migration check only — this uses the low-privilege DefaultConnection
     // via the registered factory, never the migration user. Actual migrations for
     // non-Development environments are applied by their own CI/CD job.
-    using var db = app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
+    await using var db = await app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
 
-    var pending = db.Database.GetPendingMigrations().ToArray();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
     if (pending.Length != 0)
     {
         app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
