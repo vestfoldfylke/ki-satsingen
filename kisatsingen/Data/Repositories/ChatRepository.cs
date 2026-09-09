@@ -85,7 +85,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await transaction.CommitAsync(ct);
     }
 
-    public async Task RenameChatAsync(Guid chatId, string title, CancellationToken ct = default)
+    public async Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var trimmed = title.Trim();
@@ -94,10 +94,15 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             return;
         }
 
-        await db.Chats
-            .Where(c => c.Id == chatId)
+        var updatedChatCount = await db.Chats
+            .Where(c => c.Id == chatId && c.OwnerId == ownerId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(c => c.Title, trimmed)
                 .SetProperty(c => c.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
+        if (updatedChatCount == 0)
+        {
+            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
+        }
     }
 }
