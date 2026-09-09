@@ -52,7 +52,19 @@ function onKeyDown(e: KeyboardEvent): void {
 
 export function initComposer(): void {
     const textarea = document.querySelector<HTMLTextAreaElement>(SELECTOR_TEXTAREA);
-    if (!textarea || textarea === textareaElement) {
+    if (!textarea) {
+        return;
+    }
+
+    // Re-sync before the same-node check below: initComposer is only called
+    // on firstRender today (see ChatComposer.razor.cs), so this is dormant
+    // rather than dead — it keeps the module's cached isEmpty correct on day
+    // one if that firstRender gate is ever loosened, instead of quietly going
+    // stale again.
+    isEmpty = textarea.value.trim().length === 0;
+    updateSendButtonDisabled();
+
+    if (textarea === textareaElement) {
         return;
     }
 
@@ -64,9 +76,6 @@ export function initComposer(): void {
     textareaElement = textarea;
     textarea.addEventListener('keydown', onKeyDown);
     textarea.addEventListener('input', onInput);
-
-    isEmpty = textarea.value.trim().length === 0;
-    updateSendButtonDisabled();
 }
 
 export function setComposerBusy(busy: boolean): void {
