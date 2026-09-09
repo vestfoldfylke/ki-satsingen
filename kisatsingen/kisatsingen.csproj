@@ -10,7 +10,7 @@
 
     <!-- Debug: ikke generer .exe — kjør via dotnet.exe -->
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-      <UseAppHost>false</UseAppHost>
+    <UseAppHost>false</UseAppHost>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,6 +18,11 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>
       </PackageReference>
+      <!-- Declared directly, not left to the Design package: Design is migrations
+           tooling with PrivateAssets=all, so the runtime EF version must not
+           depend on it being present. ChatRepository uses BeginTransactionAsync.
+           Keep in step with the test project. -->
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
       <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />

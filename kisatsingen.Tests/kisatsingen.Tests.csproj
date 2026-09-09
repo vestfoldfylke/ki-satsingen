@@ -10,6 +10,11 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
+        <!-- MigrateAsync, ExecuteSqlRawAsync and SqlQuery all come from Relational.
+             The Npgsql provider asks for an older EF patch, so without these two
+             pinned to match the app the two projects resolve different builds and
+             the reference assemblies conflict. Keep in step with kisatsingen.csproj. -->
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
         <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
