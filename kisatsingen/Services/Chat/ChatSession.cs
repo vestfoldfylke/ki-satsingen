@@ -162,7 +162,13 @@ public sealed class ChatSession : IAsyncDisposable
 
         if (chatId is not null)
         {
-            var chat = await _repo.GetChatAsync(chatId.Value, ct);
+            var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
+            if (string.IsNullOrEmpty(userObjectId))
+            {
+                throw new Exception("UserObjectId not found");
+            }
+
+            var chat = await _repo.GetChatAsync(userObjectId, chatId.Value, ct);
             if (chat is not null)
             {
                 _currentChat = chat;
