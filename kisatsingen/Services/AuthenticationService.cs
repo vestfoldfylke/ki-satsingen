@@ -5,6 +5,9 @@ namespace kisatsingen.Services;
 public interface IAuthenticationService
 {
     Task<string?> GetUserObjectIdentifierAsync();
+
+    /// <exception cref="UserNotAuthenticatedException">No authenticated user or objectidentifier claim found.</exception>
+    Task<string> RequireUserObjectIdentifierAsync();
 }
 
 public class AuthenticationService : IAuthenticationService
@@ -29,5 +32,13 @@ public class AuthenticationService : IAuthenticationService
 
         var objectIdClaim = authState.User.Claims.FirstOrDefault(claim => claim.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier");
         return objectIdClaim?.Value;
+    }
+
+    public async Task<string> RequireUserObjectIdentifierAsync()
+    {
+        var userObjectId = await GetUserObjectIdentifierAsync();
+        return string.IsNullOrEmpty(userObjectId)
+            ? throw new UserNotAuthenticatedException()
+            : userObjectId;
     }
 }

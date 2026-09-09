@@ -7,6 +7,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
@@ -159,8 +160,30 @@ app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
 app.MapStaticAssets();
+var razorComponents = app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+/*
+.NET 11 - for the CloseOnAuthenticationExpiration
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .RequireAuthorization();
+    .AddInteractiveServerRenderMode(options =>
+    {
+        options.ConfigureConnection = dispatcherOptions =>
+        {
+            dispatcherOptions.CloseOnAuthenticationExpiration = true;
+        };
+    });
+*/
+
+razorComponents.Add(endpoint =>
+{
+    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault();
+    if (dispatcherOptions is not null)
+    {
+        dispatcherOptions.CloseOnAuthenticationExpiration = true;
+    }
+});
+
+razorComponents.RequireAuthorization();
 
 app.Run();

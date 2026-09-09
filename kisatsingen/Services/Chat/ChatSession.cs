@@ -162,12 +162,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         if (chatId is not null)
         {
-            var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
-            if (string.IsNullOrEmpty(userObjectId))
-            {
-                throw new Exception("UserObjectId not found");
-            }
-
+            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var chat = await _repo.GetChatAsync(userObjectId, chatId.Value, ct);
             if (chat is not null)
             {
@@ -234,6 +229,11 @@ public sealed class ChatSession : IAsyncDisposable
         {
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
         }
+        catch (UserNotAuthenticatedException)
+        {
+            _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
+            throw;
+        }
         finally
         {
             if (_streamingId is Guid id)
@@ -257,11 +257,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         FireAndForget("chatClient.streamStart", _streamingId);
 
-        var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
-        if (string.IsNullOrEmpty(userObjectId))
-        {
-            throw new Exception("UserObjectId not found");
-        }
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
 
         _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
 
@@ -355,11 +351,7 @@ public sealed class ChatSession : IAsyncDisposable
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
         
-        var userObjectId = await _authenticationService.GetUserObjectIdentifierAsync();
-        if (string.IsNullOrEmpty(userObjectId))
-        {
-            throw new Exception("UserObjectId not found");
-        }
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
 
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
