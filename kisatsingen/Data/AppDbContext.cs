@@ -1,6 +1,5 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 
 namespace kisatsingen.Data;
@@ -45,25 +44,5 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(c => c.Messages)
             .HasForeignKey(m => m.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
-
-        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.Sqlite")
-        {
-            return;
-        }
-
-        var dtoToTicks = new ValueConverter<DateTimeOffset, long>(
-            v => v.UtcTicks,
-            v => new DateTimeOffset(v, TimeSpan.Zero));
-
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            foreach (var property in entityType.GetProperties())
-            {
-                if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
-                {
-                    property.SetValueConverter(dtoToTicks);
-                }
-            }
-        }
     }
 }

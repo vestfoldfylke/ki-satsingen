@@ -1,40 +1,24 @@
-using System.Data.Common;
 using kisatsingen.Data;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
-using Microsoft.Data.Sqlite;
+using kisatsingen.Tests.Data;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
 namespace kisatsingen.Tests.Data.Repositories;
 
-public sealed class ChatRepositoryTests : IAsyncLifetime
+[Collection(PostgresCollection.Name)]
+public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private readonly DbConnection _connection;
-    private readonly IDbContextFactory<AppDbContext> _factory;
-
     private const string OwnerId = "Whatever";
 
-    private ChatRepository Repo => new(_factory);
+    private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
-    public ChatRepositoryTests()
-    {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _factory = new SharedConnectionDbContextFactory(_connection);
-    }
+    private ChatRepository Repo => new(Factory);
 
-    public async Task InitializeAsync()
-    {
-        await _connection.OpenAsync();
+    public Task InitializeAsync() => fixture.ResetAsync();
 
-        await using var db = await _factory.CreateDbContextAsync();
-        await db.Database.EnsureCreatedAsync();
-    }
-
-    public async Task DisposeAsync()
-    {
-        await _connection.DisposeAsync();
-    }
+    public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
     public async Task AppendMessagesAsync_with_empty_list_is_a_noop()
@@ -43,7 +27,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, []);
 
-        await using var db = await _factory.CreateDbContextAsync();
+        await using var db = await Factory.CreateDbContextAsync();
         var count = await db.ChatMessages.CountAsync();
         Assert.Equal(0, count);
     }
@@ -55,7 +39,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
-        await using var db = await _factory.CreateDbContextAsync();
+        await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.ChatMessages.SingleAsync();
         Assert.Equal(chat.Id, stored.ChatId);
         Assert.NotEqual(Guid.Empty, stored.Id);
@@ -73,7 +57,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
             Message("assistant", "a3")
         ]);
 
-        await using var db = await _factory.CreateDbContextAsync();
+        await using var db = await Factory.CreateDbContextAsync();
         var timestamps = await db.ChatMessages
             .Where(m => m.ChatId == chat.Id)
             .OrderBy(m => m.CreatedAt)
@@ -125,7 +109,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
-        await using var before = await _factory.CreateDbContextAsync();
+        await using var before = await Factory.CreateDbContextAsync();
         var existingId = (await before.ChatMessages.SingleAsync()).Id;
         var updatedAtBeforeFailure = (await before.Chats.SingleAsync(c => c.Id == chat.Id)).UpdatedAt;
 
@@ -134,7 +118,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
 
         await Assert.ThrowsAsync<DbUpdateException>(() => Repo.AppendMessagesAsync(OwnerId, chat.Id, [colliding]));
 
-        await using var after = await _factory.CreateDbContextAsync();
+        await using var after = await Factory.CreateDbContextAsync();
         var reloaded = await after.Chats.SingleAsync(c => c.Id == chat.Id);
         Assert.Equal(updatedAtBeforeFailure, reloaded.UpdatedAt);
     }
@@ -151,7 +135,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
             Message("assistant", "two", last)
         ]);
 
-        await using var db = await _factory.CreateDbContextAsync();
+        await using var db = await Factory.CreateDbContextAsync();
         var reloaded = await db.Chats.SingleAsync(c => c.Id == chat.Id);
         Assert.Equal(last, reloaded.UpdatedAt);
     }
@@ -162,15 +146,4 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
         Content = content,
         CreatedAt = createdAt
     };
-
-    private sealed class SharedConnectionDbContextFactory(DbConnection connection) : IDbContextFactory<AppDbContext>
-    {
-        public AppDbContext CreateDbContext()
-        {
-            var options = new DbContextOptionsBuilder<AppDbContext>()
-                .UseSqlite(connection)
-                .Options;
-            return new AppDbContext(options);
-        }
-    }
 }

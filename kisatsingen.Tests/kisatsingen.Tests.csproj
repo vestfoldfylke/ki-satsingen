@@ -9,14 +9,22 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+        <PackageReference Include="Testcontainers.PostgreSql" Version="4.15.0" />
         <PackageReference Include="xunit" Version="2.9.2" />
         <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\kisatsingen\kisatsingen.csproj" />
+    </ItemGroup>
+
+    <!-- The test container mounts these at /docker-entrypoint-initdb.d, exactly as
+         compose.yml does, so tests run against the same roles and grants as dev. -->
+    <ItemGroup>
+        <None Include="..\local-db-init\*.sql" Link="local-db-init\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
 </Project>
