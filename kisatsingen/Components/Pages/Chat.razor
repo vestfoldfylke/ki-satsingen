@@ -4,6 +4,8 @@
 @using kisatsingen.Components.Chat
 @using kisatsingen.Services.Chat
 
+@inject IWebHostEnvironment Env
+
 <PageTitle>Chat</PageTitle>
 
 <div class="chat-layout">
@@ -42,8 +44,16 @@
         {
             <div class="chat-greeting-wrapper">
                 <div class="chat-greeting">
-                    <span class="chat-greeting-emoji">🖕</span>
-                    <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+                    @if (Env.IsDevelopment())
+                    {
+                        <span class="chat-greeting-emoji">🖕</span>
+                        <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+                    }
+                    else
+                    {
+                        <span class="chat-greeting-emoji">👋</span>
+                        <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
+                    }
                 </div>
             </div>
         }
