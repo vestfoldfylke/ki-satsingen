@@ -4,7 +4,6 @@ public sealed class ChatMessage
 {
     public Guid Id { get; set; }
     public Guid ChatId { get; set; }
-    public int SequenceNumber { get; set; }
     public required string Role { get; init; }
     public required string Content { get; init; }
     public string? ContentsJson { get; init; }

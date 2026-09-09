@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.Extensions.Configuration;
 
 namespace kisatsingen.Data;
 
@@ -10,15 +10,9 @@ public sealed class AppDbContextDesignTimeFactory : IDesignTimeDbContextFactory<
         var config = new ConfigurationBuilder()
             .SetBasePath(Directory.GetCurrentDirectory())
             .AddJsonFile("appsettings.json")
-            .AddJsonFile("appsettings.Development.json", true)
+            .AddJsonFile("appsettings.Development.json", optional: true)
             .Build();
 
-        var connectionString = config.GetConnectionString("DefaultConnection");
-
-        var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString)
-            .Options;
-
-        return new AppDbContext(options);
+        return AppDbContext.CreateForMigrations(config);
     }
 }

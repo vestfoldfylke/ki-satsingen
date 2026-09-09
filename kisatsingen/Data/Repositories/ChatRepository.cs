@@ -25,13 +25,13 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         return chat;
     }
 
-    public async Task<Chat?> GetChatAsync(Guid chatId, CancellationToken ct = default)
+    public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Chats
-            .Include(c => c.Messages.OrderBy(m => m.SequenceNumber))
+            .Include(c => c.Messages.OrderBy(m => m.CreatedAt))
             .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.Id == chatId, ct);
+            .FirstOrDefaultAsync(c => c.Id == chatId && c.OwnerId == ownerId, ct);
     }
 
     public async Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default)
@@ -51,37 +51,38 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             return;
         }
 
-        await using var db = await factory.CreateDbContextAsync(ct);
-        var nextSequence = await db.ChatMessages
-            .Where(m => m.ChatId == chatId)
-            .Select(m => (int?)m.SequenceNumber)
-            .MaxAsync(ct) ?? -1;
-
         var now = DateTimeOffset.UtcNow;
-        var lastCreatedAt = now;
 
         for (var i = 0; i < messages.Count; i++)
         {
             var message = messages[i];
             message.Id = message.Id == Guid.Empty ? Guid.NewGuid() : message.Id;
             message.ChatId = chatId;
-            message.SequenceNumber = nextSequence + 1 + i;
-            message.CreatedAt = message.CreatedAt == default ? now : message.CreatedAt;
-            lastCreatedAt = message.CreatedAt;
-            db.ChatMessages.Add(message);
+            // Postgres' timestamptz only keeps microsecond precision, so a 1-tick
+            // (100ns) offset per message would round away — space them a full
+            // microsecond apart to keep same-batch messages in a stable order.
+            message.CreatedAt = message.CreatedAt == default ? now.AddTicks(i * 10) : message.CreatedAt;
         }
 
-        var chatStub = new Chat
-        {
-            OwnerId = ownerId,
-            Id = chatId,
-            Title = string.Empty,
-            UpdatedAt = lastCreatedAt
-        };
-        db.Chats.Attach(chatStub);
-        db.Entry(chatStub).Property(c => c.UpdatedAt).IsModified = true;
+        // Assumes messages is already in chronological order — Chat.UpdatedAt is set
+        // from the last element, not the max, so an out-of-order caller would understate it.
+        var lastCreatedAt = messages[^1].CreatedAt;
 
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var updatedChatCount = await db.Chats
+            .Where(c => c.Id == chatId && c.OwnerId == ownerId)
+            .ExecuteUpdateAsync(s => s.SetProperty(c => c.UpdatedAt, lastCreatedAt), ct);
+
+        if (updatedChatCount == 0)
+        {
+            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
+        }
+
+        db.ChatMessages.AddRange(messages);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task RenameChatAsync(Guid chatId, string title, CancellationToken ct = default)

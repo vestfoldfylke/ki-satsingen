@@ -33,7 +33,6 @@ namespace kisatsingen.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    SequenceNumber = table.Column<int>(type: "integer", nullable: false),
                     Role = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Content = table.Column<string>(type: "text", nullable: false),
                     ContentsJson = table.Column<string>(type: "text", nullable: true),
@@ -60,10 +59,9 @@ namespace kisatsingen.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_ChatMessages_ChatId_SequenceNumber",
+                name: "IX_ChatMessages_ChatId_CreatedAt",
                 table: "ChatMessages",
-                columns: new[] { "ChatId", "SequenceNumber" },
-                unique: true);
+                columns: new[] { "ChatId", "CreatedAt" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Chats_OwnerId_UpdatedAt",

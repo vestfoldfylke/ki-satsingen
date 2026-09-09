@@ -94,18 +94,14 @@ var app = builder.Build();
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())
 {
-    var migrationConnectionString = app.Configuration.GetConnectionString("MigrationConnection")
-        ?? throw new InvalidOperationException("ConnectionStrings:MigrationConnection is not configured.");
-
-    var migrationOptions = new DbContextOptionsBuilder<AppDbContext>()
-        .UseNpgsql(migrationConnectionString)
-        .Options;
-
-    using var migrationContext = new AppDbContext(migrationOptions);
+    using var migrationContext = AppDbContext.CreateForMigrations(app.Configuration);
     migrationContext.Database.Migrate();
 }
 else
 {
+    // Pending-migration check only — this uses the low-privilege DefaultConnection
+    // via the registered factory, never the migration user. Actual migrations for
+    // non-Development environments are applied by their own CI/CD job.
     using var db = app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
 
     var pending = db.Database.GetPendingMigrations().ToArray();
