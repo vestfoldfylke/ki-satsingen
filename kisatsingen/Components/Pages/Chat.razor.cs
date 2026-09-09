@@ -1,7 +1,4 @@
 using kisatsingen.Components.Chat;
-using kisatsingen.Data.Entities;
-using kisatsingen.Data.Repositories;
-using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -11,13 +8,7 @@ namespace kisatsingen.Components.Pages;
 public sealed partial class Chat : ComponentBase, IAsyncDisposable
 {
     [Inject]
-    public required IAuthenticationService AuthService { get; set; }
-    
-    [Inject]
     public required ChatSession Session { get; set; }
-
-    [Inject]
-    public required IChatRepository ChatRepository { get; set; }
 
     [Inject]
     public required ILogger<Chat> Logger { get; set; }
@@ -32,8 +23,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
-    // TODO: ChatList isn't retrieved anywhere. Only updated. Probably not needed?
-    private List<ChatSummary> ChatList { get; set; } = [];
     private ChatComposer? _composer;
     private bool _stateWired;
     private bool _isSending;
@@ -52,15 +41,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         {
             await Session.LoadAsync(ChatId);
         }
-
-        await RefreshChatListAsync();
-    }
-
-    private async Task RefreshChatListAsync()
-    {
-        var userObjectId = await AuthService.RequireUserObjectIdentifierAsync();
-        var list = await ChatRepository.ListChatsAsync(userObjectId);
-        ChatList = list.ToList();
     }
 
     private async Task SendAsync()
@@ -90,8 +70,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             {
                 Navigation.NavigateTo($"/chat/{id}", replace: true);
             }
-
-            await RefreshChatListAsync();
         }
         finally
         {
