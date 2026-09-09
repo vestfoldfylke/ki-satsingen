@@ -92,15 +92,26 @@ builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 var app = builder.Build();
 
 // ─── One-time startup: database ────────────────────────
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    using var db = factory.CreateDbContext();
+    var migrationConnectionString = app.Configuration.GetConnectionString("MigrationConnection")
+        ?? throw new InvalidOperationException("ConnectionStrings:MigrationConnection is not configured.");
+
+    var migrationOptions = new DbContextOptionsBuilder<AppDbContext>()
+        .UseNpgsql(migrationConnectionString)
+        .Options;
+
+    using var migrationContext = new AppDbContext(migrationOptions);
+    migrationContext.Database.Migrate();
+}
+else
+{
+    using var db = app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContext();
 
     var pending = db.Database.GetPendingMigrations().ToArray();
     if (pending.Length != 0)
     {
-        Console.WriteLine($"[WARNING]: -------------- {pending.Length} pending migration(s). You should run \"dotnet ef database update\" before continuing! --------------");
+        app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
     }
 }
 
