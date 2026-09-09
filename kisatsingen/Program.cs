@@ -7,6 +7,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
@@ -92,15 +93,22 @@ builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 var app = builder.Build();
 
 // ─── One-time startup: database ────────────────────────
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-    var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-    using var db = factory.CreateDbContext();
+    await using var migrationContext = AppDbContext.CreateForMigrations(app.Configuration);
+    await migrationContext.Database.MigrateAsync();
+}
+else
+{
+    // Pending-migration check only — this uses the low-privilege DefaultConnection
+    // via the registered factory, never the migration user. Actual migrations for
+    // non-Development environments are applied by their own CI/CD job.
+    await using var db = await app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
 
-    var pending = db.Database.GetPendingMigrations().ToArray();
+    var pending = (await db.Database.GetPendingMigrationsAsync()).ToArray();
     if (pending.Length != 0)
     {
-        Console.WriteLine($"[WARNING]: -------------- {pending.Length} pending migration(s). You should run \"dotnet ef database update\" before continuing! --------------");
+        app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
     }
 }
 
@@ -152,8 +160,30 @@ app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
 app.MapStaticAssets();
+var razorComponents = app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
+
+/*
+.NET 11 - for the CloseOnAuthenticationExpiration
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode()
-    .RequireAuthorization();
+    .AddInteractiveServerRenderMode(options =>
+    {
+        options.ConfigureConnection = dispatcherOptions =>
+        {
+            dispatcherOptions.CloseOnAuthenticationExpiration = true;
+        };
+    });
+*/
+
+razorComponents.Add(endpoint =>
+{
+    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault();
+    if (dispatcherOptions is not null)
+    {
+        dispatcherOptions.CloseOnAuthenticationExpiration = true;
+    }
+});
+
+razorComponents.RequireAuthorization();
 
 app.Run();

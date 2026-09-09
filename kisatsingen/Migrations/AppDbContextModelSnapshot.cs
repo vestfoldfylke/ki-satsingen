@@ -99,9 +99,6 @@ namespace kisatsingen.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
-                    b.Property<int>("SequenceNumber")
-                        .HasColumnType("integer");
-
                     b.Property<string>("SystemPromptSnapshot")
                         .HasColumnType("text");
 
@@ -113,8 +110,7 @@ namespace kisatsingen.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChatId", "SequenceNumber")
-                        .IsUnique();
+                    b.HasIndex("ChatId", "CreatedAt");
 
                     b.ToTable("ChatMessages");
                 });

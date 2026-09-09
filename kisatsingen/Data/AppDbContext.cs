@@ -1,6 +1,7 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.Extensions.Configuration;
 
 namespace kisatsingen.Data;
 
@@ -8,6 +9,20 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 {
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+
+    // The only place a DDL-capable connection is used — the app's own runtime queries
+    // always go through the low-privilege DefaultConnection registered in DI.
+    public static AppDbContext CreateForMigrations(IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("MigrationConnection")
+            ?? throw new InvalidOperationException("ConnectionStrings:MigrationConnection is not configured.");
+
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseNpgsql(connectionString)
+            .Options;
+
+        return new AppDbContext(options);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,7 +39,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.Property(m => m.ResponseId).HasMaxLength(128);
         message.Property(m => m.ModelId).HasMaxLength(128);
         message.Property(m => m.FinishReason).HasMaxLength(64);
-        message.HasIndex(m => new { m.ChatId, m.SequenceNumber }).IsUnique();
+        message.HasIndex(m => new { m.ChatId, m.CreatedAt });
 
         message.HasOne(m => m.Chat)
             .WithMany(c => c.Messages)

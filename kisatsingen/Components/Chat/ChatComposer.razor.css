@@ -1,0 +1,113 @@
+.chat-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--ds-color-neutral-border-default);
+    border-radius: var(--ds-border-radius-xl);
+    /* Must match the surface the .chat-tail gradient fades to, or a seam shows
+       behind the composer. Declared on .chat-page; inherits through Blazor's
+       CSS isolation, which scopes selectors but not inheritance. */
+    background: var(--chat-surface, #fff);
+}
+
+.chat-composer:focus-within {
+    box-shadow: var(--dsc-focus-boxShadow);
+    outline: var(--dsc-focus-outline);
+    outline-offset: var(--ds-border-width-focus);
+}
+
+.chat-textarea {
+    width: 100%;
+    resize: none;
+    border: none;
+    outline: none;
+    background: transparent;
+    font: inherit;
+    color: inherit;
+    padding: 0.35rem 0.25rem;
+    min-height: 1rem;
+    max-height: 12rem;
+    overflow-y: auto;
+    line-height: 1.4;
+}
+
+.chat-textarea::placeholder {
+    color: #94a3b8;
+}
+
+.chat-composer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.composer-actions-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.composer-icon-button,
+.composer-stop-button,
+.composer-send-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    padding: 0;
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.composer-icon-button {
+    width: 2rem;
+    height: 2rem;
+    background: transparent;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.composer-icon-button:hover:not(:disabled) {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.composer-stop-button {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: transparent;
+    color: #475569;
+    border-color: #e2e8f0;
+}
+
+.composer-stop-button:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+.composer-send-button {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: #0f172a;
+    color: #fff;
+}
+
+.composer-send-button:hover:not(:disabled) {
+    background: #1e293b;
+}
+
+.composer-icon-button:disabled,
+.composer-send-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.chat-footer {
+    margin: 0;
+    text-align: center;
+    font-size: 0.75rem;
+    color: #64748b;
+}

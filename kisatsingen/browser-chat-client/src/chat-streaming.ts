@@ -19,6 +19,7 @@ import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
 import './copy-buttons.css';
 import { initChatLog, notifyContentChanged } from './chat-scroll.js';
+import { initComposer, setComposerBusy, takeComposerValue } from './chat-composer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -204,6 +205,9 @@ declare global {
             streamEnd: typeof streamEnd;
             renderMarkdown: typeof renderMarkdown;
             initChatLog: typeof initChatLog;
+            initComposer: typeof initComposer;
+            setComposerBusy: typeof setComposerBusy;
+            takeComposerValue: typeof takeComposerValue;
         };
     }
 }
@@ -214,4 +218,7 @@ window.chatClient = {
     streamEnd,
     renderMarkdown,
     initChatLog,
+    initComposer,
+    setComposerBusy,
+    takeComposerValue,
 };

@@ -1,11 +1,18 @@
+/* Sole viewport anchor for the whole app shell. dvh (not vh) so mobile
+   browser chrome collapsing/expanding doesn't clip content — every
+   descendant below this just flexes to fill whatever height it's given. */
 .page {
     position: relative;
     display: flex;
     flex-direction: column;
+    height: 100dvh;
 }
 
 main {
+    display: flex;
+    flex-direction: column;
     flex: 1;
+    min-height: 0;
 }
 
 @media (min-width: 641px) {
@@ -13,12 +20,15 @@ main {
         flex-direction: row;
     }
 
+    /* No height/dvh/vh here: .page (row layout, height:100dvh) stretches
+       this to its real height via default align-items:stretch. */
     .sidebar {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        flex-shrink: 0;
         border: 1px solid #cccccc79;
         width: 300px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
     }
 }
 
@@ -36,9 +46,9 @@ main {
     z-index: 1000;
 }
 
-    #blazor-error-ui .dismiss {
-        cursor: pointer;
-        position: absolute;
-        right: 0.75rem;
-        top: 0.5rem;
-    }
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}

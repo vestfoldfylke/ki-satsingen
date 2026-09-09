@@ -46,12 +46,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private async Task RefreshChatListAsync()
     {
-        var userObjectId = await AuthService.GetUserObjectIdentifierAsync();
-        if (string.IsNullOrEmpty(userObjectId))
-        {
-            throw new Exception("UserObjectId not found");
-        }
-
+        var userObjectId = await AuthService.RequireUserObjectIdentifierAsync();
         var list = await ChatRepository.ListChatsAsync(userObjectId);
         ChatList = list.ToList();
     }

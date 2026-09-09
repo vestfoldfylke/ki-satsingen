@@ -5,83 +5,81 @@
     </div>
 
     <div class="nav-scrollable">
-        <nav>
+        <nav class="nav-primary">
             <div class="nav-item">
                 <button type="button" class="ds-link" @onclick="StartNewChatAsync" disabled="@Session.IsBusy">
                     <span class="material-symbols-outlined">add_2</span>
                     New
-                    </button>
+                </button>
             </div>
         </nav>
 
-        <div>
-            <aside class="chat-sidebar" aria-label="Chat list">
-                <div class="chat-sidebar-header">
-                    <h2 class="ds-heading" data-size="sm">Chats</h2>
-                </div>
-                @if (ChatList.Count == 0)
-                {
-                    <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
-                }
-                else
-                {
-                    <ul class="ds-list chat-sidebar-list">
-                        @foreach (var summary in ChatList)
-                        {
-                            var menuId = $"chat-menu-{summary.Id}";
-                            <li>
-                                <div class="chat-sidebar-item @(summary.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
-                                    <a class="ds-link chat-sidebar-link" href="@($"/chat/{summary.Id}")">
-                                        <span class="chat-sidebar-title">@summary.Title</span>
-                                        <!-- <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span> -->
-                                    </a>
-                                    <button
-                                        type="button"
-                                        class="ds-button chat-sidebar-item-option-button"
-                                        data-variant="tertiary"
-                                        data-size="sm"
-                                        data-icon
-                                        popovertarget="@menuId"
-                                        aria-label="Chat-valg">
-                                        <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
-                                    </button>
-                                    <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
-                                        <ul>
-                                            <li>
-                                                <a
-                                                    href="#"
-                                                    data-size="sm"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    class="ds-button"
-                                                    data-variant="tertiary"
-                                                >
-                                                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                                Endre 
-                                                </a>
-                                            </li>
-                                            <li>
-                                                <a
-                                                    href="#"
-                                                    data-size="sm"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    class="ds-button"
-                                                    data-variant="tertiary"
-                                                >
-                                                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                                                Slett
-                                                </a>
-                                            </li>
-                                        </ul>
-                                    </div>
+        <aside class="chat-sidebar" aria-label="Chat list">
+            <div class="chat-sidebar-header">
+                <h2 class="ds-heading" data-size="sm">Chats</h2>
+            </div>
+            @if (ChatList.Count == 0)
+            {
+                <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
+            }
+            else
+            {
+                <ul class="ds-list chat-sidebar-list">
+                    @foreach (var summary in ChatList)
+                    {
+                        var menuId = $"chat-menu-{summary.Id}";
+                        <li>
+                            <div class="chat-sidebar-item @(summary.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
+                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{summary.Id}")">
+                                    <span class="chat-sidebar-title">@summary.Title</span>
+                                    <!-- <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span> -->
+                                </a>
+                                <button
+                                    type="button"
+                                    class="ds-button chat-sidebar-item-option-button"
+                                    data-variant="tertiary"
+                                    data-size="sm"
+                                    data-icon
+                                    popovertarget="@menuId"
+                                    aria-label="Chat-valg">
+                                    <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                                </button>
+                                <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
+                                    <ul>
+                                        <li>
+                                            <a
+                                                href="#"
+                                                data-size="sm"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                            >
+                                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                            Endre
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a
+                                                href="#"
+                                                data-size="sm"
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                            >
+                                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                            Slett
+                                            </a>
+                                        </li>
+                                    </ul>
                                 </div>
-                            </li>
-                        }
-                    </ul>
-                }
-            </aside>
-        </div>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </aside>
 
         <div class="user">
             <AuthorizeView>

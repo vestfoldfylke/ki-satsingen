@@ -1,0 +1,47 @@
+<div class="chat-composer">
+    <textarea @ref="_textarea"
+              id="chat-textarea"
+              class="ds-input chat-textarea"
+              placeholder="Spør om hva som helst..."
+              disabled="@IsBusy"></textarea>
+
+    <div class="chat-composer-actions">
+        <button class="composer-icon-button" type="button" aria-label="Legg ved fil" disabled="@IsBusy">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        </button>
+        <div class="composer-actions-right">
+            @* Stop is Blazor-owned: its only signal is IsBusy, which the server
+               already knows. Send is JS-owned because its disabled state also
+               depends on textarea emptiness — a client-only signal. *@
+            @if (IsBusy)
+            {
+                <button class="composer-stop-button"
+                        type="button"
+                        aria-label="Stopp generering"
+                        @onclick="OnStop">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <rect x="6" y="6" width="12" height="12" rx="1"/>
+                    </svg>
+                </button>
+            }
+            @* disabled is static: the textarea always starts empty, so this is
+               the correct initial state. chat-composer.ts owns it from here on
+               (busy + emptiness combined) — Blazor never re-touches it. *@
+            <button class="composer-send-button"
+                    type="button"
+                    aria-label="Send melding"
+                    disabled
+                    @onclick="OnSend">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5"/>
+                    <polyline points="5 12 12 5 19 12"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+</div>
+
+<p class="ds-paragraph chat-footer">Claude kan gjøre feil (ikke vi). Sjekk viktige svar.</p>

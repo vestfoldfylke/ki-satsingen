@@ -49,7 +49,7 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task AppendMessagesAsync_writes_a_single_message_at_sequence_zero()
+    public async Task AppendMessagesAsync_writes_a_single_message_with_an_assigned_id()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
@@ -57,16 +57,15 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
 
         await using var db = await _factory.CreateDbContextAsync();
         var stored = await db.ChatMessages.SingleAsync();
-        Assert.Equal(0, stored.SequenceNumber);
         Assert.Equal(chat.Id, stored.ChatId);
         Assert.NotEqual(Guid.Empty, stored.Id);
+        Assert.NotEqual(default, stored.CreatedAt);
     }
 
     [Fact]
-    public async Task AppendMessagesAsync_assigns_monotonic_sequences_after_max()
+    public async Task AppendMessagesAsync_gives_same_batch_messages_distinct_increasing_timestamps()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
-        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("system", "sys"), Message("user", "hi")]);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("assistant", "a1"),
@@ -75,13 +74,49 @@ public sealed class ChatRepositoryTests : IAsyncLifetime
         ]);
 
         await using var db = await _factory.CreateDbContextAsync();
-        var sequences = await db.ChatMessages
+        var timestamps = await db.ChatMessages
             .Where(m => m.ChatId == chat.Id)
-            .OrderBy(m => m.SequenceNumber)
-            .Select(m => m.SequenceNumber)
+            .OrderBy(m => m.CreatedAt)
+            .Select(m => m.CreatedAt)
             .ToListAsync();
 
-        Assert.Equal([0, 1, 2, 3, 4], sequences);
+        Assert.Equal(3, timestamps.Distinct().Count());
+        Assert.True(timestamps[0] < timestamps[1]);
+        Assert.True(timestamps[1] < timestamps[2]);
+    }
+
+    [Fact]
+    public async Task GetChatAsync_returns_messages_ordered_by_CreatedAt()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var first = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+        var second = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("assistant", "second", second)]);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first", first)]);
+
+        var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
+
+        Assert.Equal(["first", "second"], reloaded!.Messages.Select(m => m.Content));
+    }
+
+    [Fact]
+    public async Task GetChatAsync_returns_null_when_the_chat_belongs_to_a_different_owner()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+
+        var reloaded = await Repo.GetChatAsync("someone-else", chat.Id);
+
+        Assert.Null(reloaded);
+    }
+
+    [Fact]
+    public async Task AppendMessagesAsync_throws_when_the_chat_belongs_to_a_different_owner()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Repo.AppendMessagesAsync("someone-else", chat.Id, [Message("user", "hi")]));
     }
 
     [Fact]

@@ -1,9 +1,6 @@
-using kisatsingen.Data.Entities;
-using kisatsingen.Data.Repositories;
-using kisatsingen.Services;
+using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Pages;
@@ -11,13 +8,7 @@ namespace kisatsingen.Components.Pages;
 public sealed partial class Chat : ComponentBase, IAsyncDisposable
 {
     [Inject]
-    public required IAuthenticationService AuthService { get; set; }
-    
-    [Inject]
     public required ChatSession Session { get; set; }
-
-    [Inject]
-    public required IChatRepository ChatRepository { get; set; }
 
     [Inject]
     public required ILogger<Chat> Logger { get; set; }
@@ -32,9 +23,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
-    // TODO: ChatList isn't retrieved anywhere. Only updated. Probably not needed?
-    private List<ChatSummary> ChatList { get; set; } = [];
+    private ChatComposer? _composer;
     private bool _stateWired;
+    private bool _isSending;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
 
@@ -50,50 +41,43 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         {
             await Session.LoadAsync(ChatId);
         }
-
-        await RefreshChatListAsync();
-    }
-
-    private async Task RefreshChatListAsync()
-    {
-        var userObjectId = await AuthService.GetUserObjectIdentifierAsync();
-        if (string.IsNullOrEmpty(userObjectId))
-        {
-            throw new Exception("UserObjectId not found");
-        }
-
-        var list = await ChatRepository.ListChatsAsync(userObjectId);
-        ChatList = list.ToList();
-    }
-
-    private async Task OnComposerKeyDownAsync(KeyboardEventArgs e)
-    {
-        if (e is { Key: "Enter", ShiftKey: false })
-        {
-            await SendAsync();
-        }
     }
 
     private async Task SendAsync()
     {
-        if (string.IsNullOrWhiteSpace(MessageText))
+        // Synchronous, checked before any await: a rapid double-trigger (e.g.
+        // Enter racing a click) is rejected here at zero network cost, rather
+        // than after a wasted round trip to read the composer's text.
+        if (_isSending || _composer is null)
         {
             return;
         }
 
-        var text = MessageText;
-        MessageText = string.Empty;
-        var wasNew = Session.ChatId is null;
-
-        await Session.SendAsync(text);
-
-        if (wasNew && Session.ChatId is { } id)
+        _isSending = true;
+        try
         {
-            Navigation.NavigateTo($"/chat/{id}", replace: true);
-        }
+            var text = await _composer.TakeTextAsync();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
 
-        await RefreshChatListAsync();
+            var wasNew = Session.ChatId is null;
+
+            await Session.SendAsync(text);
+
+            if (wasNew && Session.ChatId is { } id)
+            {
+                Navigation.NavigateTo($"/chat/{id}", replace: true);
+            }
+        }
+        finally
+        {
+            _isSending = false;
+        }
     }
+
+    private void Stop() => Session.Cancel();
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 
@@ -106,6 +90,11 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             return;
         }
 
+        // Sending the first message swaps the empty-state layout for the
+        // transcript layout. They're separate branches, so the composer's DOM
+        // is rebuilt and the caret is lost — restore it below.
+        var becameActive = !firstRender && !_lastInitChatHadVisibleMessages && Session.HasVisibleMessages;
+
         _lastInitChatId = Session.ChatId;
         _lastInitChatHadVisibleMessages = Session.HasVisibleMessages;
 
@@ -116,6 +105,11 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.initChatLog");
+        }
+
+        if (becameActive && _composer is not null)
+        {
+            await _composer.FocusAsync();
         }
     }
 
