@@ -1,6 +1,6 @@
 # ki-satsingen
 
-# Dev
+## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json
 ```json5
@@ -28,3 +28,14 @@
 }
 ```
 - run app `dotnet watch --project kisatsingen`
+
+### Local db
+#### Startup postgres
+- `docker compose up -d`
+
+#### Stop postgres
+- `docker compose down`
+
+#### How to reset local db (wipes data as well)
+- `docker compose down -v`
+- `docker compose up -d`
