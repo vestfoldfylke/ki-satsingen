@@ -220,10 +220,11 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
+            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
-            await PersistUserTurnAsync(text.Trim(), systemPromptForThisTurn, _cts.Token);
+            await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, _cts.Token);
             var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(systemPromptForThisTurn, _cts.Token);
-            await PersistResponseAsync(response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
+            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
         }
         catch (OperationCanceledException)
         {
@@ -248,7 +249,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private async Task PersistUserTurnAsync(string text, string systemPromptForThisTurn, CancellationToken ct)
+    private async Task PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _messages.Add(userMessage);
@@ -256,8 +257,6 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
 
         FireAndForget("chatClient.streamStart", _streamingId);
-
-        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
 
         _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
 
@@ -340,7 +339,7 @@ public sealed class ChatSession : IAsyncDisposable
         return (response, durationMs, firstTokenMs);
     }
 
-    private async Task PersistResponseAsync(ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
+    private async Task PersistResponseAsync(string userObjectId, ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
     {
         if (response.ModelId is not null)
         {
@@ -350,8 +349,6 @@ public sealed class ChatSession : IAsyncDisposable
         {
             _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
         }
-        
-        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
 
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
