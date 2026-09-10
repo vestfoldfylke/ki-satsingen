@@ -1,4 +1,4 @@
-using System.Text;
+using System.Diagnostics;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
@@ -25,16 +25,13 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IChatClient _client;
     private readonly IChatRepository _repo;
     private readonly IMetricsService _metrics;
-    private readonly IJSRuntime _js;
+    private readonly ChatClientChannel _channel;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
-    private const int CircuitLive = 0;
-    private const int CircuitLost = 1;
-    private int _circuitState;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     public event Action? StateChanged;
@@ -51,8 +48,11 @@ public sealed class ChatSession : IAsyncDisposable
         _client = client;
         _repo = repo;
         _metrics = metrics;
-        _js = js;
         _logger = logger;
+
+        // TryCancel as the disconnect handler: a lost circuit means nobody is
+        // reading the stream, so the turn producing it should stop.
+        _channel = new ChatClientChannel(js, logger, TryCancel);
     }
 
     public Guid? ChatId => _currentChat?.Id;
@@ -129,8 +129,8 @@ public sealed class ChatSession : IAsyncDisposable
         {
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
-            await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, _cts.Token);
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(systemPromptForThisTurn, _cts.Token);
+            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, _cts.Token);
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, _cts.Token);
             await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
         }
         catch (OperationCanceledException)
@@ -147,7 +147,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             if (_streamingId is Guid id)
             {
-                FireAndForget("chatClient.streamEnd", id);
+                _channel.StreamEnd(id);
             }
             _streamingId = null;
             IsBusy = false;
@@ -202,47 +202,54 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private async Task PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
+    // Returns the id of the stream it opened, so the caller cannot reach for a
+    // nullable field the sequencing below has already guaranteed is set.
+    private async Task<Guid> PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
         _entries.Add(new MessageEntry(Guid.NewGuid(), userMessage, null));
-        _streamingId = Guid.NewGuid();
-        Notify();
+        var streamId = Guid.NewGuid();
+        _streamingId = streamId;
 
-        FireAndForget("chatClient.streamStart", _streamingId);
+        // Notify before signalling the client: the render this triggers is what
+        // puts the streaming element in the DOM for the append calls to target.
+        Notify();
+        _channel.StreamStart(streamId);
 
         _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
 
         var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
         await _repo.AppendMessagesAsync(userObjectId, _currentChat.Id, [entity], ct);
+
+        return streamId;
     }
 
-    // Flush thresholds tuned for streams roughly in the 20-200 tok/s range.
-    // Flush more often -> more SignalR msgs/s and higher server CPU under fan-out;
-    // less often -> visible pauses in the streaming UI. Retune if either shows up
-    // under load. The rule below is cadence-adaptive (Nagle-style): a solitary
-    // token in a slow stream is flushed immediately; a burst is coalesced.
-    private const long FlushIntervalMs = 50;
-    private const int FlushCharThreshold = 400;
-
-    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(string systemPromptForThisTurn, CancellationToken ct)
+    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(Guid streamId, string systemPromptForThisTurn, CancellationToken ct)
     {
         var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
-        var startedAt = DateTimeOffset.UtcNow;
+
+        // Stopwatch, not DateTimeOffset.UtcNow: FlushCadence requires offsets that
+        // never go backwards, and a wall clock does exactly that when NTP steps it
+        // or the host migrates. A backward step would freeze the visible stream
+        // until the clock caught up. It also keeps the reported time-to-first-token
+        // free of clock adjustments.
+        var elapsed = Stopwatch.StartNew();
         long? firstTokenMs = null;
         var updates = new List<ChatResponseUpdate>();
-        var buffer = new StringBuilder();
-        // Seed so the first token counts as "long-idle since last flush/token"
-        // and gets flushed eagerly, giving a truthful TTFT on the client.
-        var lastFlushMs = -FlushIntervalMs;
-        var lastTokenMs = -FlushIntervalMs;
+
+        // Per turn, and it has to stay that way — together with the stopwatch
+        // above. Hoisting either to a field breaks the other: a reused cadence
+        // remembers the previous turn's last flush while a fresh stopwatch
+        // restarts offsets at zero, so the window never elapses and the whole
+        // next turn looks frozen until 400 characters pile up.
+        var cadence = new FlushCadence();
 
         var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
 
         await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
         {
             updates.Add(update);
-            var offsetMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
+            var offsetMs = elapsed.ElapsedMilliseconds;
 
             foreach (var content in update.Contents)
             {
@@ -263,24 +270,16 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             firstTokenMs ??= offsetMs;
-            buffer.Append(update.Text);
 
-            var slowStream = offsetMs - lastTokenMs >= FlushIntervalMs;
-            var windowElapsed = offsetMs - lastFlushMs >= FlushIntervalMs;
-            var bufferFull = buffer.Length >= FlushCharThreshold;
-            lastTokenMs = offsetMs;
-
-            if (slowStream || windowElapsed || bufferFull)
+            if (cadence.Append(offsetMs, update.Text) is { } due)
             {
-                FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
-                buffer.Clear();
-                lastFlushMs = offsetMs;
+                _channel.StreamAppend(streamId, due);
             }
         }
 
-        if (buffer.Length > 0)
+        if (cadence.Drain() is { } remaining)
         {
-            FireAndForget("chatClient.streamAppend", _streamingId, buffer.ToString());
+            _channel.StreamAppend(streamId, remaining);
         }
 
         var response = updates.ToChatResponse();
@@ -330,43 +329,6 @@ public sealed class ChatSession : IAsyncDisposable
     }
 
     private void Notify() => StateChanged?.Invoke();
-
-    private bool IsCircuitLost =>
-        Volatile.Read(ref _circuitState) == CircuitLost;
-
-    private bool TryMarkCircuitLost() =>
-        Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive;
-
-    private void FireAndForget(string method, params object?[] args)
-    {
-        if (IsCircuitLost)
-        {
-            return;
-        }
-
-        _ = ObserveAsync();
-        return;
-
-        async Task ObserveAsync()
-        {
-            try
-            {
-                await _js.InvokeVoidAsync(method, args);
-            }
-            catch (JSDisconnectedException)
-            {
-                if (TryMarkCircuitLost())
-                {
-                    _logger.LogInformation("Client circuit disconnected; cancelling active stream.");
-                    TryCancel();
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "JS interop failed for {Method}", method);
-            }
-        }
-    }
 
     public void Cancel() => TryCancel();
 
