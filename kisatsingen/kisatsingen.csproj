@@ -32,6 +32,13 @@
       <PackageReference Include="Vestfold.Extensions.Metrics" Version="1.0.2" />
     </ItemGroup>
 
+    <!-- TranscriptProjection and TranscriptRequest are internal implementation
+         detail of ChatSession, but they are pure functions and the whole point of
+         extracting them was to test them directly. -->
+    <ItemGroup>
+      <InternalsVisibleTo Include="kisatsingen.Tests" />
+    </ItemGroup>
+
     <ItemGroup>
       <Content Update="appsettings.json">
         <CopyToOutputDirectory>Always</CopyToOutputDirectory>

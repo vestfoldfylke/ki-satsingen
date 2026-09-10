@@ -47,7 +47,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     }
 
     [Fact]
-    public async Task AppendMessagesAsync_gives_same_batch_messages_distinct_increasing_timestamps()
+    public async Task AppendMessagesAsync_assigns_increasing_Seq_in_list_order_within_a_batch()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
@@ -58,30 +58,75 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         ]);
 
         await using var db = await Factory.CreateDbContextAsync();
-        var timestamps = await db.ChatMessages
+        var contentsBySeq = await db.ChatMessages
             .Where(m => m.ChatId == chat.Id)
-            .OrderBy(m => m.CreatedAt)
-            .Select(m => m.CreatedAt)
+            .OrderBy(m => m.Seq)
+            .Select(m => m.Content)
             .ToListAsync();
 
-        Assert.Equal(3, timestamps.Distinct().Count());
-        Assert.True(timestamps[0] < timestamps[1]);
-        Assert.True(timestamps[1] < timestamps[2]);
+        Assert.Equal(["a1", "a2", "a3"], contentsBySeq);
     }
 
     [Fact]
-    public async Task GetChatAsync_returns_messages_ordered_by_CreatedAt()
+    public async Task Seq_keeps_increasing_across_separate_appends()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
-        var first = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
-        var second = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
 
-        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("assistant", "second", second)]);
-        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first", first)]);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "one")]);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("assistant", "two")]);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var sequenceNumbers = await db.ChatMessages
+            .Where(m => m.ChatId == chat.Id)
+            .OrderBy(m => m.Seq)
+            .Select(m => new { m.Seq, m.Content })
+            .ToListAsync();
+
+        Assert.Equal(["one", "two"], sequenceNumbers.Select(x => x.Content));
+        Assert.True(sequenceNumbers[0].Seq < sequenceNumbers[1].Seq);
+    }
+
+    // Ordering is Seq's job, not CreatedAt's — the timestamps here are written
+    // deliberately backwards to prove the clock has no say in it.
+    [Fact]
+    public async Task GetChatAsync_orders_messages_by_Seq_and_not_by_CreatedAt()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var later = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
+        var earlier = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "written first", later)]);
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("assistant", "written second", earlier)]);
 
         var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
 
-        Assert.Equal(["first", "second"], reloaded!.Messages.Select(m => m.Content));
+        Assert.Equal(["written first", "written second"], reloaded!.Messages.Select(m => m.Content));
+    }
+
+    [Fact]
+    public async Task AppendEventAsync_shares_the_sequence_with_messages_so_the_two_interleave()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first")]);
+        await Repo.AppendEventAsync(OwnerId, chat.Id, new ChatEvent { Kind = ChatEventKind.Stopped });
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "third")]);
+
+        var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
+
+        var stoppedEvent = Assert.Single(reloaded!.Events);
+        var messagesBySeq = reloaded.Messages.OrderBy(m => m.Seq).ToList();
+        Assert.True(messagesBySeq[0].Seq < stoppedEvent.Seq);
+        Assert.True(stoppedEvent.Seq < messagesBySeq[1].Seq);
+    }
+
+    [Fact]
+    public async Task AppendEventAsync_throws_when_the_chat_belongs_to_a_different_owner()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => Repo.AppendEventAsync("someone-else", chat.Id, new ChatEvent { Kind = ChatEventKind.Stopped }));
     }
 
     [Fact]
