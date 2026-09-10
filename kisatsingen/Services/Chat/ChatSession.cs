@@ -103,7 +103,7 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChat = chat;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt));
+                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, _logger));
             }
         }
 

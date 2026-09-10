@@ -77,6 +77,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.Property(m => m.ResponseId).HasMaxLength(128);
         message.Property(m => m.ModelId).HasMaxLength(128);
         message.Property(m => m.FinishReason).HasMaxLength(64);
+        message.Property(m => m.ContentsSchemaVersion).HasMaxLength(64);
+
+        // Deliberately text and not jsonb. jsonb normalises key order, and
+        // System.Text.Json requires the "$type" discriminator to come first when
+        // deserialising a polymorphic AIContent — so a jsonb round trip silently
+        // turns every tool call back into plain text. Verified by
+        // a_tool_call_survives_the_round_trip_through_storage, which fails on
+        // jsonb. This column stores bytes a strict deserialiser has to read back
+        // exactly; querying into it is not a use case.
+        message.Property(m => m.ContentsJson).HasColumnType("text");
         message.HasIndex(m => new { m.ChatId, m.Seq });
         ConfigureSeq(message.Property(m => m.Seq));
 

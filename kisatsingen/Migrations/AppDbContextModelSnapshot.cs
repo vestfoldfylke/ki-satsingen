@@ -105,6 +105,10 @@ namespace kisatsingen.Migrations
                     b.Property<string>("ContentsJson")
                         .HasColumnType("text");
 
+                    b.Property<string>("ContentsSchemaVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

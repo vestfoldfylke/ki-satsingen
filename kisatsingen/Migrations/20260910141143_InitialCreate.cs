@@ -62,6 +62,7 @@ namespace kisatsingen.Migrations
                     Role = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Content = table.Column<string>(type: "text", nullable: false),
                     ContentsJson = table.Column<string>(type: "text", nullable: true),
+                    ContentsSchemaVersion = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     ResponseId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     ModelId = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),

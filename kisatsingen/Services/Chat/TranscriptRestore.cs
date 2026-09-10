@@ -14,10 +14,14 @@ internal static class TranscriptRestore
     // what lets a straight two-pointer merge rebuild the original order with no
     // tie to break — and why callers must pass the lists already sorted by Seq,
     // which the ordered includes in ChatRepository.GetChatAsync do.
+    // The logger is passed rather than resolved so this stays a function of its
+    // arguments. It is only reached when a stored message's contents cannot be
+    // read; see ChatMessageMapper.FromEntity.
     public static IReadOnlyList<TranscriptEntry> Build(
         IReadOnlyList<StoredMessage> messages,
         IReadOnlyList<ChatEvent> events,
-        string systemPromptInForce)
+        string systemPromptInForce,
+        ILogger logger)
     {
         var entries = new List<TranscriptEntry>(messages.Count + events.Count);
         var messageIndex = 0;
@@ -35,7 +39,7 @@ internal static class TranscriptRestore
             if (takeMessage)
             {
                 var stored = messages[messageIndex++];
-                entries.Add(BuildMessageEntry(stored, ref currentSnapshot));
+                entries.Add(BuildMessageEntry(stored, ref currentSnapshot, logger));
                 continue;
             }
 
@@ -46,7 +50,7 @@ internal static class TranscriptRestore
         return entries;
     }
 
-    private static MessageEntry BuildMessageEntry(StoredMessage stored, ref string currentSnapshot)
+    private static MessageEntry BuildMessageEntry(StoredMessage stored, ref string currentSnapshot, ILogger logger)
     {
         var role = new ChatRole(stored.Role);
 
@@ -68,6 +72,6 @@ internal static class TranscriptRestore
                 currentSnapshot);
         }
 
-        return new MessageEntry(Guid.NewGuid(), ChatMessageMapper.FromEntity(stored), metadata);
+        return new MessageEntry(Guid.NewGuid(), ChatMessageMapper.FromEntity(stored, logger), metadata);
     }
 }

@@ -2,7 +2,11 @@ using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
 using kisatsingen.Tests.Data;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
+using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 using StoredMessage = kisatsingen.Data.Entities.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
@@ -117,6 +121,81 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.Null(Assert.IsType<MessageEntry>(Assert.Single(entries)).Metadata);
     }
 
+    // The structured half of a message, all the way through Postgres and back.
+    // Nothing else covered this, and it is what the ContentsJson column exists
+    // for — a tool call that does not survive the round trip renders as nothing.
+    [Fact]
+    public async Task a_tool_call_survives_the_round_trip_through_storage()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var withToolCall = new AiMessage(ChatRole.Assistant, [
+            new FunctionCallContent("call-1", "get_current_time_utc", new Dictionary<string, object?> { ["timeZone"] = "Europe/Oslo" })
+        ]);
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [ChatMessageMapper.ToEntity(withToolCall)]);
+        var entries = await RestoreAsync(chat.Id);
+
+        var restored = Assert.IsType<MessageEntry>(Assert.Single(entries));
+        var call = Assert.IsType<FunctionCallContent>(Assert.Single(restored.Message.Contents));
+        Assert.Equal("get_current_time_utc", call.Name);
+    }
+
+    // Both ToEntity overloads have to stamp this, and a third would too. Without
+    // it the warning above can say a row is unreadable but not what wrote it.
+    [Fact]
+    public async Task a_written_message_records_which_library_version_produced_its_contents()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
+            ChatMessageMapper.ToEntity(new AiMessage(ChatRole.Assistant, "hei"))
+        ]);
+
+        await using var db = await fixture.Factory.CreateDbContextAsync();
+        var stored = await db.ChatMessages.SingleAsync();
+        Assert.False(string.IsNullOrWhiteSpace(stored.ContentsSchemaVersion));
+    }
+
+    // Before the fallback existed, one unreadable row threw on every attempt to
+    // open the chat, putting the whole conversation permanently out of reach. The
+    // structured parts are lost; the conversation is not.
+    [Fact]
+    public async Task a_message_whose_stored_contents_cannot_be_read_degrades_to_its_plain_text()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
+            new StoredMessage
+            {
+                Role = "assistant",
+                Content = "the readable text",
+                ContentsJson = """[{ "$type": "something-a-later-version-renamed" }]"""
+            }
+        ]);
+
+        var entries = await RestoreAsync(chat.Id);
+
+        var message = Assert.IsType<MessageEntry>(Assert.Single(entries));
+        Assert.Equal("the readable text", message.Message.Text);
+    }
+
+    // A transcript with one unreadable row still restores the rest in order.
+    [Fact]
+    public async Task an_unreadable_message_does_not_take_the_rest_of_the_transcript_with_it()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
+            Message("user", "before"),
+            new StoredMessage { Role = "assistant", Content = "middle", ContentsJson = "{ not json at all" },
+            Message("user", "after")
+        ]);
+
+        var entries = await RestoreAsync(chat.Id);
+
+        Assert.Equal(
+            ["before", "middle", "after"],
+            entries.Select(e => Assert.IsType<MessageEntry>(e).Message.Text));
+    }
+
     [Fact]
     public async Task a_chat_with_no_rows_restores_to_an_empty_transcript()
     {
@@ -131,7 +210,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     {
         var chat = await Repo.GetChatAsync(OwnerId, chatId);
 
-        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce);
+        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce, NullLogger.Instance);
     }
 
     private static StoredMessage Message(string role, string content) => new()

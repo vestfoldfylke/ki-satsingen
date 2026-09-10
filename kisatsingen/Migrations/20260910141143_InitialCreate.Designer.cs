@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260910103548_InitialCreate")]
+    [Migration("20260910141143_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -107,6 +107,10 @@ namespace kisatsingen.Migrations
 
                     b.Property<string>("ContentsJson")
                         .HasColumnType("text");
+
+                    b.Property<string>("ContentsSchemaVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
