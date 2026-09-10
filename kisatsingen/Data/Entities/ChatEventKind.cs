@@ -11,5 +11,10 @@ public enum ChatEventKind
 
     // The turn ended in an error the user did not cause. Not written yet: see
     // the recoverable-vs-fatal classification still to be decided.
-    Failed
+    Failed,
+
+    // The Blazor circuit was lost mid-turn (tab closed, network drop). Not a
+    // user-initiated stop — kept apart from Stopped so the reload transcript
+    // does not tell the user they pressed a button they did not.
+    Disconnected
 }

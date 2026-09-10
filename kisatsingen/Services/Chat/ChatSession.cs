@@ -31,8 +31,18 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
-    private CancellationTokenSource? _cts;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
+
+    // Two cancellation sources, linked into one token that the turn actually
+    // awaits. Splitting them is what lets the OperationCanceledException catch
+    // tell a user stop apart from a lost circuit: whichever source was
+    // cancelled is the cause, read from CancellationTokenSource state that is
+    // safe to observe cross-thread by design. No side-channel field, no
+    // ordering requirement, and a future third path (timeout, admin abort)
+    // adds a third source rather than a new value on a shared enum.
+    private CancellationTokenSource? _userCts;
+    private CancellationTokenSource? _disconnectCts;
+    private CancellationTokenSource? _linkedCts;
 
     public event Action? StateChanged;
 
@@ -51,8 +61,10 @@ public sealed class ChatSession : IAsyncDisposable
         _logger = logger;
 
         // TryCancel as the disconnect handler: a lost circuit means nobody is
-        // reading the stream, so the turn producing it should stop.
-        _channel = new ChatClientChannel(js, logger, TryCancel);
+        // reading the stream, so the turn producing it should stop. Cancelling
+        // the disconnect source specifically is what lets the catch see this
+        // as a disconnect rather than a user-initiated stop.
+        _channel = new ChatClientChannel(js, logger, () => TryCancel(_disconnectCts));
     }
 
     public Guid? ChatId => _currentChat?.Id;
@@ -118,7 +130,18 @@ public sealed class ChatSession : IAsyncDisposable
         }
 
         IsBusy = true;
-        _cts = new CancellationTokenSource();
+
+        // Local aliases for the CTSs. The catch reads its own local rather than
+        // the field so a racing DisposeAsync that nulls the field cannot NRE the
+        // outcome branch; the fields stay exposed so external Cancel() and the
+        // disconnect callback can still reach the live sources — TryCancel
+        // no-ops on a null read either way.
+        var userCts = new CancellationTokenSource();
+        var disconnectCts = new CancellationTokenSource();
+        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(userCts.Token, disconnectCts.Token);
+        _userCts = userCts;
+        _disconnectCts = disconnectCts;
+        _linkedCts = linkedCts;
 
         // Hoisted so the cancellation handler can record the stop against the
         // right owner. Null means the stop beat authentication, in which case no
@@ -129,14 +152,25 @@ public sealed class ChatSession : IAsyncDisposable
         {
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
-            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, _cts.Token);
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, _cts.Token);
-            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, _cts.Token);
+            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, linkedCts.Token);
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, linkedCts.Token);
+            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, linkedCts.Token);
         }
         catch (OperationCanceledException)
         {
-            CountSend(MetricConstants.MetricsResultCancelledLabelValue);
-            await RecordStoppedAsync(userObjectId);
+            // Disconnect wins if both fired in the same turn: pressing stop on
+            // a dying tab is functionally a disconnect, and the connectivity
+            // signal is more useful to ops than the stop count.
+            if (disconnectCts.IsCancellationRequested)
+            {
+                CountSend(MetricConstants.MetricsResultDisconnectedLabelValue);
+                await RecordTurnEventAsync(userObjectId, ChatEventKind.Disconnected);
+            }
+            else
+            {
+                CountSend(MetricConstants.MetricsResultCancelledLabelValue);
+                await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
+            }
         }
         catch (UserNotAuthenticatedException)
         {
@@ -151,8 +185,19 @@ public sealed class ChatSession : IAsyncDisposable
             }
             _streamingId = null;
             IsBusy = false;
-            _cts?.Dispose();
-            _cts = null;
+
+            // Null the fields first so a Cancel() or disconnect callback that
+            // arrives during Dispose reads null and no-ops, rather than racing
+            // Cancel on a source that is about to be disposed. Linked first,
+            // then the sources it observed — reversing risks the linked one
+            // dereferencing an already-disposed underlying token.
+            _linkedCts = null;
+            _userCts = null;
+            _disconnectCts = null;
+            linkedCts.Dispose();
+            userCts.Dispose();
+            disconnectCts.Dispose();
+
             Notify();
         }
     }
@@ -172,33 +217,34 @@ public sealed class ChatSession : IAsyncDisposable
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
             (MetricConstants.MetricsResultLabelName, result));
 
-    // The partial response is deliberately discarded — the user asked for it to
-    // stop. What is kept is that a stop happened here, so reloading the chat
-    // shows why a turn produced nothing instead of an unexplained gap.
-    private async Task RecordStoppedAsync(string? userObjectId)
+    // The partial response is deliberately discarded — the turn was cancelled.
+    // What is kept is why it was cancelled, so reloading the chat shows the
+    // reason for a turn that produced nothing instead of an unexplained gap:
+    // Stopped for a user pressing stop, Disconnected for a lost circuit.
+    private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind)
     {
         if (userObjectId is null || _currentChat is null)
         {
             return;
         }
 
-        var stopped = new Data.Entities.ChatEvent { Kind = ChatEventKind.Stopped };
-        _entries.Add(new EventEntry(Guid.NewGuid(), stopped.Kind, stopped.Detail, DateTimeOffset.UtcNow));
+        var chatEvent = new Data.Entities.ChatEvent { Kind = kind };
+        _entries.Add(new EventEntry(Guid.NewGuid(), chatEvent.Kind, chatEvent.Detail, DateTimeOffset.UtcNow));
 
         try
         {
             // Deliberately not the turn's cancellation source: it is already
             // cancelled here, and using it would abort the very write that
             // records the cancellation.
-            await _repo.AppendEventAsync(userObjectId, _currentChat.Id, stopped, CancellationToken.None);
+            await _repo.AppendEventAsync(userObjectId, _currentChat.Id, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            // Failing to record the stop must not replace the original
+            // Failing to record the event must not replace the original
             // cancellation or take down the circuit. The entry is already in
             // memory, so this turn still renders correctly; only a reload of the
             // chat would lose it.
-            _logger.LogWarning(ex, "Could not persist stop event for chat {ChatId}", _currentChat.Id);
+            _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, _currentChat.Id);
         }
     }
 
@@ -327,16 +373,16 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void Notify() => StateChanged?.Invoke();
 
-    public void Cancel() => TryCancel();
+    public void Cancel() => TryCancel(_userCts);
 
-    // Guards against _cts being disposed by SendAsync's finally block on a
+    // Guards against the source being disposed by SendAsync's finally block on a
     // parallel thread. A disposed CTS is already cancelled from a caller's
     // perspective, so swallowing is correct.
-    private void TryCancel()
+    private static void TryCancel(CancellationTokenSource? cts)
     {
         try
         {
-            _cts?.Cancel();
+            cts?.Cancel();
         }
         catch (ObjectDisposedException)
         {
@@ -345,13 +391,19 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        if (_cts is null)
+        // Cancel the user source rather than the linked one: cancelling either
+        // underlying source is enough to fire the linked token, and cancelling
+        // the linked one directly does not propagate back.
+        if (_userCts is not null)
         {
-            return;
+            await _userCts.CancelAsync();
         }
 
-        await _cts.CancelAsync();
-        _cts.Dispose();
-        _cts = null;
+        _linkedCts?.Dispose();
+        _userCts?.Dispose();
+        _disconnectCts?.Dispose();
+        _linkedCts = null;
+        _userCts = null;
+        _disconnectCts = null;
     }
 }
