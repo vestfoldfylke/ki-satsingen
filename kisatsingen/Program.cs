@@ -31,6 +31,8 @@ builder.Logging.AddVestfoldLogging();
 builder.Services.AddVestfoldMetrics();
 builder.Services.UseHttpClientMetrics();
 
+builder.Services.AddHealthChecks();
+
 // ─── Authentication & authorization ────────────────────
 // Azure Web App terminates TLS at a reverse proxy; honor its X-Forwarded-* headers
 // so the OIDC middleware builds the correct https redirect_uri.
@@ -144,6 +146,8 @@ else
         app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
     }
 }
+
+app.MapHealthChecks("/healthz");
 
 // ─── Forwarded headers (must run before auth/HTTPS redirect) ───
 app.UseForwardedHeaders();
