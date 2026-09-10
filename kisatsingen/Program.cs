@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
@@ -30,6 +31,29 @@ builder.Services.AddVestfoldMetrics();
 builder.Services.UseHttpClientMetrics();
 
 // ─── Authentication & authorization ────────────────────
+// Azure Web App terminates TLS at a reverse proxy; honor its X-Forwarded-* headers
+// so the OIDC middleware builds the correct https redirect_uri.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                               ForwardedHeaders.XForwardedProto |
+                               ForwardedHeaders.XForwardedHost;
+
+    // App Gateway → App Service front-end → Kestrel: two proxies. (Needed to prevent RemoteIpAddress becomes App Gateway's private IP, not the real client)
+    options.ForwardLimit = 2;
+
+    // App Gateway overrides Host with <app>.azurewebsites.net and stashes
+    // the original public host here. Remove this line if App Gateway is
+    // configured to preserve the client Host header.
+    options.ForwardedHostHeaderName = "X-Original-Host";
+
+    // Trust boundary is enforced by App Service Access Restrictions
+    // (only App Gateway's subnet allowed). Header spoofing is blocked
+    // at the network edge, not by IP allowlisting here.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
 // Cascades authentication state seamlessly to <AuthorizeView> components
 builder.Services.AddCascadingAuthenticationState();
 
@@ -111,6 +135,9 @@ else
         app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
     }
 }
+
+// ─── Forwarded headers (must run before auth/HTTPS redirect) ───
+app.UseForwardedHeaders();
 
 // ─── Security response headers (apply to every response) ───
 var scriptSrc = app.Environment.IsDevelopment()
