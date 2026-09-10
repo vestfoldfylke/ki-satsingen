@@ -23,14 +23,37 @@ public sealed class PostgresFixture : IAsyncLifetime
     // Trust auth means neither role needs a credential to connect. The container
     // is ephemeral, on a random loopback port, and torn down with the run — and
     // it keeps test secrets out of the repository entirely.
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:18-alpine")
-        .WithDatabase(Database)
-        .WithUsername(OwnerRole)
-        .WithEnvironment("POSTGRES_HOST_AUTH_METHOD", "trust")
-        .WithResourceMapping(
-            new FileInfo(Path.Combine(AppContext.BaseDirectory, "local-db-init", "01-init-permissions.sql")),
-            "/docker-entrypoint-initdb.d/")
-        .Build();
+    private readonly PostgreSqlContainer _container = BuildContainer();
+
+    // Mounts every *.sql under local-db-init in ordinal order, matching Postgres'
+    // own alphabetical execution of files in /docker-entrypoint-initdb.d/ and the
+    // *.sql glob the csproj uses to copy them. Hardcoding a single filename here
+    // would silently ignore any second script added to keep tests aligned with
+    // compose.yml — exactly the drift PostgresFixtureTests exists to catch.
+    private static PostgreSqlContainer BuildContainer()
+    {
+        var builder = new PostgreSqlBuilder("postgres:18-alpine")
+            .WithDatabase(Database)
+            .WithUsername(OwnerRole)
+            .WithEnvironment("POSTGRES_HOST_AUTH_METHOD", "trust");
+
+        var initDir = Path.Combine(AppContext.BaseDirectory, "local-db-init");
+        var scripts = Directory.EnumerateFiles(initDir, "*.sql")
+            .OrderBy(path => path, StringComparer.Ordinal)
+            .ToArray();
+
+        if (scripts.Length == 0)
+        {
+            throw new InvalidOperationException($"No *.sql init scripts found under {initDir}. Check the csproj copy step.");
+        }
+
+        foreach (var script in scripts)
+        {
+            builder = builder.WithResourceMapping(new FileInfo(script), "/docker-entrypoint-initdb.d/");
+        }
+
+        return builder.Build();
+    }
 
     // What production uses: the low-privilege role, holding only the SELECT /
     // INSERT / UPDATE / DELETE and sequence USAGE the init script grants it.
