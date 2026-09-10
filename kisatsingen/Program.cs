@@ -94,7 +94,8 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
 
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles));
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles))
+    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(AppConstants.MetricRole));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
@@ -190,7 +191,6 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 // ─── Observability endpoints ───────────────────────────
-app.UseMetricServer();
 app.UseHttpMetrics();
 
 // ─── Auth ──────────────────────────────────────────────
@@ -199,6 +199,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
+app.MapMetrics().RequireAuthorization("CanReadMetrics");
 app.MapStaticAssets();
 var razorComponents = app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
