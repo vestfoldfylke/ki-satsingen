@@ -1,7 +1,7 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Microsoft.Extensions.Configuration;
+using Npgsql;
 
 namespace kisatsingen.Data;
 
@@ -17,8 +17,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var connectionString = configuration.GetConnectionString("MigrationConnection")
             ?? throw new InvalidOperationException("ConnectionStrings:MigrationConnection is not configured.");
 
+        var dataSourceBuilderForMigration = new NpgsqlDataSourceBuilder(connectionString)
+        {
+            Name = "ChatDbMigration"
+        };
+
+        var dataSourceForMigration = dataSourceBuilderForMigration.Build();
+
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString)
+            .UseNpgsql(dataSourceForMigration)
             .Options;
 
         return new AppDbContext(options);
