@@ -35,11 +35,11 @@ builder.Services.UseHttpClientMetrics();
 // so the OIDC middleware builds the correct https redirect_uri.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor
-                             | ForwardedHeaders.XForwardedProto
-                             | ForwardedHeaders.XForwardedHost;
-    options.KnownIPNetworks.Clear();
-    options.KnownProxies.Clear();
+    // Tell .NET to only overwrite the Host header
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedHost;
+    
+    // Azure App Gateway specifically puts the original public domain here
+    options.ForwardedHostHeaderName = "X-Original-Host"; 
 });
 
 // Cascades authentication state seamlessly to <AuthorizeView> components
