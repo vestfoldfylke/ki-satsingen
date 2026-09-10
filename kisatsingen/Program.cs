@@ -227,22 +227,16 @@ app.MapRazorComponents<App>()
             dispatcherOptions.CloseOnAuthenticationExpiration = true;
         };
     });
-*/
 
-// Reaching into endpoint metadata is a workaround until the .NET 11 option above
-// exists. It throws rather than skipping quietly on purpose: if a framework
-// upgrade changes the metadata shape, the flag would silently stay false and
-// circuits would outlive the user's expired token, with nothing to notice. A
-// failed startup is the cheapest possible way to find that out.
+Reaching into endpoint metadata below is a workaround until the .NET 11 option above exists.
+*/
 razorComponents.Add(endpoint =>
 {
-    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault()
-        ?? throw new InvalidOperationException(
-            $"No {nameof(HttpConnectionDispatcherOptions)} in the metadata for endpoint '{endpoint.DisplayName}', so "
-            + "CloseOnAuthenticationExpiration cannot be enabled and Blazor circuits would survive authentication "
-            + "expiry. Set it through AddInteractiveServerRenderMode's ConfigureConnection option instead.");
-
-    dispatcherOptions.CloseOnAuthenticationExpiration = true;
+    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault();
+    if (dispatcherOptions is not null)
+    {
+        dispatcherOptions.CloseOnAuthenticationExpiration = true;
+    }
 });
 
 razorComponents.RequireAuthorization();

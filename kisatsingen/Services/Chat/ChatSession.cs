@@ -237,11 +237,8 @@ public sealed class ChatSession : IAsyncDisposable
         long? firstTokenMs = null;
         var updates = new List<ChatResponseUpdate>();
 
-        // Per turn, and it has to stay that way — together with the stopwatch
-        // above. Hoisting either to a field breaks the other: a reused cadence
-        // remembers the previous turn's last flush while a fresh stopwatch
-        // restarts offsets at zero, so the window never elapses and the whole
-        // next turn looks frozen until 400 characters pile up.
+        // Carries flush state that only means anything against the stopwatch
+        // above, so the two share a lifetime.
         var cadence = new FlushCadence();
 
         var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
