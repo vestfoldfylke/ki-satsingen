@@ -47,7 +47,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     }
 
     [Fact]
-    public async Task AppendMessagesAsync_assigns_increasing_Seq_in_list_order_within_a_batch()
+    public async Task AppendMessagesAsync_stores_a_batch_in_list_order()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
@@ -120,6 +120,45 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.True(stoppedEvent.Seq < messagesBySeq[1].Seq);
     }
 
+    // Seq is store-generated, so the value only reaches the caller if EF reads it
+    // back. Pinned because nothing in the app depends on it yet, which is exactly
+    // when a silent regression to 0 would go unnoticed.
+    [Fact]
+    public async Task AppendMessagesAsync_reads_the_generated_Seq_back_onto_the_entity()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var message = Message("user", "hi");
+
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [message]);
+
+        Assert.True(message.Seq > 0);
+    }
+
+    // Why Seq is a column default rather than something the repository hands out:
+    // this insert never touches ChatRepository, and there is no code path left
+    // that could leave it at 0 and silently sort it ahead of the transcript.
+    [Fact]
+    public async Task A_write_that_bypasses_the_repository_still_gets_an_ordered_Seq()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "through the repository")]);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var bypassing = Message("assistant", "straight onto the context", DateTimeOffset.UtcNow);
+        bypassing.Id = Guid.NewGuid();
+        bypassing.ChatId = chat.Id;
+        db.ChatMessages.Add(bypassing);
+        await db.SaveChangesAsync();
+
+        var contentsBySeq = await db.ChatMessages
+            .Where(m => m.ChatId == chat.Id)
+            .OrderBy(m => m.Seq)
+            .Select(m => m.Content)
+            .ToListAsync();
+
+        Assert.Equal(["through the repository", "straight onto the context"], contentsBySeq);
+    }
+
     [Fact]
     public async Task AppendEventAsync_throws_when_the_chat_belongs_to_a_different_owner()
     {
@@ -166,6 +205,26 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         await using var after = await Factory.CreateDbContextAsync();
         var reloaded = await after.Chats.SingleAsync(c => c.Id == chat.Id);
         Assert.Equal(updatedAtBeforeFailure, reloaded.UpdatedAt);
+    }
+
+    // A batch is now one INSERT per message, so it can fail partway with earlier
+    // rows already written. The transaction is what keeps it all-or-nothing, and
+    // that is worth pinning where it is no longer obvious from the call shape.
+    [Fact]
+    public async Task AppendMessagesAsync_rolls_back_earlier_rows_when_a_later_message_fails()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "already there")]);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var colliding = Message("assistant", "collides on the primary key");
+        colliding.Id = (await db.ChatMessages.SingleAsync()).Id;
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => Repo.AppendMessagesAsync(
+            OwnerId, chat.Id, [Message("user", "first of the batch"), colliding]));
+
+        var contents = await db.ChatMessages.Select(m => m.Content).ToListAsync();
+        Assert.Equal(["already there"], contents);
     }
 
     [Fact]

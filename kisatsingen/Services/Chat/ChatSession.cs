@@ -103,62 +103,11 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChat = chat;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                RestoreEntries(chat);
+                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt));
             }
         }
 
         Notify();
-    }
-
-    // Messages and events are stored apart but ordered together. Both arrive
-    // sorted by Seq, and Seq is unique across the two, so a straight merge
-    // rebuilds the original sequence with no tie to break.
-    private void RestoreEntries(Data.Entities.Chat chat)
-    {
-        var messages = chat.Messages;
-        var events = chat.Events;
-        var messageIndex = 0;
-        var eventIndex = 0;
-
-        // Each user turn records the system prompt in force when it was sent, so
-        // assistant metadata can report the prompt that actually produced it.
-        var currentSnapshot = _effectiveSystemPrompt;
-
-        while (messageIndex < messages.Count || eventIndex < events.Count)
-        {
-            var takeMessage = eventIndex >= events.Count
-                || (messageIndex < messages.Count && messages[messageIndex].Seq < events[eventIndex].Seq);
-
-            if (takeMessage)
-            {
-                var stored = messages[messageIndex++];
-                var role = new ChatRole(stored.Role);
-
-                AssistantMetadata? metadata = null;
-                if (role == ChatRole.User)
-                {
-                    currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
-                }
-                else if (role == ChatRole.Assistant)
-                {
-                    metadata = new AssistantMetadata(
-                        stored.ModelId,
-                        stored.ResponseId,
-                        stored.FinishReason,
-                        MessageUsage.FromEntity(stored),
-                        stored.DurationMs,
-                        stored.TimeToFirstTokenMs,
-                        stored.CreatedAt,
-                        currentSnapshot);
-                }
-
-                _entries.Add(new MessageEntry(Guid.NewGuid(), ChatMessageMapper.FromEntity(stored), metadata));
-                continue;
-            }
-
-            var storedEvent = events[eventIndex++];
-            _entries.Add(new EventEntry(Guid.NewGuid(), storedEvent.Kind, storedEvent.Detail, storedEvent.CreatedAt));
-        }
     }
 
     public async Task SendAsync(string text)

@@ -8,9 +8,10 @@ public sealed class ChatEvent
     public Guid Id { get; set; }
     public Guid ChatId { get; set; }
 
-    // Orders this event against messages in the same chat. Drawn from the same
-    // sequence they are, so the two tables interleave into one transcript.
-    public long Seq { get; set; }
+    // Orders this event against messages in the same chat. Assigned by the
+    // database from the same sequence they draw from, so the two tables
+    // interleave into one transcript.
+    public long Seq { get; private set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 

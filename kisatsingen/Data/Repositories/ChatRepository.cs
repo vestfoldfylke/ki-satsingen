@@ -60,21 +60,30 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         var now = DateTimeOffset.UtcNow;
-        var sequence = await ReserveSequenceAsync(db, messages.Count, ct);
 
-        for (var i = 0; i < messages.Count; i++)
+        foreach (var message in messages)
         {
-            var message = messages[i];
             message.Id = message.Id == Guid.Empty ? Guid.NewGuid() : message.Id;
             message.ChatId = chatId;
-            message.Seq = sequence[i];
             message.CreatedAt = message.CreatedAt == default ? now : message.CreatedAt;
         }
 
         await TouchChatAsync(db, ownerId, chatId, messages[^1].CreatedAt, ct);
 
-        db.ChatMessages.AddRange(messages);
-        await db.SaveChangesAsync(ct);
+        // One SaveChanges per message, deliberately: Seq comes from a column
+        // default, and Postgres does not promise to evaluate defaults in row
+        // order for a multi-row insert. Order within a batch is what must not
+        // drift — a tool call has to stay ahead of its result — so each row gets
+        // its own statement. Do not collapse this into AddRange, and do not
+        // reduce it to a MaxBatchSize option: the constraint belongs here, where
+        // the reason is visible. A batch is a handful of rows on a path that just
+        // spent seconds in the model, so the extra round trips do not register.
+        foreach (var message in messages)
+        {
+            db.ChatMessages.Add(message);
+            await db.SaveChangesAsync(ct);
+        }
+
         await transaction.CommitAsync(ct);
     }
 
@@ -83,11 +92,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        var sequence = await ReserveSequenceAsync(db, 1, ct);
-
         chatEvent.Id = chatEvent.Id == Guid.Empty ? Guid.NewGuid() : chatEvent.Id;
         chatEvent.ChatId = chatId;
-        chatEvent.Seq = sequence[0];
         chatEvent.CreatedAt = chatEvent.CreatedAt == default ? DateTimeOffset.UtcNow : chatEvent.CreatedAt;
 
         await TouchChatAsync(db, ownerId, chatId, chatEvent.CreatedAt, ct);
@@ -96,15 +102,6 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
-
-    // Assigned here rather than by a column default: Postgres does not promise to
-    // evaluate defaults in row order for a multi-row insert, and the order within
-    // one batch is exactly what must not drift (a tool call has to stay ahead of
-    // its result). Reserving up front makes the order ours.
-    private static async Task<IReadOnlyList<long>> ReserveSequenceAsync(AppDbContext db, int count, CancellationToken ct) =>
-        await db.Database
-            .SqlQuery<long>($"""SELECT nextval('chat_entry_seq') AS "Value" FROM generate_series(1, {count})""")
-            .ToListAsync(ct);
 
     private static async Task TouchChatAsync(AppDbContext db, string ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {

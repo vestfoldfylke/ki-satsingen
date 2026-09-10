@@ -5,9 +5,10 @@ public sealed class ChatMessage
     public Guid Id { get; set; }
     public Guid ChatId { get; set; }
 
-    // Orders this message against events in the same chat. Both tables draw from
-    // one sequence, so ordering is exact and independent of the clock.
-    public long Seq { get; set; }
+    // Orders this message against events in the same chat. Assigned by the
+    // database from a sequence both tables share, so ordering is exact, is
+    // independent of the clock, and cannot be set — or mis-set — from here.
+    public long Seq { get; private set; }
 
     public required string Role { get; init; }
     public required string Content { get; init; }

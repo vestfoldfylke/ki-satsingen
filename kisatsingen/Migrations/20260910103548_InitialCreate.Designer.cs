@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260910061011_InitialCreate")]
+    [Migration("20260910103548_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -81,7 +81,9 @@ namespace kisatsingen.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.Property<long>("Seq")
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
 
                     b.HasKey("Id");
 
@@ -136,7 +138,9 @@ namespace kisatsingen.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.Property<long>("Seq")
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
 
                     b.Property<string>("SystemPromptSnapshot")
                         .HasColumnType("text");

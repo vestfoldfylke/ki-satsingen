@@ -78,7 +78,9 @@ namespace kisatsingen.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.Property<long>("Seq")
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
 
                     b.HasKey("Id");
 
@@ -133,7 +135,9 @@ namespace kisatsingen.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.Property<long>("Seq")
-                        .HasColumnType("bigint");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
 
                     b.Property<string>("SystemPromptSnapshot")
                         .HasColumnType("text");

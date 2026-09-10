@@ -36,7 +36,7 @@ namespace kisatsingen.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Seq = table.Column<long>(type: "bigint", nullable: false),
+                    Seq = table.Column<long>(type: "bigint", nullable: false, defaultValueSql: "nextval('chat_entry_seq')"),
                     CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     Kind = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Detail = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
@@ -58,7 +58,7 @@ namespace kisatsingen.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     ChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    Seq = table.Column<long>(type: "bigint", nullable: false),
+                    Seq = table.Column<long>(type: "bigint", nullable: false, defaultValueSql: "nextval('chat_entry_seq')"),
                     Role = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
                     Content = table.Column<string>(type: "text", nullable: false),
                     ContentsJson = table.Column<string>(type: "text", nullable: true),
