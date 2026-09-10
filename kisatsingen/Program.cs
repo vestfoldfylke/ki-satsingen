@@ -119,7 +119,8 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .AsIChatClient())
     .UseFunctionInvocation();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString)
 {
@@ -228,13 +229,20 @@ app.MapRazorComponents<App>()
     });
 */
 
+// Reaching into endpoint metadata is a workaround until the .NET 11 option above
+// exists. It throws rather than skipping quietly on purpose: if a framework
+// upgrade changes the metadata shape, the flag would silently stay false and
+// circuits would outlive the user's expired token, with nothing to notice. A
+// failed startup is the cheapest possible way to find that out.
 razorComponents.Add(endpoint =>
 {
-    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault();
-    if (dispatcherOptions is not null)
-    {
-        dispatcherOptions.CloseOnAuthenticationExpiration = true;
-    }
+    var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault()
+        ?? throw new InvalidOperationException(
+            $"No {nameof(HttpConnectionDispatcherOptions)} in the metadata for endpoint '{endpoint.DisplayName}', so "
+            + "CloseOnAuthenticationExpiration cannot be enabled and Blazor circuits would survive authentication "
+            + "expiry. Set it through AddInteractiveServerRenderMode's ConfigureConnection option instead.");
+
+    dispatcherOptions.CloseOnAuthenticationExpiration = true;
 });
 
 razorComponents.RequireAuthorization();
