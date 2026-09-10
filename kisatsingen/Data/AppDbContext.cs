@@ -68,13 +68,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .OnDelete(DeleteBehavior.Cascade);
     }
 
-    // PropertySaveBehavior.Ignore is the point of this: EF omits Seq from every
-    // INSERT regardless of what the entity holds, so the sequence default is the
-    // only thing that can ever produce a value. No application code path — not a
-    // future one that skips ChatRepository — can assign an ordering number.
+    // The two Ignore behaviours are the point of this: EF omits Seq from every
+    // INSERT and every UPDATE regardless of what the entity holds, so the
+    // sequence default is the only thing that can ever produce a value. No
+    // application code path — not a future one that skips ChatRepository — can
+    // assign an ordering number.
+    //
+    // AfterSaveBehavior matters as much as BeforeSaveBehavior: without it an
+    // Update() on an entity built in code writes Seq = 0 over a real row and
+    // sorts it ahead of the whole transcript.
     private static void ConfigureSeq(PropertyBuilder<long> seq)
     {
         seq.HasDefaultValueSql($"nextval('{EntrySequenceName}')").ValueGeneratedOnAdd();
         seq.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        seq.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
     }
 }

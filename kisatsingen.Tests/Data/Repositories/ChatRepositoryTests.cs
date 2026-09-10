@@ -134,9 +134,34 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.True(message.Seq > 0);
     }
 
-    // Why Seq is a column default rather than something the repository hands out:
-    // this insert never touches ChatRepository, and there is no code path left
-    // that could leave it at 0 and silently sort it ahead of the transcript.
+    // The hole the two Ignore behaviours close. An Update() built from code holds
+    // Seq = 0, and EF used to write that over the stored value, moving a message
+    // to the front of the transcript. Not a path the app takes today, which is
+    // why nothing would have caught it.
+    [Fact]
+    public async Task An_update_to_a_message_leaves_its_generated_Seq_untouched()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.ChatMessages.SingleAsync();
+        var seqBeforeUpdate = stored.Seq;
+        var rebuilt = Message("user", "edited");
+        rebuilt.Id = stored.Id;
+        rebuilt.ChatId = chat.Id;
+        db.Entry(stored).State = EntityState.Detached;
+        db.Update(rebuilt);
+        await db.SaveChangesAsync();
+
+        await using var after = await Factory.CreateDbContextAsync();
+        Assert.Equal(seqBeforeUpdate, (await after.ChatMessages.SingleAsync()).Seq);
+    }
+
+    // Seq is assigned by the column default, so a write that never touches
+    // ChatRepository still lands in order rather than at 0. Note this covers the
+    // value only — a bypassing writer also skips the Chats row lock, so it has no
+    // ordering guarantee against a concurrent append. Go through the repository.
     [Fact]
     public async Task A_write_that_bypasses_the_repository_still_gets_an_ordered_Seq()
     {

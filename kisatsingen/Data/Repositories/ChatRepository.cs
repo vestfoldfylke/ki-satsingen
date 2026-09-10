@@ -103,6 +103,17 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await transaction.CommitAsync(ct);
     }
 
+    // Does more than its name suggests, and callers depend on all three: it bumps
+    // UpdatedAt, it fails the append when the chat is not the caller's, and — the
+    // part that is easy to lose — it takes a row lock on the chat that is held
+    // until the transaction commits.
+    //
+    // That lock is what orders appends across transactions. Seq is drawn at insert
+    // time but the row only becomes visible at commit, so two concurrent appends
+    // to one chat could otherwise commit in the opposite order to their Seq and
+    // drop a message into the middle of a transcript a reader has already seen.
+    // Serialising them on the chat row is what makes that impossible. Keep this
+    // call ahead of the inserts.
     private static async Task TouchChatAsync(AppDbContext db, string ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedChatCount = await db.Chats
