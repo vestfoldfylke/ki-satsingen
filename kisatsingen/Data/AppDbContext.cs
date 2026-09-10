@@ -12,6 +12,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // exact order across both tables.
     public const string EntrySequenceName = "chat_entry_seq";
 
+    // Set only by CreateForMigrations. EF disposes a data source only when it
+    // built one itself, so the one handed to it below would otherwise outlive
+    // every caller — and it cannot simply be wrapped in a using here, because the
+    // returned context queries through it long after this method returns.
+    // Disposing it with the context is what gives it the right lifetime.
+    private NpgsqlDataSource? _ownedDataSource;
+
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatEvent> ChatEvents => Set<ChatEvent>();
@@ -34,7 +41,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .UseNpgsql(dataSourceForMigration)
             .Options;
 
-        return new AppDbContext(options);
+        return new AppDbContext(options) { _ownedDataSource = dataSourceForMigration };
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        _ownedDataSource?.Dispose();
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+
+        if (_ownedDataSource is not null)
+        {
+            await _ownedDataSource.DisposeAsync();
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
