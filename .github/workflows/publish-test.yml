@@ -1,0 +1,23 @@
+# Docs for the Azure Web Apps Deploy action: https://github.com/azure/functions-action
+# More GitHub Actions for Azure: https://github.com/Azure/actions
+
+name: Build and deploy dotnet core project to Azure Web App - vfkdlzchataikiweb
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy-az-app-service-dotnet:
+    uses: vestfoldfylke/shared/.github/workflows/deploy-az-app-service-dotnet.yml@main
+    with:
+      azure_appname: "vfkdlzchataikiweb" # required
+      azure_functionapp_package_path: "kisatsingen" # required. set to path project path. if multiple projects exists in same solution, set this to the project to deploy
+      dotnet_version: "10.0" # required and must follow the TargetFramework version set in the project file (*.csproj)
+      needs_node: true
+      handle_ef_migrations: true
+    secrets:
+      azure_publishprofile: ${{ secrets.TEST_AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+      db_connection_string: ${{ secrets.TEST_DB_CONNECTION_STRING }}
