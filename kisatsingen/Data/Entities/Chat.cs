@@ -10,4 +10,5 @@ public sealed class Chat
     public string? SystemPrompt { get; set; }
 
     public List<ChatMessage> Messages { get; init; } = [];
+    public List<ChatEvent> Events { get; init; } = [];
 }

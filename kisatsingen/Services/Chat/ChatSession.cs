@@ -1,6 +1,7 @@
 using System.Text;
 using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using Microsoft.Extensions.AI;
 using Microsoft.JSInterop;
@@ -27,9 +28,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IJSRuntime _js;
     private readonly ILogger<ChatSession> _logger;
 
-    private readonly List<ChatMessage> _messages = [];
-    private readonly Dictionary<ChatMessage, Guid> _messageIds = new();
-    private readonly Dictionary<ChatMessage, AssistantMetadata> _messageMetadata = [];
+    private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private CancellationTokenSource? _cts;
@@ -58,73 +57,11 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? ChatId => _currentChat?.Id;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _messages.Count > 0 || _streamingId is not null;
+    public bool HasVisibleMessages => _entries.Count > 0 || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
 
-    public IReadOnlyList<ChatItemView> Committed
-    {
-        get
-        {
-            var list = new List<ChatItemView>();
-            List<ChatMessage>? currentTurn = null;
-
-            foreach (var message in _messages)
-            {
-                if (message.Role == ChatRole.User)
-                {
-                    if (currentTurn is not null)
-                    {
-                        list.Add(BuildTurnView(currentTurn));
-                        currentTurn = null;
-                    }
-                    list.Add(new UserBubbleView(GetOrCreateId(message), message.Text ?? string.Empty));
-                    continue;
-                }
-
-                currentTurn ??= [];
-                currentTurn.Add(message);
-            }
-
-            if (currentTurn is not null)
-            {
-                list.Add(BuildTurnView(currentTurn));
-            }
-
-            return list;
-        }
-    }
-
-    private AssistantTurnView BuildTurnView(List<ChatMessage> turnMessages)
-    {
-        var parts = new List<TurnPart>(turnMessages.Count);
-        foreach (var message in turnMessages)
-        {
-            parts.Add(new TurnPart(message.Text ?? string.Empty, message.Contents));
-        }
-
-        AssistantMetadata? firstMetadata = null;
-        AssistantMetadata? lastMetadata = null;
-        foreach (var message in turnMessages)
-        {
-            if (message.Role != ChatRole.Assistant)
-            {
-                continue;
-            }
-            if (!_messageMetadata.TryGetValue(message, out var found))
-            {
-                continue;
-            }
-            firstMetadata ??= found;
-            lastMetadata = found;
-        }
-
-        return new AssistantTurnView(
-            GetOrCreateId(turnMessages[0]),
-            parts,
-            lastMetadata,
-            firstMetadata?.CreatedAt);
-    }
+    public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 
     public MessageUsage? ConversationUsage
     {
@@ -134,9 +71,9 @@ public sealed class ChatSession : IAsyncDisposable
             long output = 0;
             long total = 0;
             var hasAny = false;
-            foreach (var metadata in _messageMetadata.Values)
+            foreach (var entry in _entries)
             {
-                if (metadata.Usage is not { } usage)
+                if (entry is not MessageEntry { Metadata.Usage: { } usage })
                 {
                     continue;
                 }
@@ -153,9 +90,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task LoadAsync(Guid? chatId, CancellationToken ct = default)
     {
-        _messages.Clear();
-        _messageIds.Clear();
-        _messageMetadata.Clear();
+        _entries.Clear();
         _streamingId = null;
         _currentChat = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
@@ -168,44 +103,62 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChat = chat;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-
-                // Legacy chats may still have ChatRole.System rows in the sequence.
-                // Consume them for snapshot fallback, but don't add them to _messages —
-                // the system prompt is prepended synthetically at LLM-call time.
-                var currentSnapshot = _effectiveSystemPrompt;
-                foreach (var stored in chat.Messages)
-                {
-                    var role = new ChatRole(stored.Role);
-                    if (role == ChatRole.System)
-                    {
-                        currentSnapshot = stored.Content;
-                        continue;
-                    }
-
-                    var message = ChatMessageMapper.FromEntity(stored);
-                    _messages.Add(message);
-
-                    if (role == ChatRole.User)
-                    {
-                        currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
-                    }
-                    else if (role == ChatRole.Assistant)
-                    {
-                        _messageMetadata[message] = new AssistantMetadata(
-                            stored.ModelId,
-                            stored.ResponseId,
-                            stored.FinishReason,
-                            MessageUsage.FromEntity(stored),
-                            stored.DurationMs,
-                            stored.TimeToFirstTokenMs,
-                            stored.CreatedAt,
-                            currentSnapshot);
-                    }
-                }
+                RestoreEntries(chat);
             }
         }
 
         Notify();
+    }
+
+    // Messages and events are stored apart but ordered together. Both arrive
+    // sorted by Seq, and Seq is unique across the two, so a straight merge
+    // rebuilds the original sequence with no tie to break.
+    private void RestoreEntries(Data.Entities.Chat chat)
+    {
+        var messages = chat.Messages;
+        var events = chat.Events;
+        var messageIndex = 0;
+        var eventIndex = 0;
+
+        // Each user turn records the system prompt in force when it was sent, so
+        // assistant metadata can report the prompt that actually produced it.
+        var currentSnapshot = _effectiveSystemPrompt;
+
+        while (messageIndex < messages.Count || eventIndex < events.Count)
+        {
+            var takeMessage = eventIndex >= events.Count
+                || (messageIndex < messages.Count && messages[messageIndex].Seq < events[eventIndex].Seq);
+
+            if (takeMessage)
+            {
+                var stored = messages[messageIndex++];
+                var role = new ChatRole(stored.Role);
+
+                AssistantMetadata? metadata = null;
+                if (role == ChatRole.User)
+                {
+                    currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
+                }
+                else if (role == ChatRole.Assistant)
+                {
+                    metadata = new AssistantMetadata(
+                        stored.ModelId,
+                        stored.ResponseId,
+                        stored.FinishReason,
+                        MessageUsage.FromEntity(stored),
+                        stored.DurationMs,
+                        stored.TimeToFirstTokenMs,
+                        stored.CreatedAt,
+                        currentSnapshot);
+                }
+
+                _entries.Add(new MessageEntry(Guid.NewGuid(), ChatMessageMapper.FromEntity(stored), metadata));
+                continue;
+            }
+
+            var storedEvent = events[eventIndex++];
+            _entries.Add(new EventEntry(Guid.NewGuid(), storedEvent.Kind, storedEvent.Detail, storedEvent.CreatedAt));
+        }
     }
 
     public async Task SendAsync(string text)
@@ -218,9 +171,14 @@ public sealed class ChatSession : IAsyncDisposable
         IsBusy = true;
         _cts = new CancellationTokenSource();
 
+        // Hoisted so the cancellation handler can record the stop against the
+        // right owner. Null means the stop beat authentication, in which case no
+        // turn was ever started and there is nothing to record.
+        string? userObjectId = null;
+
         try
         {
-            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
             await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, _cts.Token);
             var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(systemPromptForThisTurn, _cts.Token);
@@ -228,11 +186,12 @@ public sealed class ChatSession : IAsyncDisposable
         }
         catch (OperationCanceledException)
         {
-            _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
+            CountSend(MetricConstants.MetricsResultCancelledLabelValue);
+            await RecordStoppedAsync(userObjectId);
         }
         catch (UserNotAuthenticatedException)
         {
-            _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent", (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultFailedLabelValue));
+            CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue);
             throw;
         }
         finally
@@ -249,10 +208,55 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
+    // Counts attempts rather than deliveries, which is why an unauthenticated
+    // caller belongs here too: every press of send lands on exactly one Result,
+    // so the outcomes sum to the attempts.
+    //
+    // Prometheus fixes a metric's label names the first time it is used and
+    // throws on any later call supplying a different number of them, so every
+    // outcome has to report the same names in the same order. Building them here
+    // rather than at each call site is what keeps that true.
+    private void CountSend(string result, string? modelId = null) =>
+        _metrics.Count(
+            $"{MetricPrefix}_Send",
+            "Chat send attempts, by outcome",
+            (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
+            (MetricConstants.MetricsResultLabelName, result));
+
+    // The partial response is deliberately discarded — the user asked for it to
+    // stop. What is kept is that a stop happened here, so reloading the chat
+    // shows why a turn produced nothing instead of an unexplained gap.
+    private async Task RecordStoppedAsync(string? userObjectId)
+    {
+        if (userObjectId is null || _currentChat is null)
+        {
+            return;
+        }
+
+        var stopped = new Data.Entities.ChatEvent { Kind = ChatEventKind.Stopped };
+        _entries.Add(new EventEntry(Guid.NewGuid(), stopped.Kind, stopped.Detail, DateTimeOffset.UtcNow));
+
+        try
+        {
+            // Deliberately not the turn's cancellation source: it is already
+            // cancelled here, and using it would abort the very write that
+            // records the cancellation.
+            await _repo.AppendEventAsync(userObjectId, _currentChat.Id, stopped, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // Failing to record the stop must not replace the original
+            // cancellation or take down the circuit. The entry is already in
+            // memory, so this turn still renders correctly; only a reload of the
+            // chat would lose it.
+            _logger.LogWarning(ex, "Could not persist stop event for chat {ChatId}", _currentChat.Id);
+        }
+    }
+
     private async Task PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
-        _messages.Add(userMessage);
+        _entries.Add(new MessageEntry(Guid.NewGuid(), userMessage, null));
         _streamingId = Guid.NewGuid();
         Notify();
 
@@ -284,11 +288,7 @@ public sealed class ChatSession : IAsyncDisposable
         var lastFlushMs = -FlushIntervalMs;
         var lastTokenMs = -FlushIntervalMs;
 
-        var request = new List<ChatMessage>(_messages.Count + 1)
-        {
-            new(ChatRole.System, systemPromptForThisTurn)
-        };
-        request.AddRange(_messages);
+        var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
 
         await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
         {
@@ -341,29 +341,22 @@ public sealed class ChatSession : IAsyncDisposable
 
     private async Task PersistResponseAsync(string userObjectId, ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
     {
-        if (response.ModelId is not null)
-        {
-            _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent", ("Model", response.ModelId), (MetricConstants.MetricsResultLabelName, MetricConstants.MetricsResultSuccessLabelValue));
-        }
-        else
-        {
-            _metrics.Count($"{MetricPrefix}_Send", "Number of chats sent");
-        }
+        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
 
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
         var toPersist = new List<Data.Entities.ChatMessage>(response.Messages.Count);
         foreach (var newMessage in response.Messages)
         {
-            _messages.Add(newMessage);
             var includeUsage = ReferenceEquals(newMessage, lastAssistant);
 
+            AssistantMetadata? metadata = null;
             if (newMessage.Role == ChatRole.Assistant)
             {
                 var usage = includeUsage && response.Usage is { } u
                     ? new MessageUsage(u.InputTokenCount, u.OutputTokenCount, u.TotalTokenCount)
                     : null;
-                _messageMetadata[newMessage] = new AssistantMetadata(
+                metadata = new AssistantMetadata(
                     response.ModelId,
                     response.ResponseId,
                     response.FinishReason?.Value,
@@ -374,22 +367,11 @@ public sealed class ChatSession : IAsyncDisposable
                     systemPromptForThisTurn);
             }
 
+            _entries.Add(new MessageEntry(Guid.NewGuid(), newMessage, metadata));
             toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
         }
 
         await _repo.AppendMessagesAsync(userObjectId, _currentChat!.Id, toPersist, ct);
-    }
-
-    private Guid GetOrCreateId(ChatMessage message)
-    {
-        if (_messageIds.TryGetValue(message, out var id))
-        {
-            return id;
-        }
-
-        id = Guid.NewGuid();
-        _messageIds[message] = id;
-        return id;
     }
 
     private static string BuildTitle(string userText)
