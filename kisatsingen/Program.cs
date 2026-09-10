@@ -91,14 +91,17 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
-var administratorRole = builder.Configuration["Roles:Administrator"]
-                ?? throw new InvalidOperationException("Roles:Administrator is not configured. Set it via environment variables.");
-var contributorRole = builder.Configuration["Roles:Contributor"]
-                        ?? throw new InvalidOperationException("Roles:Contributor is not configured. Set it via environment variables.");
-var metricsRole = builder.Configuration["Roles:Metrics"]
-                        ?? throw new InvalidOperationException("Roles:Metrics is not configured. Set it via environment variables.");
-var userRole = builder.Configuration["Roles:User"]
-                  ?? throw new InvalidOperationException("Roles:User is not configured. Set it via environment variables.");
+var administratorRole = builder.Configuration["EntraAuthConfiguration:AppRoleAdministrator"]
+                ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleAdministrator is not configured. Set it via environment variables.");
+
+var contributorRole = builder.Configuration["EntraAuthConfiguration:AppRoleContributor"]
+                        ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleContributor is not configured. Set it via environment variables.");
+
+var metricsRole = builder.Configuration["EntraAuthConfiguration:AppRoleMetrics"]
+                        ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleMetrics is not configured. Set it via environment variables.");
+
+var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
+                  ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleUser is not configured. Set it via environment variables.");
 
 builder.Services.AddAuthorizationBuilder()
     .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
