@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Npgsql;
 using OpenAI;
 using Prometheus;
 using Vestfold.Extensions.Logging;
@@ -105,8 +106,16 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString)
+{
+    Name = "ChatDb"
+};
+
+var dataSource = dataSourceBuilder.Build();
+builder.Services.AddSingleton(dataSource);
+
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(dataSource));
 
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
