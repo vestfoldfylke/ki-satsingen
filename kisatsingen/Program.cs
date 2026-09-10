@@ -35,11 +35,23 @@ builder.Services.UseHttpClientMetrics();
 // so the OIDC middleware builds the correct https redirect_uri.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
-    // Tell .NET to only overwrite the Host header
-    options.ForwardedHeaders = ForwardedHeaders.XForwardedHost;
-    
-    // Azure App Gateway specifically puts the original public domain here
-    options.ForwardedHostHeaderName = "X-Original-Host"; 
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor |
+                               ForwardedHeaders.XForwardedProto |
+                               ForwardedHeaders.XForwardedHost;
+
+    // App Gateway → App Service front-end → Kestrel: two proxies. (Needed to prevent RemoteIpAddress becomes App Gateway's private IP, not the real client)
+    options.ForwardLimit = 2;
+
+    // App Gateway overrides Host with <app>.azurewebsites.net and stashes
+    // the original public host here. Remove this line if App Gateway is
+    // configured to preserve the client Host header.
+    options.ForwardedHostHeaderName = "X-Original-Host";
+
+    // Trust boundary is enforced by App Service Access Restrictions
+    // (only App Gateway's subnet allowed). Header spoofing is blocked
+    // at the network edge, not by IP allowlisting here.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
 });
 
 // Cascades authentication state seamlessly to <AuthorizeView> components
