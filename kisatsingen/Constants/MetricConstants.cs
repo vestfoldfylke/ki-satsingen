@@ -2,7 +2,7 @@ namespace kisatsingen.Constants;
 
 public static class MetricConstants
 {
-    public static string MetricsAppPrefix => "KISatsingen";
+    public static string MetricsAppPrefix => "KIWeb";
 
     public static string MetricsModelLabelName => "Model";
 

@@ -1,5 +1,4 @@
 using kisatsingen.Components;
-using kisatsingen.Constants;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -13,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Npgsql;
 using OpenAI;
 using Prometheus;
 using Vestfold.Extensions.Logging;
@@ -29,6 +29,8 @@ builder.Logging.AddVestfoldLogging();
 
 builder.Services.AddVestfoldMetrics();
 builder.Services.UseHttpClientMetrics();
+
+builder.Services.AddHealthChecks();
 
 // ─── Authentication & authorization ────────────────────
 // Azure Web App terminates TLS at a reverse proxy; honor its X-Forwarded-* headers
@@ -89,9 +91,23 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
+var administratorRole = builder.Configuration["EntraAuthConfiguration:AppRoleAdministrator"]
+                ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleAdministrator is not configured. Set it via environment variables.");
+
+var contributorRole = builder.Configuration["EntraAuthConfiguration:AppRoleContributor"]
+                        ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleContributor is not configured. Set it via environment variables.");
+
+var metricsRole = builder.Configuration["EntraAuthConfiguration:AppRoleMetrics"]
+                        ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleMetrics is not configured. Set it via environment variables.");
+
+var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
+                  ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleUser is not configured. Set it via environment variables.");
+
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles));
+    .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
+    .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(metricsRole));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
@@ -105,8 +121,16 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString)
+{
+    Name = "ChatDb"
+};
+
+var dataSource = dataSourceBuilder.Build();
+builder.Services.AddSingleton(dataSource);
+
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
-    options.UseNpgsql(connectionString));
+    options.UseNpgsql(dataSource));
 
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
@@ -135,6 +159,8 @@ else
         app.Logger.LogWarning("{Count} pending migration(s). Run \"dotnet ef database update\" before continuing.", pending.Length);
     }
 }
+
+app.MapHealthChecks("/healthz");
 
 // ─── Forwarded headers (must run before auth/HTTPS redirect) ───
 app.UseForwardedHeaders();
@@ -177,7 +203,6 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 // ─── Observability endpoints ───────────────────────────
-app.UseMetricServer();
 app.UseHttpMetrics();
 
 // ─── Auth ──────────────────────────────────────────────
@@ -186,6 +211,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
+app.MapMetrics().RequireAuthorization("CanReadMetrics");
 app.MapStaticAssets();
 var razorComponents = app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
