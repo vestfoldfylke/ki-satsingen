@@ -95,7 +95,7 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
     .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles))
-    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(AppConstants.MetricRole));
+    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(AppConstants.MetricsRole));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
