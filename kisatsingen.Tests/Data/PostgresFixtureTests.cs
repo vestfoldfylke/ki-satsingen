@@ -58,7 +58,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
         var roleCount = await db.Database
-            .SqlQuery<int>($"""SELECT count(*) AS "Value" FROM pg_roles WHERE rolname = 'kisatsingen_web_app'""")
+            .SqlQuery<long>($"""SELECT count(*) AS "Value" FROM pg_roles WHERE rolname = 'kisatsingen_web_app'""")
             .SingleAsync();
 
         Assert.Equal(1, roleCount);
