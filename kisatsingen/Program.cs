@@ -1,5 +1,4 @@
 using kisatsingen.Components;
-using kisatsingen.Constants;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -92,10 +91,17 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
+var administratorRole = builder.Configuration["Roles:Administrator"]
+                ?? throw new InvalidOperationException("Roles:Administrator is not configured. Set it via environment variables.");
+var contributorRole = builder.Configuration["Roles:Contributor"]
+                        ?? throw new InvalidOperationException("Roles:Contributor is not configured. Set it via environment variables.");
+var metricsRole = builder.Configuration["Roles:Metrics"]
+                        ?? throw new InvalidOperationException("Roles:Metrics is not configured. Set it via environment variables.");
+
 builder.Services.AddAuthorizationBuilder()
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole(AppConstants.AdminRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(AppConstants.ContributionRoles))
-    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(AppConstants.MetricsRole));
+    .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
+    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(metricsRole));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
