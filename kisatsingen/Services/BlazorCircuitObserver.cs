@@ -26,12 +26,13 @@ internal sealed class BlazorCircuitObserver(IMetricsService metrics, ChatSession
 
     public override Task OnConnectionDownAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        // Deliberately does not cancel the turn. The circuit is still alive and
-        // Blazor retains it so the client can reconnect to it; the turn keeps
-        // running and persisting, and ChatClientChannel simply stops pushing
-        // tokens nobody can receive. Cancelling here would destroy an in-flight
-        // answer over a blip the framework is built to recover from.
+        // Pauses delivery, not the turn. The circuit is still alive and Blazor
+        // retains it so the client can reconnect; the turn keeps running and
+        // persisting, and only the push of tokens nobody can receive stops.
+        // Cancelling here would destroy an in-flight answer over a blip the
+        // framework is built to recover from.
         metrics.Count($"{Prefix}_ConnectionDown", "SignalR transport lost while a circuit is still alive");
+        session.PauseDelivery();
         return Task.CompletedTask;
     }
 
@@ -39,10 +40,10 @@ internal sealed class BlazorCircuitObserver(IMetricsService metrics, ChatSession
     {
         metrics.Count($"{Prefix}_ConnectionUp", "SignalR transport restored on an existing circuit");
 
-        // Lifts the delivery pause set on the way down. Without this the channel
-        // stays latched and every later turn on this circuit streams nothing,
-        // arriving in one lump when it commits instead.
-        session.ResumeStreaming();
+        // Lifts the pause set on the way down. Without this the channel stays
+        // muted and every later turn on this circuit streams nothing, arriving in
+        // one lump when it commits instead.
+        session.ResumeDelivery();
         return Task.CompletedTask;
     }
 }

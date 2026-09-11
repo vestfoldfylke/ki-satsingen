@@ -407,9 +407,12 @@ public sealed class ChatSession : IAsyncDisposable
     // turn or the connection did.
     public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
 
-    // The transport came back on a circuit that was retained through the drop.
-    // The turn kept running; only delivery paused, and this resumes it.
-    public void ResumeStreaming() => _channel.Restore();
+    // The transport went away or came back on a circuit Blazor is retaining. The
+    // turn is unaffected either way — only delivery to the browser pauses, which
+    // is why neither of these touches cancellation.
+    public void PauseDelivery() => _channel.Pause();
+
+    public void ResumeDelivery() => _channel.Resume();
 
     public async ValueTask DisposeAsync()
     {

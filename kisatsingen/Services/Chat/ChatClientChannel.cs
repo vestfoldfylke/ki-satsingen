@@ -8,24 +8,31 @@ namespace kisatsingen.Services.Chat;
 //
 // A dropped transport is explicitly not the turn's problem. Blazor retains a
 // disconnected circuit (3 minutes by default) so the client can come back to it,
-// and the turn keeps running and persisting in the meantime. This stops pushing
-// while the transport is down and starts again on Restore, so a blip costs the
-// user the tokens they could not have seen anyway — not the answer.
+// and the turn keeps running and persisting in the meantime. Delivery pauses
+// while the transport is down, so a blip costs the user the tokens they could
+// not have seen anyway — not the answer.
+//
+// Pause and Resume are the only writers of that flag, and they are driven by the
+// circuit's own connection callbacks, which are ordered. Letting a failed interop
+// call set it too would race: on an unclean drop, calls queue rather than throw
+// and only fault once SignalR gives up, so a client that reconnects first would
+// have its live channel muted by a pile of stale failures — with no further
+// Resume coming to undo it.
 internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
 {
-    private const int CircuitLive = 0;
-    private const int CircuitLost = 1;
+    private volatile bool _isPaused;
 
-    private int _circuitState;
-
-    // The interop call in flight. Production discards it — that is the whole
-    // point of this type — but the suppressed state transitions below are worth
-    // asserting on, and a test has nothing else to await.
+    // The most recent interop dispatch. Production discards it — that is the
+    // whole point of this type — but a test asserting on delivery has nothing
+    // else to await.
     internal Task Pending { get; private set; } = Task.CompletedTask;
 
-    // The transport came back. Without this the circuit-lost flag latches and
-    // every later turn on this circuit silently streams nothing.
-    public void Restore() => Volatile.Write(ref _circuitState, CircuitLive);
+    // The transport is down. Stops queueing calls the client cannot receive.
+    public void Pause() => _isPaused = true;
+
+    // The transport came back. Without this the pause would latch and every
+    // later turn on this circuit would silently stream nothing.
+    public void Resume() => _isPaused = false;
 
     public void StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
 
@@ -35,7 +42,7 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
 
     private void Invoke(string method, params object?[] args)
     {
-        if (Volatile.Read(ref _circuitState) == CircuitLost)
+        if (_isPaused)
         {
             return;
         }
@@ -51,13 +58,10 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
             }
             catch (JSDisconnectedException)
             {
-                // Stop pushing until the transport returns. Logged by the first
-                // observer only, so a dropped connection is one line rather than
-                // one per token.
-                if (Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive)
-                {
-                    logger.LogInformation("Client transport lost; pausing stream delivery until it returns.");
-                }
+                // Swallowed, and deliberately without touching _isPaused: the
+                // circuit's connection callbacks own that flag, and this failure
+                // may be a stale one landing after a reconnect. The drop itself is
+                // already recorded by BlazorCircuitObserver.
             }
             catch (Exception ex)
             {
