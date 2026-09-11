@@ -75,4 +75,8 @@
       <Exec Command="npm run build" WorkingDirectory="browser-chat-client" />
     </Target>
 
+    <Target Name="EnsureDockerComposeRunning" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
+        <Exec Command="docker compose -f $(MSBuildProjectDirectory)/../compose.yml up -d" />
+    </Target>
+
 </Project>
