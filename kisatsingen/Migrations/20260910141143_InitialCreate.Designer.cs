@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260909095901_InitialCreate")]
+    [Migration("20260910141143_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -24,6 +24,8 @@ namespace kisatsingen.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.HasSequence("chat_entry_seq");
 
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
@@ -57,6 +59,39 @@ namespace kisatsingen.Migrations
                     b.ToTable("Chats");
                 });
 
+            modelBuilder.Entity("kisatsingen.Data.Entities.ChatEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<long>("Seq")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId", "Seq");
+
+                    b.ToTable("ChatEvents");
+                });
+
             modelBuilder.Entity("kisatsingen.Data.Entities.ChatMessage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -72,6 +107,10 @@ namespace kisatsingen.Migrations
 
                     b.Property<string>("ContentsJson")
                         .HasColumnType("text");
+
+                    b.Property<string>("ContentsSchemaVersion")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -102,6 +141,11 @@ namespace kisatsingen.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<long>("Seq")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValueSql("nextval('chat_entry_seq')");
+
                     b.Property<string>("SystemPromptSnapshot")
                         .HasColumnType("text");
 
@@ -113,9 +157,20 @@ namespace kisatsingen.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChatId", "CreatedAt");
+                    b.HasIndex("ChatId", "Seq");
 
                     b.ToTable("ChatMessages");
+                });
+
+            modelBuilder.Entity("kisatsingen.Data.Entities.ChatEvent", b =>
+                {
+                    b.HasOne("kisatsingen.Data.Entities.Chat", "Chat")
+                        .WithMany("Events")
+                        .HasForeignKey("ChatId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Chat");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.ChatMessage", b =>
@@ -131,6 +186,8 @@ namespace kisatsingen.Migrations
 
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
+                    b.Navigation("Events");
+
                     b.Navigation("Messages");
                 });
 #pragma warning restore 612, 618

@@ -24,6 +24,10 @@
                         {
                             <AssistantTurn @key="item.Id" Turn="turn" />
                         }
+                        else if (item is ChatEventView chatEvent)
+                        {
+                            <ChatEventNotice @key="item.Id" Event="chatEvent" />
+                        }
                     }
                     @if (Session.StreamingId is not null)
                     {

@@ -10,7 +10,7 @@
 
     <!-- Debug: ikke generer .exe — kjør via dotnet.exe -->
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-      <UseAppHost>false</UseAppHost>
+      <UseAppHost>false</UseAppHost>
     </PropertyGroup>
 
     <ItemGroup>
@@ -18,7 +18,11 @@
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>
       </PackageReference>
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.11" />
+      <!-- Declared directly, not left to the Design package: Design is migrations
+           tooling with PrivateAssets=all, so the runtime EF version must not
+           depend on it being present. ChatRepository uses BeginTransactionAsync.
+           Keep in step with the test project. -->
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
       <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
       <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
       <PackageReference Include="Microsoft.Identity.Web" Version="4.14.2" />
@@ -26,6 +30,13 @@
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
       <PackageReference Include="Vestfold.Extensions.Logging" Version="3.4.1" />
       <PackageReference Include="Vestfold.Extensions.Metrics" Version="1.0.2" />
+    </ItemGroup>
+
+    <!-- TranscriptProjection and TranscriptRequest are internal implementation
+         detail of ChatSession, but they are pure functions and the whole point of
+         extracting them was to test them directly. -->
+    <ItemGroup>
+      <InternalsVisibleTo Include="kisatsingen.Tests" />
     </ItemGroup>
 
     <ItemGroup>
@@ -43,11 +54,24 @@
         <Exec Command="npm install" />
     </Target>
 
-    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="browser-designsystemet\index.ts;browser-designsystemet\package.json" Outputs="wwwroot\designsystemet\designsystemet.mjs;wwwroot\designsystemet\designsystemet.css">
+    <!-- Globbed rather than enumerated, so adding a source file can't silently
+         leave a bundle that never rebuilds. These must be items: the Inputs
+         attribute does not expand wildcards, it treats them as literal paths, and
+         an input that doesn't exist makes the target run on every build. Single
+         star on the designsystemet sources keeps node_modules out. -->
+    <ItemGroup>
+      <DesignsystemetSource Include="browser-designsystemet\*.ts;browser-designsystemet\package.json;browser-designsystemet\tsconfig.json;browser-designsystemet\vite.config.js" />
+      <ChatClientSource Include="browser-chat-client\src\**\*;browser-chat-client\package.json;browser-chat-client\tsconfig.json;browser-chat-client\vite.config.js" />
+    </ItemGroup>
+
+    <!-- designsystemet.flat.css is written by this build's last step (see the npm
+         build script) and is gitignored — it belongs in Outputs, never Inputs, or
+         the target is perpetually out of date with respect to its own artifact. -->
+    <Target Name="BundleDesignsystemet" BeforeTargets="BeforeBuild" Inputs="@(DesignsystemetSource)" Outputs="wwwroot\designsystemet\designsystemet.mjs;wwwroot\designsystemet\designsystemet.css;browser-designsystemet\designsystemet.flat.css">
       <Exec Command="npm run build" WorkingDirectory="browser-designsystemet" />
     </Target>
 
-    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="browser-chat-client\src\chat-streaming.ts;browser-chat-client\src\chat-scroll.ts;browser-chat-client\src\copy-button.css;browser-chat-client\package.json" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
+    <Target Name="BundleChatClient" BeforeTargets="BeforeBuild" Inputs="@(ChatClientSource)" Outputs="wwwroot\chat-client\chat-client.mjs;wwwroot\chat-client\chat-client.css">
       <Exec Command="npm run build" WorkingDirectory="browser-chat-client" />
     </Target>
 

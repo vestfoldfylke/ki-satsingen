@@ -1,0 +1,20 @@
+/* Deliberately quiet: this is a statement of fact about the transcript, not a
+   warning. Same visual weight as the per-turn model and token metadata. */
+.chat-event-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0;
+}
+
+.chat-event-line {
+    flex: 1;
+    height: 1px;
+    background: #e2e8f0;
+}
+
+.chat-event-text {
+    font-size: 0.75rem;
+    color: #64748b;
+    white-space: nowrap;
+}

@@ -119,7 +119,8 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .AsIChatClient())
     .UseFunctionInvocation();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
 
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString)
 {
@@ -226,8 +227,9 @@ app.MapRazorComponents<App>()
             dispatcherOptions.CloseOnAuthenticationExpiration = true;
         };
     });
-*/
 
+Reaching into endpoint metadata below is a workaround until the .NET 11 option above exists.
+*/
 razorComponents.Add(endpoint =>
 {
     var dispatcherOptions = endpoint.Metadata.OfType<HttpConnectionDispatcherOptions>().FirstOrDefault();

@@ -1,0 +1,23 @@
+@using kisatsingen.Data.Entities
+@using kisatsingen.Services.Chat
+
+<div class="chat-event-notice" role="note">
+    <span class="chat-event-line" aria-hidden="true"></span>
+    <span class="chat-event-text">@Text</span>
+    <span class="chat-event-line" aria-hidden="true"></span>
+</div>
+
+@code {
+    [Parameter]
+    public required ChatEventView Event { get; set; }
+
+    private string Text => Event.Detail ?? DefaultText(Event.Kind);
+
+    private static string DefaultText(ChatEventKind kind) => kind switch
+    {
+        ChatEventKind.Stopped => "Generering stoppet",
+        ChatEventKind.Failed => "Noe gikk galt under generering",
+        ChatEventKind.Disconnected => "Tilkoblingen ble brutt under generering",
+        _ => "Ukjent hendelse"
+    };
+}

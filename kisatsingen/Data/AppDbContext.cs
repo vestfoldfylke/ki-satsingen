@@ -1,14 +1,27 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Npgsql;
 
 namespace kisatsingen.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+    // Messages and events share one sequence so a chat's transcript has a single
+    // exact order across both tables.
+    public const string EntrySequenceName = "chat_entry_seq";
+
+    // Set only by CreateForMigrations. EF disposes a data source only when it
+    // built one itself, so the one handed to it below would otherwise outlive
+    // every caller — and it cannot simply be wrapped in a using here, because the
+    // returned context queries through it long after this method returns.
+    // Disposing it with the context is what gives it the right lifetime.
+    private NpgsqlDataSource? _ownedDataSource;
+
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
+    public DbSet<ChatEvent> ChatEvents => Set<ChatEvent>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
     // always go through the low-privilege DefaultConnection registered in DI.
@@ -28,7 +41,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .UseNpgsql(dataSourceForMigration)
             .Options;
 
-        return new AppDbContext(options);
+        return new AppDbContext(options) { _ownedDataSource = dataSourceForMigration };
+    }
+
+    public override void Dispose()
+    {
+        base.Dispose();
+        _ownedDataSource?.Dispose();
+    }
+
+    public override async ValueTask DisposeAsync()
+    {
+        await base.DisposeAsync();
+
+        if (_ownedDataSource is not null)
+        {
+            await _ownedDataSource.DisposeAsync();
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,6 +68,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         chat.Property(c => c.Title).HasMaxLength(200).IsRequired();
         chat.HasIndex(c => new { c.OwnerId, c.UpdatedAt });
 
+        modelBuilder.HasSequence<long>(EntrySequenceName);
+
         var message = modelBuilder.Entity<ChatMessage>();
         message.HasKey(m => m.Id);
         message.Property(m => m.Role).HasMaxLength(32).IsRequired();
@@ -46,31 +77,50 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.Property(m => m.ResponseId).HasMaxLength(128);
         message.Property(m => m.ModelId).HasMaxLength(128);
         message.Property(m => m.FinishReason).HasMaxLength(64);
-        message.HasIndex(m => new { m.ChatId, m.CreatedAt });
+        message.Property(m => m.ContentsSchemaVersion).HasMaxLength(64);
+
+        // Deliberately text and not jsonb. jsonb normalises key order, and
+        // System.Text.Json requires the "$type" discriminator to come first when
+        // deserialising a polymorphic AIContent — so a jsonb round trip silently
+        // turns every tool call back into plain text. Verified by
+        // a_tool_call_survives_the_round_trip_through_storage, which fails on
+        // jsonb. This column stores bytes a strict deserialiser has to read back
+        // exactly; querying into it is not a use case.
+        message.Property(m => m.ContentsJson).HasColumnType("text");
+        message.HasIndex(m => new { m.ChatId, m.Seq });
+        ConfigureSeq(message.Property(m => m.Seq));
 
         message.HasOne(m => m.Chat)
             .WithMany(c => c.Messages)
             .HasForeignKey(m => m.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
 
-        if (Database.ProviderName != "Microsoft.EntityFrameworkCore.Sqlite")
-        {
-            return;
-        }
+        var chatEvent = modelBuilder.Entity<ChatEvent>();
+        chatEvent.HasKey(e => e.Id);
+        chatEvent.Property(e => e.Kind).HasConversion<string>().HasMaxLength(32).IsRequired();
+        chatEvent.Property(e => e.Detail).HasMaxLength(500);
+        chatEvent.HasIndex(e => new { e.ChatId, e.Seq });
+        ConfigureSeq(chatEvent.Property(e => e.Seq));
 
-        var dtoToTicks = new ValueConverter<DateTimeOffset, long>(
-            v => v.UtcTicks,
-            v => new DateTimeOffset(v, TimeSpan.Zero));
+        chatEvent.HasOne(e => e.Chat)
+            .WithMany(c => c.Events)
+            .HasForeignKey(e => e.ChatId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
 
-        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-        {
-            foreach (var property in entityType.GetProperties())
-            {
-                if (property.ClrType == typeof(DateTimeOffset) || property.ClrType == typeof(DateTimeOffset?))
-                {
-                    property.SetValueConverter(dtoToTicks);
-                }
-            }
-        }
+    // The two Ignore behaviours are the point of this: EF omits Seq from every
+    // INSERT and every UPDATE regardless of what the entity holds, so the
+    // sequence default is the only thing that can ever produce a value. No
+    // application code path — not a future one that skips ChatRepository — can
+    // assign an ordering number.
+    //
+    // AfterSaveBehavior matters as much as BeforeSaveBehavior: without it an
+    // Update() on an entity built in code writes Seq = 0 over a real row and
+    // sorts it ahead of the whole transcript.
+    private static void ConfigureSeq(PropertyBuilder<long> seq)
+    {
+        seq.HasDefaultValueSql($"nextval('{EntrySequenceName}')").ValueGeneratedOnAdd();
+        seq.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        seq.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
     }
 }
