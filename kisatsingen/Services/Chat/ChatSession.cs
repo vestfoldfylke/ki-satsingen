@@ -33,16 +33,11 @@ public sealed class ChatSession : IAsyncDisposable
     private Data.Entities.Chat? _currentChat;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
-    // Two cancellation sources, linked into one token that the turn actually
-    // awaits. Splitting them is what lets the OperationCanceledException catch
-    // tell a user stop apart from a lost circuit: whichever source was
-    // cancelled is the cause, read from CancellationTokenSource state that is
-    // safe to observe cross-thread by design. No side-channel field, no
-    // ordering requirement, and a future third path (timeout, admin abort)
-    // adds a third source rather than a new value on a shared enum.
-    private CancellationTokenSource? _userCts;
-    private CancellationTokenSource? _disconnectCts;
-    private CancellationTokenSource? _linkedCts;
+    // The cancellation state of the turn in flight, or null when there is none.
+    // Cancel() and the disconnect callbacks reach the live turn through this;
+    // both no-op on a null read, which is what makes a stop arriving between
+    // turns harmless.
+    private TurnCancellation? _turnCancellation;
 
     public event Action? StateChanged;
 
@@ -60,11 +55,11 @@ public sealed class ChatSession : IAsyncDisposable
         _metrics = metrics;
         _logger = logger;
 
-        // TryCancel as the disconnect handler: a lost circuit means nobody is
-        // reading the stream, so the turn producing it should stop. Cancelling
-        // the disconnect source specifically is what lets the catch see this
-        // as a disconnect rather than a user-initiated stop.
-        _channel = new ChatClientChannel(js, logger, () => TryCancel(_disconnectCts));
+        // A lost circuit means nobody is reading the stream, so the turn producing
+        // it should stop. The channel is one of three things that can notice a
+        // circuit is gone; all three go through the same entry point so they
+        // cannot disagree about what to call it.
+        _channel = new ChatClientChannel(js, logger, CancelForDisconnect);
     }
 
     public Guid? ChatId => _currentChat?.Id;
@@ -131,37 +126,46 @@ public sealed class ChatSession : IAsyncDisposable
 
         IsBusy = true;
 
-        // Local aliases for the CTSs. The catch reads its own local rather than
-        // the field so a racing DisposeAsync that nulls the field cannot NRE the
-        // outcome branch; the fields stay exposed so external Cancel() and the
-        // disconnect callback can still reach the live sources — TryCancel
-        // no-ops on a null read either way.
-        var userCts = new CancellationTokenSource();
-        var disconnectCts = new CancellationTokenSource();
-        var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(userCts.Token, disconnectCts.Token);
-        _userCts = userCts;
-        _disconnectCts = disconnectCts;
-        _linkedCts = linkedCts;
+        // A local alias, and the catches read it rather than the field: a racing
+        // DisposeAsync that nulls the field cannot then NRE the outcome branch.
+        // The field stays set so external Cancel() and the disconnect callbacks
+        // can still reach this turn while it runs.
+        var turn = new TurnCancellation();
+        _turnCancellation = turn;
 
-        // Hoisted so the cancellation handler can record the stop against the
-        // right owner. Null means the stop beat authentication, in which case no
-        // turn was ever started and there is nothing to record.
+        // Hoisted so the outcome handlers can record against the right owner.
+        // Null means the turn ended before authentication returned, in which case
+        // there is no chat to write to — only something to show on screen.
         string? userObjectId = null;
+
+        // Hoisted for the same reason: how far the turn got is known only inside
+        // the try and needed only by the catches.
+        var stage = TurnStage.Authenticating;
 
         try
         {
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
-            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, linkedCts.Token);
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, linkedCts.Token);
-            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, linkedCts.Token);
+
+            stage = TurnStage.SavingMessage;
+            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, turn.Token);
+
+            stage = TurnStage.Generating;
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, turn.Token);
+
+            stage = TurnStage.SavingResponse;
+            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
         }
-        catch (OperationCanceledException)
+        // The filter is what makes this handler mean cancellation. An HTTP timeout
+        // inside the provider client surfaces as TaskCanceledException — an
+        // OperationCanceledException nobody here asked for — and without the filter
+        // a real failure would be recorded as a user pressing stop: invisible to
+        // failure alerts and a lie in the transcript. Only cancellation of our own
+        // token is cancellation; everything else falls through to the failure
+        // handler below, where a timeout belongs.
+        catch (OperationCanceledException) when (turn.IsCancelled)
         {
-            // Disconnect wins if both fired in the same turn: pressing stop on
-            // a dying tab is functionally a disconnect, and the connectivity
-            // signal is more useful to ops than the stop count.
-            if (disconnectCts.IsCancellationRequested)
+            if (turn.IsDisconnect)
             {
                 CountSend(MetricConstants.MetricsResultDisconnectedLabelValue);
                 await RecordTurnEventAsync(userObjectId, ChatEventKind.Disconnected);
@@ -172,10 +176,51 @@ public sealed class ChatSession : IAsyncDisposable
                 await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
             }
         }
+        // The one failure that is still allowed to leave this method. There is
+        // nothing to recover — no identity means no chat to write an event to and
+        // no next turn that would go any better — so it goes up to the error
+        // boundary, which can do the only useful thing: send the user to sign in.
         catch (UserNotAuthenticatedException)
         {
             CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue);
             throw;
+        }
+        // The other failure allowed out, and for the opposite reason to the one
+        // above: not "this user is stuck" but "this process is". An allocation
+        // failure says nothing about the turn and everything about the instance
+        // serving it, so recording it as a chat problem and inviting a retry is
+        // the wrong answer — the retry allocates again and fails the same way.
+        //
+        // What letting it out buys is narrow and worth stating plainly: Blazor
+        // tears the circuit down, which sheds this session and the transcript it
+        // was holding. It does not recycle the process; the host stays up and
+        // other circuits carry on. It is the .NET norm for allocation failures
+        // rather than a recovery strategy.
+        //
+        // Still counted, because the process does survive to be scraped, and the
+        // outcome counter's promise is that every attempt lands in exactly one
+        // bucket. It is absent from the Failure counter by design — no Stage or
+        // Exception drill-down is worth another allocation here — so those two
+        // metrics reconcile everywhere except this one case.
+        catch (OutOfMemoryException)
+        {
+            CountSend(MetricConstants.MetricsResultFailedLabelValue);
+            throw;
+        }
+        // Everything else is caught deliberately, bugs in our own code included.
+        // A NullReferenceException from a mapper is not more visible for having
+        // taken the circuit down with it — it is already logged whole and already
+        // carries its type into the Failure counter, which is what an alert can
+        // actually read. Tearing down the transcript on top of that costs the user
+        // their conversation and tells no one anything new.
+        //
+        // The class that must never end up here is control flow dressed as an
+        // exception — Blazor's NavigationException above all. There is none inside
+        // the try today; navigation happens in the page, after this returns. Keep
+        // it that way.
+        catch (Exception ex)
+        {
+            await HandleTurnFailureAsync(ex, stage, userObjectId);
         }
         finally
         {
@@ -186,17 +231,11 @@ public sealed class ChatSession : IAsyncDisposable
             _streamingId = null;
             IsBusy = false;
 
-            // Null the fields first so a Cancel() or disconnect callback that
-            // arrives during Dispose reads null and no-ops, rather than racing
-            // Cancel on a source that is about to be disposed. Linked first,
-            // then the sources it observed — reversing risks the linked one
-            // dereferencing an already-disposed underlying token.
-            _linkedCts = null;
-            _userCts = null;
-            _disconnectCts = null;
-            linkedCts.Dispose();
-            userCts.Dispose();
-            disconnectCts.Dispose();
+            // Null the field first so a Cancel() or disconnect callback arriving
+            // during teardown reads null and no-ops, rather than racing Cancel on
+            // sources that are about to be disposed.
+            _turnCancellation = null;
+            turn.Dispose();
 
             Notify();
         }
@@ -204,7 +243,9 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Counts attempts rather than deliveries, which is why an unauthenticated
     // caller belongs here too: every press of send lands on exactly one Result,
-    // so the outcomes sum to the attempts.
+    // so the outcomes sum to the attempts. That invariant is only as good as the
+    // call sites — each one has to sit at a point the turn cannot leave, which for
+    // Success means after the last await rather than before it.
     //
     // Prometheus fixes a metric's label names the first time it is used and
     // throws on any later call supplying a different number of them, so every
@@ -217,33 +258,64 @@ public sealed class ChatSession : IAsyncDisposable
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
             (MetricConstants.MetricsResultLabelName, result));
 
-    // The partial response is deliberately discarded — the turn was cancelled.
-    // What is kept is why it was cancelled, so reloading the chat shows the
-    // reason for a turn that produced nothing instead of an unexplained gap:
-    // Stopped for a user pressing stop, Disconnected for a lost circuit.
-    private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind)
+    // Swallows the exception by design. A turn can fail for reasons that say
+    // nothing about the next one — the provider rate-limits, a connection drops,
+    // the database is briefly unreachable — and rethrowing would take down the
+    // circuit and the whole visible transcript with it over one lost turn. So the
+    // turn is lost and the chat is not: the user gets a notice naming what was
+    // lost, ops get the exception whole plus a counter, and the composer is usable
+    // again the moment this returns.
+    //
+    // The exception itself is never shown or persisted. It is written once, here,
+    // where the log is the only reader.
+    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
     {
+        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChat?.Id);
+
+        CountSend(MetricConstants.MetricsResultFailedLabelValue);
+        _metrics.Count(
+            $"{MetricPrefix}_Failure",
+            "Failed chat turns, by stage and exception type",
+            (MetricConstants.MetricsStageLabelName, stage.ToString()),
+            (MetricConstants.MetricsExceptionLabelName, ex.GetType().Name));
+
+        await RecordTurnEventAsync(userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
+    }
+
+    // The partial response is deliberately discarded — the turn did not finish.
+    // What is kept is why it ended, so reloading the chat shows the reason for a
+    // turn that produced nothing instead of an unexplained gap: Stopped for a user
+    // pressing stop, Disconnected for a lost circuit, Failed for a broken turn.
+    //
+    // The in-memory entry is added unconditionally, the write is not. A turn can
+    // end before there is a chat row to write to, or before we know whose chat it
+    // is, and that is precisely the case where the user most needs to be told
+    // something happened — going silent because persistence was impossible would
+    // lose both halves at once.
+    private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind, string? detail = null)
+    {
+        _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
+
         if (userObjectId is null || _currentChat is null)
         {
             return;
         }
 
-        var chatEvent = new Data.Entities.ChatEvent { Kind = kind };
-        _entries.Add(new EventEntry(Guid.NewGuid(), chatEvent.Kind, chatEvent.Detail, DateTimeOffset.UtcNow));
+        var chatEvent = new Data.Entities.ChatEvent { Kind = kind, Detail = detail };
 
         try
         {
-            // Deliberately not the turn's cancellation source: it is already
-            // cancelled here, and using it would abort the very write that
-            // records the cancellation.
+            // Deliberately not the turn's cancellation source: it may already be
+            // cancelled here, and using it would abort the very write that records
+            // how the turn ended.
             await _repo.AppendEventAsync(userObjectId, _currentChat.Id, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            // Failing to record the event must not replace the original
-            // cancellation or take down the circuit. The entry is already in
-            // memory, so this turn still renders correctly; only a reload of the
-            // chat would lose it.
+            // Failing to record the event must not replace the outcome it was
+            // recording or take down the circuit. The entry is already in memory,
+            // so this turn still renders correctly; only a reload of the chat
+            // would lose it.
             _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, _currentChat.Id);
         }
     }
@@ -332,8 +404,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     private async Task PersistResponseAsync(string userObjectId, ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
     {
-        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
-
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
         var toPersist = new List<Data.Entities.ChatMessage>(response.Messages.Count);
@@ -363,6 +433,12 @@ public sealed class ChatSession : IAsyncDisposable
         }
 
         await _repo.AppendMessagesAsync(userObjectId, _currentChat!.Id, toPersist, ct);
+
+        // Counted last, after the write that makes the turn real. Counting it on
+        // entry instead would let one attempt land on two Results — Success, then
+        // Failed or Cancelled from whatever happened in the lines above — which is
+        // the one thing the outcome counter promises cannot happen.
+        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
     }
 
     private static string BuildTitle(string userText)
@@ -373,37 +449,32 @@ public sealed class ChatSession : IAsyncDisposable
 
     private void Notify() => StateChanged?.Invoke();
 
-    public void Cancel() => TryCancel(_userCts);
+    // The user asked for the turn to end.
+    public void Cancel() => _turnCancellation?.CancelForUser();
 
-    // Guards against the source being disposed by SendAsync's finally block on a
-    // parallel thread. A disposed CTS is already cancelled from a caller's
-    // perspective, so swallowing is correct.
-    private static void TryCancel(CancellationTokenSource? cts)
-    {
-        try
-        {
-            cts?.Cancel();
-        }
-        catch (ObjectDisposedException)
-        {
-        }
-    }
+    // The browser stopped listening. Identical effect on the turn, different
+    // reason, and the reason is the entire point: it decides whether the
+    // transcript the user comes back to says they stopped the turn or that the
+    // connection did. Everything that can notice a dead circuit calls this rather
+    // than Cancel, so one event cannot be filed under two names depending on
+    // which watcher happened to spot it first.
+    public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
 
     public async ValueTask DisposeAsync()
     {
-        // Cancel the user source rather than the linked one: cancelling either
-        // underlying source is enough to fire the linked token, and cancelling
-        // the linked one directly does not propagate back.
-        if (_userCts is not null)
-        {
-            await _userCts.CancelAsync();
-        }
+        // A disconnect, not a stop. This runs when the circuit's scope is torn
+        // down: the tab closed, the circuit was evicted, the host is shutting
+        // down. Not one of those is a user pressing stop, and recording it as one
+        // would tell them they did something they did not.
+        // Read into a local and clear the field first, so a Cancel() arriving
+        // mid-teardown no-ops instead of reaching sources about to be disposed.
+        var turn = _turnCancellation;
+        _turnCancellation = null;
 
-        _linkedCts?.Dispose();
-        _userCts?.Dispose();
-        _disconnectCts?.Dispose();
-        _linkedCts = null;
-        _userCts = null;
-        _disconnectCts = null;
+        if (turn is not null)
+        {
+            await turn.CancelForDisconnectAsync();
+            turn.Dispose();
+        }
     }
 }
