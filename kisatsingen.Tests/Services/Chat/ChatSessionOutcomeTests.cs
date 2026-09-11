@@ -202,6 +202,21 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(ChatEventKind.Stopped, persisted.Kind);
     }
 
+    // The in-memory notice is what the current page shows; this is what survives
+    // to explain the gap on the next load, which is the whole point of the event.
+    [Fact]
+    public async Task A_failed_turn_persists_its_notice_for_the_next_reload()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new InvalidOperationException("provider exploded"));
+
+        await harness.Session.SendAsync("hei");
+
+        var persisted = Assert.Single(harness.Repository.AppendedEvents);
+        Assert.Equal(ChatEventKind.Failed, persisted.Kind);
+        Assert.Equal("Svaret kunne ikke fullføres", persisted.Detail);
+    }
+
     [Fact]
     public async Task A_turn_that_answers_records_no_event_at_all()
     {

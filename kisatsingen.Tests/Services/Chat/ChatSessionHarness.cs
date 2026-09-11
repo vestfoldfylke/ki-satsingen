@@ -78,11 +78,17 @@ internal sealed class FakeChatRepository : IChatRepository
     public Exception? CreateChatFailure { get; set; }
     public Exception? AppendEventFailure { get; set; }
 
-    // Indexed by call, because one turn appends twice — the user's message, then
-    // the model's reply — and "the answer could not be saved" is precisely the
-    // case where only the second one fails.
+    // Scripted by call index, because one turn appends twice — the user's message,
+    // then the model's reply — and "the answer could not be saved" is precisely
+    // the case where only the second fails. Appends past the second are
+    // unscripted, so a test that sends twice does not silently inherit the first
+    // turn's script.
     public Exception? FirstAppendMessagesFailure { get; set; }
     public Exception? SecondAppendMessagesFailure { get; set; }
+
+    // Runs just before the second append, so a test can make something happen
+    // while the turn is genuinely mid-save rather than before or after it.
+    public Action? BeforeSecondAppendMessages { get; set; }
 
     private int _appendMessagesCalls;
 
@@ -106,7 +112,19 @@ internal sealed class FakeChatRepository : IChatRepository
 
     public Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<StoredMessage> messages, CancellationToken ct = default)
     {
-        var failure = ++_appendMessagesCalls == 1 ? FirstAppendMessagesFailure : SecondAppendMessagesFailure;
+        var call = ++_appendMessagesCalls;
+        if (call == 2)
+        {
+            BeforeSecondAppendMessages?.Invoke();
+        }
+
+        var failure = call switch
+        {
+            1 => FirstAppendMessagesFailure,
+            2 => SecondAppendMessagesFailure,
+            _ => null
+        };
+
         if (failure is not null)
         {
             return Task.FromException(failure);

@@ -95,12 +95,12 @@ public sealed class ChatSessionMetricsTests
     public async Task A_turn_cancelled_while_saving_its_response_is_not_also_counted_as_a_success()
     {
         await using var harness = new ChatSessionHarness();
+        harness.Repository.BeforeSecondAppendMessages = () => harness.Session.Cancel();
         harness.Repository.SecondAppendMessagesFailure = new OperationCanceledException();
-        harness.Session.Cancel();
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.Metrics.Named(SendCounter));
+        AssertSingleResult(harness, MetricConstants.MetricsResultCancelledLabelValue);
     }
 
     [Fact]
