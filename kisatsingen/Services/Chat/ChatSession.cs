@@ -19,7 +19,7 @@ public sealed class ChatSession : IAsyncDisposable
         Tools = [ChatTools.GetCurrentTimeUtcTool]
     };
 
-    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_Chat";
+    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_ChatSession";
 
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatClient _client;
