@@ -11,7 +11,7 @@ public sealed class TranscriptRequestTests
     private const string SystemPrompt = "be helpful";
 
     [Fact]
-    public void the_system_prompt_is_prepended_to_the_conversation()
+    public void The_system_prompt_is_prepended_to_the_conversation()
     {
         var entries = new List<TranscriptEntry> { User("hei") };
 
@@ -24,7 +24,7 @@ public sealed class TranscriptRequestTests
     // The reason events live in their own type at all. A leak here would send the
     // model a turn it never produced.
     [Fact]
-    public void events_are_never_sent_to_the_model()
+    public void Events_are_never_sent_to_the_model()
     {
         var entries = new List<TranscriptEntry>
         {
@@ -39,7 +39,7 @@ public sealed class TranscriptRequestTests
     }
 
     [Fact]
-    public void messages_keep_their_transcript_order()
+    public void Messages_keep_their_transcript_order()
     {
         var entries = new List<TranscriptEntry>
         {
@@ -54,7 +54,7 @@ public sealed class TranscriptRequestTests
     }
 
     [Fact]
-    public void a_transcript_holding_only_events_produces_just_the_system_prompt()
+    public void A_transcript_holding_only_events_produces_just_the_system_prompt()
     {
         var entries = new List<TranscriptEntry> { Stopped() };
 

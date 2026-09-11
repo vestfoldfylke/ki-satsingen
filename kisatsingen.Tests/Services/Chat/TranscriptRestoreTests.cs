@@ -28,7 +28,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task messages_and_events_interleave_in_the_order_they_were_written()
+    public async Task Messages_and_events_interleave_in_the_order_they_were_written()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first")]);
@@ -46,7 +46,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     // The merge runs out of messages before it runs out of events here, which is
     // the branch a transcript ending in a stop takes.
     [Fact]
-    public async Task an_event_after_the_last_message_still_reaches_the_transcript()
+    public async Task An_event_after_the_last_message_still_reaches_the_transcript()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "only message")]);
@@ -60,7 +60,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task a_whole_batch_keeps_its_list_order_through_the_merge()
+    public async Task A_whole_batch_keeps_its_list_order_through_the_merge()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
@@ -80,7 +80,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     // The snapshot is carried forward from the user turn rather than read off the
     // assistant row, so the metadata names the prompt that actually produced it.
     [Fact]
-    public async Task an_assistant_message_reports_the_prompt_recorded_on_the_user_turn()
+    public async Task An_assistant_message_reports_the_prompt_recorded_on_the_user_turn()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
@@ -96,7 +96,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
 
     // Nothing recorded a snapshot, so the prompt in force at load time stands in.
     [Fact]
-    public async Task an_assistant_message_falls_back_to_the_prompt_in_force_when_no_snapshot_was_recorded()
+    public async Task An_assistant_message_falls_back_to_the_prompt_in_force_when_no_snapshot_was_recorded()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
@@ -111,7 +111,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task a_user_message_carries_no_assistant_metadata()
+    public async Task A_user_message_carries_no_assistant_metadata()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hei")]);
@@ -125,7 +125,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     // Nothing else covered this, and it is what the ContentsJson column exists
     // for — a tool call that does not survive the round trip renders as nothing.
     [Fact]
-    public async Task a_tool_call_survives_the_round_trip_through_storage()
+    public async Task A_tool_call_survives_the_round_trip_through_storage()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         var withToolCall = new AiMessage(ChatRole.Assistant, [
@@ -143,7 +143,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     // Both ToEntity overloads have to stamp this, and a third would too. Without
     // it the warning above can say a row is unreadable but not what wrote it.
     [Fact]
-    public async Task a_written_message_records_which_library_version_produced_its_contents()
+    public async Task A_written_message_records_which_library_version_produced_its_contents()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 
@@ -160,7 +160,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     // open the chat, putting the whole conversation permanently out of reach. The
     // structured parts are lost; the conversation is not.
     [Fact]
-    public async Task a_message_whose_stored_contents_cannot_be_read_degrades_to_its_plain_text()
+    public async Task A_message_whose_stored_contents_cannot_be_read_degrades_to_its_plain_text()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
@@ -180,7 +180,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
 
     // A transcript with one unreadable row still restores the rest in order.
     [Fact]
-    public async Task an_unreadable_message_does_not_take_the_rest_of_the_transcript_with_it()
+    public async Task An_unreadable_message_does_not_take_the_rest_of_the_transcript_with_it()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
@@ -197,7 +197,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task a_chat_with_no_rows_restores_to_an_empty_transcript()
+    public async Task A_chat_with_no_rows_restores_to_an_empty_transcript()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello");
 

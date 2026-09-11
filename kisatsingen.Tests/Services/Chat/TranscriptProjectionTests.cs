@@ -9,7 +9,7 @@ namespace kisatsingen.Tests.Services.Chat;
 public sealed class TranscriptProjectionTests
 {
     [Fact]
-    public void a_user_message_becomes_its_own_bubble()
+    public void A_user_message_becomes_its_own_bubble()
     {
         var views = TranscriptProjection.Build([User("hei")]);
 
@@ -18,7 +18,7 @@ public sealed class TranscriptProjectionTests
     }
 
     [Fact]
-    public void assistant_and_tool_messages_between_two_user_messages_collapse_into_one_turn()
+    public void Assistant_and_tool_messages_between_two_user_messages_collapse_into_one_turn()
     {
         var views = TranscriptProjection.Build([
             User("hei"),
@@ -37,7 +37,7 @@ public sealed class TranscriptProjectionTests
     // The shape a stop produces: the user's message stands, and the event
     // explains why nothing followed it.
     [Fact]
-    public void a_stopped_turn_renders_the_event_with_no_assistant_turn()
+    public void A_stopped_turn_renders_the_event_with_no_assistant_turn()
     {
         var views = TranscriptProjection.Build([User("hei"), Stopped()]);
 
@@ -48,7 +48,7 @@ public sealed class TranscriptProjectionTests
     }
 
     [Fact]
-    public void an_event_closes_the_turn_it_belongs_to_so_it_renders_after_partial_output()
+    public void An_event_closes_the_turn_it_belongs_to_so_it_renders_after_partial_output()
     {
         var views = TranscriptProjection.Build([
             User("hei"),
@@ -63,7 +63,7 @@ public sealed class TranscriptProjectionTests
     }
 
     [Fact]
-    public void a_turn_reports_the_last_assistant_metadata_and_the_first_start_time()
+    public void A_turn_reports_the_last_assistant_metadata_and_the_first_start_time()
     {
         var firstAt = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
         var lastAt = new DateTimeOffset(2026, 3, 1, 12, 0, 9, TimeSpan.Zero);
@@ -80,7 +80,7 @@ public sealed class TranscriptProjectionTests
     }
 
     [Fact]
-    public void view_ids_are_carried_through_so_render_keys_stay_stable()
+    public void View_ids_are_carried_through_so_render_keys_stay_stable()
     {
         var user = User("hei");
 
@@ -90,7 +90,7 @@ public sealed class TranscriptProjectionTests
     }
 
     [Fact]
-    public void an_empty_transcript_produces_no_views()
+    public void An_empty_transcript_produces_no_views()
     {
         Assert.Empty(TranscriptProjection.Build([]));
     }

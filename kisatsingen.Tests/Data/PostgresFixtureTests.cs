@@ -14,7 +14,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     // run every repository test as the schema owner, and the privilege coverage
     // those tests are supposed to give would be imaginary.
     [Fact]
-    public async Task the_repository_factory_connects_as_the_low_privilege_role()
+    public async Task The_repository_factory_connects_as_the_low_privilege_role()
     {
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
@@ -26,7 +26,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task the_owner_factory_connects_as_the_schema_owner()
+    public async Task The_owner_factory_connects_as_the_schema_owner()
     {
         await using var db = await fixture.OwnerFactory.CreateDbContextAsync();
 
@@ -41,7 +41,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     // owner and the init script grants USAGE on that owner's future sequences.
     // Three links, so worth asserting directly rather than inferring it.
     [Fact]
-    public async Task the_application_role_can_draw_from_the_entry_sequence()
+    public async Task The_application_role_can_draw_from_the_entry_sequence()
     {
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
@@ -53,7 +53,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task the_init_script_created_the_low_privilege_application_role()
+    public async Task The_init_script_created_the_low_privilege_application_role()
     {
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
@@ -65,7 +65,7 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task the_application_role_has_default_privileges_on_future_sequences()
+    public async Task The_application_role_has_default_privileges_on_future_sequences()
     {
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
