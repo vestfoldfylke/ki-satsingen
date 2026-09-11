@@ -126,20 +126,16 @@ public sealed class ChatSession : IAsyncDisposable
 
         IsBusy = true;
 
-        // A local alias, and the catches read it rather than the field: a racing
-        // DisposeAsync that nulls the field cannot then NRE the outcome branch.
-        // The field stays set so external Cancel() and the disconnect callbacks
-        // can still reach this turn while it runs.
+        // The catches read the local, not the field: a racing DisposeAsync nulls
+        // the field and would NRE the outcome branch. The field stays set so
+        // Cancel() and the disconnect callbacks can reach this turn while it runs.
         var turn = new TurnCancellation();
         _turnCancellation = turn;
 
-        // Hoisted so the outcome handlers can record against the right owner.
-        // Null means the turn ended before authentication returned, in which case
-        // there is no chat to write to — only something to show on screen.
+        // Null means the turn ended before authentication returned: no chat to
+        // write to, only something to show on screen.
         string? userObjectId = null;
 
-        // Hoisted for the same reason: how far the turn got is known only inside
-        // the try and needed only by the catches.
         var stage = TurnStage.Authenticating;
 
         try
@@ -156,13 +152,10 @@ public sealed class ChatSession : IAsyncDisposable
             stage = TurnStage.SavingResponse;
             await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
         }
-        // The filter is what makes this handler mean cancellation. An HTTP timeout
-        // inside the provider client surfaces as TaskCanceledException — an
-        // OperationCanceledException nobody here asked for — and without the filter
-        // a real failure would be recorded as a user pressing stop: invisible to
-        // failure alerts and a lie in the transcript. Only cancellation of our own
-        // token is cancellation; everything else falls through to the failure
-        // handler below, where a timeout belongs.
+        // The filter is load-bearing: a provider HTTP timeout arrives as
+        // TaskCanceledException, an OperationCanceledException nobody here asked
+        // for. Without it, outages are recorded as the user pressing stop —
+        // invisible to failure alerts. Only our own cancellation is cancellation.
         catch (OperationCanceledException) when (turn.IsCancelled)
         {
             if (turn.IsDisconnect)
@@ -176,48 +169,31 @@ public sealed class ChatSession : IAsyncDisposable
                 await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
             }
         }
-        // The one failure that is still allowed to leave this method. There is
-        // nothing to recover — no identity means no chat to write an event to and
-        // no next turn that would go any better — so it goes up to the error
-        // boundary, which can do the only useful thing: send the user to sign in.
+        // Allowed out: no identity means no chat to record an event against, and
+        // only the error boundary above can do the useful thing and send the user
+        // to sign in.
         catch (UserNotAuthenticatedException)
         {
             CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue);
             throw;
         }
-        // The other failure allowed out, and for the opposite reason to the one
-        // above: not "this user is stuck" but "this process is". An allocation
-        // failure says nothing about the turn and everything about the instance
-        // serving it, so recording it as a chat problem and inviting a retry is
-        // the wrong answer — the retry allocates again and fails the same way.
-        //
-        // What letting it out buys is narrow and worth stating plainly: Blazor
-        // tears the circuit down, which sheds this session and the transcript it
-        // was holding. It does not recycle the process; the host stays up and
-        // other circuits carry on. It is the .NET norm for allocation failures
-        // rather than a recovery strategy.
-        //
-        // Still counted, because the process does survive to be scraped, and the
-        // outcome counter's promise is that every attempt lands in exactly one
-        // bucket. It is absent from the Failure counter by design — no Stage or
-        // Exception drill-down is worth another allocation here — so those two
-        // metrics reconcile everywhere except this one case.
+        // Not swallowed: an allocation failure says nothing about this turn, and a
+        // retry allocates again and fails the same way. Letting it out sheds the
+        // circuit, not the process. Counted so every attempt still lands in exactly
+        // one Result bucket; deliberately absent from the Failure counter, the one
+        // place those two metrics do not reconcile.
         catch (OutOfMemoryException)
         {
             CountSend(MetricConstants.MetricsResultFailedLabelValue);
             throw;
         }
-        // Everything else is caught deliberately, bugs in our own code included.
-        // A NullReferenceException from a mapper is not more visible for having
-        // taken the circuit down with it — it is already logged whole and already
-        // carries its type into the Failure counter, which is what an alert can
-        // actually read. Tearing down the transcript on top of that costs the user
-        // their conversation and tells no one anything new.
+        // Catches our own bugs too: they are already logged whole and carry their
+        // type into the Failure counter, so taking the circuit down as well only
+        // costs the user their transcript.
         //
-        // The class that must never end up here is control flow dressed as an
-        // exception — Blazor's NavigationException above all. There is none inside
-        // the try today; navigation happens in the page, after this returns. Keep
-        // it that way.
+        // What must never reach here is control flow dressed as an exception —
+        // Blazor's NavigationException above all. There is none inside the try
+        // today; navigation happens in the page, after this returns. Keep it so.
         catch (Exception ex)
         {
             await HandleTurnFailureAsync(ex, stage, userObjectId);
@@ -241,16 +217,13 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    // Counts attempts rather than deliveries, which is why an unauthenticated
-    // caller belongs here too: every press of send lands on exactly one Result,
-    // so the outcomes sum to the attempts. That invariant is only as good as the
-    // call sites — each one has to sit at a point the turn cannot leave, which for
-    // Success means after the last await rather than before it.
+    // Every press of send lands on exactly one Result, so the outcomes sum to the
+    // attempts. That holds only if each call site sits where the turn cannot leave
+    // — for Success, after the last await rather than before it.
     //
-    // Prometheus fixes a metric's label names the first time it is used and
-    // throws on any later call supplying a different number of them, so every
-    // outcome has to report the same names in the same order. Building them here
-    // rather than at each call site is what keeps that true.
+    // Prometheus fixes a metric's label names on first use and throws if a later
+    // call supplies a different number, so every outcome must report the same
+    // names in the same order. Building them here is what guarantees that.
     private void CountSend(string result, string? modelId = null) =>
         _metrics.Count(
             $"{MetricPrefix}_Send",
@@ -258,16 +231,8 @@ public sealed class ChatSession : IAsyncDisposable
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
             (MetricConstants.MetricsResultLabelName, result));
 
-    // Swallows the exception by design. A turn can fail for reasons that say
-    // nothing about the next one — the provider rate-limits, a connection drops,
-    // the database is briefly unreachable — and rethrowing would take down the
-    // circuit and the whole visible transcript with it over one lost turn. So the
-    // turn is lost and the chat is not: the user gets a notice naming what was
-    // lost, ops get the exception whole plus a counter, and the composer is usable
-    // again the moment this returns.
-    //
-    // The exception itself is never shown or persisted. It is written once, here,
-    // where the log is the only reader.
+    // Swallows by design: the turn is lost, the chat is not. The exception is
+    // written here and only here — never shown, never persisted.
     private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
     {
         _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChat?.Id);
@@ -282,16 +247,12 @@ public sealed class ChatSession : IAsyncDisposable
         await RecordTurnEventAsync(userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
     }
 
-    // The partial response is deliberately discarded — the turn did not finish.
-    // What is kept is why it ended, so reloading the chat shows the reason for a
-    // turn that produced nothing instead of an unexplained gap: Stopped for a user
-    // pressing stop, Disconnected for a lost circuit, Failed for a broken turn.
+    // The partial response is discarded; why the turn ended is kept, so a reload
+    // explains the gap instead of showing an unanswered message.
     //
-    // The in-memory entry is added unconditionally, the write is not. A turn can
-    // end before there is a chat row to write to, or before we know whose chat it
-    // is, and that is precisely the case where the user most needs to be told
-    // something happened — going silent because persistence was impossible would
-    // lose both halves at once.
+    // The in-memory entry is added unconditionally, the write is not: a turn can
+    // end before there is a chat row to write to, and that is exactly when the
+    // user most needs to see something on screen.
     private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind, string? detail = null)
     {
         _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
@@ -305,23 +266,20 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            // Deliberately not the turn's cancellation source: it may already be
-            // cancelled here, and using it would abort the very write that records
-            // how the turn ended.
+            // Not the turn's own source — it may already be cancelled, and would
+            // abort the very write recording that cancellation.
             await _repo.AppendEventAsync(userObjectId, _currentChat.Id, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            // Failing to record the event must not replace the outcome it was
-            // recording or take down the circuit. The entry is already in memory,
-            // so this turn still renders correctly; only a reload of the chat
-            // would lose it.
+            // Must not replace the outcome it was recording. The entry is already
+            // in memory, so only a reload would lose it.
             _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, _currentChat.Id);
         }
     }
 
-    // Returns the id of the stream it opened, so the caller cannot reach for a
-    // nullable field the sequencing below has already guaranteed is set.
+    // Returns the stream id rather than leaving the caller to read the nullable
+    // field this already guaranteed is set.
     private async Task<Guid> PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
@@ -346,17 +304,12 @@ public sealed class ChatSession : IAsyncDisposable
     {
         var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
 
-        // Stopwatch, not DateTimeOffset.UtcNow: FlushCadence requires offsets that
-        // never go backwards, and a wall clock does exactly that when NTP steps it
-        // or the host migrates. A backward step would freeze the visible stream
-        // until the clock caught up. It also keeps the reported time-to-first-token
-        // free of clock adjustments.
+        // Stopwatch, not UtcNow: FlushCadence needs offsets that never go
+        // backwards, and a wall clock does when NTP steps it — which would freeze
+        // the visible stream until the clock caught up.
         var elapsed = Stopwatch.StartNew();
         long? firstTokenMs = null;
         var updates = new List<ChatResponseUpdate>();
-
-        // Carries flush state that only means anything against the stopwatch
-        // above, so the two share a lifetime.
         var cadence = new FlushCadence();
 
         var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
@@ -452,22 +405,18 @@ public sealed class ChatSession : IAsyncDisposable
     // The user asked for the turn to end.
     public void Cancel() => _turnCancellation?.CancelForUser();
 
-    // The browser stopped listening. Identical effect on the turn, different
-    // reason, and the reason is the entire point: it decides whether the
-    // transcript the user comes back to says they stopped the turn or that the
-    // connection did. Everything that can notice a dead circuit calls this rather
-    // than Cancel, so one event cannot be filed under two names depending on
-    // which watcher happened to spot it first.
+    // The browser stopped listening. Same effect on the turn as Cancel, different
+    // reason — and the reason decides whether the reloaded transcript says the
+    // user stopped it or the connection did. Everything that can notice a dead
+    // circuit comes through here, so one event cannot be filed under two names.
     public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
 
     public async ValueTask DisposeAsync()
     {
-        // A disconnect, not a stop. This runs when the circuit's scope is torn
-        // down: the tab closed, the circuit was evicted, the host is shutting
-        // down. Not one of those is a user pressing stop, and recording it as one
-        // would tell them they did something they did not.
-        // Read into a local and clear the field first, so a Cancel() arriving
-        // mid-teardown no-ops instead of reaching sources about to be disposed.
+        // A disconnect, not a stop: this runs on circuit teardown — tab closed,
+        // circuit evicted, host shutting down — none of which is a user pressing
+        // stop. Cleared first so a Cancel() racing teardown no-ops rather than
+        // reaching sources about to be disposed.
         var turn = _turnCancellation;
         _turnCancellation = null;
 
