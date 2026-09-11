@@ -55,11 +55,7 @@ public sealed class ChatSession : IAsyncDisposable
         _metrics = metrics;
         _logger = logger;
 
-        // A lost circuit means nobody is reading the stream, so the turn producing
-        // it should stop. The channel is one of three things that can notice a
-        // circuit is gone; all three go through the same entry point so they
-        // cannot disagree about what to call it.
-        _channel = new ChatClientChannel(js, logger, CancelForDisconnect);
+        _channel = new ChatClientChannel(js, logger);
     }
 
     public Guid? ChatId => _currentChat?.Id;
@@ -405,11 +401,15 @@ public sealed class ChatSession : IAsyncDisposable
     // The user asked for the turn to end.
     public void Cancel() => _turnCancellation?.CancelForUser();
 
-    // The browser stopped listening. Same effect on the turn as Cancel, different
-    // reason — and the reason decides whether the reloaded transcript says the
-    // user stopped it or the connection did. Everything that can notice a dead
-    // circuit comes through here, so one event cannot be filed under two names.
+    // The circuit is gone for good — not merely disconnected, which Blazor
+    // recovers from. Same effect on the turn as Cancel, different reason, and the
+    // reason decides whether the reloaded transcript says the user stopped the
+    // turn or the connection did.
     public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
+
+    // The transport came back on a circuit that was retained through the drop.
+    // The turn kept running; only delivery paused, and this resumes it.
+    public void ResumeStreaming() => _channel.Restore();
 
     public async ValueTask DisposeAsync()
     {

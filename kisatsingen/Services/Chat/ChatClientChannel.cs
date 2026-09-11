@@ -2,19 +2,30 @@ using Microsoft.JSInterop;
 
 namespace kisatsingen.Services.Chat;
 
-// Pushes streaming tokens at a browser that may already be gone. Every call is
+// Pushes streaming tokens at a browser that may not be listening. Every call is
 // fire-and-forget by design: a token that cannot be delivered must not fail the
 // turn that produced it, and must not block the server on a dead circuit.
 //
-// Deliberately thin. It holds no transcript state and makes no decisions — what
-// to send is FlushCadence's job, when to start and stop is ChatSession's — so
-// there is nothing here worth testing beyond the interop calls themselves.
-internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger, Action onCircuitLost)
+// A dropped transport is explicitly not the turn's problem. Blazor retains a
+// disconnected circuit (3 minutes by default) so the client can come back to it,
+// and the turn keeps running and persisting in the meantime. This stops pushing
+// while the transport is down and starts again on Restore, so a blip costs the
+// user the tokens they could not have seen anyway — not the answer.
+internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
 {
     private const int CircuitLive = 0;
     private const int CircuitLost = 1;
 
     private int _circuitState;
+
+    // The interop call in flight. Production discards it — that is the whole
+    // point of this type — but the suppressed state transitions below are worth
+    // asserting on, and a test has nothing else to await.
+    internal Task Pending { get; private set; } = Task.CompletedTask;
+
+    // The transport came back. Without this the circuit-lost flag latches and
+    // every later turn on this circuit silently streams nothing.
+    public void Restore() => Volatile.Write(ref _circuitState, CircuitLive);
 
     public void StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
 
@@ -29,7 +40,7 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger, Action on
             return;
         }
 
-        _ = ObserveAsync();
+        Pending = ObserveAsync();
         return;
 
         async Task ObserveAsync()
@@ -40,12 +51,12 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger, Action on
             }
             catch (JSDisconnectedException)
             {
-                // First observer of the disconnect tells the caller, so an
-                // in-flight stream is cancelled once rather than per token.
+                // Stop pushing until the transport returns. Logged by the first
+                // observer only, so a dropped connection is one line rather than
+                // one per token.
                 if (Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive)
                 {
-                    logger.LogInformation("Client circuit disconnected; cancelling active stream.");
-                    onCircuitLost();
+                    logger.LogInformation("Client transport lost; pausing stream delivery until it returns.");
                 }
             }
             catch (Exception ex)
