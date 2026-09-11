@@ -10,7 +10,7 @@
 
     <!-- Debug: ikke generer .exe — kjør via dotnet.exe -->
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <UseAppHost>false</UseAppHost>
+      <UseAppHost>false</UseAppHost>
     </PropertyGroup>
 
     <ItemGroup>
