@@ -127,6 +127,21 @@ public sealed class ChatSessionOutcomeTests
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
     }
 
+    // The other exception allowed out. An allocation failure says nothing about
+    // this turn, and recording it as a chat problem invites a retry that fails
+    // the same way. Nothing in the compiler stops someone removing that clause,
+    // after which it would be swallowed like any other fault.
+    [Fact]
+    public async Task An_allocation_failure_is_not_swallowed_as_a_chat_problem()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new OutOfMemoryException());
+
+        await Assert.ThrowsAsync<OutOfMemoryException>(() => harness.Session.SendAsync("hei"));
+
+        Assert.Empty(harness.VisibleEvents);
+    }
+
     [Fact]
     public async Task Pressing_stop_is_recorded_as_a_user_stop()
     {
