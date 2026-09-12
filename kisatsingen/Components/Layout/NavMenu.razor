@@ -25,14 +25,13 @@
             else
             {
                 <ul class="ds-list chat-sidebar-list">
-                    @foreach (var summary in ChatList)
+                    @foreach (var entry in ChatList)
                     {
-                        var menuId = $"chat-menu-{summary.Id}";
+                        var menuId = $"chat-menu-{entry.Id}";
                         <li>
-                            <div class="chat-sidebar-item @(summary.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
-                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{summary.Id}")">
-                                    <span class="chat-sidebar-title">@summary.Title</span>
-                                    <!-- <span class="chat-sidebar-time">@summary.UpdatedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</span> -->
+                            <div class="chat-sidebar-item @(entry.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
+                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")">
+                                    <span class="chat-sidebar-title">@entry.Title</span>
                                 </a>
                                 <button
                                     type="button"
@@ -47,30 +46,26 @@
                                 <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
                                     <ul>
                                         <li>
-                                            <a
-                                                href="#"
+                                            <button
+                                                type="button"
                                                 data-size="sm"
-                                                target="_blank"
-                                                rel="noreferrer"
                                                 class="ds-button"
                                                 data-variant="tertiary"
-                                            >
-                                            <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                            Endre
-                                            </a>
+                                                @onclick="() => RenameChatAsync(entry.Id, entry.Title)">
+                                                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                                Endre
+                                            </button>
                                         </li>
                                         <li>
-                                            <a
-                                                href="#"
+                                            <button
+                                                type="button"
                                                 data-size="sm"
-                                                target="_blank"
-                                                rel="noreferrer"
                                                 class="ds-button"
                                                 data-variant="tertiary"
-                                            >
-                                            <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                                            Slett
-                                            </a>
+                                                @onclick="() => DeleteChatAsync(entry.Id)">
+                                                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                                Slett
+                                            </button>
                                         </li>
                                     </ul>
                                 </div>

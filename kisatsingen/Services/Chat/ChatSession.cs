@@ -24,13 +24,19 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatClient _client;
     private readonly IChatRepository _repo;
+    private readonly ChatManager _chatManager;
     private readonly IMetricsService _metrics;
     private readonly ChatClientChannel _channel;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
-    private Data.Entities.Chat? _currentChat;
+
+    // The chat this session is working on, or null between chats. Split from the
+    // entity that used to live here so ChatManager stays the single source of
+    // truth for chat metadata; Session tracks only the identity plus what it
+    // needs at runtime.
+    private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     // The cancellation state of the turn in flight, or null when there is none.
@@ -45,6 +51,7 @@ public sealed class ChatSession : IAsyncDisposable
         IAuthenticationService authenticationService,
         IChatClient client,
         IChatRepository repo,
+        ChatManager chatManager,
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger)
@@ -52,13 +59,14 @@ public sealed class ChatSession : IAsyncDisposable
         _authenticationService = authenticationService;
         _client = client;
         _repo = repo;
+        _chatManager = chatManager;
         _metrics = metrics;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
     }
 
-    public Guid? ChatId => _currentChat?.Id;
+    public Guid? ChatId => _currentChatId;
     public bool IsBusy { get; private set; }
     public bool HasVisibleMessages => _entries.Count > 0 || _streamingId is not null;
 
@@ -95,21 +103,32 @@ public sealed class ChatSession : IAsyncDisposable
     {
         _entries.Clear();
         _streamingId = null;
-        _currentChat = null;
+        _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
 
-        if (chatId is not null)
+        if (chatId is Guid id)
         {
             var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            var chat = await _repo.GetChatAsync(userObjectId, chatId.Value, ct);
+            var chat = await _repo.GetChatAsync(userObjectId, id, ct);
             if (chat is not null)
             {
-                _currentChat = chat;
+                _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
                 _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, _logger));
             }
         }
 
+        Notify();
+    }
+
+    // Called by ChatManager when the currently-open chat has just been deleted
+    // out from under this session (e.g. from the sidebar).
+    public void Reset()
+    {
+        _entries.Clear();
+        _streamingId = null;
+        _currentChatId = null;
+        _effectiveSystemPrompt = DefaultSystemPrompt;
         Notify();
     }
 
@@ -231,7 +250,7 @@ public sealed class ChatSession : IAsyncDisposable
     // written here and only here — never shown, never persisted.
     private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
     {
-        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChat?.Id);
+        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChatId);
 
         CountSend(MetricConstants.MetricsResultFailedLabelValue);
         _metrics.Count(
@@ -253,7 +272,7 @@ public sealed class ChatSession : IAsyncDisposable
     {
         _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
 
-        if (userObjectId is null || _currentChat is null)
+        if (userObjectId is null || _currentChatId is not Guid chatId)
         {
             return;
         }
@@ -264,13 +283,13 @@ public sealed class ChatSession : IAsyncDisposable
         {
             // Not the turn's own source — it may already be cancelled, and would
             // abort the very write recording that cancellation.
-            await _repo.AppendEventAsync(userObjectId, _currentChat.Id, chatEvent, CancellationToken.None);
+            await _repo.AppendEventAsync(userObjectId, chatId, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
             // Must not replace the outcome it was recording. The entry is already
             // in memory, so only a reload would lose it.
-            _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, _currentChat.Id);
+            _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, chatId);
         }
     }
 
@@ -288,10 +307,14 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
         _channel.StreamStart(streamId);
 
-        _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
+        // ChatManager owns creation. On the first turn of a fresh chat this
+        // allocates the row (and puts it in the sidebar); on every later turn it
+        // is a pass-through.
+        var chatId = await _chatManager.EnsurePersistedAsync(_currentChatId, text, ct);
+        _currentChatId = chatId;
 
         var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
-        await _repo.AppendMessagesAsync(userObjectId, _currentChat.Id, [entity], ct);
+        await _repo.AppendMessagesAsync(userObjectId, chatId, [entity], ct);
 
         return streamId;
     }
@@ -381,19 +404,18 @@ public sealed class ChatSession : IAsyncDisposable
             toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
         }
 
-        await _repo.AppendMessagesAsync(userObjectId, _currentChat!.Id, toPersist, ct);
+        var chatId = _currentChatId!.Value;
+        await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
+
+        // Sidebar sort key is UpdatedAt — bumping it here keeps the just-touched
+        // chat at the top without another list round trip.
+        _chatManager.MarkTouched(chatId, now);
 
         // Counted last, after the write that makes the turn real. Counting it on
         // entry instead would let one attempt land on two Results — Success, then
         // Failed or Cancelled from whatever happened in the lines above — which is
         // the one thing the outcome counter promises cannot happen.
         CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
-    }
-
-    private static string BuildTitle(string userText)
-    {
-        var trimmed = userText.Trim();
-        return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";
     }
 
     private void Notify() => StateChanged?.Invoke();

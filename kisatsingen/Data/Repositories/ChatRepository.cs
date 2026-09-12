@@ -5,14 +5,14 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
-    public async Task<Chat> CreateChatAsync(string ownerId, string title, CancellationToken ct = default)
+    public async Task<Chat> CreateChatAsync(Guid id, string ownerId, string title, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
         var chat = new Chat
         {
-            Id = Guid.NewGuid(),
+            Id = id,
             OwnerId = ownerId,
             Title = string.IsNullOrWhiteSpace(title) ? "New chat" : title,
             CreatedAt = now,
@@ -145,5 +145,14 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         {
             throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
         }
+    }
+
+    public async Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var deletedCount = await db.Chats
+            .Where(c => c.Id == chatId && c.OwnerId == ownerId)
+            .ExecuteDeleteAsync(ct);
+        return deletedCount > 0;
     }
 }

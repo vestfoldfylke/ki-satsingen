@@ -37,14 +37,20 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public RecordingMetricsService Metrics { get; } = new();
     public ChatSession Session { get; }
 
-    public ChatSessionHarness() =>
+    public ChatManager Manager { get; }
+
+    public ChatSessionHarness()
+    {
+        Manager = new ChatManager(Authentication, Repository, NullLogger<ChatManager>.Instance);
         Session = new ChatSession(
             Authentication,
             Client,
             Repository,
+            Manager,
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance);
+    }
 
     // What the user would see in the transcript. Read through the public
     // projection rather than the session's private entry list, so a session that
@@ -92,12 +98,12 @@ internal sealed class FakeChatRepository : IChatRepository
 
     private int _appendMessagesCalls;
 
-    public Task<ChatEntity> CreateChatAsync(string ownerId, string title, CancellationToken ct = default) =>
+    public Task<ChatEntity> CreateChatAsync(Guid id, string ownerId, string title, CancellationToken ct = default) =>
         CreateChatFailure is not null
             ? Task.FromException<ChatEntity>(CreateChatFailure)
             : Task.FromResult(new ChatEntity
             {
-                Id = Guid.NewGuid(),
+                Id = id,
                 OwnerId = ownerId,
                 Title = title,
                 CreatedAt = DateTimeOffset.UtcNow,
@@ -147,6 +153,9 @@ internal sealed class FakeChatRepository : IChatRepository
 
     public Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default) =>
         Task.CompletedTask;
+
+    public Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default) =>
+        Task.FromResult(true);
 }
 
 internal sealed class FakeChatClient : IChatClient
