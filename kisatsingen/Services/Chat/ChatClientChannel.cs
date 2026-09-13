@@ -20,6 +20,8 @@ namespace kisatsingen.Services.Chat;
 // Resume coming to undo it.
 internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
 {
+    // Volatile here => A stale read costs one token either way — already tolerated. Interlocked
+    // would fence every token for no gain.
     private volatile bool _isPaused;
 
     // The most recent interop dispatch. Production discards it — that is the
