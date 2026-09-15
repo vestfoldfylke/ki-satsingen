@@ -19,8 +19,7 @@ public sealed class ChatClientChannelTests
         var js = new RecordingJsRuntime();
         var channel = Build(js);
 
-        channel.StreamAppend(StreamId, "Hei");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "Hei");
 
         Assert.Equal(["chatClient.streamAppend"], js.Calls);
     }
@@ -32,8 +31,7 @@ public sealed class ChatClientChannelTests
         var channel = Build(js);
 
         channel.Pause();
-        channel.StreamAppend(StreamId, "unsent");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "unsent");
 
         Assert.Empty(js.Calls);
     }
@@ -48,10 +46,9 @@ public sealed class ChatClientChannelTests
         var channel = Build(js);
 
         channel.Pause();
-        channel.StreamAppend(StreamId, "unsent");
+        _ = channel.StreamAppend(StreamId, "unsent");
         channel.Resume();
-        channel.StreamAppend(StreamId, "delivered");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "delivered");
 
         Assert.Equal(["chatClient.streamAppend"], js.Calls);
     }
@@ -70,33 +67,31 @@ public sealed class ChatClientChannelTests
         var js = new RecordingJsRuntime { IsDisconnected = true, FailsWhenReleased = stillInFlight };
         var channel = Build(js);
 
-        channel.StreamAppend(StreamId, "in flight when the transport dropped");
-        var stale = channel.Pending;
+        var stale = channel.StreamAppend(StreamId, "in flight when the transport dropped");
         channel.Pause();
         channel.Resume();
         js.IsDisconnected = false;
         stillInFlight.SetResult();
         await stale;
-        channel.StreamAppend(StreamId, "delivered");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "delivered");
 
         Assert.Equal(2, js.Calls.Count);
     }
 
     // A turn outlives a dropped transport: Blazor retains the circuit so the
     // client can return to it. Delivery failing must not surface as anything the
-    // turn has to handle.
+    // turn has to handle — the dispatch must reach RanToCompletion so production's
+    // `_ =` discard is safe.
     [Fact]
     public async Task Undeliverable_tokens_never_fault_the_caller()
     {
         var js = new RecordingJsRuntime { IsDisconnected = true };
         var channel = Build(js);
 
-        var failure = Record.Exception(() => channel.StreamAppend(StreamId, "Hei"));
-        var pending = await Record.ExceptionAsync(() => channel.Pending);
+        var dispatch = channel.StreamAppend(StreamId, "Hei");
+        await dispatch;
 
-        Assert.Null(failure);
-        Assert.Null(pending);
+        Assert.Equal(TaskStatus.RanToCompletion, dispatch.Status);
     }
 
     // Interop can fail for reasons that say nothing about the transport. Those
@@ -107,11 +102,9 @@ public sealed class ChatClientChannelTests
         var js = new RecordingJsRuntime { Failure = new InvalidOperationException("bad argument") };
         var channel = Build(js);
 
-        channel.StreamAppend(StreamId, "first");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "first");
         js.Failure = null;
-        channel.StreamAppend(StreamId, "second");
-        await channel.Pending;
+        await channel.StreamAppend(StreamId, "second");
 
         Assert.Equal(2, js.Calls.Count);
     }
