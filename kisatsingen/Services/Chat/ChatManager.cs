@@ -2,13 +2,10 @@ using kisatsingen.Data.Repositories;
 
 namespace kisatsingen.Services.Chat;
 
-// Sole owner of chat-lifecycle state for a circuit: holds the sidebar list and
-// raises ChatListChanged when it changes. ChatSession asks this service to
-// create a chat on its first turn — the repository is not called from Session
-// directly.
-//
-// Scoped per circuit: the list is one user's list. No cross-tab sync — a chat
-// created in one tab appears in another only after that tab reloads or refreshes.
+// Sole owner of chat-lifecycle state — Session goes through this service
+// rather than the repository directly, so the sidebar list stays in sync with
+// disk. No cross-tab sync: a chat created in one tab appears in another only
+// after reload.
 public sealed class ChatManager
 {
     private readonly IAuthenticationService _auth;
@@ -54,10 +51,8 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    // Called by ChatSession on the first turn of a fresh chat. When a chat is
-    // already open (existingChatId is not null) this is a no-op — the id is
-    // simply passed back — so PersistUserTurnAsync can call it on every turn
-    // without a branch of its own.
+    // No-op when the chat is already open, so Session can call this on every
+    // turn without a branch of its own.
     public async Task<Guid> EnsurePersistedAsync(Guid? existingChatId, string firstMessageText, CancellationToken ct)
     {
         if (existingChatId is Guid id)
@@ -114,8 +109,6 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    // Returns true if the row was actually removed. The caller decides whether
-    // the active chat needs re-routing.
     public async Task<bool> DeleteAsync(Guid chatId, CancellationToken ct = default)
     {
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();

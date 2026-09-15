@@ -32,10 +32,9 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
 
-    // The chat this session is working on, or null between chats. Split from the
-    // entity that used to live here so ChatManager stays the single source of
-    // truth for chat metadata; Session tracks only the identity plus what it
-    // needs at runtime.
+    // The chat this session is working on, or null between chats. ChatManager
+    // owns chat metadata (title, timestamps); Session tracks only identity plus
+    // the runtime state of the turn in flight.
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
@@ -121,8 +120,9 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    // Called by ChatManager when the currently-open chat has just been deleted
-    // out from under this session (e.g. from the sidebar).
+    // Sync clear for when the currently-open chat has just been deleted out
+    // from under this session — there is nothing to load, so callers do not
+    // need to route back through LoadAsync.
     public void Reset()
     {
         _entries.Clear();
@@ -307,9 +307,6 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
         _ = _channel.StreamStart(streamId);
 
-        // ChatManager owns creation. On the first turn of a fresh chat this
-        // allocates the row (and puts it in the sidebar); on every later turn it
-        // is a pass-through.
         var chatId = await _chatManager.EnsurePersistedAsync(_currentChatId, text, ct);
         _currentChatId = chatId;
 
@@ -406,9 +403,6 @@ public sealed class ChatSession : IAsyncDisposable
 
         var chatId = _currentChatId!.Value;
         await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
-
-        // Sidebar sort key is UpdatedAt — bumping it here keeps the just-touched
-        // chat at the top without another list round trip.
         _chatManager.MarkTouched(chatId, now);
 
         // Counted last, after the write that makes the turn real. Counting it on
