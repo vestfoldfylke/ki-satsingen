@@ -98,12 +98,12 @@ internal sealed class FakeChatRepository : IChatRepository
 
     private int _appendMessagesCalls;
 
-    public Task<ChatEntity> CreateChatAsync(Guid id, string ownerId, string title, CancellationToken ct = default) =>
+    public Task<ChatEntity> CreateChatAsync(string ownerId, string title, CancellationToken ct = default) =>
         CreateChatFailure is not null
             ? Task.FromException<ChatEntity>(CreateChatFailure)
             : Task.FromResult(new ChatEntity
             {
-                Id = id,
+                Id = Guid.NewGuid(),
                 OwnerId = ownerId,
                 Title = title,
                 CreatedAt = DateTimeOffset.UtcNow,
