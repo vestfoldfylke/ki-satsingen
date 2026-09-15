@@ -8,7 +8,9 @@ public abstract record ChatItemView(Guid Id);
 public sealed record UserBubbleView(Guid Id, string Text) : ChatItemView(Id);
 
 // Something that happened in the chat but is not part of the conversation the
-// model sees — currently only a user-initiated stop.
+// model sees: a stop, a lost connection, a turn that broke. Detail carries the
+// user-facing notice when there is one; ChatEventNotice falls back to a default
+// per kind when there is not.
 public sealed record ChatEventView(
     Guid Id,
     ChatEventKind Kind,

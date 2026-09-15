@@ -25,5 +25,18 @@ public static class MetricConstants
     // from Failed so an authentication problem is not read as the chat breaking.
     public static string MetricsResultUnauthenticatedLabelValue => "Unauthenticated";
 
+    // The turn broke for a reason the user neither asked for nor can fix. The one
+    // bucket here worth alerting on.
     public static string MetricsResultFailedLabelValue => "Failed";
+
+    // Which step of a turn failed. It lives on its own counter rather than as a
+    // third label on the outcome counter: a metric's label names are fixed by its
+    // first use, so a stage that only means something for failures would have to
+    // be reported as a filler value by every success.
+    public static string MetricsStageLabelName => "Stage";
+
+    // The .NET type name of the exception, never its message. A type name is a
+    // bounded set drawn from the code; a message carries ids, paths and provider
+    // error bodies, and would make the series cardinality unbounded with it.
+    public static string MetricsExceptionLabelName => "Exception";
 }

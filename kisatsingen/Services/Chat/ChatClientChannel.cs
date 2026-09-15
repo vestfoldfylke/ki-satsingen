@@ -2,35 +2,53 @@ using Microsoft.JSInterop;
 
 namespace kisatsingen.Services.Chat;
 
-// Pushes streaming tokens at a browser that may already be gone. Every call is
+// Pushes streaming tokens at a browser that may not be listening. Every call is
 // fire-and-forget by design: a token that cannot be delivered must not fail the
 // turn that produced it, and must not block the server on a dead circuit.
 //
-// Deliberately thin. It holds no transcript state and makes no decisions — what
-// to send is FlushCadence's job, when to start and stop is ChatSession's — so
-// there is nothing here worth testing beyond the interop calls themselves.
-internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger, Action onCircuitLost)
+// A dropped transport is explicitly not the turn's problem. Blazor retains a
+// disconnected circuit (3 minutes by default) so the client can come back to it,
+// and the turn keeps running and persisting in the meantime. Delivery pauses
+// while the transport is down, so a blip costs the user the tokens they could
+// not have seen anyway — not the answer.
+//
+// Pause and Resume are the only writers of that flag, and they are driven by the
+// circuit's own connection callbacks, which are ordered. Letting a failed interop
+// call set it too would race: on an unclean drop, calls queue rather than throw
+// and only fault once SignalR gives up, so a client that reconnects first would
+// have its live channel muted by a pile of stale failures — with no further
+// Resume coming to undo it.
+internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
 {
-    private const int CircuitLive = 0;
-    private const int CircuitLost = 1;
+    // Volatile here => A stale read costs one token either way — already tolerated. Interlocked
+    // would fence every token for no gain.
+    private volatile bool _isPaused;
 
-    private int _circuitState;
+    // The transport is down. Stops queueing calls the client cannot receive.
+    public void Pause() => _isPaused = true;
 
-    public void StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
+    // The transport came back. Without this the pause would latch and every
+    // later turn on this circuit would silently stream nothing.
+    public void Resume() => _isPaused = false;
 
-    public void StreamAppend(Guid streamId, string chunk) => Invoke("chatClient.streamAppend", streamId, chunk);
+    // StreamStart/Append/End return Task as a test seam so a specific dispatch
+    // can be awaited. Production discards with `_ =`; ObserveAsync catches every
+    // interop failure below, so a discarded task terminates cleanly and there is
+    // nothing left to observe.
+    public Task StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
 
-    public void StreamEnd(Guid streamId) => Invoke("chatClient.streamEnd", streamId);
+    public Task StreamAppend(Guid streamId, string chunk) => Invoke("chatClient.streamAppend", streamId, chunk);
 
-    private void Invoke(string method, params object?[] args)
+    public Task StreamEnd(Guid streamId) => Invoke("chatClient.streamEnd", streamId);
+
+    private Task Invoke(string method, params object?[] args)
     {
-        if (Volatile.Read(ref _circuitState) == CircuitLost)
+        if (_isPaused)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        _ = ObserveAsync();
-        return;
+        return ObserveAsync();
 
         async Task ObserveAsync()
         {
@@ -40,13 +58,10 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger, Action on
             }
             catch (JSDisconnectedException)
             {
-                // First observer of the disconnect tells the caller, so an
-                // in-flight stream is cancelled once rather than per token.
-                if (Interlocked.Exchange(ref _circuitState, CircuitLost) == CircuitLive)
-                {
-                    logger.LogInformation("Client circuit disconnected; cancelling active stream.");
-                    onCircuitLost();
-                }
+                // Swallowed, and deliberately without touching _isPaused: the
+                // circuit's connection callbacks own that flag, and this failure
+                // may be a stale one landing after a reconnect. The drop itself is
+                // already recorded by BlazorCircuitObserver.
             }
             catch (Exception ex)
             {

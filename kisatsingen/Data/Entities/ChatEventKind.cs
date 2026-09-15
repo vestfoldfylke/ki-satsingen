@@ -9,8 +9,11 @@ public enum ChatEventKind
     // response is deliberately not kept — stop means stop.
     Stopped,
 
-    // The turn ended in an error the user did not cause. Not written yet: see
-    // the recoverable-vs-fatal classification still to be decided.
+    // The turn ended in an error the user did not cause: the provider broke
+    // mid-stream, a save did not go through. Any partial output is discarded the
+    // same way a stop discards it, and for the same reason — what is kept is the
+    // notice, so a reload explains the gap instead of presenting a broken turn as
+    // an empty one.
     Failed,
 
     // The Blazor circuit was lost mid-turn (tab closed, network drop). Not a
