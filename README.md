@@ -16,7 +16,12 @@
     "TenantId": "<tenant-id>",
     "ClientId": "<client-id>",
     "ClientSecret": "<client-secret>",
-    "CallbackPath": "/signin-oidc"
+    "CallbackPath": "/signin-oidc",
+    "Audience": "<application-id-uri-from-appreg>",
+    "AppRoleAdministrator": "Administrator",
+    "AppRoleUser": "User",
+    "AppRoleMetrics": "Metrics",
+    "AppRoleContributor": "Contributor"
   },
   "OpenAI": {
     "ApiKey": "sk-proj-...."
