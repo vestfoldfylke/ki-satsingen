@@ -6,6 +6,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -91,6 +92,26 @@ builder.Services.PostConfigure<CookieAuthenticationOptions>(CookieAuthentication
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
 });
 
+// JWT bearer for programmatic callers. Registers on JwtBearerDefaults.AuthenticationScheme.
+builder.Services
+    .AddAuthentication()
+    .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraAuthConfiguration"));
+
+const string CookieOrBearerScheme = "CookieOrBearer";
+
+// Policy scheme used only by /metrics: bearer if there's a bearer header, OIDC otherwise.
+// ForwardDefaultSelector covers authenticate, challenge, and forbid — no other wiring needed.
+builder.Services
+    .AddAuthentication()
+    .AddPolicyScheme(CookieOrBearerScheme, CookieOrBearerScheme, options =>
+    {
+        options.ForwardDefaultSelector = ctx =>
+            ctx.Request.Headers.Authorization.ToString()
+                .StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                    ? JwtBearerDefaults.AuthenticationScheme
+                    : OpenIdConnectDefaults.AuthenticationScheme;
+    });
+
 var administratorRole = builder.Configuration["EntraAuthConfiguration:AppRoleAdministrator"]
                 ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleAdministrator is not configured. Set it via environment variables.");
 
@@ -107,7 +128,10 @@ builder.Services.AddAuthorizationBuilder()
     .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
     .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
     .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
-    .AddPolicy("CanReadMetrics", policy => policy.RequireRole(metricsRole));
+    .AddPolicy("CanReadMetrics", policy => policy
+        .AddAuthenticationSchemes(CookieOrBearerScheme)
+        .RequireAuthenticatedUser()
+        .RequireRole(metricsRole));
 
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
