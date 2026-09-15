@@ -24,11 +24,6 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
     // would fence every token for no gain.
     private volatile bool _isPaused;
 
-    // The most recent interop dispatch. Production discards it — that is the
-    // whole point of this type — but a test asserting on delivery has nothing
-    // else to await.
-    internal Task Pending { get; private set; } = Task.CompletedTask;
-
     // The transport is down. Stops queueing calls the client cannot receive.
     public void Pause() => _isPaused = true;
 
@@ -36,21 +31,24 @@ internal sealed class ChatClientChannel(IJSRuntime js, ILogger logger)
     // later turn on this circuit would silently stream nothing.
     public void Resume() => _isPaused = false;
 
-    public void StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
+    // StreamStart/Append/End return Task as a test seam so a specific dispatch
+    // can be awaited. Production discards with `_ =`; ObserveAsync catches every
+    // interop failure below, so a discarded task terminates cleanly and there is
+    // nothing left to observe.
+    public Task StreamStart(Guid streamId) => Invoke("chatClient.streamStart", streamId);
 
-    public void StreamAppend(Guid streamId, string chunk) => Invoke("chatClient.streamAppend", streamId, chunk);
+    public Task StreamAppend(Guid streamId, string chunk) => Invoke("chatClient.streamAppend", streamId, chunk);
 
-    public void StreamEnd(Guid streamId) => Invoke("chatClient.streamEnd", streamId);
+    public Task StreamEnd(Guid streamId) => Invoke("chatClient.streamEnd", streamId);
 
-    private void Invoke(string method, params object?[] args)
+    private Task Invoke(string method, params object?[] args)
     {
         if (_isPaused)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        Pending = ObserveAsync();
-        return;
+        return ObserveAsync();
 
         async Task ObserveAsync()
         {

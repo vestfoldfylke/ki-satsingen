@@ -198,7 +198,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             if (_streamingId is Guid id)
             {
-                _channel.StreamEnd(id);
+                _ = _channel.StreamEnd(id);
             }
             _streamingId = null;
             IsBusy = false;
@@ -286,7 +286,7 @@ public sealed class ChatSession : IAsyncDisposable
         // Notify before signalling the client: the render this triggers is what
         // puts the streaming element in the DOM for the append calls to target.
         Notify();
-        _channel.StreamStart(streamId);
+        _ = _channel.StreamStart(streamId);
 
         _currentChat ??= await _repo.CreateChatAsync(userObjectId, BuildTitle(text), ct);
 
@@ -337,13 +337,13 @@ public sealed class ChatSession : IAsyncDisposable
 
             if (cadence.Append(offsetMs, update.Text) is { } due)
             {
-                _channel.StreamAppend(streamId, due);
+                _ = _channel.StreamAppend(streamId, due);
             }
         }
 
         if (cadence.Drain() is { } remaining)
         {
-            _channel.StreamAppend(streamId, remaining);
+            _ = _channel.StreamAppend(streamId, remaining);
         }
 
         var response = updates.ToChatResponse();
