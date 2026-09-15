@@ -66,7 +66,7 @@ public sealed class ChatManager
         }
 
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.CreateChatAsync(Guid.NewGuid(), ownerId, BuildTitle(firstMessageText), ct);
+        var chat = await _repo.CreateChatAsync(ownerId, BuildTitle(firstMessageText), ct);
 
         _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
         RaiseChanged();
