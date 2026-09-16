@@ -70,8 +70,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             if (Validator.checkIfMessageContainsSsn(text))
             {
                 var confirmed = await JS.InvokeAsync<bool>(
-                    "confirm",
-                    "Det ser ut som at meldingen din inkluderer et personnummer. Er du sikker på at du vil sende?");
+                    "chatClient.showAcknowledge",
+                    "IKKE SEND PERSONNUMMER I PROMPEN DIN DUMMING!!"
+                );
 
                 if(!confirmed) return;
             }
