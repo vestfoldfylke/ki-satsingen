@@ -114,15 +114,14 @@ public sealed class ChatManager
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
         var deleted = await _repo.DeleteChatAsync(ownerId, chatId, ct);
 
-        if (deleted)
-        {
-            _entries.RemoveAll(e => e.Id == chatId);
-            RaiseChanged();
-        }
-        else
+        if (!deleted)
         {
             _logger.LogWarning("Attempted to delete chat {ChatId} but no row was affected.", chatId);
+            return deleted;
         }
+
+        _entries.RemoveAll(e => e.Id == chatId);
+        RaiseChanged();
 
         return deleted;
     }
