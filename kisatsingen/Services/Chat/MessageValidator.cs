@@ -6,6 +6,7 @@ public sealed class MessageValidator
     private readonly ILogger<MessageValidator> _logger;
 
     private readonly string SsnPattern = @"\d{6}[-\s]?\d{5}";
+    private readonly string test = "pikk";
 
     public MessageValidator(ILogger<MessageValidator> logger)
     {
@@ -22,5 +23,15 @@ public sealed class MessageValidator
         }
         _logger.LogWarning("A social security number has been detected!");
         return true;
+    }
+
+    public bool checkIfMessageContainsPikk(string Message)
+    {
+        if(Message.Contains(test, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 }

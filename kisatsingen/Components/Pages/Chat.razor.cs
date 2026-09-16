@@ -77,6 +77,16 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
                 if(!confirmed) return;
             }
 
+            if (Validator.checkIfMessageContainsPikk(text))
+            {
+                var confirmed = await JS.InvokeAsync<bool>(
+                    "chatClient.showConfirm",
+                    "Er du sikker på at du vil kalle meg en pikk?"
+                );
+
+                if(!confirmed) return;
+            }
+
             var wasNew = Session.ChatId is null;
 
             await Session.SendAsync(text);
