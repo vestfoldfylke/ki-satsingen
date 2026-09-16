@@ -7,18 +7,23 @@ const cancelButton = document.getElementById("components-cancel-button");
 let pendingResolve = null;
 
 function respond(result) {
+    pendingResolve?.(result);
+    pendingResolve = null;
     dialog.close();
+}
+
+dialog.addEventListener("close", () => {
     if (pendingResolve) {
-        pendingResolve(result);
+        pendingResolve(false);
         pendingResolve = null;
     }
-}
+});
 
 acceptButton.addEventListener("click", () => respond(true));
 acknowledgeButton.addEventListener("click", () => respond(false));
 cancelButton.addEventListener("click", () => respond(false));
 
-export function showConfirm(message) {
+export async function showConfirm(message) {
     return new Promise((resolve) => {
         pendingResolve = resolve;
         messageElement.textContent = message;
@@ -27,7 +32,7 @@ export function showConfirm(message) {
     });
 }
 
-export function showAcknowledge(message) {
+export async function showAcknowledge(message) {
     return new Promise((resolve) => {
         pendingResolve = resolve;
         messageElement.textContent = message;
