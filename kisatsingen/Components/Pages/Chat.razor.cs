@@ -71,7 +71,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             {
                 var confirmed = await JS.InvokeAsync<bool>(
                     "confirm",
-                    "Du sender nå et personnummer. Er dette meningen?");
+                    "Det ser ut som at meldingen din inkluderer et personnummer. Er du sikker på at du vil sende?");
 
                 if(!confirmed) return;
             }
