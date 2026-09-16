@@ -11,6 +11,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required ChatSession Session { get; set; }
 
     [Inject]
+    public required MessageValidator Validator { get; set; }
+
+    [Inject]
     public required ILogger<Chat> Logger { get; set; }
 
     [Inject]
@@ -60,6 +63,17 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             if (string.IsNullOrWhiteSpace(text))
             {
                 return;
+            }
+
+            // Before sending to the AI, we need to validate if the message
+            // contains any sensitive information (personnummer)
+            if (Validator.checkIfMessageContainsSsn(text))
+            {
+                var confirmed = await JS.InvokeAsync<bool>(
+                    "confirm",
+                    "Du sender nå et personnummer. Er dette meningen?");
+
+                if(!confirmed) return;
             }
 
             var wasNew = Session.ChatId is null;
