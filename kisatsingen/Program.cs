@@ -161,6 +161,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ChatSession>();
+builder.Services.AddSingleton<MessageValidator>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
 var app = builder.Build();
