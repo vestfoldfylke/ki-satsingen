@@ -136,14 +136,16 @@ builder.Services.AddAuthorizationBuilder()
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
+
 var openAiModel = builder.Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
+var availableModels = builder.Configuration.GetSection("OpenAI:Models").Get<string[]>() ?? [openAiModel];
 
 builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .GetChatClient(openAiModel)
     .AsIChatClient())
     .UseFunctionInvocation();
 
-builder.Services.AddSingleton(new ChatModelOptions(openAiModel));
+builder.Services.AddSingleton(new ChatModelOptions(openAiModel, availableModels));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");

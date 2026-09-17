@@ -121,6 +121,13 @@
     cursor: pointer;
 }
 
+#composer-switch-model-dropdown {
+    width: 12rem;
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+
 .chat-footer {
     margin: 0;
     text-align: center;

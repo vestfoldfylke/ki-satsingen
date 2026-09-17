@@ -16,9 +16,30 @@
 
             <button class="composer-switch-model-button"
                     type="button"
+                    popoverTarget="composer-switch-model-dropdown"
                     aria-label="Endre språkmodell">
                 @CurrentModel
             </button>
+
+            <div
+                class="ds-dropdown"
+                id="composer-switch-model-dropdown"
+                popover="manual"
+                data-placement="bottom-end"
+                >
+                <ul>
+                    @foreach (var model in AvailableModels)
+                    {
+                        <li @key="model">
+                            <button
+                                class="ds-button"
+                                data-variant="tertiary"
+                                type="button"
+                            >@model</button>
+                        </li>
+                    }
+                </ul>
+            </div>
 
             @* Stop is Blazor-owned: its only signal is IsBusy, which the server
                already knows. Send is JS-owned because its disabled state also
