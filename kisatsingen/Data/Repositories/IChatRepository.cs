@@ -10,4 +10,8 @@ public interface IChatRepository
     Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default);
     Task AppendEventAsync(string ownerId, Guid chatId, ChatEvent chatEvent, CancellationToken ct = default);
     Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default);
+
+    // Owner filter is defence in depth — the caller has already resolved
+    // identity. Messages and events cascade via the FK.
+    Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default);
 }

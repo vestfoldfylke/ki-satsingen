@@ -160,6 +160,7 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
@@ -238,6 +239,13 @@ app.UseAntiforgery();
 // ─── Endpoints ─────────────────────────────────────────
 app.MapMetrics().RequireAuthorization("CanReadMetrics");
 app.MapStaticAssets();
+
+// Root has no page of its own — every visit funnels straight into the new-chat
+// flow. Left unauthenticated on purpose: a signed-out visitor gets redirected
+// once, then the OIDC challenge fires on /new. Authorizing here would just add
+// a redirect before the redirect.
+app.MapGet("/", () => Results.Redirect("/new"));
+
 var razorComponents = app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
