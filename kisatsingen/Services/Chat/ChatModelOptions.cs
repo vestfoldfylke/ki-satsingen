@@ -1,3 +1,4 @@
 namespace kisatsingen.Services.Chat;
 
-public sealed record ChatModelOptions(string ModelId, IReadOnlyList<string> AvailableModels);
+public sealed record ChatModelOptions(ModelOption Current, IReadOnlyList<ModelOption> AvailableModels);
+

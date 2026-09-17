@@ -67,8 +67,9 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? StreamingId => _streamingId;
 
-    public string CurrentModel => _modelOptions.ModelId;
-    public IReadOnlyList<string> AvailableModels => _modelOptions.AvailableModels;
+    public string CurrentModel => _modelOptions.Current.ModelId;
+    public IReadOnlyList<string> AvailableModels => _modelOptions.AvailableModels.Select(m => m.ModelId).ToList();
+
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 

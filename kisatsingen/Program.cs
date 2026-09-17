@@ -136,16 +136,22 @@ builder.Services.AddAuthorizationBuilder()
 // ─── Application configuration ─────────────────────────
 var openAiKey = builder.Configuration["OpenAI:ApiKey"]
     ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
+var openAiModels = builder.Configuration.GetSection("OpenAI:Models").Get<string[]>() ?? [];
+var openAiOptions = openAiModels.Select(m => new ModelOption(m, openAiKey, null));
 
-var openAiModel = builder.Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-var availableModels = builder.Configuration.GetSection("OpenAI:Models").Get<string[]>() ?? [openAiModel];
+var mistralKey = builder.Configuration["Mistral:ApiKey"]
+    ?? throw new InvalidOperationException("Mistral:ApiKey is not configured.");
+var mistralModels = builder.Configuration.GetSection("Mistral:Models").Get<string[]>() ?? [];
+var mistralOptions = mistralModels.Select(m => new ModelOption(m, mistralKey, new Uri("https://api.mistral.ai/v1")));
+
+var availableModels = openAiOptions.Concat(mistralOptions).ToList();
+builder.Services.AddSingleton(new ChatModelOptions(availableModels.First(), availableModels));
+
 
 builder.Services.AddChatClient(new OpenAIClient(openAiKey)
-    .GetChatClient(openAiModel)
+    .GetChatClient(openAiOptions.First().ModelId)
     .AsIChatClient())
     .UseFunctionInvocation();
-
-builder.Services.AddSingleton(new ChatModelOptions(openAiModel, availableModels));
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
