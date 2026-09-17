@@ -23,6 +23,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatClient _client;
+    private readonly ChatModelOptions _modelOptions;
     private readonly IChatRepository _repo;
     private readonly IMetricsService _metrics;
     private readonly ChatClientChannel _channel;
@@ -44,6 +45,7 @@ public sealed class ChatSession : IAsyncDisposable
     public ChatSession(
         IAuthenticationService authenticationService,
         IChatClient client,
+        ChatModelOptions modelOptions,
         IChatRepository repo,
         IMetricsService metrics,
         IJSRuntime js,
@@ -51,6 +53,7 @@ public sealed class ChatSession : IAsyncDisposable
     {
         _authenticationService = authenticationService;
         _client = client;
+        _modelOptions = modelOptions;
         _repo = repo;
         _metrics = metrics;
         _logger = logger;
@@ -63,6 +66,8 @@ public sealed class ChatSession : IAsyncDisposable
     public bool HasVisibleMessages => _entries.Count > 0 || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
+
+    public string CurrentModel => _modelOptions.ModelId;
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 

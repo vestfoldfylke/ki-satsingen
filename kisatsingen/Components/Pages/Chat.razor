@@ -65,7 +65,8 @@
                     <ChatComposer @ref="_composer"
                                   IsBusy="Session.IsBusy"
                                   OnSend="SendAsync"
-                                  OnStop="Stop" />
+                                  OnStop="Stop"
+                                  CurrentModel="@Session.CurrentModel" />
                 </div>
             </div>
         }
@@ -88,7 +89,8 @@
                 <ChatComposer @ref="_composer"
                               IsBusy="Session.IsBusy"
                               OnSend="SendAsync"
-                              OnStop="Stop" />
+                              OnStop="Stop"
+                              CurrentModel="@Session.CurrentModel" />
             </div>
         }
     </div>

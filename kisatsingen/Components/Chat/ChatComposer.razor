@@ -13,6 +13,13 @@
             </svg>
         </button>
         <div class="composer-actions-right">
+
+            <button class="composer-switch-model-button"
+                    type="button"
+                    aria-label="Endre språkmodell">
+                @CurrentModel
+            </button>
+
             @* Stop is Blazor-owned: its only signal is IsBusy, which the server
                already knows. Send is JS-owned because its disabled state also
                depends on textarea emptiness — a client-only signal. *@

@@ -23,6 +23,9 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback OnStop { get; set; }
 
+    [Parameter]
+    public required string CurrentModel { get; set; }
+
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the
     // caret. The page calls this afterwards to put focus back.

@@ -143,6 +143,8 @@ builder.Services.AddChatClient(new OpenAIClient(openAiKey)
     .AsIChatClient())
     .UseFunctionInvocation();
 
+builder.Services.AddSingleton(new ChatModelOptions(openAiModel));
+
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
 

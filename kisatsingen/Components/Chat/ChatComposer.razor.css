@@ -105,6 +105,22 @@
     cursor: not-allowed;
 }
 
+.composer-switch-model-button {
+    font-size: .925rem;
+    width: 5.5rem;
+    height: 2.25rem;
+    background: transparent;
+    color: #475569;
+    border-radius: .4rem;
+    border-color: transparent;
+}
+
+.composer-switch-model-button:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    cursor: pointer;
+}
+
 .chat-footer {
     margin: 0;
     text-align: center;
