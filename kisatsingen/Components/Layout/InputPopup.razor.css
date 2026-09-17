@@ -13,7 +13,7 @@
 }
 
 .components-input-container {
-    display: flex;
+    display: block;
     flex-direction: column;
     align-items: center;
     gap: 1rem;
@@ -28,8 +28,20 @@
     border: 0;
     background-color: #6b9ed2;
     color: white;
-    padding: 4px 24px;
-    border-radius: 4px;
+    padding: .5rem .8rem;
+    border-radius: .3rem;
+}
+
+.components-input-actions {
+    display: flex;
+    flex-direction: row;
+    gap: .4rem;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.components-input-actions button {
+    flex: 1;
 }
 
 
@@ -42,7 +54,7 @@
 }
 
 #components-input-popup[data-mode="acknowledge"] {
-    border-top: 4px solid #d34848;
+    border-top: 1rem solid #d34848;
 }
 
 #components-input-popup[data-mode="acknowledge"] #components-acknowledge-button {
