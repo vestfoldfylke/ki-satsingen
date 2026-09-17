@@ -24,7 +24,7 @@
             <div
                 class="ds-dropdown"
                 id="composer-switch-model-dropdown"
-                popover="manual"
+                popover="auto"
                 data-placement="bottom-end"
                 >
                 <ul>
@@ -35,6 +35,7 @@
                                 class="ds-button"
                                 data-variant="tertiary"
                                 type="button"
+                                @onclick="() => OnModelSelected.InvokeAsync(model)"
                             >@model</button>
                         </li>
                     }

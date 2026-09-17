@@ -7,6 +7,8 @@ using Microsoft.Extensions.AI;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
+using OpenAI;
+using System.ClientModel;
 
 namespace kisatsingen.Services.Chat;
 
@@ -22,17 +24,17 @@ public sealed class ChatSession : IAsyncDisposable
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_ChatSession";
 
     private readonly IAuthenticationService _authenticationService;
-    private readonly IChatClient _client;
     private readonly ChatModelOptions _modelOptions;
+    private ModelOption _selectedModel;
     private readonly IChatRepository _repo;
     private readonly IMetricsService _metrics;
     private readonly ChatClientChannel _channel;
     private readonly ILogger<ChatSession> _logger;
-
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
     private Data.Entities.Chat? _currentChat;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
+
 
     // The cancellation state of the turn in flight, or null when there is none.
     // Cancel() and the disconnect callbacks reach the live turn through this;
@@ -44,16 +46,16 @@ public sealed class ChatSession : IAsyncDisposable
 
     public ChatSession(
         IAuthenticationService authenticationService,
-        IChatClient client,
         ChatModelOptions modelOptions,
         IChatRepository repo,
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger)
     {
+
         _authenticationService = authenticationService;
-        _client = client;
         _modelOptions = modelOptions;
+        _selectedModel = _modelOptions.Current;
         _repo = repo;
         _metrics = metrics;
         _logger = logger;
@@ -67,7 +69,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? StreamingId => _streamingId;
 
-    public string CurrentModel => _modelOptions.Current.ModelId;
+    public string CurrentModel => _selectedModel.ModelId;
     public IReadOnlyList<string> AvailableModels => _modelOptions.AvailableModels.Select(m => m.ModelId).ToList();
 
 
@@ -119,6 +121,32 @@ public sealed class ChatSession : IAsyncDisposable
 
         Notify();
     }
+
+    private static IChatClient BuildClient(ModelOption model)
+    {
+        var options = model.Endpoint is not null
+            ? new OpenAIClientOptions { Endpoint = model.Endpoint }
+            : null;
+        return new OpenAIClient(new ApiKeyCredential(model.ApiKey), options)
+            .GetChatClient(model.ModelId)
+            .AsIChatClient()
+            .AsBuilder()
+            .UseFunctionInvocation()
+            .Build();
+    }
+
+    public void SetModel(string modelId)
+    {
+        var match = _modelOptions.AvailableModels.FirstOrDefault(m => m.ModelId == modelId);
+        if (match is null)
+        {
+            return;
+        }
+
+        _selectedModel = match;
+        Notify();
+    }
+
 
     public async Task SendAsync(string text)
     {
@@ -317,7 +345,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
 
-        await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
+        await foreach (var update in BuildClient(_selectedModel).GetStreamingResponseAsync(request, Options, ct))
         {
             updates.Add(update);
             var offsetMs = elapsed.ElapsedMilliseconds;

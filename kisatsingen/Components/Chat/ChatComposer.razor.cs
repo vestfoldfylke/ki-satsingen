@@ -29,6 +29,10 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public required IReadOnlyList<string> AvailableModels { get; set; }
 
+    [Parameter]
+    public EventCallback<string> OnModelSelected { get; set; }
+
+
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the
     // caret. The page calls this afterwards to put focus back.

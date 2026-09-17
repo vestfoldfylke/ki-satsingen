@@ -67,7 +67,8 @@
                                   OnSend="SendAsync"
                                   OnStop="Stop"
                                   CurrentModel="@Session.CurrentModel"
-                                  AvailableModels="@Session.AvailableModels" />
+                                  AvailableModels="@Session.AvailableModels"
+                                  OnModelSelected="SelectModel" />
                 </div>
             </div>
         }
@@ -92,7 +93,8 @@
                               OnSend="SendAsync"
                               OnStop="Stop"
                               CurrentModel="@Session.CurrentModel"
-                              AvailableModels="@Session.AvailableModels" />
+                              AvailableModels="@Session.AvailableModels"
+                              OnModelSelected="SelectModel" />
             </div>
         }
     </div>

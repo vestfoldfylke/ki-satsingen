@@ -43,6 +43,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         }
     }
 
+    private void SelectModel(string modelId) => Session.SetModel(modelId);
+
     private async Task SendAsync()
     {
         // Synchronous, checked before any await: a rapid double-trigger (e.g.

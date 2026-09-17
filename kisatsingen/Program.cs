@@ -147,12 +147,6 @@ var mistralOptions = mistralModels.Select(m => new ModelOption(m, mistralKey, ne
 var availableModels = openAiOptions.Concat(mistralOptions).ToList();
 builder.Services.AddSingleton(new ChatModelOptions(availableModels.First(), availableModels));
 
-
-builder.Services.AddChatClient(new OpenAIClient(openAiKey)
-    .GetChatClient(openAiOptions.First().ModelId)
-    .AsIChatClient())
-    .UseFunctionInvocation();
-
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
 
