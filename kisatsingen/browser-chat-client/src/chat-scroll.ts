@@ -230,11 +230,18 @@ function onLogMutation(mutations: MutationRecord[]): void {
     // New user bubble → user just sent → pop it to the top. The next stream
     // gets a fresh 100dvh spacer via the CSS sibling rule, so clear any inline
     // height left over from the previous commit.
+    //
+    // Only pop when the transcript actually overflows — on short chats where
+    // everything still fits above the composer, popping would jerk the message
+    // up now and preserveScrollAfterCommit would jerk it back down when the
+    // stream commits and the spacer collapses.
     for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
             if (hasClass(node, 'user-bubble')) {
                 clearSpacerInlineHeight();
-                popToTop(node, true);
+                if (contentEndPx() > visibleHeightPx()) {
+                    popToTop(node, true);
+                }
                 return;
             }
         }

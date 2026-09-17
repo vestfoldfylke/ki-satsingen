@@ -1,21 +1,17 @@
-using kisatsingen.Data.Entities;
-using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
     [Inject]
-    public required IAuthenticationService AuthService { get; set; }
-
-    [Inject]
     public required ChatSession Session { get; set; }
 
     [Inject]
-    public required IChatRepository ChatRepository { get; set; }
+    public required ChatManager Manager { get; set; }
 
     [Inject]
     public required ILogger<NavMenu> Logger { get; set; }
@@ -23,16 +19,21 @@ public partial class NavMenu : ComponentBase, IDisposable
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
+    [Inject]
+    public required IJSRuntime JS { get; set; }
+
     [Parameter]
     public Guid? ChatId { get; set; }
-    private List<ChatSummary> ChatList { get; set; } = [];
+
+    private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)
         {
-            Session.StateChanged += OnSessionChanged;
+            Session.StateChanged += OnStateChanged;
+            Manager.ChatListChanged += OnStateChanged;
             _stateWired = true;
         }
 
@@ -41,14 +42,7 @@ public partial class NavMenu : ComponentBase, IDisposable
             await Session.LoadAsync(ChatId);
         }
 
-        await RefreshChatListAsync();
-    }
-
-    private async Task RefreshChatListAsync()
-    {
-        var userObjectId = await AuthService.RequireUserObjectIdentifierAsync();
-        var list = await ChatRepository.ListChatsAsync(userObjectId);
-        ChatList = list.ToList();
+        await Manager.EnsureLoadedAsync();
     }
 
     private void StartNewChatAsync()
@@ -59,17 +53,67 @@ public partial class NavMenu : ComponentBase, IDisposable
         }
 
         Logger.LogInformation("New chat started");
-        Navigation.NavigateTo("/chat", replace: true);
+        Navigation.NavigateTo("/new", replace: true);
     }
 
-    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+    private async Task RenameChatAsync(Guid id, string currentTitle)
+    {
+        var input = await JS.InvokeAsync<string?>("prompt", "New name:", currentTitle);
+        if (string.IsNullOrWhiteSpace(input) || input.Trim() == currentTitle)
+        {
+            return;
+        }
+
+        try
+        {
+            await Manager.RenameAsync(id, input.Trim(), CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", id);
+        }
+    }
+
+    private async Task DeleteChatAsync(Guid id)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this chat?");
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var wasActive = Session.ChatId == id;
+
+        try
+        {
+            await Manager.DeleteAsync(id, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to delete chat {ChatId}", id);
+            return;
+        }
+
+        if (wasActive)
+        {
+            // Cancel first so an in-flight turn on this chat winds down before
+            // Reset clears its identity — otherwise the tail of the turn tries
+            // to append to a row that no longer exists.
+            Session.Cancel();
+            Session.Reset();
+            Navigation.NavigateTo("/new", replace: true);
+        }
+    }
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
 
     public void Dispose()
     {
         GC.SuppressFinalize(this);
         if (_stateWired)
         {
-            Session.StateChanged -= OnSessionChanged;
+            Session.StateChanged -= OnStateChanged;
+            Manager.ChatListChanged -= OnStateChanged;
         }
         Session.Cancel();
     }
