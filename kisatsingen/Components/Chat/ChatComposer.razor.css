@@ -106,14 +106,23 @@
 }
 
 .composer-switch-model-button {
-    font-size: .925rem;
-    width: 5.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: .825rem;
+    width: auto;
+    max-width: 12rem;
     height: 2.25rem;
+    padding: 0 0.6rem;
     background: transparent;
     color: #475569;
     border-radius: .4rem;
     border-color: transparent;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+
 
 .composer-switch-model-button:hover {
     background: #f1f5f9;
@@ -121,10 +130,31 @@
     cursor: pointer;
 }
 
+
 #composer-switch-model-dropdown {
-    width: 12rem;
-    max-height: 16rem;
+    width: 8rem;
+    max-height: 12rem;
     overflow-y: auto;
+    font-size: 0.85rem;
+    --dsc-dropdown-padding: 0.25rem;
+    --dsc-dropdown-item-padding: 0.35rem 0.5rem;
+    --dsc-dropdown-item-size: 2rem;
+}
+
+
+#composer-switch-model-dropdown li {
+    display: block;
+}
+
+#composer-switch-model-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+}
+
+#composer-switch-model-dropdown .is-selected {
+    font-weight: 600;
+    background: #f1f5f9;
 }
 
 

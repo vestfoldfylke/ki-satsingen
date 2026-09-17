@@ -32,9 +32,11 @@
                     {
                         <li @key="model">
                             <button
-                                class="ds-button"
+                                class="ds-button @(model == CurrentModel ? "is-selected" : "")"
                                 data-variant="tertiary"
                                 type="button"
+                                popovertarget="composer-switch-model-dropdown"
+                                popovertargetaction="hide"
                                 @onclick="() => OnModelSelected.InvokeAsync(model)"
                             >@model</button>
                         </li>
