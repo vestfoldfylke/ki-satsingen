@@ -125,6 +125,32 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
+    public async Task CreateFileForAssistantAsync_does_not_embed_a_huge_sha256_in_the_error_message()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        // 10_000-char blob masquerading as a hash; nothing about the message
+        // should carry the full input into logs.
+        var giantBlob = new string('z', 10_000);
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = giantBlob };
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+
+        Assert.DoesNotContain(giantBlob, error.Message);
+        Assert.Contains("10000", error.Message);
+    }
+
+    [Fact]
+    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_non_positive_page_count()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { PageCount = 0 };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+    }
+
+    [Fact]
     public async Task CreateFileForAssistantAsync_refuses_a_chunk_with_a_negative_token_count()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
@@ -288,6 +314,20 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
             () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: -1, lastSequence: 0));
 
         Assert.Equal("firstSequence", error.ParamName);
+    }
+
+    [Fact]
+    public async Task GetChunksAsync_refuses_a_negative_last_sequence()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
+
+        // firstSequence is valid; the offender is lastSequence, and the error
+        // should name it rather than the innocent start.
+        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 0, lastSequence: -1));
+
+        Assert.Equal("lastSequence", error.ParamName);
     }
 
     [Fact]

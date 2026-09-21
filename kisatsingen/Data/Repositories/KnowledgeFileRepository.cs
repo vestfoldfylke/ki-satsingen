@@ -41,6 +41,13 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 nameof(draft));
         }
 
+        if (draft.PageCount is <= 0)
+        {
+            throw new ArgumentException(
+                $"Knowledge file '{normalisedFileName}' reports {draft.PageCount} pages; page count must be positive when supplied (null is fine for formats without pages).",
+                nameof(draft));
+        }
+
         // Guard every chunk individually before summing: a mix of positive and
         // negative estimates can sum to a plausible total while poisoning the
         // per-chunk budgeting downstream.
@@ -121,8 +128,12 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     {
         if (sha256.Length != KnowledgeFile.Sha256HexLength || !IsLowerableHex(sha256))
         {
+            // Truncate the offending input in the message so a caller passing a
+            // multi-megabyte blob does not push that whole payload into logs.
+            const int previewLength = 16;
+            var preview = sha256.Length <= previewLength ? sha256 : sha256[..previewLength] + "…";
             throw new ArgumentException(
-                $"SHA-256 must be exactly {KnowledgeFile.Sha256HexLength} hexadecimal characters (got {sha256.Length}: '{sha256}').",
+                $"SHA-256 must be exactly {KnowledgeFile.Sha256HexLength} hexadecimal characters (got {sha256.Length}: '{preview}').",
                 nameof(sha256));
         }
         return sha256.ToLowerInvariant();
@@ -211,6 +222,14 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 nameof(firstSequence),
                 firstSequence,
                 $"Chunk sequence must be zero or positive (got {firstSequence}).");
+        }
+
+        if (lastSequence < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(lastSequence),
+                lastSequence,
+                $"Chunk sequence must be zero or positive (got {lastSequence}).");
         }
 
         if (lastSequence < firstSequence)
