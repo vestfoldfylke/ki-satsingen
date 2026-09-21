@@ -19,10 +19,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     public Task InitializeAsync() => fixture.ResetAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
-
-    // The "New chat" fallback used to live here. It now belongs to ChatManager,
-    // which is the only caller that has a default worth applying, so every
-    // repository refuses a blank the same way.
+    
     [Fact]
     public async Task CreateChatAsync_refuses_a_blank_title()
     {

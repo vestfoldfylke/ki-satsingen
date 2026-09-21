@@ -31,9 +31,8 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        // Chunks are reached through IKnowledgeFileRepository, never from here.
-        // One assistant's files hold every chunk of every document attached to
-        // it, which is the largest thing in the database.
+        // File metadata only. Chunks go through IKnowledgeFileRepository — an
+        // assistant's files hold every chunk of every document attached to it.
         return await db.Assistants
             .Include(a => a.KnowledgeFiles.OrderBy(f => f.CreatedAt))
             .AsNoTracking()
@@ -70,7 +69,6 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             throw new InvalidOperationException($"Assistant {assistantId} was not found for the specified owner.");
         }
     }
-
 
     public async Task<bool> DeleteAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
     {

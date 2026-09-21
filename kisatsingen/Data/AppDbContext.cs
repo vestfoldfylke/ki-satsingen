@@ -19,8 +19,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Disposing it with the context is what gives it the right lifetime.
     private NpgsqlDataSource? _ownedDataSource;
 
-    // Enforces that a knowledge file is scoped to exactly one owner — an
-    // assistant or a chat, never both, never neither.
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
 
     public DbSet<Chat> Chats => Set<Chat>();
@@ -97,8 +95,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.HasIndex(m => new { m.ChatId, m.Seq });
         ConfigureSeq(message.Property(m => m.Seq));
 
-        // No navigation back to the chat: nothing walks from a message to its
-        // parent, and the collection side is what GetChatAsync includes.
         message.HasOne<Chat>()
             .WithMany(c => c.Messages)
             .HasForeignKey(m => m.ChatId)
@@ -125,14 +121,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         assistant.HasIndex(a => new { a.OwnerId, a.UpdatedAt });
 
         // SetNull, not Cascade: deleting an assistant must not delete the
-        // conversations people had with it. The chat keeps its transcript and
-        // loses only the link — and, separately, the assistant's files, which
-        // cascade from the assistant below.
-        //
-        // Configured with no navigation on either side: nothing traverses from a
-        // chat to its assistant or back, so the relationship is the foreign key
-        // and this configuration. Declaring navigations anyway would add loading
-        // paths that only exist to be misused.
+        // conversations people had with it.
         chat.HasOne<Assistant>()
             .WithMany()
             .HasForeignKey(c => c.AssistantId)
@@ -156,22 +145,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             KnowledgeFileScopeConstraintName,
             """num_nonnulls("AssistantId", "ChatId") = 1"""));
 
-        // Both scope relationships are optional but cascade, and the cascade has
-        // to be spelled out: EF defaults an optional foreign key to SetNull, which
-        // here would null the only scope a row has and break the check constraint.
-        // That matters most for the delete paths that never load an entity —
-        // ChatRepository.DeleteChatAsync uses ExecuteDeleteAsync, which bypasses
-        // the change tracker entirely and relies on what the DDL says.
-        //
-        // Two cascade paths reach this table, but never the same row: the check
-        // constraint guarantees exactly one of the two foreign keys is non-null,
-        // so a file is only ever reachable from one parent.
-        //
-        // Only the assistant side carries a navigation, and only the one
-        // direction that a query uses: AssistantRepository.GetAssistantAsync
-        // includes an assistant's files. Nothing loads a file's parent, and
-        // nothing loads a chat's files — ListFilesForChatAsync projects instead — so
-        // those three navigations are not declared.
+        // Cascade must be spelled out on both: EF defaults an optional foreign
+        // key to SetNull, which would null the only scope a row has and break
+        // the check constraint. The delete paths that never load an entity —
+        // DeleteChatAsync, DeleteAssistantAsync — depend entirely on this DDL.
         knowledgeFile.HasOne<Assistant>()
             .WithMany(a => a.KnowledgeFiles)
             .HasForeignKey(f => f.AssistantId)
@@ -189,11 +166,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         chunk.Property(c => c.Heading).HasMaxLength(500);
         chunk.Property(c => c.Content).HasColumnType("text").IsRequired();
 
-        // Unique, not just an index: two chunks claiming the same position would
-        // make the document's order ambiguous. It does not enforce density —
-        // nothing here objects to 0, 1, 3. That comes from the repository
-        // assigning Sequence from list order, and is the reason chunks have no
-        // second write path.
+        // Rules out two chunks in one position; density is the repository's
+        // doing, and holds only while it stays the single write path.
         chunk.HasIndex(c => new { c.KnowledgeFileId, c.Sequence }).IsUnique();
 
         chunk.HasOne(c => c.KnowledgeFile)

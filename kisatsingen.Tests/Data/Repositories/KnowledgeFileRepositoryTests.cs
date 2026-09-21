@@ -13,8 +13,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     private const string OwnerId = "Whatever";
     private const string OtherOwnerId = "SomebodyElse";
 
-    // Postgres SQLSTATE codes. Asserting on the class of failure rather than on
-    // a message keeps these tests from breaking on a Postgres upgrade.
+    // SQLSTATE rather than message text, so a Postgres upgrade cannot break these.
     private const string CheckViolation = "23514";
     private const string UniqueViolation = "23505";
 
@@ -114,10 +113,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
     }
 
-    // DeleteChatAsync uses ExecuteDeleteAsync, which never loads an entity and so
-    // cannot apply an EF-side delete behaviour. If the foreign key were left at
-    // EF's default for an optional relationship it would emit SET NULL, which the
-    // scope check constraint rejects — this test is what catches that.
+    // Guards the DDL: DeleteChatAsync uses ExecuteDeleteAsync, so an optional FK
+    // left at EF's default would emit SET NULL and break the check constraint.
     [Fact]
     public async Task Deleting_a_chat_takes_its_files_and_their_chunks_with_it()
     {
@@ -191,8 +188,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
             () => Repo.GetChunksAsync(OwnerId, file.Id, 0, KnowledgeFileRepository.MaxChunkSpan));
     }
 
-    // int.MaxValue is what a model asking for "the whole document" looks like.
-    // Computed in int arithmetic the span wraps negative and sails past the cap.
     [Fact]
     public async Task GetChunksAsync_refuses_a_span_wide_enough_to_overflow_the_cap_check()
     {
@@ -226,9 +221,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         Assert.Equal(["mine.pdf"], summaries.Select(s => s.FileName));
     }
 
-    // The repository's two create methods cannot express either of the next two
-    // states, which is the point of splitting them. These reach past the
-    // repository to prove the database refuses them anyway.
+    // Reaches past the repository, whose two create methods cannot express these
+    // states, to prove the database refuses them anyway.
     [Fact]
     public async Task The_database_rejects_a_file_scoped_to_neither_an_assistant_nor_a_chat()
     {
@@ -284,9 +278,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
             UuidParameter("chatId", chatId));
     }
 
-    // EF's raw-SQL builder has no store type mapping for DBNull, so a null scope
-    // column cannot be passed as a bare array element — and a NULL is exactly
-    // what these two tests are about.
+    // EF's raw-SQL builder has no store type mapping for DBNull, so a SQL NULL
+    // cannot be passed as a bare array element.
     private static NpgsqlParameter UuidParameter(string name, Guid? value) =>
         new(name, NpgsqlDbType.Uuid) { Value = (object?)value ?? DBNull.Value };
 }

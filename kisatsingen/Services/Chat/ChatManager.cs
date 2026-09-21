@@ -92,9 +92,9 @@ public sealed class ChatManager
 
     public async Task RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
-        // Clearing the rename box means cancel, not "name it nothing". Handled
-        // here because it is a UI intention; the repository below refuses a
-        // blank title outright, as it refuses every other blank.
+        // Clearing the rename box means cancel, not "name it nothing" — a UI
+        // intention, which is why it is handled here and not by the repository,
+        // where a blank title is an error.
         var trimmed = title.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
@@ -129,10 +129,9 @@ public sealed class ChatManager
         return deleted;
     }
 
-    // Owns the fallback, because this is where it makes sense: a title derived
-    // from a message that turned out to be blank has no user to complain to, so
-    // the chat gets a placeholder name. The repository is handed a real title
-    // either way and never has to guess.
+    // The fallback lives here rather than in the repository: a title derived
+    // from a blank message has no user to complain to, so it gets a placeholder
+    // and the repository is always handed a real title.
     private const string UntitledChatTitle = "New chat";
     private const int MaxDerivedTitleLength = 60;
 

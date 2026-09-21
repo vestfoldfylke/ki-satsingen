@@ -1,9 +1,7 @@
 namespace kisatsingen.Data.Entities;
 
-// What a file list needs, and nothing that grows with the document. Returning
-// the entity instead would put Summary and TableOfContents on every row of a
-// list view, and leave Chunks one forgotten Include away from loading the whole
-// corpus. This projection makes that structurally impossible.
+// A projection rather than the entity, so a file list cannot carry Summary and
+// TableOfContents on every row or load Chunks through a stray Include.
 public sealed record KnowledgeFileSummary(
     Guid Id,
     string FileName,

@@ -94,13 +94,10 @@ public sealed class PostgresFixture : IAsyncLifetime
         }.ConnectionString;
     }
 
-    // Both roots are named, because TRUNCATE CASCADE only reaches tables holding
-    // a foreign key TO the listed ones. Assistants is a parent of Chats, not a
-    // child, so truncating Chats alone would leave assistants — and the
-    // knowledge files hanging off them — alive between tests.
-    //
-    // Everything else is a child of one of these two and still needs no mention
-    // here, so this stays correct as child tables are added.
+    // Both roots are named: TRUNCATE CASCADE only reaches tables with a foreign
+    // key TO the listed ones, and Assistants is a parent of Chats, not a child.
+    // Everything else descends from one of the two, so this stays correct as
+    // child tables are added.
     public async Task ResetAsync()
     {
         await using var db = await OwnerFactory.CreateDbContextAsync();

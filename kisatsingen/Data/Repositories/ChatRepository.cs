@@ -10,9 +10,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
-        // A chat reads its assistant's instructions and knowledge files, so an
-        // unchecked id here would hand the caller both from an assistant that is
-        // not theirs. The foreign key only proves the assistant exists.
+        // The foreign key only proves the assistant exists. Unchecked, this
+        // would hand the caller another owner's instructions and files.
         if (assistantId is Guid resolvedAssistantId)
         {
             var isOwnAssistant = await db.Assistants
@@ -143,9 +142,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
     public async Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
-        // Was a silent no-op on a blank title. Now refused, like every other
-        // blank the repositories are handed: a rename that quietly does nothing
-        // looks identical to one that worked.
+        // Refused rather than a no-op: a rename that quietly does nothing looks
+        // identical to one that worked.
         var trimmed = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
 
         await using var db = await factory.CreateDbContextAsync(ct);

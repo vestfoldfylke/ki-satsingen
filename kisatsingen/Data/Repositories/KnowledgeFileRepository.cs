@@ -5,11 +5,9 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> factory) : IKnowledgeFileRepository
 {
-    // The most chunks GetChunksAsync will return in one call. A retrieval tool
-    // that could ask for an unbounded range would just be a slower way of
-    // loading the whole document into the context window, which is the thing
-    // chunking exists to avoid. Public so the tool description can state the
-    // limit rather than discover it by being refused.
+    // An unbounded range would just be a slower way of loading the whole
+    // document into the context window. Public so the retrieval tool can state
+    // the limit rather than discover it by being refused.
     public const int MaxChunkSpan = 50;
 
     public Task<KnowledgeFile> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default)
@@ -18,8 +16,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     public Task<KnowledgeFile> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
         => CreateAsync(ownerId, assistantId: null, chatId, draft, ct);
 
-    // The only place the nullable scope pair exists. Both public entry points
-    // pass exactly one, so the invalid combinations have no caller.
+    // The only place the nullable scope pair exists.
     private async Task<KnowledgeFile> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, KnowledgeFileDraft draft, CancellationToken ct)
     {
         if (draft.Chunks.Count == 0)
@@ -36,8 +33,6 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         var now = DateTimeOffset.UtcNow;
         var fileId = Guid.NewGuid();
 
-        // Sequence comes from list order and the totals are summed here, so what
-        // the file row claims and what the chunk rows contain cannot disagree.
         var chunks = draft.Chunks
             .Select((chunk, index) => new KnowledgeFileChunk
             {
@@ -72,11 +67,9 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         await TouchScopeAsync(db, ownerId, assistantId, chatId, now, ct);
 
-        // One SaveChanges for the file and every chunk, unlike the deliberate
-        // per-row loop in ChatRepository.AppendMessagesAsync. That loop exists
-        // because Seq is a column default and Postgres does not promise to
-        // evaluate defaults in row order. Sequence here is assigned above, in
-        // code, so batching cannot reorder anything. Do not "fix" this to match.
+        // One SaveChanges for the whole graph, unlike the per-row loop in
+        // ChatRepository.AppendMessagesAsync: that loop exists because Seq is a
+        // column default, and Sequence here is assigned above. Do not match it.
         db.KnowledgeFiles.Add(file);
         await db.SaveChangesAsync(ct);
 
@@ -86,9 +79,8 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     }
 
     // Verifies the parent is the caller's and bumps its UpdatedAt. Unlike
-    // ChatRepository.TouchChatAsync this is not also a concurrency guard: files
-    // carry no shared ordering sequence, so two uploads racing to the same
-    // parent need no serialising.
+    // ChatRepository.TouchChatAsync this is not also a concurrency guard —
+    // files carry no shared ordering sequence to serialise on.
     private static async Task TouchScopeAsync(AppDbContext db, string ownerId, Guid? assistantId, Guid? chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         if (assistantId is Guid resolvedAssistantId)
@@ -158,10 +150,8 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 $"Chunk range end must not precede its start (got {firstSequence}..{lastSequence}). Pass the lower sequence first.");
         }
 
-        // Widened to long before subtracting. In int arithmetic a range of
-        // 0..int.MaxValue wraps to a negative span, slips past the check below,
-        // and returns the whole document — which is the one thing this guard
-        // exists to prevent, on a path whose arguments come from a model.
+        // long, because in int arithmetic a 0..int.MaxValue range wraps negative
+        // and sails past the cap — on a path whose arguments come from a model.
         var requestedSpan = (long)lastSequence - firstSequence + 1;
         if (requestedSpan > MaxChunkSpan)
         {
@@ -173,9 +163,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        // Chunks carry no owner of their own; the filter joins through the file
-        // that does, so an unauthorised file id returns nothing rather than
-        // leaking its contents.
+        // Chunks carry no owner, so the filter joins through the file that does.
         return await db.KnowledgeFileChunks
             .Where(c => c.KnowledgeFileId == knowledgeFileId
                 && c.KnowledgeFile!.OwnerId == ownerId
