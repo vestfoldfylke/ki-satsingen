@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace kisatsingen.Data.Repositories;
 
-public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> factory) : IKnowledgeFileRepository
+public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> factory, int maxEstimatedTokenCount) : IKnowledgeFileRepository
 {
     // An unbounded range would just be a slower way of loading the whole
     // document into the context window. Public so the retrieval tool can state
@@ -27,8 +27,32 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 nameof(draft));
         }
 
-        await using var db = await factory.CreateDbContextAsync(ct);
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        var normalisedFileName = BoundedText.RequireTrimmed(draft.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
+        var normalisedContentType = BoundedText.RequireTrimmed(draft.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
+        var normalisedSha256 = NormaliseSha256(draft.Sha256);
+        var normalisedSummary = BoundedText.RequireTrimmed(draft.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
+        var normalisedTableOfContents = BoundedText.TrimToNullable(draft.TableOfContents, "Knowledge file table of contents", KnowledgeFile.MaxTableOfContentsLength);
+        var normalisedLanguage = BoundedText.TrimToNullable(draft.Language, "Knowledge file language", KnowledgeFile.MaxLanguageLength);
+
+        if (draft.SizeBytes <= 0)
+        {
+            throw new ArgumentException(
+                $"Knowledge file '{normalisedFileName}' reports {draft.SizeBytes} bytes; a stored file must have positive size.",
+                nameof(draft));
+        }
+
+        // Guard every chunk individually before summing: a mix of positive and
+        // negative estimates can sum to a plausible total while poisoning the
+        // per-chunk budgeting downstream.
+        for (var i = 0; i < draft.Chunks.Count; i++)
+        {
+            if (draft.Chunks[i].EstimatedTokenCount < 0)
+            {
+                throw new ArgumentException(
+                    $"Knowledge file '{normalisedFileName}' chunk {i} reports {draft.Chunks[i].EstimatedTokenCount} estimated tokens; token counts must be non-negative.",
+                    nameof(draft));
+            }
+        }
 
         var now = DateTimeOffset.UtcNow;
         var fileId = Guid.NewGuid();
@@ -45,22 +69,35 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             })
             .ToList();
 
+        // long accumulator: each chunk is >= 0 by the per-chunk guard above, so
+        // the total is >= 0 too; the only thing left to catch is the policy cap.
+        var totalTokens = chunks.Sum(c => (long)c.EstimatedTokenCount);
+        if (totalTokens > maxEstimatedTokenCount)
+        {
+            throw new ArgumentException(
+                $"Knowledge file '{normalisedFileName}' totals {totalTokens} estimated tokens, over the {maxEstimatedTokenCount} this system accepts. Reject the upload or re-chunk it.",
+                nameof(draft));
+        }
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
         var file = new KnowledgeFile
         {
             Id = fileId,
             OwnerId = ownerId,
             AssistantId = assistantId,
             ChatId = chatId,
-            FileName = draft.FileName,
-            ContentType = draft.ContentType,
+            FileName = normalisedFileName,
+            ContentType = normalisedContentType,
             SizeBytes = draft.SizeBytes,
-            Sha256 = draft.Sha256,
-            Summary = draft.Summary,
-            TableOfContents = draft.TableOfContents,
+            Sha256 = normalisedSha256,
+            Summary = normalisedSummary,
+            TableOfContents = normalisedTableOfContents,
             ChunkCount = chunks.Count,
-            EstimatedTokenCount = chunks.Sum(c => c.EstimatedTokenCount),
+            EstimatedTokenCount = (int)totalTokens,
             PageCount = draft.PageCount,
-            Language = draft.Language,
+            Language = normalisedLanguage,
             CreatedAt = now,
             Chunks = chunks
         };
@@ -76,6 +113,32 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         await transaction.CommitAsync(ct);
 
         return file;
+    }
+
+    // Exactly 64 hex chars, normalised to lowercase so the DB representation is
+    // canonical regardless of which pipeline produced it.
+    private static string NormaliseSha256(string sha256)
+    {
+        if (sha256.Length != KnowledgeFile.Sha256HexLength || !IsLowerableHex(sha256))
+        {
+            throw new ArgumentException(
+                $"SHA-256 must be exactly {KnowledgeFile.Sha256HexLength} hexadecimal characters (got {sha256.Length}: '{sha256}').",
+                nameof(sha256));
+        }
+        return sha256.ToLowerInvariant();
+    }
+
+    private static bool IsLowerableHex(string value)
+    {
+        foreach (var c in value)
+        {
+            var isHex = (c is >= '0' and <= '9') || (c is >= 'a' and <= 'f') || (c is >= 'A' and <= 'F');
+            if (!isHex)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     // Verifies the parent is the caller's and bumps its UpdatedAt. Unlike
@@ -142,11 +205,19 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
     public async Task<IReadOnlyList<KnowledgeFileChunk>> GetChunksAsync(string ownerId, Guid knowledgeFileId, int firstSequence, int lastSequence, CancellationToken ct = default)
     {
+        if (firstSequence < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(firstSequence),
+                firstSequence,
+                $"Chunk sequence must be zero or positive (got {firstSequence}).");
+        }
+
         if (lastSequence < firstSequence)
         {
             throw new ArgumentOutOfRangeException(
-                nameof(lastSequence),
-                lastSequence,
+                nameof(firstSequence),
+                firstSequence,
                 $"Chunk range end must not precede its start (got {firstSequence}..{lastSequence}). Pass the lower sequence first.");
         }
 

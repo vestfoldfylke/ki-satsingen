@@ -7,6 +7,10 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
 {
     public async Task<Assistant> CreateAssistantAsync(string ownerId, string name, string? description, string instructions, CancellationToken ct = default)
     {
+        var normalisedName = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength);
+        var normalisedDescription = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength);
+        var normalisedInstructions = BoundedText.RequireTrimmed(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
+
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
@@ -14,9 +18,9 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
         {
             Id = Guid.NewGuid(),
             OwnerId = ownerId,
-            Name = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength),
-            Description = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength),
-            Instructions = instructions,
+            Name = normalisedName,
+            Description = normalisedDescription,
+            Instructions = normalisedInstructions,
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -53,6 +57,7 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
     {
         var normalisedName = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength);
         var normalisedDescription = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength);
+        var normalisedInstructions = BoundedText.RequireTrimmed(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
 
         await using var db = await factory.CreateDbContextAsync(ct);
 
@@ -61,7 +66,7 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.Name, normalisedName)
                 .SetProperty(a => a.Description, normalisedDescription)
-                .SetProperty(a => a.Instructions, instructions)
+                .SetProperty(a => a.Instructions, normalisedInstructions)
                 .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
 
         if (updatedCount == 0)

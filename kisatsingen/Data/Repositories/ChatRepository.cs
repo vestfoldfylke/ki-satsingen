@@ -7,6 +7,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 {
     public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
+        var normalisedTitle = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
+
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
@@ -28,7 +30,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             Id = Guid.NewGuid(),
             OwnerId = ownerId,
             AssistantId = assistantId,
-            Title = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength),
+            Title = normalisedTitle,
             CreatedAt = now,
             UpdatedAt = now
         };

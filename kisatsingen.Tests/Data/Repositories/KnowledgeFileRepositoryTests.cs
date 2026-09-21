@@ -1,4 +1,5 @@
 using kisatsingen.Data;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
@@ -12,6 +13,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
 {
     private const string OwnerId = "Whatever";
     private const string OtherOwnerId = "SomebodyElse";
+    private const int DefaultTokenCap = 500_000;
 
     // SQLSTATE rather than message text, so a Postgres upgrade cannot break these.
     private const string CheckViolation = "23514";
@@ -19,7 +21,10 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
-    private KnowledgeFileRepository Repo => new(Factory);
+    private KnowledgeFileRepository Repo => new(Factory, DefaultTokenCap);
+
+    private KnowledgeFileRepository RepoWithTokenCap(int maxEstimatedTokenCount) =>
+        new(Factory, maxEstimatedTokenCount);
 
     private AssistantRepository AssistantRepo => new(Factory);
 
@@ -63,12 +68,73 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
+    public async Task CreateFileForAssistantAsync_refuses_a_draft_whose_chunks_total_over_the_cap()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        // Factory sets EstimatedTokenCount = content.Length. Two 60-char chunks
+        // = 120 tokens, well over a 100-token cap.
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", new string('a', 60), new string('b', 60));
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => RepoWithTokenCap(100).CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        Assert.Equal(0, await db.KnowledgeFiles.CountAsync());
+        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+    }
+
+    [Fact]
     public async Task CreateFileForAssistantAsync_refuses_a_draft_with_no_chunks()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("empty.pdf")));
+    }
+
+    [Fact]
+    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_blank_file_name()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var draft = KnowledgeFileFactory.Draft("   ", "a");
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+    }
+
+    [Fact]
+    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_malformed_sha256()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        // 63 hex chars — right alphabet, wrong length. Also covers non-hex via the length branch.
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = new string('a', 63) };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+    }
+
+    [Fact]
+    public async Task CreateFileForAssistantAsync_normalises_uppercase_sha256_to_lowercase()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = new string('A', 64) };
+
+        var stored = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft);
+
+        Assert.Equal(new string('a', 64), stored.Sha256);
+    }
+
+    [Fact]
+    public async Task CreateFileForAssistantAsync_refuses_a_chunk_with_a_negative_token_count()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with
+        {
+            Chunks = [new KnowledgeFileChunkDraft("Heading", "content", EstimatedTokenCount: -1)]
+        };
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
     }
 
     [Fact]
@@ -204,8 +270,24 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
         var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
 
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 5, lastSequence: 2));
+
+        // The out-of-place argument is the start, not the end — when 5 > 2 the
+        // caller passed the wrong number as first.
+        Assert.Equal("firstSequence", error.ParamName);
+    }
+
+    [Fact]
+    public async Task GetChunksAsync_refuses_a_negative_first_sequence()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
+
+        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: -1, lastSequence: 0));
+
+        Assert.Equal("firstSequence", error.ParamName);
     }
 
     [Fact]

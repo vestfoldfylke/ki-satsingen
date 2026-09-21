@@ -7,6 +7,16 @@ namespace kisatsingen.Data.Entities;
 // nullable.
 public sealed class KnowledgeFile
 {
+    public const int MaxFileNameLength = 260;
+    public const int MaxContentTypeLength = 128;
+    public const int MaxSummaryLength = 4_000;
+    public const int MaxTableOfContentsLength = 8_000;
+    public const int MaxLanguageLength = 32;
+
+    // SHA-256 is exactly 32 bytes → 64 hex chars. Not a max; the check is
+    // equality both ways.
+    public const int Sha256HexLength = 64;
+
     public Guid Id { get; init; }
 
     // Denormalised from the owning assistant or chat so repository queries can

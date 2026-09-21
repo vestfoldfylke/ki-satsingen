@@ -157,11 +157,21 @@ builder.Services.AddSingleton(dataSource);
 builder.Services.AddDbContextFactory<AppDbContext>(options =>
     options.UseNpgsql(dataSource));
 
+// Startup-time required config: refuse to boot rather than accept a code-level
+// default. Ops changes the policy in appsettings.json, not by editing this file.
+var maxKnowledgeFileTokens = builder.Configuration.GetValue<int?>("KnowledgeFile:MaxEstimatedTokenCount")
+    ?? throw new InvalidOperationException("Required configuration 'KnowledgeFile:MaxEstimatedTokenCount' is missing. Set it in appsettings.json.");
+if (maxKnowledgeFileTokens <= 0)
+{
+    throw new InvalidOperationException($"Configuration 'KnowledgeFile:MaxEstimatedTokenCount' must be positive (got {maxKnowledgeFileTokens}).");
+}
+
 // ─── Application services ──────────────────────────────
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
-builder.Services.AddScoped<IKnowledgeFileRepository, KnowledgeFileRepository>();
+builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
+    new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();

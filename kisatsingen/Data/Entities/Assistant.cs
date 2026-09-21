@@ -4,6 +4,7 @@ public sealed class Assistant
 {
     public const int MaxNameLength = 200;
     public const int MaxDescriptionLength = 500;
+    public const int MaxInstructionsLength = 8_000;
 
     // All init, including what UpdateAssistantAsync changes: that update goes
     // through ExecuteUpdateAsync and reads are AsNoTracking, so a setter would

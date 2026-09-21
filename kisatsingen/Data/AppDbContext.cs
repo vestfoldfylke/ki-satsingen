@@ -131,10 +131,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var knowledgeFile = modelBuilder.Entity<KnowledgeFile>();
         knowledgeFile.HasKey(f => f.Id);
         knowledgeFile.Property(f => f.OwnerId).HasMaxLength(128).IsRequired();
-        knowledgeFile.Property(f => f.FileName).HasMaxLength(260).IsRequired();
-        knowledgeFile.Property(f => f.ContentType).HasMaxLength(128).IsRequired();
-        knowledgeFile.Property(f => f.Sha256).HasMaxLength(64).IsRequired();
-        knowledgeFile.Property(f => f.Language).HasMaxLength(32);
+        knowledgeFile.Property(f => f.FileName).HasMaxLength(KnowledgeFile.MaxFileNameLength).IsRequired();
+        knowledgeFile.Property(f => f.ContentType).HasMaxLength(KnowledgeFile.MaxContentTypeLength).IsRequired();
+        knowledgeFile.Property(f => f.Sha256).HasMaxLength(KnowledgeFile.Sha256HexLength).IsRequired();
+        knowledgeFile.Property(f => f.Language).HasMaxLength(KnowledgeFile.MaxLanguageLength);
         knowledgeFile.Property(f => f.Summary).HasColumnType("text").IsRequired();
         knowledgeFile.Property(f => f.TableOfContents).HasColumnType("text");
         knowledgeFile.HasIndex(f => f.AssistantId);

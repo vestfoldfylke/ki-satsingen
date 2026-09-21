@@ -63,12 +63,37 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
+    public async Task CreateAssistantAsync_refuses_blank_instructions()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "   "));
+    }
+
+    [Fact]
+    public async Task CreateAssistantAsync_refuses_instructions_the_column_cannot_hold()
+    {
+        var tooLong = new string('a', Assistant.MaxInstructionsLength + 1);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, tooLong));
+    }
+
+    [Fact]
     public async Task UpdateAssistantAsync_refuses_a_blank_name()
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "  ", null, "x"));
+    }
+
+    [Fact]
+    public async Task UpdateAssistantAsync_refuses_blank_instructions()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Saksbehandler", null, "   "));
     }
 
     [Fact]
@@ -137,7 +162,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     public async Task GetAssistantAsync_includes_file_metadata_but_not_chunk_content()
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
-        var files = new KnowledgeFileRepository(Factory);
+        var files = new KnowledgeFileRepository(Factory, maxEstimatedTokenCount: 500_000);
         await files.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.pdf", "a", "b"));
 
         var found = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
