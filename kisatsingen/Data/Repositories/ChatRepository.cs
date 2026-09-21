@@ -7,8 +7,11 @@ namespace kisatsingen.Data.Repositories;
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
     // Postgres FK-violation SQLSTATE; caught below to translate a benign race
-    // into the same InvalidOperationException the pre-check throws.
+    // into the same InvalidOperationException the pre-check throws. The
+    // constraint name is matched too so a future FK added to Chats can't be
+    // silently mistranslated as an assistant lookup failure.
     private const string ForeignKeyViolationSqlState = "23503";
+    private const string ChatAssistantForeignKeyName = "FK_Chats_Assistants_AssistantId";
 
     public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
@@ -33,7 +36,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
             if (assistantNameSnapshot is null)
             {
-                throw new InvalidOperationException($"Assistant {resolvedAssistantId} was not found for the specified owner.");
+                throw new InvalidOperationException(
+                    $"Assistant {resolvedAssistantId} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.");
             }
         }
 
@@ -54,7 +58,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException ex) when (assistantId is not null && IsAssistantForeignKeyViolation(ex))
+        catch (DbUpdateException ex) when (IsAssistantForeignKeyViolation(ex))
         {
             // The pre-check passed but the assistant was deleted between then
             // and the insert (rare — same user in two tabs today, more common
@@ -63,14 +67,16 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             // gives callers the same InvalidOperationException they would see
             // if the pre-check had lost the race.
             throw new InvalidOperationException(
-                $"Assistant {assistantId.Value} was not found for the specified owner.", ex);
+                $"Assistant {assistantId!.Value} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.", ex);
         }
 
         return chat;
     }
 
     private static bool IsAssistantForeignKeyViolation(DbUpdateException ex)
-        => ex.InnerException is PostgresException pg && pg.SqlState == ForeignKeyViolationSqlState;
+        => ex.InnerException is PostgresException pg
+            && pg.SqlState == ForeignKeyViolationSqlState
+            && pg.ConstraintName == ChatAssistantForeignKeyName;
 
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
