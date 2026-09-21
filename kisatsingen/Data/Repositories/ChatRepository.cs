@@ -5,16 +5,31 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
-    public async Task<Chat> CreateChatAsync(string ownerId, string title, CancellationToken ct = default)
+    public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
+
+        // A chat reads its assistant's instructions and knowledge files, so an
+        // unchecked id here would hand the caller both from an assistant that is
+        // not theirs. The foreign key only proves the assistant exists.
+        if (assistantId is Guid resolvedAssistantId)
+        {
+            var isOwnAssistant = await db.Assistants
+                .AnyAsync(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId, ct);
+
+            if (!isOwnAssistant)
+            {
+                throw new InvalidOperationException($"Assistant {resolvedAssistantId} was not found for the specified owner.");
+            }
+        }
 
         var chat = new Chat
         {
             Id = Guid.NewGuid(),
             OwnerId = ownerId,
-            Title = string.IsNullOrWhiteSpace(title) ? "New chat" : title,
+            AssistantId = assistantId,
+            Title = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength),
             CreatedAt = now,
             UpdatedAt = now
         };
@@ -128,12 +143,12 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
     public async Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
+        // Was a silent no-op on a blank title. Now refused, like every other
+        // blank the repositories are handed: a rename that quietly does nothing
+        // looks identical to one that worked.
+        var trimmed = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
+
         await using var db = await factory.CreateDbContextAsync(ct);
-        var trimmed = title.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return;
-        }
 
         var updatedChatCount = await db.Chats
             .Where(c => c.Id == chatId && c.OwnerId == ownerId)

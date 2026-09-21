@@ -16,7 +16,7 @@ internal sealed record MessageEntry(
     ChatMessage Message,
     // Passed at construction so a message cannot exist without the metadata that
     // describes it, which two separate statements could not guarantee.
-    AssistantMetadata? Metadata) : TranscriptEntry(ViewId)
+    TurnMetadata? Metadata) : TranscriptEntry(ViewId)
 {
     public bool IsUser => Message.Role == ChatRole.User;
     public bool IsAssistant => Message.Role == ChatRole.Assistant;

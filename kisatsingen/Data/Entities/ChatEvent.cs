@@ -20,6 +20,4 @@ public sealed class ChatEvent
     // User-facing text only. Never an exception message — that leaks connection
     // strings and provider error bodies into something we persist and render.
     public string? Detail { get; init; }
-
-    public Chat? Chat { get; init; }
 }

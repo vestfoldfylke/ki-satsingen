@@ -19,9 +19,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Disposing it with the context is what gives it the right lifetime.
     private NpgsqlDataSource? _ownedDataSource;
 
+    // Enforces that a knowledge file is scoped to exactly one owner — an
+    // assistant or a chat, never both, never neither.
+    private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
+
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
     public DbSet<ChatEvent> ChatEvents => Set<ChatEvent>();
+    public DbSet<Assistant> Assistants => Set<Assistant>();
+    public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
+    public DbSet<KnowledgeFileChunk> KnowledgeFileChunks => Set<KnowledgeFileChunk>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
     // always go through the low-privilege DefaultConnection registered in DI.
@@ -65,7 +72,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var chat = modelBuilder.Entity<Chat>();
         chat.HasKey(c => c.Id);
         chat.Property(c => c.OwnerId).HasMaxLength(128);
-        chat.Property(c => c.Title).HasMaxLength(200).IsRequired();
+        chat.Property(c => c.Title).HasMaxLength(Chat.MaxTitleLength).IsRequired();
         chat.HasIndex(c => new { c.OwnerId, c.UpdatedAt });
 
         modelBuilder.HasSequence<long>(EntrySequenceName);
@@ -90,7 +97,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.HasIndex(m => new { m.ChatId, m.Seq });
         ConfigureSeq(message.Property(m => m.Seq));
 
-        message.HasOne(m => m.Chat)
+        // No navigation back to the chat: nothing walks from a message to its
+        // parent, and the collection side is what GetChatAsync includes.
+        message.HasOne<Chat>()
             .WithMany(c => c.Messages)
             .HasForeignKey(m => m.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
@@ -102,9 +111,94 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         chatEvent.HasIndex(e => new { e.ChatId, e.Seq });
         ConfigureSeq(chatEvent.Property(e => e.Seq));
 
-        chatEvent.HasOne(e => e.Chat)
+        chatEvent.HasOne<Chat>()
             .WithMany(c => c.Events)
             .HasForeignKey(e => e.ChatId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var assistant = modelBuilder.Entity<Assistant>();
+        assistant.HasKey(a => a.Id);
+        assistant.Property(a => a.OwnerId).HasMaxLength(128).IsRequired();
+        assistant.Property(a => a.Name).HasMaxLength(Assistant.MaxNameLength).IsRequired();
+        assistant.Property(a => a.Description).HasMaxLength(Assistant.MaxDescriptionLength);
+        assistant.Property(a => a.Instructions).HasColumnType("text").IsRequired();
+        assistant.HasIndex(a => new { a.OwnerId, a.UpdatedAt });
+
+        // SetNull, not Cascade: deleting an assistant must not delete the
+        // conversations people had with it. The chat keeps its transcript and
+        // loses only the link — and, separately, the assistant's files, which
+        // cascade from the assistant below.
+        //
+        // Configured with no navigation on either side: nothing traverses from a
+        // chat to its assistant or back, so the relationship is the foreign key
+        // and this configuration. Declaring navigations anyway would add loading
+        // paths that only exist to be misused.
+        chat.HasOne<Assistant>()
+            .WithMany()
+            .HasForeignKey(c => c.AssistantId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        var knowledgeFile = modelBuilder.Entity<KnowledgeFile>();
+        knowledgeFile.HasKey(f => f.Id);
+        knowledgeFile.Property(f => f.OwnerId).HasMaxLength(128).IsRequired();
+        knowledgeFile.Property(f => f.FileName).HasMaxLength(260).IsRequired();
+        knowledgeFile.Property(f => f.ContentType).HasMaxLength(128).IsRequired();
+        knowledgeFile.Property(f => f.Sha256).HasMaxLength(64).IsRequired();
+        knowledgeFile.Property(f => f.Language).HasMaxLength(32);
+        knowledgeFile.Property(f => f.Summary).HasColumnType("text").IsRequired();
+        knowledgeFile.Property(f => f.TableOfContents).HasColumnType("text");
+        knowledgeFile.HasIndex(f => f.AssistantId);
+        knowledgeFile.HasIndex(f => f.ChatId);
+        knowledgeFile.HasIndex(f => f.OwnerId);
+
+        knowledgeFile.ToTable(t => t.HasCheckConstraint(
+            KnowledgeFileScopeConstraintName,
+            """num_nonnulls("AssistantId", "ChatId") = 1"""));
+
+        // Both scope relationships are optional but cascade, and the cascade has
+        // to be spelled out: EF defaults an optional foreign key to SetNull, which
+        // here would null the only scope a row has and break the check constraint.
+        // That matters most for the delete paths that never load an entity —
+        // ChatRepository.DeleteChatAsync uses ExecuteDeleteAsync, which bypasses
+        // the change tracker entirely and relies on what the DDL says.
+        //
+        // Two cascade paths reach this table, but never the same row: the check
+        // constraint guarantees exactly one of the two foreign keys is non-null,
+        // so a file is only ever reachable from one parent.
+        //
+        // Only the assistant side carries a navigation, and only the one
+        // direction that a query uses: AssistantRepository.GetAssistantAsync
+        // includes an assistant's files. Nothing loads a file's parent, and
+        // nothing loads a chat's files — ListFilesForChatAsync projects instead — so
+        // those three navigations are not declared.
+        knowledgeFile.HasOne<Assistant>()
+            .WithMany(a => a.KnowledgeFiles)
+            .HasForeignKey(f => f.AssistantId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        knowledgeFile.HasOne<Chat>()
+            .WithMany()
+            .HasForeignKey(f => f.ChatId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var chunk = modelBuilder.Entity<KnowledgeFileChunk>();
+        chunk.HasKey(c => c.Id);
+        chunk.Property(c => c.Heading).HasMaxLength(500);
+        chunk.Property(c => c.Content).HasColumnType("text").IsRequired();
+
+        // Unique, not just an index: two chunks claiming the same position would
+        // make the document's order ambiguous. It does not enforce density —
+        // nothing here objects to 0, 1, 3. That comes from the repository
+        // assigning Sequence from list order, and is the reason chunks have no
+        // second write path.
+        chunk.HasIndex(c => new { c.KnowledgeFileId, c.Sequence }).IsUnique();
+
+        chunk.HasOne(c => c.KnowledgeFile)
+            .WithMany(f => f.Chunks)
+            .HasForeignKey(c => c.KnowledgeFileId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 

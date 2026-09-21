@@ -4,7 +4,10 @@ namespace kisatsingen.Data.Repositories;
 
 public interface IChatRepository
 {
-    Task<Chat> CreateChatAsync(string ownerId, string title, CancellationToken ct = default);
+    // assistantId has no default on purpose: whether a chat is started from an
+    // assistant or from nothing is a decision every caller has to make, not one
+    // to inherit from a parameter list.
+    Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default);
     Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default);
     Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default);
     Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default);
