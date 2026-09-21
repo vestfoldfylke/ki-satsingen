@@ -54,7 +54,13 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
 
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
 
-        Assert.Equal("Legal Advisor", chat.AssistantNameSnapshot);
+        // Reload from disk rather than trust the returned entity: a future edit
+        // that populates the in-memory object but leaves the column out of the
+        // INSERT (e.g. AfterSaveBehavior.Ignore) would slip past a check on the
+        // returned instance.
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
     }
 
     [Fact]
@@ -62,7 +68,9 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     {
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        Assert.Null(chat.AssistantNameSnapshot);
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Null(stored.AssistantNameSnapshot);
     }
 
     [Fact]
