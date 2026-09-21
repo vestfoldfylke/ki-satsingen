@@ -16,6 +16,8 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
 
     private ChatRepository Repo => new(Factory);
 
+    private AssistantRepository AssistantRepo => new(Factory);
+
     public Task InitializeAsync() => fixture.ResetAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -43,6 +45,51 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => Repo.CreateChatAsync(OwnerId, tooLong, assistantId: null));
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_snapshots_the_assistant_name()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        Assert.Equal("Legal Advisor", chat.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_leaves_the_snapshot_null_when_no_assistant_is_attached()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        Assert.Null(chat.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task Deleting_the_assistant_nulls_the_id_but_keeps_the_snapshot()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Null(stored.AssistantId);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task Renaming_the_assistant_does_not_rewrite_older_chats_snapshots()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        await AssistantRepo.UpdateAssistantAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, "x");
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
     }
 
     [Fact]

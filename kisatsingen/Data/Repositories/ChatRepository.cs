@@ -1,10 +1,15 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
+    // Postgres FK-violation SQLSTATE; caught below to translate a benign race
+    // into the same InvalidOperationException the pre-check throws.
+    private const string ForeignKeyViolationSqlState = "23503";
+
     public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         var normalisedTitle = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
@@ -12,14 +17,21 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
 
+        string? assistantNameSnapshot = null;
+
         // The foreign key only proves the assistant exists. Unchecked, this
-        // would hand the caller another owner's instructions and files.
+        // would hand the caller another owner's instructions and files. The
+        // same query also fetches the name for the snapshot column so the
+        // sidebar can render "Chat with X (deleted)" after the assistant is
+        // gone — see Chat.AssistantNameSnapshot for the reasoning.
         if (assistantId is Guid resolvedAssistantId)
         {
-            var isOwnAssistant = await db.Assistants
-                .AnyAsync(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId, ct);
+            assistantNameSnapshot = await db.Assistants
+                .Where(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId)
+                .Select(a => a.Name)
+                .SingleOrDefaultAsync(ct);
 
-            if (!isOwnAssistant)
+            if (assistantNameSnapshot is null)
             {
                 throw new InvalidOperationException($"Assistant {resolvedAssistantId} was not found for the specified owner.");
             }
@@ -30,16 +42,35 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             Id = Guid.NewGuid(),
             OwnerId = ownerId,
             AssistantId = assistantId,
+            AssistantNameSnapshot = assistantNameSnapshot,
             Title = normalisedTitle,
             CreatedAt = now,
             UpdatedAt = now
         };
 
         db.Chats.Add(chat);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (assistantId is not null && IsAssistantForeignKeyViolation(ex))
+        {
+            // The pre-check passed but the assistant was deleted between then
+            // and the insert (rare — same user in two tabs today, more common
+            // once sharing lets a different owner delete). SetNull makes the
+            // eventual outcome benign either way; translating the error here
+            // gives callers the same InvalidOperationException they would see
+            // if the pre-check had lost the race.
+            throw new InvalidOperationException(
+                $"Assistant {assistantId.Value} was not found for the specified owner.", ex);
+        }
 
         return chat;
     }
+
+    private static bool IsAssistantForeignKeyViolation(DbUpdateException ex)
+        => ex.InnerException is PostgresException pg && pg.SqlState == ForeignKeyViolationSqlState;
 
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {

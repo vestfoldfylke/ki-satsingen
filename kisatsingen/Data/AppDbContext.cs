@@ -71,6 +71,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         chat.HasKey(c => c.Id);
         chat.Property(c => c.OwnerId).HasMaxLength(128);
         chat.Property(c => c.Title).HasMaxLength(Chat.MaxTitleLength).IsRequired();
+        chat.Property(c => c.AssistantNameSnapshot).HasMaxLength(Assistant.MaxNameLength);
         chat.HasIndex(c => new { c.OwnerId, c.UpdatedAt });
 
         modelBuilder.HasSequence<long>(EntrySequenceName);
