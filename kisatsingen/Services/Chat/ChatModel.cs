@@ -34,9 +34,13 @@ public sealed record ChatModel
 
     // Whether a conversation of this size is already too big for this model.
     //
-    // Null means the size is unknown — a provider is not obliged to report usage
-    // on a streamed response — and unknown must never read as "too big". A
-    // warning nobody can act on is worse than no warning.
+    // The size is an estimate, not a measurement, and it is biased to run high —
+    // see ContextTokenEstimator. So this fires somewhat before the window is
+    // genuinely full, which is the useful direction: a warning that arrives after
+    // the request has already failed is not a warning.
+    //
+    // Null means there is nothing to send yet, and unknown must never read as "too
+    // big". A warning nobody can act on is worse than no warning.
     public bool WouldOverflow(long? estimatedContextTokens) =>
         estimatedContextTokens is { } tokens && tokens > ContextWindowTokens;
 }

@@ -129,36 +129,45 @@ public sealed class ChatSession : IAsyncDisposable
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 
-    // How much context the next request will carry, as the last turn measured it.
-    // That turn's input already contained the whole history, so its input plus its
-    // own output is the conversation's current size — before the user has typed
-    // anything, which only adds to it.
+    // How much context the next request will carry, measured off the request we
+    // would actually send.
     //
-    // Deliberately not ConversationUsage below. That one sums every turn, which is
-    // the right answer to "what has this conversation cost" and the wrong one here:
-    // each turn's input re-counts the whole history, so the total grows roughly
-    // with the square of the turn count and would warn about a 12k chat at 128k.
+    // This used to read the last turn's reported InputTokens, on the reasoning
+    // that a measurement beats an estimate. It does not, here, for three reasons —
+    // each verified rather than assumed:
     //
-    // Null when nothing has reported usage. A missing number is not zero, and a
-    // context warning must not be derived from one.
+    //   Tool turns double-count. UseFunctionInvocation makes one provider call per
+    //   round trip and ChatResponse.Usage sums them, so a turn that called a tool
+    //   reports roughly twice the history it actually sent. Tools are registered
+    //   on every model, so this was not an edge case.
+    //
+    //   It went stale. The number described the last answered turn, so everything
+    //   committed since — a stopped turn's question above all — was invisible to
+    //   it. A pasted document could sit in the history uncounted.
+    //
+    //   It vanished on a stop. Cancelling hangs up before the usage chunk arrives,
+    //   so the turn most likely to have added a lot of context is the one that
+    //   reports none of it.
+    //
+    // An estimate is wrong by a bounded fraction. The measurement was wrong by a
+    // factor that grew with the round trips. For a threshold warning, bounded and
+    // always-present beats exact-but-frequently-neither.
+    //
+    // ConversationUsage below still reads real usage, and should: summing every
+    // turn is the wrong answer to "how big is this conversation" and exactly the
+    // right one to "what has this cost".
+    //
+    // Null only when there is nothing to send yet. Null still means unknown, never
+    // zero — see ChatModel.WouldOverflow.
     public long? EstimatedContextTokens
     {
         get
         {
-            for (var index = _entries.Count - 1; index >= 0; index--)
-            {
-                if (_entries[index] is not MessageEntry { Metadata.Usage: { } usage })
-                {
-                    continue;
-                }
+            var request = TranscriptRequest.Build(_entries);
 
-                // Output counts: it is part of the history the next request sends.
-                return usage.InputTokens is { } input
-                    ? input + (usage.OutputTokens ?? 0)
-                    : null;
-            }
-
-            return null;
+            return request.Count == 0
+                ? null
+                : ContextTokenEstimator.Estimate(request, _effectiveSystemPrompt);
         }
     }
 
