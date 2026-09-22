@@ -36,7 +36,18 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        _availableModels = await Session.GetAvailableModelsAsync();
+        try
+        {
+            _availableModels = await Session.GetAvailableModelsAsync();
+        }
+        catch (Exception ex)
+        {
+            // A transient identity-provider blip here would otherwise tear the
+            // whole circuit down. Degrade to no picker instead — the composer
+            // still works on the session's default model.
+            Logger.LogWarning(ex, "Could not load available chat models; the picker will be hidden for this session.");
+            _availableModels = [];
+        }
     }
 
     private Task SelectModelAsync(ChatModelKey key) => Session.SelectModelAsync(key);

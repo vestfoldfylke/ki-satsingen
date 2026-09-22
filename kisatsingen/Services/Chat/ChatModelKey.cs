@@ -14,5 +14,19 @@ namespace kisatsingen.Services.Chat;
 // Changing one silently orphans the stored rows that carry it.
 public readonly record struct ChatModelKey(string Value)
 {
+    // Validated in the ctor: a persisted identifier that silently accepts null
+    // or whitespace poisons every dictionary lookup and log line it touches.
+    // `default(ChatModelKey)` still bypasses this — that is a C# language
+    // guarantee we cannot remove — so any code that could produce one (an
+    // uninitialised field, a JSON deserialisation with a missing property)
+    // still has to reject it explicitly at its own boundary.
+    public string Value { get; } = ValidateOrThrow(Value);
+
     public override string ToString() => Value;
+
+    private static string ValidateOrThrow(string value)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(value);
+        return value;
+    }
 }

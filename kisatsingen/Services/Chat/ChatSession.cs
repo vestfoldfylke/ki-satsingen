@@ -290,15 +290,16 @@ public sealed class ChatSession : IAsyncDisposable
 
         var stage = TurnStage.Authenticating;
 
+        // Captured before the try so every catch can label the outcome metric
+        // with the model whose turn actually failed. Same snapshot pattern the
+        // system prompt uses below — both may change while this turn runs, and
+        // a turn that started on one model must finish on it.
+        var modelForThisTurn = _selectedModel;
+
         try
         {
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
-
-            // Captured alongside the prompt, and for the same reason: both may
-            // change while this turn runs, and a turn that started on one model
-            // must finish on it.
-            var modelForThisTurn = _selectedModel;
 
             stage = TurnStage.SavingMessage;
             var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, turn.Token);
@@ -317,12 +318,12 @@ public sealed class ChatSession : IAsyncDisposable
         {
             if (turn.IsDisconnect)
             {
-                CountSend(MetricConstants.MetricsResultDisconnectedLabelValue);
+                CountSend(MetricConstants.MetricsResultDisconnectedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
                 await RecordTurnEventAsync(userObjectId, ChatEventKind.Disconnected);
             }
             else
             {
-                CountSend(MetricConstants.MetricsResultCancelledLabelValue);
+                CountSend(MetricConstants.MetricsResultCancelledLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
                 await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
             }
         }
@@ -331,7 +332,7 @@ public sealed class ChatSession : IAsyncDisposable
         // to sign in.
         catch (UserNotAuthenticatedException)
         {
-            CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue);
+            CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
             throw;
         }
         // Not swallowed: an allocation failure says nothing about this turn, and a
@@ -341,7 +342,7 @@ public sealed class ChatSession : IAsyncDisposable
         // place those two metrics do not reconcile.
         catch (OutOfMemoryException)
         {
-            CountSend(MetricConstants.MetricsResultFailedLabelValue);
+            CountSend(MetricConstants.MetricsResultFailedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
             throw;
         }
         // Catches our own bugs too: they are already logged whole and carry their
@@ -353,7 +354,7 @@ public sealed class ChatSession : IAsyncDisposable
         // today; navigation happens in the page, after this returns. Keep it so.
         catch (Exception ex)
         {
-            await HandleTurnFailureAsync(ex, stage, userObjectId);
+            await HandleTurnFailureAsync(ex, stage, userObjectId, modelForThisTurn);
         }
         finally
         {
@@ -391,11 +392,11 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Swallows by design: the turn is lost, the chat is not. The exception is
     // written here and only here — never shown, never persisted.
-    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
+    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId, ChatModel modelForThisTurn)
     {
         _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChatId);
 
-        CountSend(MetricConstants.MetricsResultFailedLabelValue);
+        CountSend(MetricConstants.MetricsResultFailedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
         _metrics.Count(
             $"{MetricPrefix}_Failure",
             "Failed chat turns, by stage and exception type",

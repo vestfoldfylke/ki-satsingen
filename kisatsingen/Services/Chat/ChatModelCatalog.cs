@@ -30,31 +30,52 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
         _byKey = new Dictionary<ChatModelKey, ChatModelRuntime>(definitions.Count);
         _models = new ChatModel[definitions.Count];
 
-        for (var index = 0; index < definitions.Count; index++)
+        // Wrapped so any throw below disposes the clients built so far. The
+        // runtime does not call Dispose on a partially-constructed object, so
+        // without this every duplicate-key or missing-default crash would leak
+        // whatever provider pipelines had already been built.
+        try
         {
-            var definition = definitions[index];
-            var runtime = new ChatModelRuntime(
-                definition.Model,
-                definition.CreateClient(services),
-                definition.Options);
-
-            if (!_byKey.TryAdd(definition.Model.Key, runtime))
+            for (var index = 0; index < definitions.Count; index++)
             {
-                throw new InvalidOperationException(
-                    $"Two chat models are registered under the key '{definition.Model.Key}'. Keys are persisted with every message, so they must be unique; give one of them a different key in AddChatModels.");
+                var definition = definitions[index];
+                var runtime = new ChatModelRuntime(
+                    definition.Model,
+                    definition.CreateClient(services),
+                    definition.Options);
+
+                if (!_byKey.TryAdd(definition.Model.Key, runtime))
+                {
+                    // The new runtime never made it into _byKey — dispose it
+                    // here before the outer catch handles the rest.
+                    runtime.Client.Dispose();
+                    throw new InvalidOperationException(
+                        $"Two chat models are registered under the key '{definition.Model.Key}'. Keys are persisted with every message, so they must be unique; give one of them a different key in AddChatModels.");
+                }
+
+                // Registration order, which is the order the picker shows.
+                _models[index] = definition.Model;
             }
 
-            // Registration order, which is the order the picker shows.
-            _models[index] = definition.Model;
-        }
+            if (!TryGet(defaultKey, out var defaultModel))
+            {
+                throw new InvalidOperationException(
+                    $"The default chat model '{defaultKey}' is not among the registered models ({string.Join(", ", _models.Select(model => model.Key))}). Either its credentials are missing from configuration or the default key in AddChatModels is wrong.");
+            }
 
-        if (!TryGet(defaultKey, out var defaultModel))
+            Default = defaultModel;
+        }
+        catch
         {
-            throw new InvalidOperationException(
-                $"The default chat model '{defaultKey}' is not among the registered models ({string.Join(", ", _models.Select(model => model.Key))}). Either its credentials are missing from configuration or the default key in AddChatModels is wrong.");
+            foreach (var runtime in _byKey.Values)
+            {
+                // Best effort during ctor failure: swallow so the original
+                // exception is what surfaces to the DI container, not a
+                // secondary disposal error.
+                try { runtime.Client.Dispose(); } catch { }
+            }
+            throw;
         }
-
-        Default = defaultModel;
     }
 
     public ChatModel Default { get; }

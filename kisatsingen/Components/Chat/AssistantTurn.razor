@@ -54,8 +54,10 @@
                 {
                     <dt>Model</dt>
                     @* The friendly name first when there is one: the provider id is
-                       the precise answer, but it is not the one that was chosen. *@
-                    <dd>@(meta.ModelDisplayName is { } friendly ? $"{friendly} ({model})" : model)</dd>
+                       the precise answer, but it is not the one that was chosen.
+                       Empty and whitespace are treated as "no friendly name" so
+                       an accidental blank never renders as " ()" around the id. *@
+                    <dd>@(!string.IsNullOrWhiteSpace(meta.ModelDisplayName) ? $"{meta.ModelDisplayName} ({model})" : model)</dd>
                 }
                 @if (meta.ResponseId is { } responseId)
                 {
