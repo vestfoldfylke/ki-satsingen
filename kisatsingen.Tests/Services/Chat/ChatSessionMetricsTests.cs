@@ -14,6 +14,21 @@ public sealed class ChatSessionMetricsTests
     private const string SendCounter = "_Send";
     private const string FailureCounter = "_Failure";
 
+    // The outcome is counted in SendAsync's finally, alongside the teardown that
+    // unlocks the composer. Counted before that teardown, or unguarded, a metrics
+    // fault would leave IsBusy set and the user unable to send again until they
+    // reloaded — the monitoring breaking the thing it monitors.
+    [Fact]
+    public async Task A_metrics_failure_does_not_leave_the_session_busy()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Metrics.ThrowForNameEndingWith = SendCounter;
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.False(harness.Session.IsBusy);
+    }
+
     [Fact]
     public async Task A_turn_that_answers_counts_one_success()
     {

@@ -37,20 +37,45 @@ public sealed class PartialTurnTests
         Assert.Equal("jeg sjekker", pruned!.Messages.Single().Text);
     }
 
-    // The completed half of a tool loop is a matched pair and stays: it is valid
-    // history, and the model needs the result it already acted on.
+    // A tool exchange the model had already answered from is valid history, and
+    // the text after it depends on the result.
     [Fact]
-    public void A_tool_call_that_was_answered_is_kept()
+    public void A_tool_exchange_followed_by_an_answer_is_kept()
     {
         var response = Response(
+            new AiMessage(ChatRole.Assistant, [Call("answered")]),
+            new AiMessage(ChatRole.Tool, [new FunctionResultContent("answered", "sunny")]),
+            new AiMessage(ChatRole.Assistant, "Det er sol"));
+
+        var pruned = PartialTurn.Prune(response);
+
+        Assert.Equal([ChatRole.Assistant, ChatRole.Tool, ChatRole.Assistant], pruned!.Messages.Select(message => message.Role));
+    }
+
+    // Stopped after the tool returned but before the model answered. Kept, the
+    // next send would put a user message straight after the tool message, which
+    // Mistral rejects — and it would reject every send after that too.
+    [Fact]
+    public void A_tool_exchange_the_model_never_answered_from_is_dropped()
+    {
+        var response = Response(
+            new AiMessage(ChatRole.Assistant, "Jeg sjekker"),
             new AiMessage(ChatRole.Assistant, [Call("answered")]),
             new AiMessage(ChatRole.Tool, [new FunctionResultContent("answered", "sunny")]));
 
         var pruned = PartialTurn.Prune(response);
 
-        Assert.Contains(
-            pruned!.Messages.SelectMany(message => message.Contents),
-            content => content is FunctionCallContent);
+        Assert.Equal(ChatRole.Assistant, pruned!.Messages[^1].Role);
+    }
+
+    [Fact]
+    public void A_turn_that_produced_only_a_tool_exchange_leaves_nothing_to_store()
+    {
+        var response = Response(
+            new AiMessage(ChatRole.Assistant, [Call("answered")]),
+            new AiMessage(ChatRole.Tool, [new FunctionResultContent("answered", "sunny")]));
+
+        Assert.Null(PartialTurn.Prune(response));
     }
 
     [Fact]
@@ -75,19 +100,6 @@ public sealed class PartialTurnTests
         var response = Response(new AiMessage(ChatRole.Assistant, [new TextContent("   ")]));
 
         Assert.Null(PartialTurn.Prune(response));
-    }
-
-    // Whatever the completed round trips reported is real, provider-measured usage
-    // and has to survive the pruning — it is the only usage a stopped turn has.
-    [Fact]
-    public void The_usage_reported_before_the_stop_is_kept()
-    {
-        var response = Response(new AiMessage(ChatRole.Assistant, [new TextContent("halvferdig")]));
-        response.Usage = new UsageDetails { InputTokenCount = 900, OutputTokenCount = 100 };
-
-        var pruned = PartialTurn.Prune(response);
-
-        Assert.Equal(900, pruned!.Usage?.InputTokenCount);
     }
 
     private static ChatResponse Response(params AiMessage[] messages) => new([.. messages]);

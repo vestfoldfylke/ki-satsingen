@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -22,6 +20,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly ChatManager _chatManager;
     private readonly IMetricsService _metrics;
     private readonly ChatClientChannel _channel;
+    private readonly TurnStreamer _streamer;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<TranscriptEntry> _entries = [];
@@ -69,6 +68,7 @@ public sealed class ChatSession : IAsyncDisposable
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
+        _streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
     }
 
     public Guid? ChatId => _currentChatId;
@@ -300,16 +300,29 @@ public sealed class ChatSession : IAsyncDisposable
 
         var stage = TurnStage.Authenticating;
 
-        // Captured before the try so every catch can label the outcome metric
-        // with the model whose turn actually failed. Same snapshot pattern the
-        // system prompt uses below — both may change while this turn runs, and
-        // a turn that started on one model must finish on it.
+        // Snapshots, taken before the try so every branch and the outcome count
+        // see the model and prompt this turn actually started with. Both may
+        // change while it runs, and a turn that started on one model must finish
+        // on it.
         var modelForThisTurn = _selectedModel;
         var systemPromptForThisTurn = _effectiveSystemPrompt;
 
         // Filled as the stream arrives and read from the catches below, so a turn
         // that is stopped or that fails can still keep what it produced.
         var progress = new TurnProgress();
+
+        // Every press of send lands on exactly one outcome, so the counts sum to
+        // the attempts. Each branch below says which outcome it is and the finally
+        // counts it once — which is what makes that a property of the structure
+        // rather than of six call sites each remembering to count exactly once.
+        //
+        // Failed until proven otherwise: a branch that forgot to set this would
+        // then be counted as a failure, the one bucket someone is watching.
+        var outcome = TurnOutcome.Failed;
+
+        // What the provider says it served, known only once a response arrives.
+        // Every other outcome is labelled with the model that was asked for.
+        string? servedModelId = null;
 
         try
         {
@@ -322,7 +335,14 @@ public sealed class ChatSession : IAsyncDisposable
             await StreamAssistantResponseAsync(streamId, modelForThisTurn, systemPromptForThisTurn, progress, turn.Token);
 
             stage = TurnStage.SavingResponse;
-            await PersistResponseAsync(userObjectId, progress.ToResponse(), modelForThisTurn, progress.DurationMs, progress.FirstTokenMs, systemPromptForThisTurn, turn.Token);
+            var response = progress.ToResponse();
+            await PersistTurnMessagesAsync(userObjectId, response, modelForThisTurn, progress, systemPromptForThisTurn, turn.Token);
+
+            // Set only after the write that makes the turn real, with no await
+            // after it: nothing can fail a turn that has already been called a
+            // success.
+            servedModelId = response.ModelId;
+            outcome = TurnOutcome.Success;
         }
         // The filter is load-bearing: a provider HTTP timeout arrives as
         // TaskCanceledException, an OperationCanceledException nobody here asked
@@ -330,37 +350,29 @@ public sealed class ChatSession : IAsyncDisposable
         // invisible to failure alerts. Only our own cancellation is cancellation.
         catch (OperationCanceledException) when (turn.IsCancelled)
         {
+            outcome = turn.IsDisconnect ? TurnOutcome.Disconnected : TurnOutcome.Stopped;
+
             // Before the event, so the answer and the notice that it was cut short
             // land in that order in the transcript.
             await PersistPartialTurnAsync(userObjectId, progress, stage, modelForThisTurn, systemPromptForThisTurn);
-
-            if (turn.IsDisconnect)
-            {
-                CountSend(MetricConstants.MetricsResultDisconnectedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
-                await RecordTurnEventAsync(userObjectId, ChatEventKind.Disconnected);
-            }
-            else
-            {
-                CountSend(MetricConstants.MetricsResultCancelledLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
-                await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
-            }
+            await RecordTurnEventAsync(userObjectId, turn.IsDisconnect ? ChatEventKind.Disconnected : ChatEventKind.Stopped);
         }
         // Allowed out: no identity means no chat to record an event against, and
         // only the error boundary above can do the useful thing and send the user
         // to sign in.
         catch (UserNotAuthenticatedException)
         {
-            CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
+            outcome = TurnOutcome.Unauthenticated;
             throw;
         }
         // Not swallowed: an allocation failure says nothing about this turn, and a
         // retry allocates again and fails the same way. Letting it out sheds the
-        // circuit, not the process. Counted so every attempt still lands in exactly
-        // one Result bucket; deliberately absent from the Failure counter, the one
+        // circuit, not the process. Still counted as Failed, so every attempt lands
+        // in one bucket; deliberately absent from the Failure counter, the one
         // place those two metrics do not reconcile.
         catch (OutOfMemoryException)
         {
-            CountSend(MetricConstants.MetricsResultFailedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
+            outcome = TurnOutcome.Failed;
             throw;
         }
         // Catches our own bugs too: they are already logged whole and carry their
@@ -372,8 +384,9 @@ public sealed class ChatSession : IAsyncDisposable
         // today; navigation happens in the page, after this returns. Keep it so.
         catch (Exception ex)
         {
+            outcome = TurnOutcome.Failed;
             await PersistPartialTurnAsync(userObjectId, progress, stage, modelForThisTurn, systemPromptForThisTurn);
-            await HandleTurnFailureAsync(ex, stage, userObjectId, modelForThisTurn);
+            await HandleTurnFailureAsync(ex, stage, userObjectId);
         }
         finally
         {
@@ -391,31 +404,43 @@ public sealed class ChatSession : IAsyncDisposable
             turn.Dispose();
 
             Notify();
+
+            // Last, and guarded, because this is the one line in here that can
+            // throw — Prometheus rejects a label set that differs from the first
+            // use. Anywhere earlier and a metrics fault would skip the teardown
+            // above and leave the composer locked for the rest of the circuit; and
+            // unguarded, it would replace whatever exception is already leaving.
+            try
+            {
+                CountSend(outcome, servedModelId ?? modelForThisTurn.ModelId, modelForThisTurn.Key);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Could not count the {Outcome} outcome for chat {ChatId}.", outcome, _currentChatId);
+            }
         }
     }
 
-    // Every press of send lands on exactly one Result, so the outcomes sum to the
-    // attempts. That holds only if each call site sits where the turn cannot leave
-    // — for Success, after the last await rather than before it.
+    // Called once per turn, from SendAsync's finally; see the outcome there.
     //
     // Prometheus fixes a metric's label names on first use and throws if a later
     // call supplies a different number, so every outcome must report the same
     // names in the same order. Building them here is what guarantees that.
-    private void CountSend(string result, string? modelId = null, ChatModelKey? modelKey = null) =>
+    private void CountSend(TurnOutcome outcome, string? modelId, ChatModelKey modelKey) =>
         _metrics.Count(
             $"{MetricPrefix}_Send",
             "Chat send attempts, by outcome",
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
-            (MetricConstants.MetricsModelKeyLabelName, modelKey?.Value ?? MetricConstants.MetricsModelUnknownLabelValue),
-            (MetricConstants.MetricsResultLabelName, result));
+            (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),
+            (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
     // Swallows by design: the turn is lost, the chat is not. The exception is
-    // written here and only here — never shown, never persisted.
-    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId, ChatModel modelForThisTurn)
+    // written here and only here — never shown, never persisted. The outcome
+    // itself is counted by SendAsync; this adds the stage and exception type.
+    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
     {
         _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChatId);
 
-        CountSend(MetricConstants.MetricsResultFailedLabelValue, modelForThisTurn.ModelId, modelForThisTurn.Key);
         _metrics.Count(
             $"{MetricPrefix}_Failure",
             "Failed chat turns, by stage and exception type",
@@ -425,8 +450,9 @@ public sealed class ChatSession : IAsyncDisposable
         await RecordTurnEventAsync(userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
     }
 
-    // The partial response is discarded; why the turn ended is kept, so a reload
-    // explains the gap instead of showing an unanswered message.
+    // Why the turn ended, recorded after any partial answer so a reload reads as
+    // "what the model said, then why it stopped" — or explains the gap when it
+    // said nothing. See PersistPartialTurnAsync.
     //
     // The in-memory entry is added unconditionally, the write is not: a turn can
     // end before there is a chat row to write to, and that is exactly when the
@@ -479,26 +505,15 @@ public sealed class ChatSession : IAsyncDisposable
         return streamId;
     }
 
-    // Writes into progress rather than returning, so that a cancellation or a
-    // provider failure unwinding out of here leaves the caller holding everything
-    // that had arrived. See TurnProgress.
-    private async Task StreamAssistantResponseAsync(
+    // Decides what this turn asks for; TurnStreamer carries the asking.
+    private Task StreamAssistantResponseAsync(
         Guid streamId,
         ChatModel modelForThisTurn,
         string systemPromptForThisTurn,
         TurnProgress progress,
         CancellationToken ct)
     {
-        var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
-
-        // Stopwatch, not UtcNow: FlushCadence needs offsets that never go
-        // backwards, and a wall clock does when NTP steps it — which would freeze
-        // the visible stream until the clock caught up.
-        var elapsed = Stopwatch.StartNew();
-        var cadence = new FlushCadence();
-
         var request = TranscriptRequest.Build(_entries);
-
         var runtime = _catalog.Resolve(modelForThisTurn.Key);
 
         // The system prompt rides on the options rather than the message list; see
@@ -507,54 +522,7 @@ public sealed class ChatSession : IAsyncDisposable
         var options = runtime.CreateOptions();
         options.Instructions = systemPromptForThisTurn;
 
-        try
-        {
-            await foreach (var update in runtime.Client.GetStreamingResponseAsync(request, options, ct))
-            {
-                progress.Add(update);
-                var offsetMs = elapsed.ElapsedMilliseconds;
-
-                foreach (var content in update.Contents)
-                {
-                    switch (content)
-                    {
-                        case FunctionCallContent call:
-                            _metrics.Count($"{MetricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
-                            break;
-                        case FunctionResultContent:
-                            _metrics.Count($"{MetricPrefix}_ToolResult", "Number of tool results retrieved");
-                            break;
-                    }
-                }
-
-                if (string.IsNullOrEmpty(update.Text))
-                {
-                    continue;
-                }
-
-                progress.FirstTokenMs ??= offsetMs;
-
-                if (cadence.Append(offsetMs, update.Text) is { } due)
-                {
-                    _ = _channel.StreamAppend(streamId, due);
-                }
-            }
-
-            if (cadence.Drain() is { } remaining)
-            {
-                _ = _channel.StreamAppend(streamId, remaining);
-            }
-        }
-        finally
-        {
-            // In a finally because a stopped turn still took time, and what it
-            // produced is about to be persisted against that figure. The metric
-            // histogram below stays on the success path: changing which turns it
-            // observes would change what the dashboards mean.
-            progress.DurationMs = elapsed.ElapsedMilliseconds;
-        }
-
-        duration.ObserveDuration();
+        return _streamer.StreamAsync(runtime.Client, request, options, streamId, progress, ct);
     }
 
     // A turn that was stopped or that failed mid-stream still produced something,
@@ -563,7 +531,7 @@ public sealed class ChatSession : IAsyncDisposable
     // transcript when the chat is reopened.
     //
     // Only from Generating: before that no request had been made, and after it
-    // PersistResponseAsync has already written this turn — persisting again would
+    // the completed turn has already been written — persisting again would
     // duplicate it.
     //
     // Failures here are swallowed deliberately. This runs inside a catch whose
@@ -581,8 +549,9 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        // Unanswered tool calls are stripped here; see PartialTurn for why storing
-        // one would break the chat permanently rather than merely lose an answer.
+        // Cut to what a provider will accept on the next send; see PartialTurn for
+        // why storing the raw partial could break the chat permanently rather than
+        // merely lose an answer.
         if (PartialTurn.Prune(progress.ToResponse()) is not { } partial)
         {
             return;
@@ -590,14 +559,9 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            await PersistTurnMessagesAsync(
-                userObjectId,
-                partial,
-                modelForThisTurn,
-                progress.DurationMs,
-                progress.FirstTokenMs,
-                systemPromptForThisTurn,
-                CancellationToken.None);
+            // Not the turn's own token — it is already cancelled when this runs
+            // after a stop, and would abort the very write keeping the answer.
+            await PersistTurnMessagesAsync(userObjectId, partial, modelForThisTurn, progress, systemPromptForThisTurn, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -608,34 +572,13 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private async Task PersistResponseAsync(
-        string userObjectId,
-        ChatResponse response,
-        ChatModel modelForThisTurn,
-        long durationMs,
-        long? firstTokenMs,
-        string systemPromptForThisTurn,
-        CancellationToken ct)
-    {
-        await PersistTurnMessagesAsync(userObjectId, response, modelForThisTurn, durationMs, firstTokenMs, systemPromptForThisTurn, ct);
-
-        // Counted last, after the write that makes the turn real. Counting it on
-        // entry instead would let one attempt land on two Results — Success, then
-        // Failed or Cancelled from whatever happened in the lines above — which is
-        // the one thing the outcome counter promises cannot happen.
-        //
-        // Deliberately not in PersistTurnMessagesAsync: a partial turn writes
-        // through that too, and it is already counted as Cancelled or Failed by
-        // the catch that saved it.
-        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId, modelForThisTurn.Key);
-    }
-
+    // Writes whatever the turn produced, complete or partial. Counts nothing: the
+    // outcome belongs to SendAsync, which knows how the turn actually ended.
     private async Task PersistTurnMessagesAsync(
         string userObjectId,
         ChatResponse response,
         ChatModel modelForThisTurn,
-        long durationMs,
-        long? firstTokenMs,
+        TurnProgress progress,
         string systemPromptForThisTurn,
         CancellationToken ct)
     {
@@ -659,14 +602,14 @@ public sealed class ChatSession : IAsyncDisposable
                     response.ResponseId,
                     response.FinishReason?.Value,
                     usage,
-                    durationMs,
-                    firstTokenMs,
+                    progress.DurationMs,
+                    progress.FirstTokenMs,
                     now,
                     systemPromptForThisTurn);
             }
 
             _entries.Add(new MessageEntry(Guid.NewGuid(), newMessage, metadata));
-            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, modelForThisTurn.Key, durationMs, firstTokenMs, includeUsage));
+            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, modelForThisTurn.Key, progress.DurationMs, progress.FirstTokenMs, includeUsage));
         }
 
         var chatId = _currentChatId!.Value;

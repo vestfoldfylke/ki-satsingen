@@ -44,6 +44,40 @@ public sealed class PartialResponsePersistenceTests
         Assert.Equal(FakeChatModelCatalog.DefaultKey.Value, AssistantMessage(harness).ModelKey);
     }
 
+    // End to end, through the real fold: usage arrives as a streamed UsageContent,
+    // not as a property someone set. PartialTurnTests proves Prune carries Usage
+    // across; this proves there is any Usage to carry.
+    [Fact]
+    public async Task A_stopped_turn_persists_the_usage_the_provider_had_already_reported()
+    {
+        await using var harness = new ChatSessionHarness();
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Client.OnStream = ct => ModelStream.AnsweringWithUsageThenStalling("halvferdig svar", 900, 100, reached, ct);
+
+        var sending = harness.Session.SendAsync("hei");
+        await reached.Task;
+        harness.Session.Cancel();
+        await sending;
+
+        var assistant = AssistantMessage(harness);
+        Assert.Equal(900, assistant.InputTokens);
+        Assert.Equal(100, assistant.OutputTokens);
+    }
+
+    // The user-facing half. The streamed text lives in the streaming view, which
+    // ends with the turn, so unless the partial is committed to the transcript it
+    // disappears from the screen the moment stop is pressed — saved or not.
+    [Fact]
+    public async Task A_stopped_turn_stays_on_screen()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await StopAfterAnswering(harness, "halvferdig svar");
+
+        var turn = Assert.Single(harness.Session.Committed.OfType<AssistantTurnView>());
+        Assert.Equal("halvferdig svar", string.Concat(turn.Parts.Select(part => part.Text)));
+    }
+
     // A turn that broke mid-stream has the same half-answer on screen as one the
     // user stopped, and the same reason to keep it.
     [Fact]

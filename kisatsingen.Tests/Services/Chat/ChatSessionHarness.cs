@@ -310,6 +310,30 @@ internal static class ModelStream
         await Task.Delay(Timeout.Infinite, ct);
     }
 
+    // Reports usage, then hangs. A completed round trip followed by an interrupted
+    // one: the provider has already said what the first cost, and a stop must not
+    // throw that measurement away.
+    public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringWithUsageThenStalling(
+        string text,
+        long inputTokens,
+        long outputTokens,
+        TaskCompletionSource reached,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant, text);
+        yield return new ChatResponseUpdate(ChatRole.Assistant,
+        [
+            new UsageContent(new UsageDetails
+            {
+                InputTokenCount = inputTokens,
+                OutputTokenCount = outputTokens,
+                TotalTokenCount = inputTokens + outputTokens
+            })
+        ]);
+        reached.TrySetResult();
+        await Task.Delay(Timeout.Infinite, ct);
+    }
+
     // Calls a tool and hangs before any result comes back, leaving an assistant
     // message whose call nothing ever answered — the shape that would break every
     // later request in the chat if it were stored. See PartialTurn.
@@ -342,6 +366,10 @@ internal sealed class RecordingMetricsService : IMetricsService
 {
     public List<MetricCall> Calls { get; } = [];
 
+    // What Prometheus does when a counter's labels differ from its first use.
+    // Scoped to one metric name so a test can break exactly the call it is about.
+    public string? ThrowForNameEndingWith { get; set; }
+
     public IReadOnlyList<MetricCall> Named(string suffix) =>
         Calls.Where(call => call.Name.EndsWith(suffix, StringComparison.Ordinal)).ToList();
 
@@ -365,8 +393,15 @@ internal sealed class RecordingMetricsService : IMetricsService
 
     public MetricTimer Histogram(string name, string? description, params (string, string)[] labels) => new ZeroTimer();
 
-    private void Record(string name, (string, string)[] labels) =>
+    private void Record(string name, (string, string)[] labels)
+    {
+        if (ThrowForNameEndingWith is { } suffix && name.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Scripted metrics failure for {name}.");
+        }
+
         Calls.Add(new MetricCall(name, labels.ToDictionary(label => label.Item1, label => label.Item2)));
+    }
 
     // Nothing here asserts on durations, so the timer always reports none.
     private sealed class ZeroTimer : MetricTimer
