@@ -50,14 +50,14 @@
         @if (Turn.Metadata is { } meta)
         {
             <dl class="assistant-metadata-list">
-                @if (meta.ModelId is { } model)
+                @* Shown whenever anything at all is known about which model answered.
+                   The provider is the only source of ModelId and some report none,
+                   so gating on it would hide a row we can still fill from our own
+                   catalogue — the same case the metrics handle as "unknown". *@
+                @if (DescribeModel(meta) is { } modelDescription)
                 {
                     <dt>Model</dt>
-                    @* The friendly name first when there is one: the provider id is
-                       the precise answer, but it is not the one that was chosen.
-                       Empty and whitespace are treated as "no friendly name" so
-                       an accidental blank never renders as " ()" around the id. *@
-                    <dd>@(!string.IsNullOrWhiteSpace(meta.ModelDisplayName) ? $"{meta.ModelDisplayName} ({model})" : model)</dd>
+                    <dd>@modelDescription</dd>
                 }
                 @if (meta.ResponseId is { } responseId)
                 {

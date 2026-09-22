@@ -20,6 +20,36 @@ public partial class AssistantTurn : ComponentBase
 
     private bool HasCopyableText => Turn.Parts.Any(p => !string.IsNullOrEmpty(p.Text));
 
+    // Three names for the same model, any subset of which may be missing:
+    //
+    //   ModelDisplayName  what the user chose        "Rask"
+    //   ModelId           what the provider served   "gpt-4o-mini-2024-07-18"
+    //   ModelKey          our own stable identifier  "fast"
+    //
+    // The friendly name leads when there is one — the provider id is the precise
+    // answer, but it is not the one that was chosen — with the id in parentheses
+    // behind it. The key stands in for the name on rows written before the
+    // catalogue knew the model, or by a model that has since left it. Empty and
+    // whitespace count as absent, so a blank never renders as " ()" around an id.
+    //
+    // Null only when the turn names no model in any form at all, which is what
+    // drops the row entirely.
+    private static string? DescribeModel(TurnMetadata meta)
+    {
+        var name = !string.IsNullOrWhiteSpace(meta.ModelDisplayName)
+            ? meta.ModelDisplayName
+            : meta.ModelKey?.Value;
+        var providerId = !string.IsNullOrWhiteSpace(meta.ModelId) ? meta.ModelId : null;
+
+        return (name, providerId) switch
+        {
+            (not null, not null) => $"{name} ({providerId})",
+            (not null, null) => name,
+            (null, not null) => providerId,
+            _ => null
+        };
+    }
+
     private static string FormatMs(long ms) => ms < 1000
         ? $"{ms} ms"
         : $"{ms / 1000.0:0.##} s";

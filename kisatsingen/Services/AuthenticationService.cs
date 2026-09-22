@@ -5,15 +5,6 @@ namespace kisatsingen.Services;
 
 public interface IAuthenticationService
 {
-    /// <summary>
-    /// The current user, for callers that need the claims themselves rather than
-    /// the object identifier — authorization decisions above all. Never null: an
-    /// unauthenticated visitor is an unauthenticated principal, not an absent one,
-    /// so callers must ask what the principal is allowed to do rather than whether
-    /// they got one.
-    /// </summary>
-    Task<ClaimsPrincipal> GetUserAsync();
-
     Task<string?> GetUserObjectIdentifierAsync();
 
     /// <exception cref="UserNotAuthenticatedException">No authenticated user or objectidentifier claim found.</exception>
@@ -31,7 +22,7 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
-    public async Task<ClaimsPrincipal> GetUserAsync()
+    private async Task<ClaimsPrincipal> GetUserAsync()
     {
         var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
         return authState.User;

@@ -225,12 +225,15 @@ public sealed class ChatSession : IAsyncDisposable
     {
         for (var index = messages.Count - 1; index >= 0; index--)
         {
-            if (messages[index].ModelKey is not { } storedKey)
+            // A blank key is read as no key at all, the same as null: the column
+            // permits it, and a row that names no model must not cost the user the
+            // chat. See ChatModelKey.TryCreate.
+            if (ChatModelKey.TryCreate(messages[index].ModelKey) is not { } storedKey)
             {
                 continue;
             }
 
-            if (_catalog.TryGet(new ChatModelKey(storedKey), out var model))
+            if (_catalog.TryGet(storedKey, out var model))
             {
                 return model;
             }

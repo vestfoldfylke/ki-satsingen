@@ -71,7 +71,7 @@ internal static class TranscriptRestore
         }
         else if (role == ChatRole.Assistant)
         {
-            var modelKey = stored.ModelKey is { } storedKey ? new ChatModelKey(storedKey) : (ChatModelKey?)null;
+            var modelKey = ChatModelKey.TryCreate(stored.ModelKey);
 
             metadata = new TurnMetadata(
                 stored.ModelId,

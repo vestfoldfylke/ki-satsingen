@@ -5,7 +5,6 @@ using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
-using System.Security.Claims;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
@@ -71,12 +70,6 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 internal sealed class FakeAuthenticationService : IAuthenticationService
 {
     public Exception? Failure { get; set; }
-
-    // Authenticated but claimless. The catalogue ignores the principal today, and
-    // a test that cares about claims should build its own rather than have every
-    // other test carry them.
-    public Task<ClaimsPrincipal> GetUserAsync() =>
-        Task.FromResult(new ClaimsPrincipal(new ClaimsIdentity(authenticationType: "test")));
 
     public Task<string?> GetUserObjectIdentifierAsync() =>
         Task.FromResult<string?>(ChatSessionHarness.OwnerUnderTest);

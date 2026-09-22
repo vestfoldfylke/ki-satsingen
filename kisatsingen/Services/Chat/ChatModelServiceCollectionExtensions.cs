@@ -150,6 +150,14 @@ internal static class ChatModelServiceCollectionExtensions
     // stay unset: verified against Microsoft.Extensions.AI.OpenAI 10.9.0 by
     // capturing the outgoing request body, the options value silently overrides
     // this one whenever both are present.
+    //
+    // ChatOptions.Instructions is carried by the same adapter, and the transcript's
+    // SystemPromptSnapshot is only honest as long as it is. Verified the same way
+    // against 10.9.0: it becomes exactly one "system" message at the head of the
+    // request, and no such message appears when it is unset. Left as a note rather
+    // than a test on purpose — asserting on the body shape would fail on a move to
+    // the Responses API, which would deliver the instructions correctly. Re-check
+    // by capture when this package is upgraded.
     private static Func<IServiceProvider, IChatClient> OpenAiCompatible(
         string providerCredential,
         Uri endpoint,

@@ -76,6 +76,23 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
 
+    // The column is nullable varchar with no non-empty constraint, so a blank is
+    // reachable however it got there. Reading it used to throw out of the
+    // ChatModelKey constructor and take LoadAsync with it, which cost the user the
+    // whole chat over one unreadable field on one row.
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task A_chat_whose_recorded_model_is_blank_still_opens(string modelKey)
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.StoredChat = ChatAnsweredBy(modelKey);
+
+        await harness.Session.LoadAsync(harness.Repository.StoredChat.Id);
+
+        Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
+    }
+
     [Fact]
     public async Task A_switch_that_has_not_taken_effect_yet_is_reported_as_pending()
     {

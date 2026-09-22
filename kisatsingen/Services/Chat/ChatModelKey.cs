@@ -22,6 +22,15 @@ public readonly record struct ChatModelKey(string Value)
     // still has to reject it explicitly at its own boundary.
     public string Value { get; } = ValidateOrThrow(Value);
 
+    // For readers of stored data, where a key that is null, empty or whitespace is
+    // a row that simply does not name a model — not a programming error. The
+    // column is nullable with no non-empty constraint, so an empty string is
+    // reachable, and the ctor's throw would turn one bad row into a chat that can
+    // never be opened again. Callers that construct a key from their own literals
+    // keep using the ctor: there, a blank really is a bug.
+    public static ChatModelKey? TryCreate(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : new ChatModelKey(value);
+
     public override string ToString() => Value;
 
     private static string ValidateOrThrow(string value)
