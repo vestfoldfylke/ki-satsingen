@@ -30,7 +30,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task Messages_and_events_interleave_in_the_order_they_were_written()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first")]);
         await Repo.AppendEventAsync(OwnerId, chat.Id, Event(ChatEventKind.Stopped));
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "second")]);
@@ -48,7 +48,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task An_event_after_the_last_message_still_reaches_the_transcript()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "only message")]);
         await Repo.AppendEventAsync(OwnerId, chat.Id, Event(ChatEventKind.Failed));
 
@@ -62,7 +62,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_whole_batch_keeps_its_list_order_through_the_merge()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("user", "one"),
             Message("assistant", "two"),
@@ -82,7 +82,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task An_assistant_message_reports_the_prompt_recorded_on_the_user_turn()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             new StoredMessage { Role = "user", Content = "hei", SystemPromptSnapshot = "the prompt that produced it" },
             new StoredMessage { Role = "assistant", Content = "hallo" }
@@ -98,7 +98,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task An_assistant_message_falls_back_to_the_prompt_in_force_when_no_snapshot_was_recorded()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("user", "hei"),
             Message("assistant", "hallo")
@@ -113,7 +113,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_user_message_carries_no_assistant_metadata()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hei")]);
 
         var entries = await RestoreAsync(chat.Id);
@@ -127,7 +127,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_tool_call_survives_the_round_trip_through_storage()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         var withToolCall = new AiMessage(ChatRole.Assistant, [
             new FunctionCallContent("call-1", "get_current_time_utc", new Dictionary<string, object?> { ["timeZone"] = "Europe/Oslo" })
         ]);
@@ -145,7 +145,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_written_message_records_which_library_version_produced_its_contents()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             ChatMessageMapper.ToEntity(new AiMessage(ChatRole.Assistant, "hei"))
@@ -162,7 +162,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_message_whose_stored_contents_cannot_be_read_degrades_to_its_plain_text()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             new StoredMessage
             {
@@ -182,7 +182,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task An_unreadable_message_does_not_take_the_rest_of_the_transcript_with_it()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("user", "before"),
             new StoredMessage { Role = "assistant", Content = "middle", ContentsJson = "{ not json at all" },
@@ -199,7 +199,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     [Fact]
     public async Task A_chat_with_no_rows_restores_to_an_empty_transcript()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         var entries = await RestoreAsync(chat.Id);
 

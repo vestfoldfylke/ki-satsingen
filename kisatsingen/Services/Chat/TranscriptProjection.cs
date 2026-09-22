@@ -56,8 +56,8 @@ internal static class TranscriptProjection
             parts.Add(new TurnPart(entry.Message.Text ?? string.Empty, entry.Message.Contents));
         }
 
-        AssistantMetadata? firstMetadata = null;
-        AssistantMetadata? lastMetadata = null;
+        TurnMetadata? firstMetadata = null;
+        TurnMetadata? lastMetadata = null;
         foreach (var entry in turn)
         {
             if (!entry.IsAssistant || entry.Metadata is not { } metadata)

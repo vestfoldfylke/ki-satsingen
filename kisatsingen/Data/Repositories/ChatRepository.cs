@@ -1,29 +1,82 @@
 using kisatsingen.Data.Entities;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
-    public async Task<Chat> CreateChatAsync(string ownerId, string title, CancellationToken ct = default)
+    // Postgres FK-violation SQLSTATE; caught below to translate a benign race
+    // into the same InvalidOperationException the pre-check throws. The
+    // constraint name is matched too so a future FK added to Chats can't be
+    // silently mistranslated as an assistant lookup failure.
+    private const string ForeignKeyViolationSqlState = "23503";
+    private const string ChatAssistantForeignKeyName = "FK_Chats_Assistants_AssistantId";
+
+    public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
+        var normalisedTitle = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
+
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
+
+        string? assistantNameSnapshot = null;
+
+        // The foreign key only proves the assistant exists. Unchecked, this
+        // would hand the caller another owner's instructions and files. The
+        // same query also fetches the name for the snapshot column so the
+        // sidebar can render "Chat with X (deleted)" after the assistant is
+        // gone — see Chat.AssistantNameSnapshot for the reasoning.
+        if (assistantId is Guid resolvedAssistantId)
+        {
+            assistantNameSnapshot = await db.Assistants
+                .Where(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId)
+                .Select(a => a.Name)
+                .SingleOrDefaultAsync(ct);
+
+            if (assistantNameSnapshot is null)
+            {
+                throw new InvalidOperationException(
+                    $"Assistant {resolvedAssistantId} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.");
+            }
+        }
 
         var chat = new Chat
         {
             Id = Guid.NewGuid(),
             OwnerId = ownerId,
-            Title = string.IsNullOrWhiteSpace(title) ? "New chat" : title,
+            AssistantId = assistantId,
+            AssistantNameSnapshot = assistantNameSnapshot,
+            Title = normalisedTitle,
             CreatedAt = now,
             UpdatedAt = now
         };
 
         db.Chats.Add(chat);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsAssistantForeignKeyViolation(ex))
+        {
+            // The pre-check passed but the assistant was deleted between then
+            // and the insert (rare — same user in two tabs today, more common
+            // once sharing lets a different owner delete). SetNull makes the
+            // eventual outcome benign either way; translating the error here
+            // gives callers the same InvalidOperationException they would see
+            // if the pre-check had lost the race.
+            throw new InvalidOperationException(
+                $"Assistant {assistantId!.Value} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.", ex);
+        }
 
         return chat;
     }
+
+    private static bool IsAssistantForeignKeyViolation(DbUpdateException ex)
+        => ex.InnerException is PostgresException pg
+            && pg.SqlState == ForeignKeyViolationSqlState
+            && pg.ConstraintName == ChatAssistantForeignKeyName;
 
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
@@ -128,12 +181,11 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
     public async Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
+        // Refused rather than a no-op: a rename that quietly does nothing looks
+        // identical to one that worked.
+        var trimmed = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
+
         await using var db = await factory.CreateDbContextAsync(ct);
-        var trimmed = title.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return;
-        }
 
         var updatedChatCount = await db.Chats
             .Where(c => c.Id == chatId && c.OwnerId == ownerId)

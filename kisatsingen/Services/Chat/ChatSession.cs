@@ -380,13 +380,13 @@ public sealed class ChatSession : IAsyncDisposable
         {
             var includeUsage = ReferenceEquals(newMessage, lastAssistant);
 
-            AssistantMetadata? metadata = null;
+            TurnMetadata? metadata = null;
             if (newMessage.Role == ChatRole.Assistant)
             {
                 var usage = includeUsage && response.Usage is { } u
                     ? new MessageUsage(u.InputTokenCount, u.OutputTokenCount, u.TotalTokenCount)
                     : null;
-                metadata = new AssistantMetadata(
+                metadata = new TurnMetadata(
                     response.ModelId,
                     response.ResponseId,
                     response.FinishReason?.Value,

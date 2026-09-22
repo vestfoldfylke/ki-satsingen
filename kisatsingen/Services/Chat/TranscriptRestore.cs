@@ -54,14 +54,14 @@ internal static class TranscriptRestore
     {
         var role = new ChatRole(stored.Role);
 
-        AssistantMetadata? metadata = null;
+        TurnMetadata? metadata = null;
         if (role == ChatRole.User)
         {
             currentSnapshot = stored.SystemPromptSnapshot ?? currentSnapshot;
         }
         else if (role == ChatRole.Assistant)
         {
-            metadata = new AssistantMetadata(
+            metadata = new TurnMetadata(
                 stored.ModelId,
                 stored.ResponseId,
                 stored.FinishReason,

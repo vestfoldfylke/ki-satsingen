@@ -61,7 +61,7 @@ public sealed class ChatManager
         }
 
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.CreateChatAsync(ownerId, BuildTitle(firstMessageText), ct);
+        var chat = await _repo.CreateChatAsync(ownerId, BuildTitle(firstMessageText), assistantId: null, ct);
 
         _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
         RaiseChanged();
@@ -92,6 +92,9 @@ public sealed class ChatManager
 
     public async Task RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
+        // Clearing the rename box means cancel, not "name it nothing" — a UI
+        // intention, which is why it is handled here and not by the repository,
+        // where a blank title is an error.
         var trimmed = title.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
@@ -126,10 +129,24 @@ public sealed class ChatManager
         return deleted;
     }
 
+    // The fallback lives here rather than in the repository: a title derived
+    // from a blank message has no user to complain to, so it gets a placeholder
+    // and the repository is always handed a real title.
+    private const string UntitledChatTitle = "New chat";
+    private const int MaxDerivedTitleLength = 60;
+
     private static string BuildTitle(string userText)
     {
         var trimmed = userText.Trim();
-        return trimmed.Length <= 60 ? trimmed : trimmed[..60].TrimEnd() + "…";
+
+        if (trimmed.Length == 0)
+        {
+            return UntitledChatTitle;
+        }
+
+        return trimmed.Length <= MaxDerivedTitleLength
+            ? trimmed
+            : trimmed[..MaxDerivedTitleLength].TrimEnd() + "…";
     }
 
     private void RaiseChanged() => ChatListChanged?.Invoke();

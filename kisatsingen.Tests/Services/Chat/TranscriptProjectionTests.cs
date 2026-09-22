@@ -98,7 +98,7 @@ public sealed class TranscriptProjectionTests
     private static MessageEntry User(string text) =>
         new(Guid.NewGuid(), new ChatMessage(ChatRole.User, text), null);
 
-    private static MessageEntry Assistant(string text, AssistantMetadata? metadata = null) =>
+    private static MessageEntry Assistant(string text, TurnMetadata? metadata = null) =>
         new(Guid.NewGuid(), new ChatMessage(ChatRole.Assistant, text), metadata);
 
     private static MessageEntry Tool(string text) =>
@@ -107,6 +107,6 @@ public sealed class TranscriptProjectionTests
     private static EventEntry Stopped() =>
         new(Guid.NewGuid(), ChatEventKind.Stopped, null, DateTimeOffset.UtcNow);
 
-    private static AssistantMetadata Metadata(string modelId, DateTimeOffset createdAt) =>
+    private static TurnMetadata Metadata(string modelId, DateTimeOffset createdAt) =>
         new(modelId, null, null, null, null, null, createdAt, null);
 }

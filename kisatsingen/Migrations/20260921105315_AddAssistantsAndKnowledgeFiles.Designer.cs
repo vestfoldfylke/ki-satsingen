@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using kisatsingen.Data;
@@ -11,9 +12,11 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921105315_AddAssistantsAndKnowledgeFiles")]
+    partial class AddAssistantsAndKnowledgeFiles
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -69,10 +72,6 @@ namespace kisatsingen.Migrations
 
                     b.Property<Guid?>("AssistantId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("AssistantNameSnapshot")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -310,41 +309,51 @@ namespace kisatsingen.Migrations
 
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
-                    b.HasOne("kisatsingen.Data.Entities.Assistant", null)
+                    b.HasOne("kisatsingen.Data.Entities.Assistant", "Assistant")
                         .WithMany()
                         .HasForeignKey("AssistantId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Assistant");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.ChatEvent", b =>
                 {
-                    b.HasOne("kisatsingen.Data.Entities.Chat", null)
+                    b.HasOne("kisatsingen.Data.Entities.Chat", "Chat")
                         .WithMany("Events")
                         .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Chat");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.ChatMessage", b =>
                 {
-                    b.HasOne("kisatsingen.Data.Entities.Chat", null)
+                    b.HasOne("kisatsingen.Data.Entities.Chat", "Chat")
                         .WithMany("Messages")
                         .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Chat");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
                 {
-                    b.HasOne("kisatsingen.Data.Entities.Assistant", null)
+                    b.HasOne("kisatsingen.Data.Entities.Assistant", "Assistant")
                         .WithMany("KnowledgeFiles")
                         .HasForeignKey("AssistantId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("kisatsingen.Data.Entities.Chat", null)
-                        .WithMany()
+                    b.HasOne("kisatsingen.Data.Entities.Chat", "Chat")
+                        .WithMany("KnowledgeFiles")
                         .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Assistant");
+
+                    b.Navigation("Chat");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFileChunk", b =>
@@ -366,6 +375,8 @@ namespace kisatsingen.Migrations
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
                     b.Navigation("Events");
+
+                    b.Navigation("KnowledgeFiles");
 
                     b.Navigation("Messages");
                 });

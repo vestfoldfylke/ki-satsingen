@@ -20,7 +20,7 @@ public sealed record ChatEventView(
 public sealed record AssistantTurnView(
     Guid Id,
     IReadOnlyList<TurnPart> Parts,
-    AssistantMetadata? Metadata,
+    TurnMetadata? Metadata,
     DateTimeOffset? StartedAt) : ChatItemView(Id);
 
 public sealed record TurnPart(string Text, IList<AIContent> Contents);

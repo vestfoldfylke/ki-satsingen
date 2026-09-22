@@ -16,14 +16,94 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
 
     private ChatRepository Repo => new(Factory);
 
+    private AssistantRepository AssistantRepo => new(Factory);
+
     public Task InitializeAsync() => fixture.ResetAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
+    
+    [Fact]
+    public async Task CreateChatAsync_refuses_a_blank_title()
+    {
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateChatAsync(OwnerId, "   ", assistantId: null));
+    }
+
+    [Fact]
+    public async Task RenameChatAsync_refuses_a_blank_title_instead_of_doing_nothing()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.RenameChatAsync(OwnerId, chat.Id, "  "));
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_refuses_a_title_the_column_cannot_hold()
+    {
+        var tooLong = new string('a', Chat.MaxTitleLength + 1);
+
+        await Assert.ThrowsAsync<ArgumentException>(
+            () => Repo.CreateChatAsync(OwnerId, tooLong, assistantId: null));
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_snapshots_the_assistant_name()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        // Reload from disk rather than trust the returned entity: a future edit
+        // that populates the in-memory object but leaves the column out of the
+        // INSERT (e.g. AfterSaveBehavior.Ignore) would slip past a check on the
+        // returned instance.
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_leaves_the_snapshot_null_when_no_assistant_is_attached()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Null(stored.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task Deleting_the_assistant_nulls_the_id_but_keeps_the_snapshot()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Null(stored.AssistantId);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
+    }
+
+    [Fact]
+    public async Task Renaming_the_assistant_does_not_rewrite_older_chats_snapshots()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        await AssistantRepo.UpdateAssistantAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, "x");
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
+        Assert.Equal("Legal Advisor", stored.AssistantNameSnapshot);
+    }
 
     [Fact]
     public async Task AppendMessagesAsync_with_empty_list_is_a_noop()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, []);
 
@@ -35,7 +115,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_writes_a_single_message_with_an_assigned_id()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
@@ -49,7 +129,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_stores_a_batch_in_list_order()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [
             Message("assistant", "a1"),
@@ -70,7 +150,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task Seq_keeps_increasing_across_separate_appends()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "one")]);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("assistant", "two")]);
@@ -91,7 +171,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task GetChatAsync_orders_messages_by_Seq_and_not_by_CreatedAt()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         var later = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
         var earlier = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
 
@@ -106,7 +186,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendEventAsync_shares_the_sequence_with_messages_so_the_two_interleave()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "first")]);
         await Repo.AppendEventAsync(OwnerId, chat.Id, new ChatEvent { Kind = ChatEventKind.Stopped });
@@ -126,7 +206,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_reads_the_generated_Seq_back_onto_the_entity()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         var message = Message("user", "hi");
 
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [message]);
@@ -141,7 +221,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task An_update_to_a_message_leaves_its_generated_Seq_untouched()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
         await using var db = await Factory.CreateDbContextAsync();
@@ -165,7 +245,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task A_write_that_bypasses_the_repository_still_gets_an_ordered_Seq()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "through the repository")]);
 
         await using var db = await Factory.CreateDbContextAsync();
@@ -187,7 +267,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendEventAsync_throws_when_the_chat_belongs_to_a_different_owner()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => Repo.AppendEventAsync("someone-else", chat.Id, new ChatEvent { Kind = ChatEventKind.Stopped }));
@@ -196,7 +276,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task GetChatAsync_returns_null_when_the_chat_belongs_to_a_different_owner()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         var reloaded = await Repo.GetChatAsync("someone-else", chat.Id);
 
@@ -206,7 +286,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_throws_when_the_chat_belongs_to_a_different_owner()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => Repo.AppendMessagesAsync("someone-else", chat.Id, [Message("user", "hi")]));
@@ -215,7 +295,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_leaves_UpdatedAt_unchanged_when_the_insert_fails()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "hi")]);
 
         await using var before = await Factory.CreateDbContextAsync();
@@ -238,7 +318,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_rolls_back_earlier_rows_when_a_later_message_fails()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         await Repo.AppendMessagesAsync(OwnerId, chat.Id, [Message("user", "already there")]);
 
         await using var db = await Factory.CreateDbContextAsync();
@@ -255,7 +335,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task AppendMessagesAsync_bumps_chat_UpdatedAt_to_last_CreatedAt()
     {
-        var chat = await Repo.CreateChatAsync(OwnerId, "hello");
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         var first = new DateTimeOffset(2026, 3, 1, 12, 0, 0, TimeSpan.Zero);
         var last = new DateTimeOffset(2026, 3, 1, 12, 0, 5, TimeSpan.Zero);
 

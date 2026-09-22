@@ -94,12 +94,14 @@ public sealed class PostgresFixture : IAsyncLifetime
         }.ConnectionString;
     }
 
-    // Truncating Chats cascades to every table with a foreign key to it, so this
-    // stays correct as new child tables are added.
+    // Both roots are named: TRUNCATE CASCADE only reaches tables with a foreign
+    // key TO the listed ones, and Assistants is a parent of Chats, not a child.
+    // Everything else descends from one of the two, so this stays correct as
+    // child tables are added.
     public async Task ResetAsync()
     {
         await using var db = await OwnerFactory.CreateDbContextAsync();
-        await db.Database.ExecuteSqlRawAsync("""TRUNCATE "Chats" CASCADE""");
+        await db.Database.ExecuteSqlRawAsync("""TRUNCATE "Chats", "Assistants" CASCADE""");
     }
 
     public async Task DisposeAsync() => await _container.DisposeAsync();
