@@ -4,20 +4,16 @@ using System.Text.RegularExpressions;
 public sealed class MessageValidator
 {
     private readonly ILogger<MessageValidator> _logger;
-
-    private readonly string SsnPattern = @"\d{6}[-\s]?\d{5}";
-    private readonly string test = "pikk";
+    private readonly Regex _ssnRg = new(@"\d{6}[-\s]?\d{5}");
 
     public MessageValidator(ILogger<MessageValidator> logger)
     {
         _logger = logger;
     }
 
-    public bool checkIfMessageContainsSsn(string Message)
+    public bool CheckIfMessageContainsSsn(string Message)
     {
-        Regex rg = new Regex(SsnPattern);
-
-        if(!rg.IsMatch(Message))
+        if(!_ssnRg.IsMatch(Message))
         {
             return false;
         }
@@ -25,13 +21,8 @@ public sealed class MessageValidator
         return true;
     }
 
-    public bool checkIfMessageContainsPikk(string Message)
+    public bool CheckIfMessageContainsASpecificString(string Message, string Keyword)
     {
-        if(Message.Contains(test, StringComparison.OrdinalIgnoreCase))
-        {
-            return true;
-        }
-
-        return false;
+        return Message.Contains(Keyword, StringComparison.OrdinalIgnoreCase);
     }
 }

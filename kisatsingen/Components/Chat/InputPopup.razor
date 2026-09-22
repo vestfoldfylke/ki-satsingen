@@ -1,0 +1,71 @@
+@if (_isOpen)
+{
+
+  <dialog
+    class="ds-dialog"
+    data-placement="center"
+    data-modal="true"
+    id="input-popup-dialog"
+    open
+  >
+    <button
+      class="ds-button"
+      data-icon="true"
+      commandfor="my-dialog-modal-en"
+      data-variant="tertiary"
+      type="button"
+      aria-label="Lukk dialogvindu"
+      data-color="neutral"
+      data-command="close"
+      @onclick="OnCancel"
+    ></button>
+
+    <div class="ds-dialog__block">
+      <h2 class="ds-heading">@_popupHeader</h2>
+    </div>
+
+    <div class="ds-dialog__block">
+    <p class="ds-paragraph">@_popupDescription</p>
+  </div>
+    
+    <div class="ds-dialog__block">
+      <div
+        style="display:flex;gap:var(--ds-size-4);margin-top:var(--ds-size-4)"
+      >
+          @if (_mode == PopupMode.Acknowledge)
+          {
+            <button
+                class="ds-button"
+                commandfor="my-dialog-modal-en"
+                data-variant="primary"
+                type="button"
+                id="input-popup-dialog-acknowledge-button"
+                @onclick="OnCancel"
+            >Ok</button>
+          }
+
+          @if (_mode == PopupMode.Confirm)
+          {
+            <button
+                class="ds-button"
+                commandfor="my-dialog-modal-en"
+                data-variant="primary"
+                type="button"
+                data-color="danger"
+                id="input-popup-dialog-confirm-button"
+                @onclick="OnConfirm"
+            >Confirm</button>
+          }
+
+          <button
+              class="ds-button"
+              commandfor="my-dialog-modal-en"
+              data-variant="secondary"
+              type="button"
+              id="input-popup-dialog-cancel-button"
+              @onclick="OnCancel"
+          >Cancel</button>
+      </div>
+    </div>
+  </dialog>
+}

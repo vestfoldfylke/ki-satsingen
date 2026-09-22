@@ -32,6 +32,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
 
+    private InputPopup? _inputPopup;
+
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)
@@ -67,24 +69,22 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
 
             // Before sending to the AI, we need to validate if the message
             // contains any sensitive information (personnummer)
-            if (Validator.checkIfMessageContainsSsn(text))
+            if (Validator.CheckIfMessageContainsSsn(text))
             {
-                var confirmed = await JS.InvokeAsync<bool>(
-                    "chatClient.showAcknowledge",
-                    "IKKE SEND PERSONNUMMER I PROMPEN DIN DUMMING!!"
-                );
-
-                if(!confirmed) return;
+                if(!await _inputPopup!.ShowPopupAsync(
+                    "Det ser ut som du har skrevet et personnummer i prompen!",
+                    "Heisann",
+                    InputPopup.PopupMode.Acknowledge)
+                    ) return;
             }
 
-            if (Validator.checkIfMessageContainsPikk(text))
+            if (Validator.CheckIfMessageContainsASpecificString(text, "pikk"))
             {
-                var confirmed = await JS.InvokeAsync<bool>(
-                    "chatClient.showConfirm",
-                    "Er du sikker på at du vil kalle meg en pikk?"
-                );
-
-                if(!confirmed) return;
+                if(!await _inputPopup!.ShowPopupAsync(
+                    "Sikker på at du vil kalle meg en pikk?",
+                    "Heisann",
+                    InputPopup.PopupMode.Confirm)
+                    ) return;
             }
 
             var wasNew = Session.ChatId is null;
