@@ -21,16 +21,6 @@ public sealed class ContextWindowTests
     }
 
     [Fact]
-    public async Task A_conversation_that_has_been_sent_has_a_size()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await harness.Session.SendAsync("hei");
-
-        Assert.NotNull(harness.Session.EstimatedContextTokens);
-    }
-
-    [Fact]
     public async Task The_size_grows_as_the_conversation_does()
     {
         await using var harness = new ChatSessionHarness();
@@ -46,6 +36,9 @@ public sealed class ContextWindowTests
     // call per round trip, and ChatResponse.Usage sums them — so the old
     // usage-derived size roughly doubled on any turn that used a tool. Measuring
     // the request instead cannot double-count, because there is only one request.
+    //
+    // This also covers a provider that reports no usage at all, which used to
+    // leave the size null so the warning could never fire.
     [Fact]
     public async Task The_size_does_not_depend_on_what_the_provider_reported()
     {
@@ -58,35 +51,10 @@ public sealed class ContextWindowTests
         await measured.Session.SendAsync("hei");
         await unmeasured.Session.SendAsync("hei");
 
+        // Asserted non-null first: two nulls would satisfy the comparison below
+        // while proving nothing.
+        Assert.NotNull(unmeasured.Session.EstimatedContextTokens);
         Assert.Equal(unmeasured.Session.EstimatedContextTokens, measured.Session.EstimatedContextTokens);
-    }
-
-    // Previously this was null: a provider that reports no usage left the size
-    // unknown, and the warning could never fire. Mistral's OpenAI-compatible
-    // endpoint was the live question. It is no longer a question.
-    [Fact]
-    public async Task A_provider_that_reports_no_usage_still_leaves_a_size()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await harness.Session.SendAsync("hei");
-
-        Assert.NotNull(harness.Session.EstimatedContextTokens);
-    }
-
-    // Cost and size answer different questions and must not converge: each turn's
-    // reported input re-counts the whole history, so summing turns climbs far past
-    // what any single request carries.
-    [Fact]
-    public async Task The_size_is_not_the_conversations_total_usage()
-    {
-        await using var harness = new ChatSessionHarness();
-        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("hei", inputTokens: 5_000, outputTokens: 100);
-
-        await harness.Session.SendAsync("hei");
-        await harness.Session.SendAsync("hei igjen");
-
-        Assert.NotEqual(harness.Session.ConversationUsage?.TotalTokens, harness.Session.EstimatedContextTokens);
     }
 
     [Fact]

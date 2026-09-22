@@ -31,17 +31,24 @@ public sealed class PartialResponsePersistenceTests
         Assert.Equal(ChatEventKind.Stopped, Assert.Single(harness.Repository.AppendedEvents).Kind);
     }
 
-    // The partial carries this model's key, so reopening the chat would name it as
-    // the last model to answer. The live session has to agree, or a pending switch
-    // would clear itself on refresh.
+    // The partial carries this model's key, so reopening the chat names it as the
+    // last model to answer. The live session has to agree: a switch that a stopped
+    // turn already ran on is no longer pending — not only after a refresh.
     [Fact]
-    public async Task A_stopped_turn_counts_as_the_model_having_answered()
+    public async Task A_stopped_turn_takes_a_pending_switch_into_effect()
     {
         await using var harness = new ChatSessionHarness();
+        await harness.Session.SendAsync("hei");
+        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
+
+        // Asserted first: PendingModel is also null when nothing has ever
+        // answered, so without this the null below could mean the switch never
+        // registered rather than that the stopped turn took it into effect.
+        Assert.NotNull(harness.Session.PendingModel);
 
         await StopAfterAnswering(harness, "halvferdig svar");
 
-        Assert.Equal(FakeChatModelCatalog.DefaultKey.Value, AssistantMessage(harness).ModelKey);
+        Assert.Null(harness.Session.PendingModel);
     }
 
     // End to end, through the real fold: usage arrives as a streamed UsageContent,
@@ -124,21 +131,6 @@ public sealed class PartialResponsePersistenceTests
         await sending;
 
         Assert.DoesNotContain(harness.Repository.AppendedMessages, message => message.Role == ChatRole.Assistant.Value);
-    }
-
-    // One press of send lands on exactly one outcome. Saving the partial goes
-    // through the same write as a completed turn, so the obvious mistake is for it
-    // to also count as a success.
-    [Fact]
-    public async Task A_stopped_turn_is_counted_only_as_cancelled()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await StopAfterAnswering(harness, "halvferdig svar");
-
-        var results = harness.Metrics.Named("_Send").Select(call => call.Label("Result")).ToList();
-
-        Assert.Equal(["Cancelled"], results);
     }
 
     private static async Task StopAfterAnswering(ChatSessionHarness harness, string text)

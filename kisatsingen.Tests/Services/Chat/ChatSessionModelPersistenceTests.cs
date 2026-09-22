@@ -111,6 +111,11 @@ public sealed class ChatSessionModelPersistenceTests
         await harness.Session.SendAsync("hei");
         await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
 
+        // Asserted first: PendingModel is also null when nothing has ever
+        // answered, so without this the null below could mean the switch never
+        // registered rather than that the turn took it into effect.
+        Assert.NotNull(harness.Session.PendingModel);
+
         await harness.Session.SendAsync("hei igjen");
 
         Assert.Null(harness.Session.PendingModel);
