@@ -106,8 +106,38 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
+        var previous = _selectedModel;
         _selectedModel = model;
+
+        // Only once the chat exists. Switching before the first message has no
+        // preceding turn to contrast with, and there is no row to write the event
+        // against — it would sit in memory and vanish on the next reload.
+        if (_currentChatId is not null)
+        {
+            await RecordModelChangeAsync(previous, model);
+        }
+
         Notify();
+    }
+
+    // Written with the display names rather than the keys, for the same reason
+    // Chat.AssistantNameSnapshot is: the transcript has to keep reading correctly
+    // after a model is renamed, repointed or dropped from the catalogue.
+    private async Task RecordModelChangeAsync(ChatModel from, ChatModel to)
+    {
+        var detail = $"Byttet språkmodell: {from.DisplayName} → {to.DisplayName}";
+
+        try
+        {
+            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            await RecordTurnEventAsync(userObjectId, ChatEventKind.ModelChanged, detail);
+        }
+        // The switch has already happened in memory; failing to annotate it must
+        // not undo it or surface as an error the user cannot act on.
+        catch (UserNotAuthenticatedException ex)
+        {
+            _logger.LogWarning(ex, "Could not record a model change for chat {ChatId}.", _currentChatId);
+        }
     }
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
@@ -144,8 +174,6 @@ public sealed class ChatSession : IAsyncDisposable
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
 
-        // Opening a chat starts it on the default model. Resuming the model the
-        // chat was last using needs ChatMessage.ModelKey, which does not exist yet.
         _selectedModel = _catalog.Default;
 
         if (chatId is Guid id)
@@ -157,10 +185,43 @@ public sealed class ChatSession : IAsyncDisposable
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
                 _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, _logger));
+                _selectedModel = ResumeModel(chat.Messages);
             }
         }
 
         Notify();
+    }
+
+    // A reopened chat resumes on the model it was last answered by, so continuing
+    // a conversation does not silently change who is answering it.
+    //
+    // Falls back to the default rather than failing when the stored key names a
+    // model that has since been removed or renamed: the chat is still readable and
+    // still worth continuing, just not on that model.
+    private ChatModel ResumeModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
+    {
+        for (var index = messages.Count - 1; index >= 0; index--)
+        {
+            if (messages[index].ModelKey is not { } storedKey)
+            {
+                continue;
+            }
+
+            if (_catalog.TryGet(new ChatModelKey(storedKey), out var model))
+            {
+                return model;
+            }
+
+            _logger.LogInformation(
+                "Chat {ChatId} was last answered by model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
+                _currentChatId,
+                storedKey,
+                _catalog.Default.Key);
+
+            return _catalog.Default;
+        }
+
+        return _catalog.Default;
     }
 
     // Sync clear for when the currently-open chat has just been deleted out
@@ -214,7 +275,7 @@ public sealed class ChatSession : IAsyncDisposable
             var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, modelForThisTurn, systemPromptForThisTurn, turn.Token);
 
             stage = TurnStage.SavingResponse;
-            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
+            await PersistResponseAsync(userObjectId, response, modelForThisTurn, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
         }
         // The filter is load-bearing: a provider HTTP timeout arrives as
         // TaskCanceledException, an OperationCanceledException nobody here asked
@@ -288,11 +349,12 @@ public sealed class ChatSession : IAsyncDisposable
     // Prometheus fixes a metric's label names on first use and throws if a later
     // call supplies a different number, so every outcome must report the same
     // names in the same order. Building them here is what guarantees that.
-    private void CountSend(string result, string? modelId = null) =>
+    private void CountSend(string result, string? modelId = null, ChatModelKey? modelKey = null) =>
         _metrics.Count(
             $"{MetricPrefix}_Send",
             "Chat send attempts, by outcome",
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
+            (MetricConstants.MetricsModelKeyLabelName, modelKey?.Value ?? MetricConstants.MetricsModelUnknownLabelValue),
             (MetricConstants.MetricsResultLabelName, result));
 
     // Swallows by design: the turn is lost, the chat is not. The exception is
@@ -432,7 +494,14 @@ public sealed class ChatSession : IAsyncDisposable
         return (response, durationMs, firstTokenMs);
     }
 
-    private async Task PersistResponseAsync(string userObjectId, ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
+    private async Task PersistResponseAsync(
+        string userObjectId,
+        ChatResponse response,
+        ChatModel modelForThisTurn,
+        long durationMs,
+        long? firstTokenMs,
+        string systemPromptForThisTurn,
+        CancellationToken ct)
     {
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
@@ -459,7 +528,7 @@ public sealed class ChatSession : IAsyncDisposable
             }
 
             _entries.Add(new MessageEntry(Guid.NewGuid(), newMessage, metadata));
-            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
+            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, modelForThisTurn.Key, durationMs, firstTokenMs, includeUsage));
         }
 
         var chatId = _currentChatId!.Value;
@@ -470,7 +539,7 @@ public sealed class ChatSession : IAsyncDisposable
         // entry instead would let one attempt land on two Results — Success, then
         // Failed or Cancelled from whatever happened in the lines above — which is
         // the one thing the outcome counter promises cannot happen.
-        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
+        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId, modelForThisTurn.Key);
     }
 
     private void Notify() => StateChanged?.Invoke();
