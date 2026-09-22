@@ -61,7 +61,7 @@ internal static class ChatModelServiceCollectionExtensions
             + "spørsmål — denne er tregere uten å svare bedre på dem.",
         Provider = "Mistral",
         ModelId = "mistral-large-latest",
-        ContextWindowTokens = 128_000,
+        ContextWindowTokens = 256_000,
         IconName = "placeholder-large"
     };
 

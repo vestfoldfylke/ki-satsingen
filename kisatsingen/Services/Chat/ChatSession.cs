@@ -131,6 +131,39 @@ public sealed class ChatSession : IAsyncDisposable
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 
+    // How much context the next request will carry, as the last turn measured it.
+    // That turn's input already contained the whole history, so its input plus its
+    // own output is the conversation's current size — before the user has typed
+    // anything, which only adds to it.
+    //
+    // Deliberately not ConversationUsage below. That one sums every turn, which is
+    // the right answer to "what has this conversation cost" and the wrong one here:
+    // each turn's input re-counts the whole history, so the total grows roughly
+    // with the square of the turn count and would warn about a 12k chat at 128k.
+    //
+    // Null when nothing has reported usage. A missing number is not zero, and a
+    // context warning must not be derived from one.
+    public long? EstimatedContextTokens
+    {
+        get
+        {
+            for (var index = _entries.Count - 1; index >= 0; index--)
+            {
+                if (_entries[index] is not MessageEntry { Metadata.Usage: { } usage })
+                {
+                    continue;
+                }
+
+                // Output counts: it is part of the history the next request sends.
+                return usage.InputTokens is { } input
+                    ? input + (usage.OutputTokens ?? 0)
+                    : null;
+            }
+
+            return null;
+        }
+    }
+
     public MessageUsage? ConversationUsage
     {
         get

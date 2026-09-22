@@ -31,4 +31,12 @@ public sealed record ChatModel
     public required int ContextWindowTokens { get; init; }
 
     public required string IconName { get; init; }
+
+    // Whether a conversation of this size is already too big for this model.
+    //
+    // Null means the size is unknown — a provider is not obliged to report usage
+    // on a streamed response — and unknown must never read as "too big". A
+    // warning nobody can act on is worse than no warning.
+    public bool WouldOverflow(long? estimatedContextTokens) =>
+        estimatedContextTokens is { } tokens && tokens > ContextWindowTokens;
 }

@@ -40,6 +40,10 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public ChatModel? PendingModel { get; set; }
 
+    // The conversation's current size; see ChatSession.EstimatedContextTokens.
+    [Parameter]
+    public long? EstimatedContextTokens { get; set; }
+
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the
     // caret. The page calls this afterwards to put focus back.

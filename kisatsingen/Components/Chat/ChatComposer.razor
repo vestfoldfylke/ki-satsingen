@@ -20,7 +20,8 @@
                 <ModelPicker Models="Models"
                              Selected="SelectedModel"
                              OnSelect="OnSelectModel"
-                             IsBusy="IsBusy" />
+                             IsBusy="IsBusy"
+                             EstimatedContextTokens="EstimatedContextTokens" />
             }
             @* The only feedback a switch produces until a turn runs on it. Stated
                as what will happen rather than what was clicked, so it stays true
@@ -29,7 +30,15 @@
 
                aria-live because nothing else announces the change: the picker's
                own label updates silently. *@
-            @if (PendingModel is { } pending)
+            @* The warning outranks the pending line: both concern the next answer,
+               and one of them says it may not arrive. *@
+            @if (SelectedModel?.WouldOverflow(EstimatedContextTokens) == true)
+            {
+                <p class="composer-context-warning" aria-live="polite">
+                    Samtalen er trolig for lang for @SelectedModel.DisplayName. Svaret kan feile.
+                </p>
+            }
+            else if (PendingModel is { } pending)
             {
                 <p class="composer-pending-model" aria-live="polite">Neste svar: @pending.DisplayName</p>
             }

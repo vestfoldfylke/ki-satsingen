@@ -279,6 +279,23 @@ internal static class ModelStream
         await Task.CompletedTask;
     }
 
+    // Usage arrives as its own update, the way a provider sends it: a trailing
+    // chunk after the text. ToChatResponse folds it into ChatResponse.Usage.
+    public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringWithUsage(string text, long inputTokens, long outputTokens)
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant, text);
+        yield return new ChatResponseUpdate(ChatRole.Assistant,
+        [
+            new UsageContent(new UsageDetails
+            {
+                InputTokenCount = inputTokens,
+                OutputTokenCount = outputTokens,
+                TotalTokenCount = inputTokens + outputTokens
+            })
+        ]);
+        await Task.CompletedTask;
+    }
+
     // Breaks partway, which is the realistic shape: tokens have already reached
     // the browser by the time the provider gives up.
     public static async IAsyncEnumerable<ChatResponseUpdate> FailingAfter(string text, Exception failure)

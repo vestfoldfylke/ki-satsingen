@@ -41,6 +41,17 @@
                             }
                         </span>
                         <span class="model-picker-option-description">@model.ShortDescription</span>
+                        @* Marked here rather than only after the fact, so the
+                           choice can be made knowing the consequence. Still
+                           selectable: the conversation may shrink, and the
+                           estimate is the previous turn's, not a measurement of
+                           the request about to be sent. *@
+                        @if (model.WouldOverflow(EstimatedContextTokens))
+                        {
+                            <span class="model-picker-option-warning">
+                                Samtalen er trolig for lang for denne modellen
+                            </span>
+                        }
                     </button>
                 </li>
             }

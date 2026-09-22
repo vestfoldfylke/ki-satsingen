@@ -21,6 +21,11 @@ public sealed partial class ModelPicker : ComponentBase
     [Parameter]
     public bool IsBusy { get; set; }
 
+    // Null when no turn has reported usage, in which case no model is marked —
+    // see ChatModel.WouldOverflow.
+    [Parameter]
+    public long? EstimatedContextTokens { get; set; }
+
     // The visible label is the model's name alone, which says nothing about what
     // the control does. Screen readers get the whole sentence.
     private string TriggerLabel => $"Språkmodell: {Selected.DisplayName}. Velg en annen.";
