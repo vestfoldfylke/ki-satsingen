@@ -1,0 +1,13 @@
+@* Reads as a heading for the turns below it, not as something that happened at
+   this instant — which is why it says who answers rather than that a button was
+   pressed. Rendered by UserBubble, above the question it heads. *@
+<div class="model-boundary" role="separator" aria-label="@($"Herfra svarer {ModelDisplayName}")">
+    <span class="model-boundary-line" aria-hidden="true"></span>
+    <span class="model-boundary-text">@ModelDisplayName svarer herfra</span>
+    <span class="model-boundary-line" aria-hidden="true"></span>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string ModelDisplayName { get; set; }
+}

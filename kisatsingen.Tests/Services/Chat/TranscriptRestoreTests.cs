@@ -210,7 +210,9 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     {
         var chat = await Repo.GetChatAsync(OwnerId, chatId);
 
-        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce, NullLogger.Instance);
+        // Names the key back to itself: these tests are about the merge, not about
+        // the catalogue, and a pass-through keeps stored keys visible in assertions.
+        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce, key => key.Value, NullLogger.Instance);
     }
 
     private static StoredMessage Message(string role, string content) => new()

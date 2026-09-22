@@ -36,6 +36,10 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback<ChatModelKey> OnSelectModel { get; set; }
 
+    // Null unless a switch is waiting to take effect; see ChatSession.PendingModel.
+    [Parameter]
+    public ChatModel? PendingModel { get; set; }
+
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the
     // caret. The page calls this afterwards to put focus back.

@@ -77,29 +77,38 @@ public sealed class ChatSessionModelPersistenceTests
     }
 
     [Fact]
-    public async Task Switching_model_in_a_started_chat_is_recorded_as_an_event()
+    public async Task A_switch_that_has_not_taken_effect_yet_is_reported_as_pending()
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("hei");
 
         await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
 
-        var recorded = Assert.Single(harness.Repository.AppendedEvents);
-        Assert.Equal(ChatEventKind.ModelChanged, recorded.Kind);
-        Assert.Contains("Large", recorded.Detail ?? string.Empty, StringComparison.Ordinal);
+        Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.PendingModel?.Key);
     }
 
-    // Nothing to contrast with and no row to write against. The entry would live
-    // in memory and disappear on the next reload, which is worse than no entry.
     [Fact]
-    public async Task Switching_model_before_the_first_message_records_nothing()
+    public async Task A_switch_stops_being_pending_once_a_turn_has_run_on_it()
+    {
+        await using var harness = new ChatSessionHarness();
+        await harness.Session.SendAsync("hei");
+        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
+
+        await harness.Session.SendAsync("hei igjen");
+
+        Assert.Null(harness.Session.PendingModel);
+    }
+
+    // There is no previous model to contrast with, so nothing is pending — the
+    // picker's own label already says what will answer.
+    [Fact]
+    public async Task Nothing_is_pending_before_the_first_answer()
     {
         await using var harness = new ChatSessionHarness();
 
         await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
 
-        Assert.Empty(harness.Repository.AppendedEvents);
-        Assert.Empty(harness.Session.Committed);
+        Assert.Null(harness.Session.PendingModel);
     }
 
     private static ChatEntity ChatAnsweredBy(string? modelKey) => new()

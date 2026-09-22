@@ -1,5 +1,14 @@
+/* Load-bearing: .ds-dropdown is `position: absolute; inset: 0 auto auto 0`, and
+   Designsystemet's script moves it into place with `style.translate` once the
+   popover opens. Without a positioned ancestor here the panel's containing block
+   is .page, so its untranslated origin is the top-left corner of the whole app —
+   it paints over the sidebar for a frame before the script runs, and its
+   translated box can push past .page's 100dvh and raise a document scrollbar.
+   Anchoring it to the picker makes the pre-translate position already correct.
+   Floating UI reads the offset parent, so it keeps positioning correctly. */
 .model-picker {
     display: inline-flex;
+    position: relative;
 }
 
 /* Matches .composer-icon-button's visual language rather than .ds-button: it

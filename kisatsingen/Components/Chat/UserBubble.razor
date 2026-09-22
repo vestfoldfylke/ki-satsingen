@@ -1,5 +1,11 @@
 @using kisatsingen.Services.Chat
 
+@* Both are flex children of .chat-log-inner: the notice stretches full width
+   while the bubble keeps its align-self: flex-end. *@
+@if (Bubble.ModelChangedTo is { } model)
+{
+    <ModelBoundaryNotice ModelDisplayName="@model" />
+}
 <div class="user-bubble">@Bubble.Text</div>
 
 @code {

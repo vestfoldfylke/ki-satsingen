@@ -108,5 +108,5 @@ public sealed class TranscriptProjectionTests
         new(Guid.NewGuid(), ChatEventKind.Stopped, null, DateTimeOffset.UtcNow);
 
     private static TurnMetadata Metadata(string modelId, DateTimeOffset createdAt) =>
-        new(modelId, null, null, null, null, null, createdAt, null);
+        new(modelId, null, null, null, null, null, null, null, createdAt, null);
 }

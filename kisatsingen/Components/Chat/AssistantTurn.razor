@@ -53,7 +53,9 @@
                 @if (meta.ModelId is { } model)
                 {
                     <dt>Model</dt>
-                    <dd>@model</dd>
+                    @* The friendly name first when there is one: the provider id is
+                       the precise answer, but it is not the one that was chosen. *@
+                    <dd>@(meta.ModelDisplayName is { } friendly ? $"{friendly} ({model})" : model)</dd>
                 }
                 @if (meta.ResponseId is { } responseId)
                 {

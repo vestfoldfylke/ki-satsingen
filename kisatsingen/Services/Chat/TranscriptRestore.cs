@@ -17,10 +17,16 @@ internal static class TranscriptRestore
     // The logger is passed rather than resolved so this stays a function of its
     // arguments. It is only reached when a stored message's contents cannot be
     // read; see ChatMessageMapper.FromEntity.
+    //
+    // resolveModelName is passed for the same reason — naming a stored model key
+    // needs the catalogue, and taking the catalogue itself would make this
+    // untestable without one. It must answer for keys that are no longer
+    // registered: a chat outlives the models that answered it.
     public static IReadOnlyList<TranscriptEntry> Build(
         IReadOnlyList<StoredMessage> messages,
         IReadOnlyList<ChatEvent> events,
         string systemPromptInForce,
+        Func<ChatModelKey, string> resolveModelName,
         ILogger logger)
     {
         var entries = new List<TranscriptEntry>(messages.Count + events.Count);
@@ -39,7 +45,7 @@ internal static class TranscriptRestore
             if (takeMessage)
             {
                 var stored = messages[messageIndex++];
-                entries.Add(BuildMessageEntry(stored, ref currentSnapshot, logger));
+                entries.Add(BuildMessageEntry(stored, ref currentSnapshot, resolveModelName, logger));
                 continue;
             }
 
@@ -50,7 +56,11 @@ internal static class TranscriptRestore
         return entries;
     }
 
-    private static MessageEntry BuildMessageEntry(StoredMessage stored, ref string currentSnapshot, ILogger logger)
+    private static MessageEntry BuildMessageEntry(
+        StoredMessage stored,
+        ref string currentSnapshot,
+        Func<ChatModelKey, string> resolveModelName,
+        ILogger logger)
     {
         var role = new ChatRole(stored.Role);
 
@@ -61,8 +71,12 @@ internal static class TranscriptRestore
         }
         else if (role == ChatRole.Assistant)
         {
+            var modelKey = stored.ModelKey is { } storedKey ? new ChatModelKey(storedKey) : (ChatModelKey?)null;
+
             metadata = new TurnMetadata(
                 stored.ModelId,
+                modelKey,
+                modelKey is { } key ? resolveModelName(key) : null,
                 stored.ResponseId,
                 stored.FinishReason,
                 MessageUsage.FromEntity(stored),

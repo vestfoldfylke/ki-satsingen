@@ -19,11 +19,5 @@ public enum ChatEventKind
     // The Blazor circuit was lost mid-turn (tab closed, network drop). Not a
     // user-initiated stop — kept apart from Stopped so the reload transcript
     // does not tell the user they pressed a button they did not.
-    Disconnected,
-
-    // The user switched language model partway through a chat. The only kind here
-    // that is not the end of a turn: it marks the boundary between turns answered
-    // by different models, so a reloaded transcript explains why the voice changes
-    // rather than leaving it to be noticed.
-    ModelChanged
+    Disconnected
 }

@@ -38,6 +38,11 @@ public sealed class ChatSession : IAsyncDisposable
     // touch the turn in flight — it takes effect on the following one.
     private ChatModel _selectedModel;
 
+    // The model that produced the most recent answer, or null when nothing has
+    // answered yet or the model that did is no longer in the catalogue. What the
+    // selection is compared against to know a switch is still pending.
+    private ChatModel? _lastAnsweredModel;
+
     // The cancellation state of the turn in flight, or null when there is none.
     // Cancel() and the disconnect callbacks reach the live turn through this;
     // both no-op on a null read, which is what makes a stop arriving between
@@ -74,6 +79,16 @@ public sealed class ChatSession : IAsyncDisposable
 
     public ChatModel SelectedModel => _selectedModel;
 
+    // The model the next turn will use, when that differs from the one that
+    // answered last — the composer says so, because a switch produces nothing
+    // visible until a turn actually runs on it. Null when there is nothing
+    // pending, including on a chat that has not been answered yet: there is no
+    // previous model to contrast with, and the picker already reads "Kompleks".
+    public ChatModel? PendingModel =>
+        _lastAnsweredModel is { } answered && answered.Key != _selectedModel.Key
+            ? _selectedModel
+            : null;
+
     // Async because the allow-list is a function of who is asking. Today every
     // signed-in user gets the whole catalogue, so callers may cache the result for
     // as long as the circuit lives.
@@ -106,38 +121,12 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        var previous = _selectedModel;
+        // No write of any kind: the switch is state, and the transcript derives the
+        // boundary from the ModelKey the turns either side of it record. Keeping
+        // this free of I/O is what makes switching mid-stream safe — there is
+        // nothing to order against a turn that is still running.
         _selectedModel = model;
-
-        // Only once the chat exists. Switching before the first message has no
-        // preceding turn to contrast with, and there is no row to write the event
-        // against — it would sit in memory and vanish on the next reload.
-        if (_currentChatId is not null)
-        {
-            await RecordModelChangeAsync(previous, model);
-        }
-
         Notify();
-    }
-
-    // Written with the display names rather than the keys, for the same reason
-    // Chat.AssistantNameSnapshot is: the transcript has to keep reading correctly
-    // after a model is renamed, repointed or dropped from the catalogue.
-    private async Task RecordModelChangeAsync(ChatModel from, ChatModel to)
-    {
-        var detail = $"Byttet språkmodell: {from.DisplayName} → {to.DisplayName}";
-
-        try
-        {
-            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            await RecordTurnEventAsync(userObjectId, ChatEventKind.ModelChanged, detail);
-        }
-        // The switch has already happened in memory; failing to annotate it must
-        // not undo it or surface as an error the user cannot act on.
-        catch (UserNotAuthenticatedException ex)
-        {
-            _logger.LogWarning(ex, "Could not record a model change for chat {ChatId}.", _currentChatId);
-        }
     }
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
@@ -175,6 +164,7 @@ public sealed class ChatSession : IAsyncDisposable
         _effectiveSystemPrompt = DefaultSystemPrompt;
 
         _selectedModel = _catalog.Default;
+        _lastAnsweredModel = null;
 
         if (chatId is Guid id)
         {
@@ -184,21 +174,23 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, _logger));
-                _selectedModel = ResumeModel(chat.Messages);
+                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, ResolveModelName, _logger));
+
+                // Reopening resumes on whatever answered last, so continuing a
+                // conversation does not silently change who is answering it.
+                _lastAnsweredModel = FindLastAnsweredModel(chat.Messages);
+                _selectedModel = _lastAnsweredModel ?? _catalog.Default;
             }
         }
 
         Notify();
     }
 
-    // A reopened chat resumes on the model it was last answered by, so continuing
-    // a conversation does not silently change who is answering it.
-    //
-    // Falls back to the default rather than failing when the stored key names a
-    // model that has since been removed or renamed: the chat is still readable and
-    // still worth continuing, just not on that model.
-    private ChatModel ResumeModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
+    // Null when nothing has answered yet, when the rows predate the picker, or
+    // when the model that answered has since left the catalogue. All three mean
+    // the same thing to every caller: there is no previous model to resume or to
+    // contrast the selection against.
+    private ChatModel? FindLastAnsweredModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
     {
         for (var index = messages.Count - 1; index >= 0; index--)
         {
@@ -218,11 +210,17 @@ public sealed class ChatSession : IAsyncDisposable
                 storedKey,
                 _catalog.Default.Key);
 
-            return _catalog.Default;
+            return null;
         }
 
-        return _catalog.Default;
+        return null;
     }
+
+    // A key can outlive the model it named, so this always answers. The key itself
+    // is the fallback: it is at least what the row says, which beats an empty
+    // divider or the name of a different model.
+    private string ResolveModelName(ChatModelKey key) =>
+        _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
     // Sync clear for when the currently-open chat has just been deleted out
     // from under this session — there is nothing to load, so callers do not
@@ -234,6 +232,7 @@ public sealed class ChatSession : IAsyncDisposable
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
         _selectedModel = _catalog.Default;
+        _lastAnsweredModel = null;
         Notify();
     }
 
@@ -518,6 +517,8 @@ public sealed class ChatSession : IAsyncDisposable
                     : null;
                 metadata = new TurnMetadata(
                     response.ModelId,
+                    modelForThisTurn.Key,
+                    modelForThisTurn.DisplayName,
                     response.ResponseId,
                     response.FinishReason?.Value,
                     usage,
@@ -534,6 +535,10 @@ public sealed class ChatSession : IAsyncDisposable
         var chatId = _currentChatId!.Value;
         await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
         _chatManager.MarkTouched(chatId, now);
+
+        // Set only once the answer is saved. A turn that broke did not answer, so
+        // a pending switch stays pending rather than being marked as taken effect.
+        _lastAnsweredModel = modelForThisTurn;
 
         // Counted last, after the write that makes the turn real. Counting it on
         // entry instead would let one attempt land on two Results — Success, then

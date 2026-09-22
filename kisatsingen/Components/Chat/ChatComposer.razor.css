@@ -106,6 +106,13 @@
     cursor: not-allowed;
 }
 
+.composer-pending-model {
+    margin: 0;
+    font-size: 0.75rem;
+    color: #64748b;
+    white-space: nowrap;
+}
+
 .chat-footer {
     margin: 0;
     text-align: center;

@@ -22,6 +22,17 @@
                              OnSelect="OnSelectModel"
                              IsBusy="IsBusy" />
             }
+            @* The only feedback a switch produces until a turn runs on it. Stated
+               as what will happen rather than what was clicked, so it stays true
+               for as long as it is shown — and disappears by becoming a boundary
+               in the transcript once the next answer arrives.
+
+               aria-live because nothing else announces the change: the picker's
+               own label updates silently. *@
+            @if (PendingModel is { } pending)
+            {
+                <p class="composer-pending-model" aria-live="polite">Neste svar: @pending.DisplayName</p>
+            }
         </div>
         <div class="composer-actions-right">
             @* Stop is Blazor-owned: its only signal is IsBusy, which the server

@@ -10,12 +10,18 @@ internal static class TranscriptProjection
         var views = new List<ChatItemView>();
         List<MessageEntry>? openTurn = null;
 
+        // The model that answered the previous turn, and where the question that
+        // opened the current one sits — see UserBubbleView.ModelChangedTo.
+        ChatModelKey? previousTurnModel = null;
+        var openingQuestionIndex = -1;
+
         foreach (var entry in entries)
         {
             switch (entry)
             {
                 case MessageEntry { IsUser: true } user:
                     Flush();
+                    openingQuestionIndex = views.Count;
                     views.Add(new UserBubbleView(user.ViewId, user.Message.Text ?? string.Empty));
                     break;
 
@@ -43,8 +49,29 @@ internal static class TranscriptProjection
                 return;
             }
 
-            views.Add(BuildTurnView(openTurn));
+            var turnView = BuildTurnView(openTurn);
+            views.Add(turnView);
+
+            // Which model answered is only known now, after the turn closed, so the
+            // question it belongs to is annotated in place. Both sides have to be
+            // known: a null on either means the rows predate the picker, not that
+            // the model changed.
+            if (turnView.Metadata?.ModelKey is { } answeringModel)
+            {
+                var changed = previousTurnModel is { } earlier && earlier != answeringModel;
+                previousTurnModel = answeringModel;
+
+                if (changed && openingQuestionIndex >= 0 && views[openingQuestionIndex] is UserBubbleView question)
+                {
+                    views[openingQuestionIndex] = question with
+                    {
+                        ModelChangedTo = turnView.Metadata.ModelDisplayName ?? answeringModel.Value
+                    };
+                }
+            }
+
             openTurn = null;
+            openingQuestionIndex = -1;
         }
     }
 
