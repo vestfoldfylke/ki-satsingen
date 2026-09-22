@@ -26,12 +26,15 @@
   "OpenAI": {
     "ApiKey": "sk-proj-...."
   },
+  "Mistral": {
+    "ApiKey": "kijoij..."
+  },
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=kisatsingen_web_app;Password=kisatsingen_web_app_local_dev_pass;SSL Mode=Prefer;Trust Server Certificate=true",
     "MigrationConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=local_user;Password=local_password;SSL Mode=Prefer;Trust Server Certificate=true"
   },
   "KnowledgeFile": {
-    "MaxEstimatedTokenCount": 500000
+    "MaxEstimatedTokenCount": "500000"
   }
 }
 ```
