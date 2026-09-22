@@ -1,8 +1,11 @@
+using kisatsingen.AIFunctions;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Security.Claims;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.JSInterop;
@@ -34,6 +37,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
     public FakeChatClient Client { get; } = new();
+    public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
     public ChatSession Session { get; }
 
@@ -41,10 +45,11 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public ChatSessionHarness()
     {
+        Catalog = new FakeChatModelCatalog(Client);
         Manager = new ChatManager(Authentication, Repository, NullLogger<ChatManager>.Instance);
         Session = new ChatSession(
             Authentication,
-            Client,
+            Catalog,
             Repository,
             Manager,
             Metrics,
@@ -66,6 +71,12 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 internal sealed class FakeAuthenticationService : IAuthenticationService
 {
     public Exception? Failure { get; set; }
+
+    // Authenticated but claimless. The catalogue ignores the principal today, and
+    // a test that cares about claims should build its own rather than have every
+    // other test carry them.
+    public Task<ClaimsPrincipal> GetUserAsync() =>
+        Task.FromResult(new ClaimsPrincipal(new ClaimsIdentity(authenticationType: "test")));
 
     public Task<string?> GetUserObjectIdentifierAsync() =>
         Task.FromResult<string?>(ChatSessionHarness.OwnerUnderTest);
@@ -196,6 +207,63 @@ internal sealed class FakeChatClient : IChatClient
     public void Dispose()
     {
     }
+}
+
+// Two models, both backed by the same fake client: these tests are about which
+// model the session picks and records, never about a second provider behaving
+// differently. A test that switches models asserts on the selection, not on a
+// different answer coming back.
+internal sealed class FakeChatModelCatalog : IChatModelCatalog
+{
+    public static readonly ChatModelKey DefaultKey = new("fast-under-test");
+    public static readonly ChatModelKey AlternativeKey = new("large-under-test");
+    public static readonly ChatModelKey UnknownKey = new("not-registered");
+
+    private readonly ChatModel[] _models;
+    private readonly Dictionary<ChatModelKey, ChatModelRuntime> _runtimes;
+
+    public FakeChatModelCatalog(IChatClient client)
+    {
+        _models = [Model(DefaultKey, "Fast"), Model(AlternativeKey, "Large")];
+        _runtimes = _models.ToDictionary(
+            model => model.Key,
+            model => new ChatModelRuntime(model, client, new ChatOptions { Tools = [.. ChatTools.All] }));
+
+        Default = _models[0];
+    }
+
+    public ChatModel Default { get; }
+
+    // Every key a turn actually resolved, in order. Since all the models here
+    // share one client, this is the only thing that can tell a test which model a
+    // turn ran on.
+    public List<ChatModelKey> ResolvedKeys { get; } = [];
+
+    public IReadOnlyList<ChatModel> ModelsFor(ClaimsPrincipal user) => _models;
+
+    public bool TryGet(ChatModelKey key, [MaybeNullWhen(false)] out ChatModel model)
+    {
+        model = _models.FirstOrDefault(candidate => candidate.Key == key);
+        return model is not null;
+    }
+
+    public ChatModelRuntime Resolve(ChatModelKey key)
+    {
+        ResolvedKeys.Add(key);
+        return _runtimes[key];
+    }
+
+    private static ChatModel Model(ChatModelKey key, string displayName) => new()
+    {
+        Key = key,
+        DisplayName = displayName,
+        ShortDescription = $"{displayName}, briefly",
+        LongDescription = $"{displayName}, at length",
+        Provider = "test",
+        ModelId = $"{key}-wire-id",
+        ContextWindowTokens = 128_000,
+        IconName = "test-icon"
+    };
 }
 
 // The model's side of a turn, in the three shapes these tests need.

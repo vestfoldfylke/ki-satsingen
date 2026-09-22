@@ -14,19 +14,10 @@ public sealed class ChatSession : IAsyncDisposable
 {
     private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
-    // A template, cloned per turn — never handed to a client as-is. ChatOptions is
-    // mutable, which is why it ships Clone(), and the instructions written onto it
-    // belong to one chat. Sharing a single instance would have every concurrent
-    // turn in the process overwriting each other's system prompt.
-    private static readonly ChatOptions OptionsTemplate = new()
-    {
-        Tools = [ChatTools.GetCurrentTimeUtcTool]
-    };
-
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_ChatSession";
 
     private readonly IAuthenticationService _authenticationService;
-    private readonly IChatClient _client;
+    private readonly IChatModelCatalog _catalog;
     private readonly IChatRepository _repo;
     private readonly ChatManager _chatManager;
     private readonly IMetricsService _metrics;
@@ -42,6 +33,11 @@ public sealed class ChatSession : IAsyncDisposable
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
+    // Which model the next turn will use. Read once at the top of SendAsync, the
+    // same way the system prompt is, so switching while a response streams cannot
+    // touch the turn in flight — it takes effect on the following one.
+    private ChatModel _selectedModel;
+
     // The cancellation state of the turn in flight, or null when there is none.
     // Cancel() and the disconnect callbacks reach the live turn through this;
     // both no-op on a null read, which is what makes a stop arriving between
@@ -52,7 +48,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public ChatSession(
         IAuthenticationService authenticationService,
-        IChatClient client,
+        IChatModelCatalog catalog,
         IChatRepository repo,
         ChatManager chatManager,
         IMetricsService metrics,
@@ -60,7 +56,8 @@ public sealed class ChatSession : IAsyncDisposable
         ILogger<ChatSession> logger)
     {
         _authenticationService = authenticationService;
-        _client = client;
+        _catalog = catalog;
+        _selectedModel = catalog.Default;
         _repo = repo;
         _chatManager = chatManager;
         _metrics = metrics;
@@ -74,6 +71,44 @@ public sealed class ChatSession : IAsyncDisposable
     public bool HasVisibleMessages => _entries.Count > 0 || _streamingId is not null;
 
     public Guid? StreamingId => _streamingId;
+
+    public ChatModel SelectedModel => _selectedModel;
+
+    // Async because the allow-list is a function of who is asking. Today every
+    // signed-in user gets the whole catalogue, so callers may cache the result for
+    // as long as the circuit lives.
+    public async Task<IReadOnlyList<ChatModel>> GetAvailableModelsAsync()
+    {
+        var user = await _authenticationService.GetUserAsync();
+        return _catalog.ModelsFor(user);
+    }
+
+    // The key arrives from the browser, so it is re-checked against this user's
+    // allow-list rather than looked up in the catalogue directly. That check is
+    // meaningless today and has to be here anyway: the moment a model becomes
+    // role-gated, every path that skipped it becomes the way around it.
+    public async Task SelectModelAsync(ChatModelKey key)
+    {
+        var available = await GetAvailableModelsAsync();
+        var model = available.FirstOrDefault(candidate => candidate.Key == key);
+
+        if (model is null)
+        {
+            _logger.LogWarning(
+                "Refused to switch chat {ChatId} to model {ModelKey}: not in this user's available models.",
+                _currentChatId,
+                key);
+            return;
+        }
+
+        if (model.Key == _selectedModel.Key)
+        {
+            return;
+        }
+
+        _selectedModel = model;
+        Notify();
+    }
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 
@@ -109,6 +144,10 @@ public sealed class ChatSession : IAsyncDisposable
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
 
+        // Opening a chat starts it on the default model. Resuming the model the
+        // chat was last using needs ChatMessage.ModelKey, which does not exist yet.
+        _selectedModel = _catalog.Default;
+
         if (chatId is Guid id)
         {
             var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
@@ -133,6 +172,7 @@ public sealed class ChatSession : IAsyncDisposable
         _streamingId = null;
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
+        _selectedModel = _catalog.Default;
         Notify();
     }
 
@@ -162,11 +202,16 @@ public sealed class ChatSession : IAsyncDisposable
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var systemPromptForThisTurn = _effectiveSystemPrompt;
 
+            // Captured alongside the prompt, and for the same reason: both may
+            // change while this turn runs, and a turn that started on one model
+            // must finish on it.
+            var modelForThisTurn = _selectedModel;
+
             stage = TurnStage.SavingMessage;
             var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, turn.Token);
 
             stage = TurnStage.Generating;
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, turn.Token);
+            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, modelForThisTurn, systemPromptForThisTurn, turn.Token);
 
             stage = TurnStage.SavingResponse;
             await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
@@ -320,7 +365,11 @@ public sealed class ChatSession : IAsyncDisposable
         return streamId;
     }
 
-    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(Guid streamId, string systemPromptForThisTurn, CancellationToken ct)
+    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(
+        Guid streamId,
+        ChatModel modelForThisTurn,
+        string systemPromptForThisTurn,
+        CancellationToken ct)
     {
         var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
 
@@ -334,13 +383,15 @@ public sealed class ChatSession : IAsyncDisposable
 
         var request = TranscriptRequest.Build(_entries);
 
+        var runtime = _catalog.Resolve(modelForThisTurn.Key);
+
         // The system prompt rides on the options rather than the message list; see
         // TranscriptRequest. Same snapshot the turn is persisted with, so what the
         // model was told and what the transcript records can never drift apart.
-        var options = OptionsTemplate.Clone();
+        var options = runtime.CreateOptions();
         options.Instructions = systemPromptForThisTurn;
 
-        await foreach (var update in _client.GetStreamingResponseAsync(request, options, ct))
+        await foreach (var update in runtime.Client.GetStreamingResponseAsync(request, options, ct))
         {
             updates.Add(update);
             var offsetMs = elapsed.ElapsedMilliseconds;
