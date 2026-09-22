@@ -15,9 +15,7 @@ public sealed class ChatModelCatalogTests
     {
         using var catalog = Build([Definition(First), Definition(Second)], defaultKey: First);
 
-        var listed = catalog.ModelsFor(new System.Security.Claims.ClaimsPrincipal());
-
-        Assert.Equal([First, Second], listed.Select(model => model.Key));
+        Assert.Equal([First, Second], catalog.Models.Select(model => model.Key));
     }
 
     [Fact]

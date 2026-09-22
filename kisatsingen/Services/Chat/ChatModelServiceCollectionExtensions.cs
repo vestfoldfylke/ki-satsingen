@@ -117,8 +117,7 @@ internal static class ChatModelServiceCollectionExtensions
         ILogger logger,
         ChatModel model,
         string configurationPath,
-        Func<string, Func<IServiceProvider, IChatClient>> createClientFactory,
-        ChatOptions? template = null)
+        Func<string, Func<IServiceProvider, IChatClient>> createClientFactory)
     {
         var providerCredential = configuration[configurationPath];
         if (string.IsNullOrWhiteSpace(providerCredential))
@@ -131,18 +130,13 @@ internal static class ChatModelServiceCollectionExtensions
             return;
         }
 
-        definitions.Add(new ChatModelDefinition(model, createClientFactory(providerCredential), WithTools(template)));
+        definitions.Add(new ChatModelDefinition(model, createClientFactory(providerCredential), WithTools()));
     }
 
     // Every registration goes through here, so a model cannot reach the catalogue
     // without its tools. See ChatTools.All for why that is an invariant rather than
     // a per-model setting.
-    private static ChatOptions WithTools(ChatOptions? template)
-    {
-        var options = template?.Clone() ?? new ChatOptions();
-        options.Tools = [.. ChatTools.All];
-        return options;
-    }
+    private static ChatOptions WithTools() => new() { Tools = [.. ChatTools.All] };
 
     // OpenAI and Mistral both speak OpenAI-compatible chat completions, so they
     // share this. A provider that does not — Anthropic — brings its own factory

@@ -68,10 +68,13 @@ public sealed partial class ChatComposer : ComponentBase
                 await JS.InvokeVoidAsync("chatClient.initComposer");
             }
 
-            // This component re-renders on every streamed token (the page
-            // re-renders as a whole while a response streams in), but IsBusy
-            // itself only flips twice per turn — only push it to JS when it
-            // actually changes, not on every render.
+            // The parent re-renders this component on every ChatSession state
+            // change — turn start, turn end, model select, load, reset — but
+            // IsBusy itself only flips on turn start and end. Guard the JS push
+            // so a model-select or load re-render does not repeat the state the
+            // client already has. (Streaming does not enter this path at all:
+            // tokens flow through ChatClientChannel's JS interop, never through
+            // Blazor state.)
             if (firstRender || IsBusy != _previousIsBusy)
             {
                 var completingTurn = _previousIsBusy == true && !IsBusy;

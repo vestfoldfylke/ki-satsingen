@@ -89,23 +89,20 @@ public sealed class ChatSession : IAsyncDisposable
             ? _selectedModel
             : null;
 
-    // Async because the allow-list is a function of who is asking. Today every
-    // signed-in user gets the whole catalogue, so callers may cache the result for
-    // as long as the circuit lives.
-    public async Task<IReadOnlyList<ChatModel>> GetAvailableModelsAsync()
-    {
-        var user = await _authenticationService.GetUserAsync();
-        return _catalog.ModelsFor(user);
-    }
+    // The allow-list. Reads the catalogue directly — no I/O, no auth round-trip
+    // — because every signed-in user gets every catalogued model today. When
+    // per-user gating lands, this becomes the one place a user context is
+    // threaded through (and Default is redesigned alongside it — see
+    // IChatModelCatalog).
+    public IReadOnlyList<ChatModel> AvailableModels => _catalog.Models;
 
-    // The key arrives from the browser, so it is re-checked against this user's
+    // The key arrives from the browser, so it is re-checked against the
     // allow-list rather than looked up in the catalogue directly. That check is
     // meaningless today and has to be here anyway: the moment a model becomes
     // role-gated, every path that skipped it becomes the way around it.
-    public async Task SelectModelAsync(ChatModelKey key)
+    public Task SelectModelAsync(ChatModelKey key)
     {
-        var available = await GetAvailableModelsAsync();
-        var model = available.FirstOrDefault(candidate => candidate.Key == key);
+        var model = AvailableModels.FirstOrDefault(candidate => candidate.Key == key);
 
         if (model is null)
         {
@@ -113,12 +110,12 @@ public sealed class ChatSession : IAsyncDisposable
                 "Refused to switch chat {ChatId} to model {ModelKey}: not in this user's available models.",
                 _currentChatId,
                 key);
-            return;
+            return Task.CompletedTask;
         }
 
         if (model.Key == _selectedModel.Key)
         {
-            return;
+            return Task.CompletedTask;
         }
 
         // No write of any kind: the switch is state, and the transcript derives the
@@ -127,6 +124,7 @@ public sealed class ChatSession : IAsyncDisposable
         // nothing to order against a turn that is still running.
         _selectedModel = model;
         Notify();
+        return Task.CompletedTask;
     }
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);

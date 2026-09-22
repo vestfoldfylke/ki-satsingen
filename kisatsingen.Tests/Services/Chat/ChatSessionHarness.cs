@@ -243,7 +243,7 @@ internal sealed class FakeChatModelCatalog : IChatModelCatalog
     // turn ran on.
     public List<ChatModelKey> ResolvedKeys { get; } = [];
 
-    public IReadOnlyList<ChatModel> ModelsFor(ClaimsPrincipal user) => _models;
+    public IReadOnlyList<ChatModel> Models => _models;
 
     public bool TryGet(ChatModelKey key, [MaybeNullWhen(false)] out ChatModel model)
     {

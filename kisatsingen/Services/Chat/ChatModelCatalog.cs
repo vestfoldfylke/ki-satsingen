@@ -1,5 +1,4 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Security.Claims;
 
 namespace kisatsingen.Services.Chat;
 
@@ -80,9 +79,7 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
 
     public ChatModel Default { get; }
 
-    // The user is ignored for now — every signed-in user may use every model. See
-    // IChatModelCatalog for why the parameter is here anyway.
-    public IReadOnlyList<ChatModel> ModelsFor(ClaimsPrincipal user) => _models;
+    public IReadOnlyList<ChatModel> Models => _models;
 
     public bool TryGet(ChatModelKey key, [MaybeNullWhen(false)] out ChatModel model)
     {
@@ -100,7 +97,7 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
         _byKey.TryGetValue(key, out var runtime)
             ? runtime
             : throw new InvalidOperationException(
-                $"No chat model is registered under the key '{key}'. Check the key against ModelsFor before resolving it — a key read back from a client or from storage may name a model that has since been removed.");
+                $"No chat model is registered under the key '{key}'. Check the key against Models before resolving it — a key read back from a client or from storage may name a model that has since been removed.");
 
     public void Dispose()
     {
