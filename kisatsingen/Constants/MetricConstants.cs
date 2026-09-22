@@ -6,6 +6,12 @@ public static class MetricConstants
 
     public static string MetricsModelLabelName => "Model";
 
+    // Our catalogue key, reported alongside Model. Model is whatever the provider
+    // says it served, which changes under us when a provider rolls a dated build;
+    // this one is stable, so it is the label to group a dashboard by. Both are
+    // kept: only the provider's answers what actually ran.
+    public static string MetricsModelKeyLabelName => "ModelKey";
+
     // Reported when the model that served a turn is not known — a turn that was
     // stopped or failed before a response came back.
     public static string MetricsModelUnknownLabelValue => "unknown";

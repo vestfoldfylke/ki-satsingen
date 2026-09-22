@@ -29,6 +29,18 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
 
+    // Which models this user may pick from. Read once per circuit: the catalogue
+    // is fixed at startup and the allow-list depends only on the signed-in user,
+    // neither of which changes while the page is open.
+    private IReadOnlyList<ChatModel> _availableModels = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _availableModels = await Session.GetAvailableModelsAsync();
+    }
+
+    private Task SelectModelAsync(ChatModelKey key) => Session.SelectModelAsync(key);
+
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)

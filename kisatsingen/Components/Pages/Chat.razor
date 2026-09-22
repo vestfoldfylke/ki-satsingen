@@ -65,7 +65,10 @@
                     <ChatComposer @ref="_composer"
                                   IsBusy="Session.IsBusy"
                                   OnSend="SendAsync"
-                                  OnStop="Stop" />
+                                  OnStop="Stop"
+                                  Models="_availableModels"
+                                  SelectedModel="Session.SelectedModel"
+                                  OnSelectModel="SelectModelAsync" />
                 </div>
             </div>
         }
@@ -88,7 +91,10 @@
                 <ChatComposer @ref="_composer"
                               IsBusy="Session.IsBusy"
                               OnSend="SendAsync"
-                              OnStop="Stop" />
+                              OnStop="Stop"
+                              Models="_availableModels"
+                              SelectedModel="Session.SelectedModel"
+                              OnSelectModel="SelectModelAsync" />
             </div>
         }
     </div>

@@ -1,3 +1,4 @@
+using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -22,6 +23,18 @@ public sealed partial class ChatComposer : ComponentBase
 
     [Parameter]
     public EventCallback OnStop { get; set; }
+
+    // Empty until the page has read the catalogue, which it does asynchronously —
+    // so this renders one frame without a picker rather than blocking the composer
+    // on a round trip the user is not waiting for.
+    [Parameter]
+    public IReadOnlyList<ChatModel> Models { get; set; } = [];
+
+    [Parameter]
+    public ChatModel? SelectedModel { get; set; }
+
+    [Parameter]
+    public EventCallback<ChatModelKey> OnSelectModel { get; set; }
 
     // The page switches between an empty-state layout and the scrolling
     // transcript layout, which rebuilds this component's DOM and drops the

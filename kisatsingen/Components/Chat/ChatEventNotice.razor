@@ -18,6 +18,9 @@
         ChatEventKind.Stopped => "Generering stoppet",
         ChatEventKind.Failed => "Noe gikk galt under generering",
         ChatEventKind.Disconnected => "Tilkoblingen ble brutt under generering",
+        // Reached only for rows whose detail failed to save — the switch itself
+        // always writes which models it was between.
+        ChatEventKind.ModelChanged => "Språkmodellen ble endret",
         _ => "Ukjent hendelse"
     };
 }

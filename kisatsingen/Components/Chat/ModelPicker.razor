@@ -1,0 +1,57 @@
+@using kisatsingen.Services.Chat
+
+<div class="model-picker">
+    <button class="model-picker-trigger"
+            type="button"
+            popovertarget="@PopoverId"
+            aria-haspopup="menu"
+            aria-label="@TriggerLabel">
+        <span class="model-picker-trigger-name">@Selected.DisplayName</span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"/>
+        </svg>
+    </button>
+
+    @* data-placement is Designsystemet's; the menu opens upwards because the
+       composer sits at the bottom of the viewport. *@
+    <div id="@PopoverId" class="ds-dropdown model-picker-menu" popover="auto" data-placement="top-start">
+        <ul class="model-picker-list" role="menu" aria-label="Velg språkmodell">
+            @foreach (var model in Models)
+            {
+                var isSelected = model.Key == Selected.Key;
+                <li @key="model.Key" role="none">
+                    @* popovertargetaction="hide" is what closes the menu on pick:
+                       a click inside popover="auto" does not dismiss it by itself,
+                       and doing it this way needs no JS interop. *@
+                    <button type="button"
+                            class="model-picker-option"
+                            role="menuitemradio"
+                            aria-checked="@isSelected"
+                            popovertarget="@PopoverId"
+                            popovertargetaction="hide"
+                            title="@model.LongDescription"
+                            @onclick="() => OnSelect.InvokeAsync(model.Key)">
+                        <span class="model-picker-option-heading">
+                            <span class="model-picker-option-name">@model.DisplayName</span>
+                            @if (isSelected)
+                            {
+                                <svg class="model-picker-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                            }
+                        </span>
+                        <span class="model-picker-option-description">@model.ShortDescription</span>
+                    </button>
+                </li>
+            }
+        </ul>
+
+        @* Switching mid-turn is allowed — the running turn keeps its own model —
+           so the menu says when the choice takes effect rather than going
+           disabled and leaving the user to guess. *@
+        @if (IsBusy)
+        {
+            <p class="model-picker-hint">Et svar genereres nå. Byttet gjelder fra neste melding.</p>
+        }
+    </div>
+</div>

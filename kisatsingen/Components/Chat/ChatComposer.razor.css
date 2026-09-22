@@ -43,6 +43,7 @@
     gap: 0.5rem;
 }
 
+.composer-actions-left,
 .composer-actions-right {
     display: flex;
     align-items: center;

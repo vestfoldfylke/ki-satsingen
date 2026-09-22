@@ -64,9 +64,12 @@ internal static class ChatMessageMapper
         SystemPromptSnapshot = systemPromptSnapshot
     };
 
+    // modelKey is ours, response.ModelId is the provider's; both are recorded
+    // because neither can be derived from the other. See ChatMessage.ModelKey.
     public static Data.Entities.ChatMessage ToEntity(
         ChatMessage message,
         ChatResponse response,
+        ChatModelKey modelKey,
         long durationMs,
         long? firstTokenMs,
         bool includeUsage)
@@ -80,6 +83,7 @@ internal static class ChatMessageMapper
             ContentsSchemaVersion = AiContentVersion,
             ResponseId = isAssistant ? response.ResponseId : null,
             ModelId = isAssistant ? response.ModelId : null,
+            ModelKey = isAssistant ? modelKey.Value : null,
             FinishReason = isAssistant ? response.FinishReason?.Value : null,
             InputTokens = isAssistant && includeUsage ? response.Usage?.InputTokenCount : null,
             OutputTokens = isAssistant && includeUsage ? response.Usage?.OutputTokenCount : null,
