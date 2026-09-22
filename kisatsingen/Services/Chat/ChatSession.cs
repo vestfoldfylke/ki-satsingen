@@ -14,7 +14,11 @@ public sealed class ChatSession : IAsyncDisposable
 {
     private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
-    private static readonly ChatOptions Options = new()
+    // A template, cloned per turn — never handed to a client as-is. ChatOptions is
+    // mutable, which is why it ships Clone(), and the instructions written onto it
+    // belong to one chat. Sharing a single instance would have every concurrent
+    // turn in the process overwriting each other's system prompt.
+    private static readonly ChatOptions OptionsTemplate = new()
     {
         Tools = [ChatTools.GetCurrentTimeUtcTool]
     };
@@ -328,9 +332,15 @@ public sealed class ChatSession : IAsyncDisposable
         var updates = new List<ChatResponseUpdate>();
         var cadence = new FlushCadence();
 
-        var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
+        var request = TranscriptRequest.Build(_entries);
 
-        await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
+        // The system prompt rides on the options rather than the message list; see
+        // TranscriptRequest. Same snapshot the turn is persisted with, so what the
+        // model was told and what the transcript records can never drift apart.
+        var options = OptionsTemplate.Clone();
+        options.Instructions = systemPromptForThisTurn;
+
+        await foreach (var update in _client.GetStreamingResponseAsync(request, options, ct))
         {
             updates.Add(update);
             var offsetMs = elapsed.ElapsedMilliseconds;

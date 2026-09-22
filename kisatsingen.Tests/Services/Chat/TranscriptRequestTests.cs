@@ -8,17 +8,17 @@ namespace kisatsingen.Tests.Services.Chat;
 
 public sealed class TranscriptRequestTests
 {
-    private const string SystemPrompt = "be helpful";
-
+    // The system prompt travels as ChatOptions.Instructions now. Building one here
+    // as well would send it twice — once as an instruction, once as a message the
+    // model reads as part of the conversation.
     [Fact]
-    public void The_system_prompt_is_prepended_to_the_conversation()
+    public void The_system_prompt_is_not_built_into_the_message_list()
     {
         var entries = new List<TranscriptEntry> { User("hei") };
 
-        var request = TranscriptRequest.Build(entries, SystemPrompt);
+        var request = TranscriptRequest.Build(entries);
 
-        Assert.Equal(ChatRole.System, request[0].Role);
-        Assert.Equal(SystemPrompt, request[0].Text);
+        Assert.DoesNotContain(request, message => message.Role == ChatRole.System);
     }
 
     // The reason events live in their own type at all. A leak here would send the
@@ -33,9 +33,9 @@ public sealed class TranscriptRequestTests
             User("hei igjen")
         };
 
-        var request = TranscriptRequest.Build(entries, SystemPrompt);
+        var request = TranscriptRequest.Build(entries);
 
-        Assert.Equal(["be helpful", "hei", "hei igjen"], request.Select(m => m.Text));
+        Assert.Equal(["hei", "hei igjen"], request.Select(m => m.Text));
     }
 
     [Fact]
@@ -48,19 +48,19 @@ public sealed class TranscriptRequestTests
             User("third")
         };
 
-        var request = TranscriptRequest.Build(entries, SystemPrompt);
+        var request = TranscriptRequest.Build(entries);
 
-        Assert.Equal(["be helpful", "first", "second", "third"], request.Select(m => m.Text));
+        Assert.Equal(["first", "second", "third"], request.Select(m => m.Text));
     }
 
     [Fact]
-    public void A_transcript_holding_only_events_produces_just_the_system_prompt()
+    public void A_transcript_holding_only_events_produces_no_messages()
     {
         var entries = new List<TranscriptEntry> { Stopped() };
 
-        var request = TranscriptRequest.Build(entries, SystemPrompt);
+        var request = TranscriptRequest.Build(entries);
 
-        Assert.Equal(ChatRole.System, Assert.Single(request).Role);
+        Assert.Empty(request);
     }
 
     private static MessageEntry User(string text) =>

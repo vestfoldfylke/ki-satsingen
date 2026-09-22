@@ -166,10 +166,24 @@ internal sealed class FakeChatClient : IChatClient
     public Func<CancellationToken, IAsyncEnumerable<ChatResponseUpdate>> OnStream { get; set; } =
         _ => ModelStream.Answering("Hei");
 
+    // What the last turn actually asked for. The system prompt no longer travels
+    // in the message list, so the only way to assert on it is to keep the options
+    // the session built.
+    public ChatOptions? LastOptions { get; private set; }
+
+    public IReadOnlyList<AiMessage> LastMessages { get; private set; } = [];
+
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
         IEnumerable<AiMessage> messages,
         ChatOptions? options = null,
-        CancellationToken ct = default) => OnStream(ct);
+        CancellationToken ct = default)
+    {
+        // Materialised here: the session builds a fresh list per turn, but nothing
+        // in the contract says a caller could not hand over a lazy sequence.
+        LastMessages = messages.ToList();
+        LastOptions = options;
+        return OnStream(ct);
+    }
 
     public Task<ChatResponse> GetResponseAsync(
         IEnumerable<AiMessage> messages,
