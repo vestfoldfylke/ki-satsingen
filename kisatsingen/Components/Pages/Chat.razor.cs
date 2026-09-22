@@ -72,18 +72,18 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             if (Validator.CheckIfMessageContainsSsn(text))
             {
                 if(!await _inputPopup!.ShowPopupAsync(
-                    "Det ser ut som du har skrevet et personnummer i prompen!",
-                    "Heisann",
-                    InputPopup.PopupMode.Acknowledge)
+                    "Det ser ut som du har skrevet et personnummer i prompten!",
+                    "Er du sikker på at du vil sende dette til KI-en?",
+                    InputPopup.PopupMode.Confirm)
                     ) return;
             }
 
             if (Validator.CheckIfMessageContainsASpecificString(text, "pikk"))
             {
                 if(!await _inputPopup!.ShowPopupAsync(
-                    "Sikker på at du vil kalle meg en pikk?",
-                    "Heisann",
-                    InputPopup.PopupMode.Confirm)
+                    "Jeg ser du prøver å kalle meg en pikk..",
+                    "Dette er veldig sårende for meg, så helst la være...",
+                    InputPopup.PopupMode.Acknowledge)
                     ) return;
             }
 
