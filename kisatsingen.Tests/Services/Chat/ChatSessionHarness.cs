@@ -122,8 +122,12 @@ internal sealed class FakeChatRepository : IChatRepository
                 UpdatedAt = DateTimeOffset.UtcNow
             });
 
+    // What LoadAsync finds on disk. Null is the default because most of these
+    // tests start a chat rather than reopen one.
+    public ChatEntity? StoredChat { get; set; }
+
     public Task<ChatEntity?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default) =>
-        Task.FromResult<ChatEntity?>(null);
+        Task.FromResult(StoredChat);
 
     public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<ChatSummary>>([]);
