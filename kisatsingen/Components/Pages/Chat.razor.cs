@@ -11,6 +11,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required ChatSession Session { get; set; }
 
     [Inject]
+    public required MessageValidator Validator { get; set; }
+
+    [Inject]
     public required ILogger<Chat> Logger { get; set; }
 
     [Inject]
@@ -28,6 +31,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private bool _isSending;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
+
+    private InputPopup? _inputPopup;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -60,6 +65,26 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             if (string.IsNullOrWhiteSpace(text))
             {
                 return;
+            }
+
+            // Before sending to the AI, we need to validate if the message
+            // contains any sensitive information (personnummer)
+            if (Validator.CheckIfMessageContainsSsn(text))
+            {
+                if(!await _inputPopup!.ShowPopupAsync(
+                    "Det ser ut som du har skrevet et personnummer i prompten!",
+                    "Er du sikker på at du vil sende dette til KI-en?",
+                    InputPopup.PopupMode.Confirm)
+                    ) return;
+            }
+
+            if (Validator.CheckIfMessageContainsASpecificString(text, "pikk"))
+            {
+                if(!await _inputPopup!.ShowPopupAsync(
+                    "Jeg ser du prøver å kalle meg en pikk..",
+                    "Dette er veldig sårende for meg, så helst la være...",
+                    InputPopup.PopupMode.Acknowledge)
+                    ) return;
             }
 
             var wasNew = Session.ChatId is null;

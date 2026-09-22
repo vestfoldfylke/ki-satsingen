@@ -174,6 +174,7 @@ builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
+builder.Services.AddSingleton<MessageValidator>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
 var app = builder.Build();
