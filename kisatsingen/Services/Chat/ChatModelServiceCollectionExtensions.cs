@@ -14,6 +14,7 @@ namespace kisatsingen.Services.Chat;
 internal static class ChatModelServiceCollectionExtensions
 {
     private const string OpenAiConfigurationPath = "OpenAI:ApiKey";
+    private const string MistralConfigurationPath = "Mistral:ApiKey";
 
     // Not a secret and not environment-specific, so it lives here rather than in
     // configuration: it is a fact about who the provider is, the same as ModelId.
@@ -25,6 +26,10 @@ internal static class ChatModelServiceCollectionExtensions
     // https://api.openai.com/v1/chat/completions — and the .NET SDK has no
     // OPENAI_BASE_URL environment override that writing it here would shadow.
     private static readonly Uri OpenAiEndpoint = new("https://api.openai.com/v1");
+
+    // Mistral serves an OpenAI-compatible chat-completions API here, which is why
+    // it needs no adapter of its own — only a different endpoint and key.
+    private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
     private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.Fast;
 
@@ -42,6 +47,22 @@ internal static class ChatModelServiceCollectionExtensions
         ModelId = "gpt-4o-mini",
         ContextWindowTokens = 128_000,
         IconName = "placeholder-fast"
+    };
+
+    // PLACEHOLDER — display copy, context window and icon are all provisional.
+    private static readonly ChatModel LargeModel = new()
+    {
+        Key = ChatModelKeys.Large,
+        DisplayName = "Kompleks",
+        ShortDescription = "Grundigere. Passer når oppgaven krever resonnering.",
+        LongDescription =
+            "Bruker lengre tid, men holder bedre på tråden i sammensatte oppgaver: analyse av lange dokumenter, "
+            + "flersteg-resonnering og oppgaver der detaljene henger sammen. Velg den raske modellen til korte "
+            + "spørsmål — denne er tregere uten å svare bedre på dem.",
+        Provider = "Mistral",
+        ModelId = "mistral-large-latest",
+        ContextWindowTokens = 128_000,
+        IconName = "placeholder-large"
     };
 
     public static IServiceCollection AddChatModels(this IServiceCollection services)
@@ -73,7 +94,15 @@ internal static class ChatModelServiceCollectionExtensions
             logger,
             FastModel,
             OpenAiConfigurationPath,
-            providerKey => OpenAiCompatible(providerKey, OpenAiEndpoint, FastModel.ModelId));
+            providerCredential => OpenAiCompatible(providerCredential, OpenAiEndpoint, FastModel.ModelId));
+
+        AddIfConfigured(
+            definitions,
+            configuration,
+            logger,
+            LargeModel,
+            MistralConfigurationPath,
+            providerCredential => OpenAiCompatible(providerCredential, MistralEndpoint, LargeModel.ModelId));
 
         return definitions;
     }
@@ -91,8 +120,8 @@ internal static class ChatModelServiceCollectionExtensions
         Func<string, Func<IServiceProvider, IChatClient>> createClientFactory,
         ChatOptions? template = null)
     {
-        var providerKey = configuration[configurationPath];
-        if (string.IsNullOrWhiteSpace(providerKey))
+        var providerCredential = configuration[configurationPath];
+        if (string.IsNullOrWhiteSpace(providerCredential))
         {
             logger.LogWarning(
                 "Chat model '{ModelKey}' ({DisplayName}) is unavailable: configuration '{ConfigurationPath}' is missing or empty. Set it to offer this model in the picker.",
@@ -102,7 +131,7 @@ internal static class ChatModelServiceCollectionExtensions
             return;
         }
 
-        definitions.Add(new ChatModelDefinition(model, createClientFactory(providerKey), WithTools(template)));
+        definitions.Add(new ChatModelDefinition(model, createClientFactory(providerCredential), WithTools(template)));
     }
 
     // Every registration goes through here, so a model cannot reach the catalogue
@@ -128,13 +157,13 @@ internal static class ChatModelServiceCollectionExtensions
     // capturing the outgoing request body, the options value silently overrides
     // this one whenever both are present.
     private static Func<IServiceProvider, IChatClient> OpenAiCompatible(
-        string providerKey,
+        string providerCredential,
         Uri endpoint,
         string modelId)
     {
         var clientOptions = new OpenAIClientOptions { Endpoint = endpoint };
 
-        return serviceProvider => new OpenAIClient(new ApiKeyCredential(providerKey), clientOptions)
+        return serviceProvider => new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
             .GetChatClient(modelId)
             .AsIChatClient()
             .AsBuilder()

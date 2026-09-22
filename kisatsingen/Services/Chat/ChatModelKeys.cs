@@ -8,4 +8,6 @@ namespace kisatsingen.Services.Chat;
 public static class ChatModelKeys
 {
     public static readonly ChatModelKey Fast = new("fast");
+
+    public static readonly ChatModelKey Large = new("large");
 }
