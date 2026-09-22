@@ -298,6 +298,31 @@ internal static class ModelStream
         throw failure;
     }
 
+    // Answers, then hangs. The shape a stopped turn actually has: the user has
+    // read something and presses stop because they have what they needed.
+    public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringThenStalling(
+        string text,
+        TaskCompletionSource reached,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant, text);
+        reached.TrySetResult();
+        await Task.Delay(Timeout.Infinite, ct);
+    }
+
+    // Calls a tool and hangs before any result comes back, leaving an assistant
+    // message whose call nothing ever answered — the shape that would break every
+    // later request in the chat if it were stored. See PartialTurn.
+    public static async IAsyncEnumerable<ChatResponseUpdate> CallingAToolThenStalling(
+        TaskCompletionSource reached,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant,
+            [new FunctionCallContent("unanswered-call", "get_weather", new Dictionary<string, object?>())]);
+        reached.TrySetResult();
+        await Task.Delay(Timeout.Infinite, ct);
+    }
+
     // Produces nothing and never finishes, so a test can cancel a turn that is
     // genuinely in flight rather than one that has already completed.
     public static async IAsyncEnumerable<ChatResponseUpdate> Stalling(

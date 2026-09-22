@@ -120,6 +120,17 @@
     line-height: 1.35;
 }
 
+/* Sits above the composer as a running total. Muted and right-aligned: it is
+   there to be glanced at, and it must not compete with the warning below, which
+   is the line that asks for action. */
+.composer-context-size {
+    margin: 0 0 0.25rem;
+    text-align: right;
+    font-size: 0.75rem;
+    color: #6b7280;
+    line-height: 1.35;
+}
+
 .chat-footer {
     margin: 0;
     text-align: center;

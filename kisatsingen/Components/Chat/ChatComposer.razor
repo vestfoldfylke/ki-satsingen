@@ -1,3 +1,13 @@
+@* "ca." carries real weight here: this is an estimate, not the provider's count
+   — see ContextTokenEstimator — and a bare figure next to an exact-looking
+   window size would read as one. Absent until there is something to send. *@
+@if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
+{
+    <p class="composer-context-size">
+        ca. @contextTokens.ToString("N0") av @contextModel.ContextWindowTokens.ToString("N0") tokens brukt
+    </p>
+}
+
 <div class="chat-composer">
     <textarea @ref="_textarea"
               id="chat-textarea"
