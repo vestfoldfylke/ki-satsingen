@@ -4,24 +4,15 @@ using StoredMessage = kisatsingen.Data.Entities.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// The inverse of TranscriptProjection: stored rows back into the one ordered
-// sequence they were written as. Pure, so the merge can be tested without
-// standing up a ChatSession and its six dependencies.
+// Pure, so the merge is testable without a ChatSession.
 internal static class TranscriptRestore
 {
-    // Messages and events live in separate tables but share one sequence, so both
-    // lists arrive sorted by Seq and no two rows can hold the same value. That is
-    // what lets a straight two-pointer merge rebuild the original order with no
-    // tie to break — and why callers must pass the lists already sorted by Seq,
-    // which the ordered includes in ChatRepository.GetChatAsync do.
-    // The logger is passed rather than resolved so this stays a function of its
-    // arguments. It is only reached when a stored message's contents cannot be
-    // read; see ChatMessageMapper.FromEntity.
+    // Messages and events share one Seq sequence, so a two-pointer merge restores
+    // the written order with no ties — provided both lists arrive sorted by Seq,
+    // as ChatRepository.GetChatAsync returns them.
     //
-    // resolveModelName is passed for the same reason — naming a stored model key
-    // needs the catalogue, and taking the catalogue itself would make this
-    // untestable without one. It must answer for keys that are no longer
-    // registered: a chat outlives the models that answered it.
+    // resolveModelName must answer for keys no longer registered: a chat outlives
+    // the models that answered it.
     public static IReadOnlyList<TranscriptEntry> Build(
         IReadOnlyList<StoredMessage> messages,
         IReadOnlyList<ChatEvent> events,
@@ -33,8 +24,7 @@ internal static class TranscriptRestore
         var messageIndex = 0;
         var eventIndex = 0;
 
-        // Each user turn records the system prompt in force when it was sent, so
-        // assistant metadata can report the prompt that actually produced it.
+        // So an answer reports the prompt in force when its question was sent.
         var currentSnapshot = systemPromptInForce;
 
         while (messageIndex < messages.Count || eventIndex < events.Count)

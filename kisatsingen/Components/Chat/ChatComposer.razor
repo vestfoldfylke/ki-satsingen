@@ -1,6 +1,5 @@
-@* "ca." carries real weight here: this is an estimate, not the provider's count
-   — see ContextTokenEstimator — and a bare figure next to an exact-looking
-   window size would read as one. Absent until there is something to send. *@
+@* "ca." because this is an estimate: a bare figure beside an exact window size
+   would read as exact. *@
 @if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
 {
     <p class="composer-context-size">
@@ -23,8 +22,7 @@
                     <line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
             </button>
-            @* Absent until the catalogue has been read. One model means no choice
-               to offer, so the control is not worth the row space. *@
+            @* One model is no choice, so no picker. *@
             @if (Models.Count > 1 && SelectedModel is not null)
             {
                 <ModelPicker Models="Models"
@@ -33,15 +31,9 @@
                              IsBusy="IsBusy"
                              EstimatedContextTokens="EstimatedContextTokens" />
             }
-            @* The only feedback a switch produces until a turn runs on it. Stated
-               as what will happen rather than what was clicked, so it stays true
-               for as long as it is shown — and disappears by becoming a boundary
-               in the transcript once the next answer arrives.
-
-               aria-live because nothing else announces the change: the picker's
-               own label updates silently. *@
-            @* The warning outranks the pending line: both concern the next answer,
-               and one of them says it may not arrive. *@
+            @* aria-live, because the picker's own label changes silently. The
+               warning outranks the pending line: it says the next answer may not
+               arrive at all. *@
             @if (SelectedModel?.WouldOverflow(EstimatedContextTokens) == true)
             {
                 <p class="composer-context-warning" aria-live="polite">
@@ -54,9 +46,8 @@
             }
         </div>
         <div class="composer-actions-right">
-            @* Stop is Blazor-owned: its only signal is IsBusy, which the server
-               already knows. Send is JS-owned because its disabled state also
-               depends on textarea emptiness — a client-only signal. *@
+            @* Stop is Blazor's: IsBusy is its only input. Send is JS's, because its
+               disabled state also depends on the textarea being empty. *@
             @if (IsBusy)
             {
                 <button class="composer-stop-button"
@@ -68,9 +59,8 @@
                     </svg>
                 </button>
             }
-            @* disabled is static: the textarea always starts empty, so this is
-               the correct initial state. chat-composer.ts owns it from here on
-               (busy + emptiness combined) — Blazor never re-touches it. *@
+            @* Static: right for an empty textarea, and chat-composer.ts owns it
+               after that. Blazor must never re-render it. *@
             <button class="composer-send-button"
                     type="button"
                     aria-label="Send melding"

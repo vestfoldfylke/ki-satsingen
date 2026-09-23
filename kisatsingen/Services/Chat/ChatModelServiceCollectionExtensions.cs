@@ -5,30 +5,19 @@ using OpenAI;
 
 namespace kisatsingen.Services.Chat;
 
-// Which models exist is declared here, in code, so adding or repointing one is a
-// reviewed change rather than a configuration edit. Configuration supplies only
-// what must not live in the repository: credentials and endpoints.
-//
-// Lives outside Program.cs because the composition root is long enough already,
-// and because this list grows every time a provider is added.
+// Models are declared in code so adding or repointing one is a reviewed change.
+// Configuration holds only what can't live in the repository: credentials.
 internal static class ChatModelServiceCollectionExtensions
 {
     private const string OpenAiConfigurationPath = "OpenAI:ApiKey";
     private const string MistralConfigurationPath = "Mistral:ApiKey";
 
-    // Not a secret and not environment-specific, so it lives here rather than in
-    // configuration: it is a fact about who the provider is, the same as ModelId.
-    // Stating it even where the SDK would default to it keeps every provider
-    // declaring where it points, instead of one of them being the implicit case.
-    //
-    // Safe to state: verified against OpenAI 2.12.0 by capturing the request URI
-    // with this set and unset — both produce
-    // https://api.openai.com/v1/chat/completions — and the .NET SDK has no
-    // OPENAI_BASE_URL environment override that writing it here would shadow.
+    // Stated although it is the SDK default, so every provider declares where it
+    // points. Verified against OpenAI 2.12.0: the request URI is the same set or
+    // unset, and there is no OPENAI_BASE_URL override for this to shadow.
     private static readonly Uri OpenAiEndpoint = new("https://api.openai.com/v1");
 
-    // Mistral serves an OpenAI-compatible chat-completions API here, which is why
-    // it needs no adapter of its own — only a different endpoint and key.
+    // OpenAI-compatible, so it needs no adapter of its own.
     private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
     private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.Fast;
@@ -67,9 +56,8 @@ internal static class ChatModelServiceCollectionExtensions
 
     public static IServiceCollection AddChatModels(this IServiceCollection services)
     {
-        // Built inside the factory rather than out here so the warnings below reach
-        // the real logging pipeline. Program.cs resolves this during startup, so a
-        // broken default still refuses to boot instead of surfacing as a failed turn.
+        // Built in the factory so its warnings reach the real logging pipeline.
+        // Program.cs resolves it at startup, so a broken default refuses to boot.
         services.AddSingleton<IChatModelCatalog>(serviceProvider =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -107,10 +95,8 @@ internal static class ChatModelServiceCollectionExtensions
         return definitions;
     }
 
-    // A model whose credentials are absent is dropped rather than fatal: one
-    // provider's missing configuration should cost that provider's models, not the
-    // whole application. The default model is the exception, and the catalogue
-    // enforces that by refusing to construct without it.
+    // Missing credentials drop that provider's models rather than the whole app.
+    // The default is the exception: the catalogue refuses to build without it.
     private static void AddIfConfigured(
         List<ChatModelDefinition> definitions,
         IConfiguration configuration,
@@ -133,31 +119,17 @@ internal static class ChatModelServiceCollectionExtensions
         definitions.Add(new ChatModelDefinition(model, createClientFactory(providerCredential), WithTools()));
     }
 
-    // Every registration goes through here, so a model cannot reach the catalogue
-    // without its tools. See ChatTools.All for why that is an invariant rather than
-    // a per-model setting.
+    // The only way in, so no model reaches the catalogue without its tools.
     private static ChatOptions WithTools() => new() { Tools = [.. ChatTools.All] };
 
-    // OpenAI and Mistral both speak OpenAI-compatible chat completions, so they
-    // share this. A provider that does not — Anthropic — brings its own factory
-    // and changes nothing here.
+    // Shared by every OpenAI-compatible provider; one that isn't brings its own.
     //
-    // The endpoint is required rather than defaulted: every caller says where it
-    // points, so the file can be read top to bottom without knowing which
-    // provider the SDK happens to assume.
-    //
-    // The model id goes to GetChatClient and nowhere else. ChatOptions.ModelId must
-    // stay unset: verified against Microsoft.Extensions.AI.OpenAI 10.9.0 by
-    // capturing the outgoing request body, the options value silently overrides
-    // this one whenever both are present.
-    //
-    // ChatOptions.Instructions is carried by the same adapter, and the transcript's
-    // SystemPromptSnapshot is only honest as long as it is. Verified the same way
-    // against 10.9.0: it becomes exactly one "system" message at the head of the
-    // request, and no such message appears when it is unset. Left as a note rather
-    // than a test on purpose — asserting on the body shape would fail on a move to
-    // the Responses API, which would deliver the instructions correctly. Re-check
-    // by capture when this package is upgraded.
+    // Verified against Microsoft.Extensions.AI.OpenAI 10.9.0 by capturing the
+    // request body — re-check both on upgrade:
+    //   ChatOptions.ModelId must stay unset: it silently overrides the id given here.
+    //   ChatOptions.Instructions becomes exactly one system message, and none when
+    //   unset. A note rather than a test, because moving to the Responses API
+    //   would change the body without changing the behaviour.
     private static Func<IServiceProvider, IChatClient> OpenAiCompatible(
         string providerCredential,
         Uri endpoint,

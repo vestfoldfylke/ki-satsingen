@@ -5,14 +5,9 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// What survives from a turn that stopped mid-flight, and — more importantly —
-// what must not.
 public sealed class PartialTurnTests
 {
-    // The rule the whole file exists for. A stored tool call that nothing answered
-    // goes back out with every later request in the chat, and providers reject
-    // that, so keeping it would not cost a half-answer — it would leave the
-    // conversation permanently unable to send.
+    // Providers reject a call with no result, which would block the chat for good.
     [Fact]
     public void A_tool_call_that_was_never_answered_is_dropped()
     {
@@ -37,8 +32,7 @@ public sealed class PartialTurnTests
         Assert.Equal("jeg sjekker", pruned!.Messages.Single().Text);
     }
 
-    // A tool exchange the model had already answered from is valid history, and
-    // the text after it depends on the result.
+    // Valid history: the answer depends on the result.
     [Fact]
     public void A_tool_exchange_followed_by_an_answer_is_kept()
     {
@@ -52,9 +46,7 @@ public sealed class PartialTurnTests
         Assert.Equal([ChatRole.Assistant, ChatRole.Tool, ChatRole.Assistant], pruned!.Messages.Select(message => message.Role));
     }
 
-    // Stopped after the tool returned but before the model answered. Kept, the
-    // next send would put a user message straight after the tool message, which
-    // Mistral rejects — and it would reject every send after that too.
+    // Kept, the next user message would follow a tool message, which Mistral rejects.
     [Fact]
     public void A_tool_exchange_the_model_never_answered_from_is_dropped()
     {
@@ -92,8 +84,6 @@ public sealed class PartialTurnTests
         Assert.Null(PartialTurn.Prune(Response()));
     }
 
-    // An empty streaming chunk degrades to this, and storing it would put a silent
-    // assistant bubble in the transcript.
     [Fact]
     public void A_blank_message_leaves_nothing_to_store()
     {

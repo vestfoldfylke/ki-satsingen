@@ -120,9 +120,7 @@
     line-height: 1.35;
 }
 
-/* Sits above the composer as a running total. Muted and right-aligned: it is
-   there to be glanced at, and it must not compete with the warning below, which
-   is the line that asks for action. */
+/* Muted: glanced at, and must not compete with the warning that asks for action. */
 .composer-context-size {
     margin: 0 0 0.25rem;
     text-align: right;

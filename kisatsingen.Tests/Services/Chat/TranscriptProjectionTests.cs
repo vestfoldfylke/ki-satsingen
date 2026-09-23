@@ -34,8 +34,6 @@ public sealed class TranscriptProjectionTests
             v => Assert.IsType<UserBubbleView>(v));
     }
 
-    // The shape a stop produces: the user's message stands, and the event
-    // explains why nothing followed it.
     [Fact]
     public void A_stopped_turn_renders_the_event_with_no_assistant_turn()
     {

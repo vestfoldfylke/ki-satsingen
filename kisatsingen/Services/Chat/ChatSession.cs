@@ -26,26 +26,17 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
 
-    // The chat this session is working on, or null between chats. ChatManager
-    // owns chat metadata (title, timestamps); Session tracks only identity plus
-    // the runtime state of the turn in flight.
+    // Identity only; ChatManager owns the chat's metadata.
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
-    // Which model the next turn will use. Read once at the top of SendAsync, the
-    // same way the system prompt is, so switching while a response streams cannot
-    // touch the turn in flight — it takes effect on the following one.
+    // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
 
-    // The model that produced the most recent answer, or null when nothing has
-    // answered yet or the model that did is no longer in the catalogue. What the
-    // selection is compared against to know a switch is still pending.
+    // What PendingModel compares the selection against.
     private ChatModel? _lastAnsweredModel;
 
-    // The cancellation state of the turn in flight, or null when there is none.
-    // Cancel() and the disconnect callbacks reach the live turn through this;
-    // both no-op on a null read, which is what makes a stop arriving between
-    // turns harmless.
+    // Null between turns, which is what makes a late Cancel() a harmless no-op.
     private TurnCancellation? _turnCancellation;
 
     public event Action? StateChanged;
@@ -79,27 +70,18 @@ public sealed class ChatSession : IAsyncDisposable
 
     public ChatModel SelectedModel => _selectedModel;
 
-    // The model the next turn will use, when that differs from the one that
-    // answered last — the composer says so, because a switch produces nothing
-    // visible until a turn actually runs on it. Null when there is nothing
-    // pending, including on a chat that has not been answered yet: there is no
-    // previous model to contrast with, and the picker already reads "Kompleks".
+    // A switch shows nothing until a turn runs on it, so the composer says so.
+    // Null before the first answer: there is no previous model to contrast with.
     public ChatModel? PendingModel =>
         _lastAnsweredModel is { } answered && answered.Key != _selectedModel.Key
             ? _selectedModel
             : null;
 
-    // The allow-list. Reads the catalogue directly — no I/O, no auth round-trip
-    // — because every signed-in user gets every catalogued model today. When
-    // per-user gating lands, this becomes the one place a user context is
-    // threaded through (and Default is redesigned alongside it — see
-    // IChatModelCatalog).
+    // The allow-list. Every user gets every model today; per-user gating goes here.
     public IReadOnlyList<ChatModel> AvailableModels => _catalog.Models;
 
-    // The key arrives from the browser, so it is re-checked against the
-    // allow-list rather than looked up in the catalogue directly. That check is
-    // meaningless today and has to be here anyway: the moment a model becomes
-    // role-gated, every path that skipped it becomes the way around it.
+    // The key comes from the browser, so it is checked against the allow-list
+    // rather than the catalogue — otherwise gating a model later has a way around.
     public Task SelectModelAsync(ChatModelKey key)
     {
         var model = AvailableModels.FirstOrDefault(candidate => candidate.Key == key);
@@ -118,10 +100,7 @@ public sealed class ChatSession : IAsyncDisposable
             return Task.CompletedTask;
         }
 
-        // No write of any kind: the switch is state, and the transcript derives the
-        // boundary from the ModelKey the turns either side of it record. Keeping
-        // this free of I/O is what makes switching mid-stream safe — there is
-        // nothing to order against a turn that is still running.
+        // State only, no I/O: that is what makes switching mid-stream safe.
         _selectedModel = model;
         Notify();
         return Task.CompletedTask;
@@ -129,36 +108,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
 
-    // How much context the next request will carry, measured off the request we
-    // would actually send.
-    //
-    // This used to read the last turn's reported InputTokens, on the reasoning
-    // that a measurement beats an estimate. It does not, here, for three reasons —
-    // each verified rather than assumed:
-    //
-    //   Tool turns double-count. UseFunctionInvocation makes one provider call per
-    //   round trip and ChatResponse.Usage sums them, so a turn that called a tool
-    //   reports roughly twice the history it actually sent. Tools are registered
-    //   on every model, so this was not an edge case.
-    //
-    //   It went stale. The number described the last answered turn, so everything
-    //   committed since — a stopped turn's question above all — was invisible to
-    //   it. A pasted document could sit in the history uncounted.
-    //
-    //   It vanished on a stop. Cancelling hangs up before the usage chunk arrives,
-    //   so the turn most likely to have added a lot of context is the one that
-    //   reports none of it.
-    //
-    // An estimate is wrong by a bounded fraction. The measurement was wrong by a
-    // factor that grew with the round trips. For a threshold warning, bounded and
-    // always-present beats exact-but-frequently-neither.
-    //
-    // ConversationUsage below still reads real usage, and should: summing every
-    // turn is the wrong answer to "how big is this conversation" and exactly the
-    // right one to "what has this cost".
-    //
-    // Null only when there is nothing to send yet. Null still means unknown, never
-    // zero — see ChatModel.WouldOverflow.
+    // Estimated from the request we would send, not read from reported usage.
+    // Usage double-counts tool turns (FunctionInvokingChatClient sums every round
+    // trip), describes only the last answered turn, and is missing after a stop.
+    // ConversationUsage keeps real usage: right for cost, wrong for size.
     public long? EstimatedContextTokens
     {
         get
@@ -216,8 +169,7 @@ public sealed class ChatSession : IAsyncDisposable
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
                 _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, ResolveModelName, _logger));
 
-                // Reopening resumes on whatever answered last, so continuing a
-                // conversation does not silently change who is answering it.
+                // Continuing a chat must not silently change who answers it.
                 _lastAnsweredModel = FindLastAnsweredModel(chat.Messages);
                 _selectedModel = _lastAnsweredModel ?? _catalog.Default;
             }
@@ -226,17 +178,12 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    // Null when nothing has answered yet, when the rows predate the picker, or
-    // when the model that answered has since left the catalogue. All three mean
-    // the same thing to every caller: there is no previous model to resume or to
-    // contrast the selection against.
+    // Nothing answered, rows older than the picker, and a model since removed all
+    // return null: to every caller they mean "no previous model".
     private ChatModel? FindLastAnsweredModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
     {
         for (var index = messages.Count - 1; index >= 0; index--)
         {
-            // A blank key is read as no key at all, the same as null: the column
-            // permits it, and a row that names no model must not cost the user the
-            // chat. See ChatModelKey.TryCreate.
             if (ChatModelKey.TryCreate(messages[index].ModelKey) is not { } storedKey)
             {
                 continue;
@@ -259,15 +206,11 @@ public sealed class ChatSession : IAsyncDisposable
         return null;
     }
 
-    // A key can outlive the model it named, so this always answers. The key itself
-    // is the fallback: it is at least what the row says, which beats an empty
-    // divider or the name of a different model.
+    // A key can outlive its model; the raw key still beats a blank or wrong name.
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // Sync clear for when the currently-open chat has just been deleted out
-    // from under this session — there is nothing to load, so callers do not
-    // need to route back through LoadAsync.
+    // For when the open chat was just deleted: there is nothing to load.
     public void Reset()
     {
         _entries.Clear();
@@ -288,40 +231,27 @@ public sealed class ChatSession : IAsyncDisposable
 
         IsBusy = true;
 
-        // The catches read the local, not the field: a racing DisposeAsync nulls
-        // the field and would NRE the outcome branch. The field stays set so
-        // Cancel() and the disconnect callbacks can reach this turn while it runs.
+        // The branches below read this local, never the field: a racing
+        // DisposeAsync nulls the field mid-turn.
         var turn = new TurnCancellation();
         _turnCancellation = turn;
 
-        // Null means the turn ended before authentication returned: no chat to
-        // write to, only something to show on screen.
         string? userObjectId = null;
 
         var stage = TurnStage.Authenticating;
 
-        // Snapshots, taken before the try so every branch and the outcome count
-        // see the model and prompt this turn actually started with. Both may
-        // change while it runs, and a turn that started on one model must finish
-        // on it.
+        // A turn that started on one model and prompt must finish on them.
         var modelForThisTurn = _selectedModel;
         var systemPromptForThisTurn = _effectiveSystemPrompt;
 
-        // Filled as the stream arrives and read from the catches below, so a turn
-        // that is stopped or that fails can still keep what it produced.
+        // Outside the try so a stopped or failed turn can still keep what it produced.
         var progress = new TurnProgress();
 
-        // Every press of send lands on exactly one outcome, so the counts sum to
-        // the attempts. Each branch below says which outcome it is and the finally
-        // counts it once — which is what makes that a property of the structure
-        // rather than of six call sites each remembering to count exactly once.
-        //
-        // Failed until proven otherwise: a branch that forgot to set this would
-        // then be counted as a failure, the one bucket someone is watching.
+        // Counted once, in the finally, so every send lands on exactly one outcome.
+        // Starts as Failed so a branch that forgets to set it lands in the alerted bucket.
         var outcome = TurnOutcome.Failed;
 
-        // What the provider says it served, known only once a response arrives.
-        // Every other outcome is labelled with the model that was asked for.
+        // Success is labelled with the model the provider served; the rest with the one requested.
         string? servedModelId = null;
 
         try
@@ -338,50 +268,37 @@ public sealed class ChatSession : IAsyncDisposable
             var response = progress.ToResponse();
             await PersistTurnMessagesAsync(userObjectId, response, modelForThisTurn, progress, systemPromptForThisTurn, turn.Token);
 
-            // Set only after the write that makes the turn real, with no await
-            // after it: nothing can fail a turn that has already been called a
-            // success.
+            // Only after the write: a turn is a success once its answer is stored.
             servedModelId = response.ModelId;
             outcome = TurnOutcome.Success;
         }
-        // The filter is load-bearing: a provider HTTP timeout arrives as
-        // TaskCanceledException, an OperationCanceledException nobody here asked
-        // for. Without it, outages are recorded as the user pressing stop —
-        // invisible to failure alerts. Only our own cancellation is cancellation.
+        // The filter is load-bearing: a provider timeout is also an
+        // OperationCanceledException, and without it outages would be recorded as
+        // the user pressing stop — invisible to failure alerts.
         catch (OperationCanceledException) when (turn.IsCancelled)
         {
             outcome = turn.IsDisconnect ? TurnOutcome.Disconnected : TurnOutcome.Stopped;
 
-            // Before the event, so the answer and the notice that it was cut short
-            // land in that order in the transcript.
+            // Partial first, so the transcript reads "what it said, then why it stopped".
             await PersistPartialTurnAsync(userObjectId, progress, stage, modelForThisTurn, systemPromptForThisTurn);
             await RecordTurnEventAsync(userObjectId, turn.IsDisconnect ? ChatEventKind.Disconnected : ChatEventKind.Stopped);
         }
-        // Allowed out: no identity means no chat to record an event against, and
-        // only the error boundary above can do the useful thing and send the user
-        // to sign in.
+        // Rethrown: only the error boundary can send the user to sign in.
         catch (UserNotAuthenticatedException)
         {
             outcome = TurnOutcome.Unauthenticated;
             throw;
         }
-        // Not swallowed: an allocation failure says nothing about this turn, and a
-        // retry allocates again and fails the same way. Letting it out sheds the
-        // circuit, not the process. Still counted as Failed, so every attempt lands
-        // in one bucket; deliberately absent from the Failure counter, the one
-        // place those two metrics do not reconcile.
+        // Rethrown: an allocation failure isn't this turn's fault and a retry fails
+        // the same way. Kept off the Failure counter, so the two don't reconcile here.
         catch (OutOfMemoryException)
         {
             outcome = TurnOutcome.Failed;
             throw;
         }
-        // Catches our own bugs too: they are already logged whole and carry their
-        // type into the Failure counter, so taking the circuit down as well only
-        // costs the user their transcript.
-        //
-        // What must never reach here is control flow dressed as an exception —
-        // Blazor's NavigationException above all. There is none inside the try
-        // today; navigation happens in the page, after this returns. Keep it so.
+        // Swallowed, bugs included: they are logged whole, and taking the circuit
+        // down would only cost the user their transcript. Nothing that is control
+        // flow — Blazor's NavigationException above all — may ever be thrown in the try.
         catch (Exception ex)
         {
             outcome = TurnOutcome.Failed;
@@ -397,19 +314,16 @@ public sealed class ChatSession : IAsyncDisposable
             _streamingId = null;
             IsBusy = false;
 
-            // Null the field first so a Cancel() or disconnect callback arriving
-            // during teardown reads null and no-ops, rather than racing Cancel on
-            // sources that are about to be disposed.
+            // Nulled before disposing, so a Cancel() arriving now no-ops instead of
+            // reaching disposed sources.
             _turnCancellation = null;
             turn.Dispose();
 
             Notify();
 
-            // Last, and guarded, because this is the one line in here that can
-            // throw — Prometheus rejects a label set that differs from the first
-            // use. Anywhere earlier and a metrics fault would skip the teardown
-            // above and leave the composer locked for the rest of the circuit; and
-            // unguarded, it would replace whatever exception is already leaving.
+            // Last and guarded: Prometheus throws on a label mismatch. Earlier, that
+            // would skip the teardown and lock the composer; unguarded, it would mask
+            // the exception already leaving.
             try
             {
                 CountSend(outcome, servedModelId ?? modelForThisTurn.ModelId, modelForThisTurn.Key);
@@ -421,11 +335,8 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    // Called once per turn, from SendAsync's finally; see the outcome there.
-    //
-    // Prometheus fixes a metric's label names on first use and throws if a later
-    // call supplies a different number, so every outcome must report the same
-    // names in the same order. Building them here is what guarantees that.
+    // One place builds the labels because Prometheus fixes a metric's label names
+    // on first use and throws if a later call differs.
     private void CountSend(TurnOutcome outcome, string? modelId, ChatModelKey modelKey) =>
         _metrics.Count(
             $"{MetricPrefix}_Send",
@@ -435,8 +346,7 @@ public sealed class ChatSession : IAsyncDisposable
             (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
     // Swallows by design: the turn is lost, the chat is not. The exception is
-    // written here and only here — never shown, never persisted. The outcome
-    // itself is counted by SendAsync; this adds the stage and exception type.
+    // logged here and never shown or persisted.
     private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
     {
         _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChatId);
@@ -450,13 +360,8 @@ public sealed class ChatSession : IAsyncDisposable
         await RecordTurnEventAsync(userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
     }
 
-    // Why the turn ended, recorded after any partial answer so a reload reads as
-    // "what the model said, then why it stopped" — or explains the gap when it
-    // said nothing. See PersistPartialTurnAsync.
-    //
-    // The in-memory entry is added unconditionally, the write is not: a turn can
-    // end before there is a chat row to write to, and that is exactly when the
-    // user most needs to see something on screen.
+    // The entry is added even when there is no chat row to write to yet: a turn
+    // that fails that early is when the user most needs to see why.
     private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind, string? detail = null)
     {
         _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
@@ -470,20 +375,17 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            // Not the turn's own source — it may already be cancelled, and would
-            // abort the very write recording that cancellation.
+            // CancellationToken.None, because the turn's own may already be
+            // cancelled and would abort recording that very cancellation.
             await _repo.AppendEventAsync(userObjectId, chatId, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            // Must not replace the outcome it was recording. The entry is already
-            // in memory, so only a reload would lose it.
+            // Must not replace the outcome it was recording.
             _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, chatId);
         }
     }
 
-    // Returns the stream id rather than leaving the caller to read the nullable
-    // field this already guaranteed is set.
     private async Task<Guid> PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
     {
         var userMessage = new ChatMessage(ChatRole.User, text);
@@ -491,8 +393,7 @@ public sealed class ChatSession : IAsyncDisposable
         var streamId = Guid.NewGuid();
         _streamingId = streamId;
 
-        // Notify before signalling the client: the render this triggers is what
-        // puts the streaming element in the DOM for the append calls to target.
+        // Render first: it puts the element the stream appends to in the DOM.
         Notify();
         _ = _channel.StreamStart(streamId);
 
@@ -505,7 +406,6 @@ public sealed class ChatSession : IAsyncDisposable
         return streamId;
     }
 
-    // Decides what this turn asks for; TurnStreamer carries the asking.
     private Task StreamAssistantResponseAsync(
         Guid streamId,
         ChatModel modelForThisTurn,
@@ -516,27 +416,18 @@ public sealed class ChatSession : IAsyncDisposable
         var request = TranscriptRequest.Build(_entries);
         var runtime = _catalog.Resolve(modelForThisTurn.Key);
 
-        // The system prompt rides on the options rather than the message list; see
-        // TranscriptRequest. Same snapshot the turn is persisted with, so what the
-        // model was told and what the transcript records can never drift apart.
+        // As Instructions rather than a message (see TranscriptRequest), and the same
+        // snapshot the turn is persisted with, so the record can't drift from what was sent.
         var options = runtime.CreateOptions();
         options.Instructions = systemPromptForThisTurn;
 
         return _streamer.StreamAsync(runtime.Client, request, options, streamId, progress, ct);
     }
 
-    // A turn that was stopped or that failed mid-stream still produced something,
-    // and the user was reading it. Keeping it is what stops the answer vanishing
-    // from the screen the moment the stream ends, as well as what puts it in the
-    // transcript when the chat is reopened.
-    //
-    // Only from Generating: before that no request had been made, and after it
-    // the completed turn has already been written — persisting again would
-    // duplicate it.
-    //
-    // Failures here are swallowed deliberately. This runs inside a catch whose
-    // remaining job is to record why the turn ended, and losing a partial answer
-    // must not cost the user that notice as well.
+    // Keeps what a stopped or failed turn had already said, which the user was
+    // reading. Only from Generating: earlier nothing was requested, later the turn
+    // is already written. Swallows failures so a lost partial can't also cost the
+    // user the notice of why the turn ended.
     private async Task PersistPartialTurnAsync(
         string? userObjectId,
         TurnProgress progress,
@@ -549,9 +440,7 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        // Cut to what a provider will accept on the next send; see PartialTurn for
-        // why storing the raw partial could break the chat permanently rather than
-        // merely lose an answer.
+        // A raw partial can leave history a provider rejects forever; see PartialTurn.
         if (PartialTurn.Prune(progress.ToResponse()) is not { } partial)
         {
             return;
@@ -559,8 +448,8 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            // Not the turn's own token — it is already cancelled when this runs
-            // after a stop, and would abort the very write keeping the answer.
+            // CancellationToken.None, because after a stop the turn's own is
+            // cancelled and would abort the write that keeps the answer.
             await PersistTurnMessagesAsync(userObjectId, partial, modelForThisTurn, progress, systemPromptForThisTurn, CancellationToken.None);
         }
         catch (Exception ex)
@@ -572,8 +461,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    // Writes whatever the turn produced, complete or partial. Counts nothing: the
-    // outcome belongs to SendAsync, which knows how the turn actually ended.
+    // Counts nothing: only SendAsync knows how the turn ended.
     private async Task PersistTurnMessagesAsync(
         string userObjectId,
         ChatResponse response,
@@ -616,38 +504,28 @@ public sealed class ChatSession : IAsyncDisposable
         await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
         _chatManager.MarkTouched(chatId, now);
 
-        // Set once the messages are saved, including for a partial turn. The rows
-        // just written carry this model's key, so FindLastAnsweredModel will report
-        // it the next time the chat is opened — and a live session that disagreed
-        // with its own reload would show a switch as pending until the page was
-        // refreshed and then not.
+        // Partials too: the rows now carry this model's key, so a reload will report
+        // it as the last to answer, and the live session must agree.
         _lastAnsweredModel = modelForThisTurn;
     }
 
     private void Notify() => StateChanged?.Invoke();
 
-    // The user asked for the turn to end.
     public void Cancel() => _turnCancellation?.CancelForUser();
 
-    // The circuit is gone for good — not merely disconnected, which Blazor
-    // recovers from. Same effect on the turn as Cancel, different reason, and the
-    // reason decides whether the reloaded transcript says the user stopped the
-    // turn or the connection did.
+    // Same effect as Cancel; the reason decides whether the transcript says the
+    // user stopped the turn or the connection did.
     public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
 
-    // The transport went away or came back on a circuit Blazor is retaining. The
-    // turn is unaffected either way — only delivery to the browser pauses, which
-    // is why neither of these touches cancellation.
+    // A transient disconnect Blazor recovers from: delivery pauses, the turn runs on.
     public void PauseDelivery() => _channel.Pause();
 
     public void ResumeDelivery() => _channel.Resume();
 
     public async ValueTask DisposeAsync()
     {
-        // A disconnect, not a stop: this runs on circuit teardown — tab closed,
-        // circuit evicted, host shutting down — none of which is a user pressing
-        // stop. Cleared first so a Cancel() racing teardown no-ops rather than
-        // reaching sources about to be disposed.
+        // Circuit teardown is a disconnect, not a stop. Cleared first so a racing
+        // Cancel() no-ops.
         var turn = _turnCancellation;
         _turnCancellation = null;
 

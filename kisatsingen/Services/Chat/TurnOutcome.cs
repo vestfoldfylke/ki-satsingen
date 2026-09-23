@@ -2,11 +2,8 @@ using kisatsingen.Constants;
 
 namespace kisatsingen.Services.Chat;
 
-// How one press of send ended. Exactly one per turn, decided in whichever branch
-// of ChatSession.SendAsync the turn left through and counted once in its finally.
-//
-// Not ChatEventKind: that is what the transcript shows, and a successful or
-// unauthenticated turn shows nothing. This is what the turn was.
+// How a send ended. Not ChatEventKind: that is what the transcript shows, and
+// success or an unauthenticated attempt shows nothing.
 internal enum TurnOutcome
 {
     Success,
@@ -18,9 +15,7 @@ internal enum TurnOutcome
 
 internal static class TurnOutcomeMetric
 {
-    // The label values are what dashboards and alerts are keyed on, so they are
-    // mapped here rather than derived from the enum names: renaming a member must
-    // not silently rename a time series.
+    // Mapped explicitly, so renaming a member can't silently rename a time series.
     public static string LabelValue(TurnOutcome outcome) => outcome switch
     {
         TurnOutcome.Success => MetricConstants.MetricsResultSuccessLabelValue,

@@ -12,17 +12,15 @@
         </svg>
     </button>
 
-    @* data-placement is Designsystemet's; the menu opens upwards because the
-       composer sits at the bottom of the viewport. *@
+    @* Opens upward: the composer sits at the bottom of the viewport. *@
     <div id="@PopoverId" class="ds-dropdown model-picker-menu" popover="auto" data-placement="top-start">
         <ul class="model-picker-list" role="menu" aria-label="Velg språkmodell">
             @foreach (var model in Models)
             {
                 var isSelected = model.Key == Selected.Key;
                 <li @key="model.Key" role="none">
-                    @* popovertargetaction="hide" is what closes the menu on pick:
-                       a click inside popover="auto" does not dismiss it by itself,
-                       and doing it this way needs no JS interop. *@
+                    @* A click inside popover="auto" doesn't dismiss it; this does,
+                       without JS. *@
                     <button type="button"
                             class="model-picker-option"
                             role="menuitemradio"
@@ -41,11 +39,9 @@
                             }
                         </span>
                         <span class="model-picker-option-description">@model.ShortDescription</span>
-                        @* Marked here rather than only after the fact, so the
-                           choice can be made knowing the consequence. Still
-                           selectable: the conversation may shrink, and the
-                           estimate is the previous turn's, not a measurement of
-                           the request about to be sent. *@
+                        @* Shown before picking, so the choice is made knowing the
+                           consequence. Still selectable: it is an estimate, and
+                           it runs high. *@
                         @if (model.WouldOverflow(EstimatedContextTokens))
                         {
                             <span class="model-picker-option-warning">
@@ -57,9 +53,8 @@
             }
         </ul>
 
-        @* Switching mid-turn is allowed — the running turn keeps its own model —
-           so the menu says when the choice takes effect rather than going
-           disabled and leaving the user to guess. *@
+        @* Switching mid-turn is allowed, so say when it takes effect rather than
+           disabling the menu and leaving the user to guess. *@
         @if (IsBusy)
         {
             <p class="model-picker-hint">Et svar genereres nå. Byttet gjelder fra neste melding.</p>

@@ -2,7 +2,7 @@ using kisatsingen.Data.Entities;
 using kisatsingen.Services.Chat;
 using Microsoft.Extensions.AI;
 using Xunit;
-// This namespace ends in .Chat, which shadows the entity of the same name.
+// Aliased: this namespace's .Chat shadows the entity.
 using ChatEntity = kisatsingen.Data.Entities.Chat;
 using StoredMessage = kisatsingen.Data.Entities.ChatMessage;
 
@@ -24,8 +24,6 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.AlternativeKey.Value, assistant.ModelKey);
     }
 
-    // The key answers "which catalogue entry was chosen", which is a question about
-    // the assistant's turn. A user message has no model.
     [Fact]
     public async Task The_user_message_records_no_model_key()
     {
@@ -50,9 +48,7 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.SelectedModel.Key);
     }
 
-    // A model can be dropped from the catalogue between one session and the next.
-    // The chat is still readable and still worth continuing, so the stored key is
-    // treated as a preference that can expire rather than a requirement.
+    // The stored key is a preference that can expire; the chat is still worth continuing.
     [Fact]
     public async Task A_chat_whose_model_has_left_the_catalogue_falls_back_to_the_default()
     {
@@ -64,7 +60,7 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
 
-    // Rows written before the picker existed carry no key at all.
+    // Rows written before the picker existed.
     [Fact]
     public async Task A_chat_with_no_recorded_model_falls_back_to_the_default()
     {
@@ -76,10 +72,7 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
 
-    // The column is nullable varchar with no non-empty constraint, so a blank is
-    // reachable however it got there. Reading it used to throw out of the
-    // ChatModelKey constructor and take LoadAsync with it, which cost the user the
-    // whole chat over one unreadable field on one row.
+    // The column allows blanks, and one bad field must not make the chat unopenable.
     [Theory]
     [InlineData("")]
     [InlineData("   ")]
@@ -111,9 +104,7 @@ public sealed class ChatSessionModelPersistenceTests
         await harness.Session.SendAsync("hei");
         await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
 
-        // Asserted first: PendingModel is also null when nothing has ever
-        // answered, so without this the null below could mean the switch never
-        // registered rather than that the turn took it into effect.
+        // PendingModel is also null when nothing has answered; rule that out first.
         Assert.NotNull(harness.Session.PendingModel);
 
         await harness.Session.SendAsync("hei igjen");
@@ -121,8 +112,6 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Null(harness.Session.PendingModel);
     }
 
-    // There is no previous model to contrast with, so nothing is pending — the
-    // picker's own label already says what will answer.
     [Fact]
     public async Task Nothing_is_pending_before_the_first_answer()
     {

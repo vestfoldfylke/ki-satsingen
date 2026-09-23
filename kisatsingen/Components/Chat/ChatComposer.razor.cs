@@ -24,9 +24,8 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback OnStop { get; set; }
 
-    // Empty until the page has read the catalogue, which it does asynchronously —
-    // so this renders one frame without a picker rather than blocking the composer
-    // on a round trip the user is not waiting for.
+    // Empty for a frame while the page reads the catalogue, rather than blocking
+    // the composer on it.
     [Parameter]
     public IReadOnlyList<ChatModel> Models { get; set; } = [];
 
@@ -36,22 +35,17 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback<ChatModelKey> OnSelectModel { get; set; }
 
-    // Null unless a switch is waiting to take effect; see ChatSession.PendingModel.
     [Parameter]
     public ChatModel? PendingModel { get; set; }
 
-    // The conversation's current size; see ChatSession.EstimatedContextTokens.
     [Parameter]
     public long? EstimatedContextTokens { get; set; }
 
-    // The page switches between an empty-state layout and the scrolling
-    // transcript layout, which rebuilds this component's DOM and drops the
-    // caret. The page calls this afterwards to put focus back.
+    // The page's switch from empty state to transcript layout rebuilds this DOM
+    // and drops the caret; it calls this to restore focus.
     public ValueTask FocusAsync() => _textarea.FocusAsync();
 
-    // Reads and clears the textarea in one round trip — see chat-composer.ts's
-    // takeComposerValue for why read+clear must happen atomically, not as two
-    // separate calls.
+    // One call, not a read and a clear: see takeComposerValue in chat-composer.ts.
     public ValueTask<string> TakeTextAsync() =>
         JS.InvokeAsync<string>("chatClient.takeComposerValue");
 
@@ -59,32 +53,22 @@ public sealed partial class ChatComposer : ComponentBase
     {
         try
         {
-            // A fresh DOM node always means a fresh component instance (see
-            // FocusAsync's comment) — wiring once on firstRender is enough,
-            // there's no later point where the textarea gets swapped out from
-            // under this same instance.
+            // Once is enough: a new textarea always comes with a new instance.
             if (firstRender)
             {
                 await JS.InvokeVoidAsync("chatClient.initComposer");
             }
 
-            // The parent re-renders this component on every ChatSession state
-            // change — turn start, turn end, model select, load, reset — but
-            // IsBusy itself only flips on turn start and end. Guard the JS push
-            // so a model-select or load re-render does not repeat the state the
-            // client already has. (Streaming does not enter this path at all:
-            // tokens flow through ChatClientChannel's JS interop, never through
-            // Blazor state.)
+            // Re-rendered on every session change, but IsBusy only flips at turn
+            // start and end — don't resend what the client already has.
             if (firstRender || IsBusy != _previousIsBusy)
             {
                 var completingTurn = _previousIsBusy == true && !IsBusy;
                 _previousIsBusy = IsBusy;
                 await JS.InvokeVoidAsync("chatClient.setComposerBusy", IsBusy);
 
-                // A busy→idle transition means the turn just ended (natural
-                // completion or Stop). The textarea was disabled during the
-                // turn, so focus is nowhere useful — put it back so the next
-                // message can be typed without clicking.
+                // The textarea was disabled during the turn and lost focus; give it
+                // back so the next message can be typed without clicking.
                 if (completingTurn)
                 {
                     await _textarea.FocusAsync();

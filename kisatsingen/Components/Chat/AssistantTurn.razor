@@ -50,10 +50,8 @@
         @if (Turn.Metadata is { } meta)
         {
             <dl class="assistant-metadata-list">
-                @* Shown whenever anything at all is known about which model answered.
-                   The provider is the only source of ModelId and some report none,
-                   so gating on it would hide a row we can still fill from our own
-                   catalogue — the same case the metrics handle as "unknown". *@
+                @* Not gated on ModelId: some providers report none, and our own
+                   name or key can still fill the row. *@
                 @if (DescribeModel(meta) is { } modelDescription)
                 {
                     <dt>Model</dt>

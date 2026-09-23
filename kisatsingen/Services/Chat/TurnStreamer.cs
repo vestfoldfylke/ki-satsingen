@@ -5,22 +5,16 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// Moves one model stream: records every update into the turn's progress, pushes
-// its text to the browser at FlushCadence's pace, and counts tool activity.
-//
-// Knows nothing about the transcript, the database or the chat. ChatSession
-// decides what a stream is for and what happens to it afterwards; this only
-// carries it. That boundary is what lets ChatSession read as the sequence of a
-// turn rather than as the mechanics of a stream.
+// Carries a model stream to the browser. Knows nothing of the transcript or the
+// database, so ChatSession reads as the sequence of a turn rather than the
+// mechanics of a stream.
 internal sealed class TurnStreamer
 {
     private readonly ChatClientChannel _channel;
     private readonly IMetricsService _metrics;
     private readonly string _metricPrefix;
 
-    // The prefix is passed in rather than owned here so the series names stay
-    // exactly what they were when this lived inside ChatSession. Dashboards are
-    // keyed on those names.
+    // The prefix is passed in to keep the series names dashboards are keyed on.
     public TurnStreamer(ChatClientChannel channel, IMetricsService metrics, string metricPrefix)
     {
         _channel = channel;
@@ -28,9 +22,8 @@ internal sealed class TurnStreamer
         _metricPrefix = metricPrefix;
     }
 
-    // Writes into progress rather than returning, so a cancellation or provider
-    // failure unwinding out of here leaves the caller holding everything that had
-    // arrived. See TurnProgress.
+    // Writes into progress rather than returning, so an exception unwinding out of
+    // here leaves the caller holding everything that arrived.
     public async Task StreamAsync(
         IChatClient client,
         IReadOnlyList<ChatMessage> request,
@@ -41,9 +34,8 @@ internal sealed class TurnStreamer
     {
         var duration = _metrics.Histogram($"{_metricPrefix}_Duration", "Elapsed time for a chat message");
 
-        // Stopwatch, not UtcNow: FlushCadence needs offsets that never go
-        // backwards, and a wall clock does when NTP steps it — which would freeze
-        // the visible stream until the clock caught up.
+        // Not UtcNow: FlushCadence needs offsets that never go backwards, and an NTP
+        // step would freeze the visible stream.
         var elapsed = Stopwatch.StartNew();
         var cadence = new FlushCadence();
 
@@ -76,13 +68,11 @@ internal sealed class TurnStreamer
         }
         finally
         {
-            // In a finally because a stopped turn still took time, and what it
-            // produced is persisted against that figure. The histogram below stays
-            // on the success path: changing which turns it observes would change
-            // what the dashboards mean.
+            // A stopped turn is persisted with its duration too.
             progress.DurationMs = elapsed.ElapsedMilliseconds;
         }
 
+        // Success only: observing other turns would change what the dashboards mean.
         duration.ObserveDuration();
     }
 

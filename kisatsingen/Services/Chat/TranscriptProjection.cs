@@ -1,8 +1,6 @@
 namespace kisatsingen.Services.Chat;
 
-// The reader's view of the transcript: user bubbles, assistant turns, and the
-// events that explain a turn that produced nothing. Pure, so turn grouping can
-// be tested without standing up a ChatSession and its dependencies.
+// Pure, so turn grouping is testable without a ChatSession.
 internal static class TranscriptProjection
 {
     public static IReadOnlyList<ChatItemView> Build(IReadOnlyList<TranscriptEntry> entries)
@@ -10,8 +8,7 @@ internal static class TranscriptProjection
         var views = new List<ChatItemView>();
         List<MessageEntry>? openTurn = null;
 
-        // The model that answered the previous turn, and where the question that
-        // opened the current one sits — see UserBubbleView.ModelChangedTo.
+        // For UserBubbleView.ModelChangedTo.
         ChatModelKey? previousTurnModel = null;
         var openingQuestionIndex = -1;
 
@@ -29,9 +26,7 @@ internal static class TranscriptProjection
                     (openTurn ??= []).Add(assistantOrTool);
                     break;
 
-                // An event closes the turn it belongs to, so it renders after
-                // whatever that turn managed to produce — which for a stop before
-                // the first token is nothing at all.
+                // Closes its turn, so it renders after whatever the turn produced.
                 case EventEntry chatEvent:
                     Flush();
                     views.Add(new ChatEventView(chatEvent.ViewId, chatEvent.Kind, chatEvent.Detail, chatEvent.At));
@@ -52,10 +47,9 @@ internal static class TranscriptProjection
             var turnView = BuildTurnView(openTurn);
             views.Add(turnView);
 
-            // Which model answered is only known now, after the turn closed, so the
-            // question it belongs to is annotated in place. Both sides have to be
-            // known: a null on either means the rows predate the picker, not that
-            // the model changed.
+            // The answering model is only known once the turn closes, so its question
+            // is annotated in place. A null on either side means rows older than the
+            // picker, not a change of model.
             if (turnView.Metadata?.ModelKey is { } answeringModel)
             {
                 var changed = previousTurnModel is { } earlier && earlier != answeringModel;

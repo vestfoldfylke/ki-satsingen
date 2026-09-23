@@ -2,33 +2,20 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.Services.Chat;
 
-// A turn that stopped mid-flight, reduced to what is safe to keep.
+// Whatever a stopped turn stores goes out again with every later request, so a
+// partial in a shape the provider rejects leaves the chat unable to send ever
+// again. Two shapes do that:
 //
-// Whatever is stored goes back out with every later request in the chat, so a
-// partial that leaves the history in a shape a provider rejects does not cost
-// the user a half-answer — it leaves the conversation permanently unable to
-// send. Two shapes do that:
+//   an unanswered tool call — providers reject a call with no result;
+//   history ending on a tool result — the next user message would follow the
+//   tool message directly, which Mistral rejects ("Unexpected role 'user' after
+//   role 'tool'"). OpenAI accepts it.
 //
-//   An unanswered tool call. Stopping during a call leaves a FunctionCallContent
-//   that no result ever matched, and providers reject a call with no result.
-//
-//   A history ending on a tool result. Stopping after a tool returned but before
-//   the model answered leaves assistant(call) → tool(result), and the next send
-//   puts a user message straight after the tool message. OpenAI accepts that;
-//   Mistral rejects it ("Unexpected role 'user' after role 'tool'"). This is the
-//   likelier stop of the two, since nothing is on screen while a tool runs.
-//
-// So the partial is cut after the last assistant message that carries text, and
-// only then are unanswered calls dropped. Nothing the user saw is lost: only text
-// streams to the screen, so the tool exchange after the last text was never
-// visible.
-//
-// Pure, so these rules are unit tests rather than properties of a cancelled turn
-// nobody can reproduce on demand.
+// Cutting after the last assistant text loses nothing the user saw: only text
+// streams to the screen.
 internal static class PartialTurn
 {
-    // Null when the model never said anything — including a turn whose only
-    // output was tool calls, answered or not.
+    // Null when the model never produced any text.
     public static ChatResponse? Prune(ChatResponse response)
     {
         var lastAnswerIndex = FindLastAnswerIndex(response.Messages);
@@ -39,8 +26,7 @@ internal static class PartialTurn
 
         var kept = response.Messages.Take(lastAnswerIndex + 1).ToList();
 
-        // Counted over the kept range only: a result that fell after the cut no
-        // longer answers anything that will be sent.
+        // Over the kept range only: a result after the cut is never sent.
         var answeredCallIds = kept
             .SelectMany(message => message.Contents)
             .OfType<FunctionResultContent>()
@@ -54,9 +40,7 @@ internal static class PartialTurn
                 .Where(content => content is not FunctionCallContent call || answeredCallIds.Contains(call.CallId))
                 .ToList();
 
-            // A message left with nothing, or with nothing but blank text, is the
-            // shape an empty streaming chunk degrades to. Storing it would put a
-            // silent assistant bubble in the transcript.
+            // Empty streaming chunks degrade to this; stored, they render as a blank bubble.
             if (contents.Count == 0 || contents.TrueForAll(IsBlankText))
             {
                 continue;

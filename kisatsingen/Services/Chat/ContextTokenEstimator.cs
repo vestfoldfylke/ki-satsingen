@@ -2,34 +2,20 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.Services.Chat;
 
-// How big the next request will be, counted from the request itself rather than
-// from what a provider said about the last one.
-//
-// Deliberately crude, and deliberately not a tokenizer. A real one would be exact
-// for a single provider and confidently wrong for the other — GPT and Mistral do
-// not share a vocabulary — so half the numbers would be false precision, bought
-// with a dependency neither provider fully justifies.
-//
-// Pure, so the arithmetic below is a unit test rather than something only
-// observable through a live conversation.
+// A heuristic, not a tokenizer: GPT and Mistral use different vocabularies, so a
+// real tokenizer would be exact for one and confidently wrong for the other.
 internal static class ContextTokenEstimator
 {
-    // The familiar "about four characters" is an English figure. Norwegian runs
-    // denser on both providers' vocabularies: æ, ø and å are frequently their own
-    // tokens, and compounds fragment where English would have separate words.
-    // Three is chosen low on purpose — a low divisor estimates high, and this
-    // number drives a warning, where firing early is recoverable and firing late
-    // is not.
+    // English runs about four characters per token; Norwegian is denser on both
+    // providers (æ, ø, å and split compounds). Deliberately low so the estimate runs
+    // high: this drives a warning, and warning early is the recoverable mistake.
     private const int TokenLengthInCharacters = 3;
 
-    // Each message costs its role and the format's delimiters on top of its text.
-    // The exact figure is provider-specific and small; this keeps a conversation
-    // of many short messages from estimating at nearly nothing.
+    // Role and delimiter overhead, so many short messages don't estimate at nothing.
     private const int TokensPerMessage = 4;
 
-    // The system prompt is counted even though it travels as
-    // ChatOptions.Instructions rather than in the message list: the provider puts
-    // it in the request either way, so it occupies the context window either way.
+    // The system prompt travels as Instructions, not in the list, but still
+    // occupies the window.
     public static long Estimate(IReadOnlyList<ChatMessage> messages, string? systemPrompt)
     {
         long characters = 0;
@@ -59,16 +45,10 @@ internal static class ContextTokenEstimator
             {
                 TextContent text => text.Text?.Length ?? 0,
                 FunctionCallContent call => CountCharacters(call),
-
-                // A tool result is often the largest thing in a conversation, and
-                // missing it is how an estimate comes to understate the one case
-                // that actually overflows.
+                // Often the largest thing in the conversation; missing it understates
+                // exactly the chats that overflow.
                 FunctionResultContent result => result.Result?.ToString()?.Length ?? 0,
-
-                // Images and raw data have no character count worth guessing at.
-                // Counting them as nothing understates; a made-up constant would
-                // be wrong in a way that looks deliberate. Revisit when this app
-                // can send them.
+                // Images and data have no honest character count. Revisit when the app can send them.
                 _ => 0
             };
         }
@@ -76,10 +56,8 @@ internal static class ContextTokenEstimator
         return characters;
     }
 
-    // ToString rather than JsonSerializer: these values are already JsonElement on
-    // every path that reaches here, so ToString is the JSON text, and an estimate
-    // does not justify re-serialising the whole transcript on every render just to
-    // measure its length.
+    // ToString, not JsonSerializer: the values are JsonElement already, and an
+    // estimate doesn't justify re-serialising the transcript on every render.
     private static long CountCharacters(FunctionCallContent call)
     {
         long characters = call.Name.Length;

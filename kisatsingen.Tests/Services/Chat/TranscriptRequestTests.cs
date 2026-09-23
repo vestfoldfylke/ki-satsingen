@@ -8,9 +8,7 @@ namespace kisatsingen.Tests.Services.Chat;
 
 public sealed class TranscriptRequestTests
 {
-    // The system prompt travels as ChatOptions.Instructions now. Building one here
-    // as well would send it twice — once as an instruction, once as a message the
-    // model reads as part of the conversation.
+    // It travels as Instructions; building it here too would send it twice.
     [Fact]
     public void The_system_prompt_is_not_built_into_the_message_list()
     {
@@ -21,8 +19,7 @@ public sealed class TranscriptRequestTests
         Assert.DoesNotContain(request, message => message.Role == ChatRole.System);
     }
 
-    // The reason events live in their own type at all. A leak here would send the
-    // model a turn it never produced.
+    // A leak would show the model a turn it never produced.
     [Fact]
     public void Events_are_never_sent_to_the_model()
     {

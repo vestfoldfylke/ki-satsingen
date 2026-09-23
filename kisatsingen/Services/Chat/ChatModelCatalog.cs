@@ -2,14 +2,9 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace kisatsingen.Services.Chat;
 
-// Builds every model's client once at startup and hands them out by key.
-//
-// Owns the clients it builds, so it disposes them: IChatClient is IDisposable
-// and the OpenAI one holds a request pipeline. The alternative — registering
-// each client as a keyed singleton so the container handled disposal — was
-// rejected because it would put an IServiceProvider inside the catalogue for the
-// sake of one Dispose, and an ambient IChatClient in the container is exactly
-// what this type exists to remove.
+// Owns the clients it builds, so it disposes them. Not keyed singletons: that
+// would put an ambient IChatClient back in the container, which is exactly what
+// this type exists to remove.
 internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
 {
     private readonly Dictionary<ChatModelKey, ChatModelRuntime> _byKey;
@@ -29,10 +24,8 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
         _byKey = new Dictionary<ChatModelKey, ChatModelRuntime>(definitions.Count);
         _models = new ChatModel[definitions.Count];
 
-        // Wrapped so any throw below disposes the clients built so far. The
-        // runtime does not call Dispose on a partially-constructed object, so
-        // without this every duplicate-key or missing-default crash would leak
-        // whatever provider pipelines had already been built.
+        // A constructor that throws is never disposed, so the clients built so far
+        // are disposed here instead of leaking.
         try
         {
             for (var index = 0; index < definitions.Count; index++)
@@ -45,14 +38,13 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
 
                 if (!_byKey.TryAdd(definition.Model.Key, runtime))
                 {
-                    // The new runtime never made it into _byKey — dispose it
-                    // here before the outer catch handles the rest.
+                    // Not in _byKey, so the catch below won't reach it.
                     runtime.Client.Dispose();
                     throw new InvalidOperationException(
                         $"Two chat models are registered under the key '{definition.Model.Key}'. Keys are persisted with every message, so they must be unique; give one of them a different key in AddChatModels.");
                 }
 
-                // Registration order, which is the order the picker shows.
+                // Registration order is picker order.
                 _models[index] = definition.Model;
             }
 
@@ -68,9 +60,7 @@ internal sealed class ChatModelCatalog : IChatModelCatalog, IDisposable
         {
             foreach (var runtime in _byKey.Values)
             {
-                // Best effort during ctor failure: swallow so the original
-                // exception is what surfaces to the DI container, not a
-                // secondary disposal error.
+                // Swallowed so the original exception is the one that surfaces.
                 try { runtime.Client.Dispose(); } catch { }
             }
             throw;

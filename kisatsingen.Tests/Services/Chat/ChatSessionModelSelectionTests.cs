@@ -23,10 +23,7 @@ public sealed class ChatSessionModelSelectionTests
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.SelectedModel.Key);
     }
 
-    // The key comes from the browser, so a key naming a model this user cannot use
-    // must not select it. Today nothing is gated, and the check still has to hold:
-    // the moment one model becomes role-gated, a path that skipped this is the way
-    // around it.
+    // The key comes from the browser; the check must hold before any model is gated.
     [Fact]
     public async Task A_key_that_is_not_in_the_users_available_models_is_refused()
     {
@@ -49,8 +46,7 @@ public sealed class ChatSessionModelSelectionTests
         Assert.Equal(1, notifications);
     }
 
-    // Re-picking what is already selected is not a change, and a notification for
-    // it would re-render the whole transcript for nothing.
+    // A notification re-renders the whole transcript.
     [Fact]
     public async Task Reselecting_the_current_model_notifies_nothing()
     {
@@ -74,9 +70,6 @@ public sealed class ChatSessionModelSelectionTests
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, Assert.Single(harness.Catalog.ResolvedKeys));
     }
 
-    // The whole point of capturing the model at the top of the turn: switching
-    // while a response streams must not move the turn in flight onto a different
-    // provider partway through.
     [Fact]
     public async Task Switching_during_a_turn_leaves_that_turn_on_its_original_model()
     {
@@ -92,8 +85,6 @@ public sealed class ChatSessionModelSelectionTests
         harness.Session.Cancel();
         await turn;
 
-        // The turn resolved once, before the switch, and the switch did not send it
-        // back to the catalogue for a different client.
         Assert.Equal(FakeChatModelCatalog.DefaultKey, Assert.Single(harness.Catalog.ResolvedKeys));
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.SelectedModel.Key);
     }

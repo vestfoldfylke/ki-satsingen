@@ -132,10 +132,7 @@ builder.Services.AddAuthorizationBuilder()
         .RequireRole(metricsRole));
 
 // ─── Application configuration ─────────────────────────
-// Which models exist, and their friendly names, live in code — see
-// ChatModelServiceCollectionExtensions. Configuration supplies only credentials
-// and endpoints, so there is no default IChatClient in the container: every
-// caller picks a model from the catalogue by key.
+// No default IChatClient in the container: every caller picks a model by key.
 builder.Services.AddChatModels();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
@@ -174,9 +171,8 @@ builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 var app = builder.Build();
 
 // ─── One-time startup: chat models ─────────────────────
-// Resolved here rather than lazily on the first chat. Building the catalogue is
-// what validates it: a missing default model, or two models sharing a key, must
-// stop the process at startup instead of surfacing later as a failed turn.
+// Resolved eagerly because building the catalogue validates it: a bad catalogue
+// must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
 
 // ─── One-time startup: database ────────────────────────

@@ -5,8 +5,7 @@ namespace kisatsingen.Components.Chat;
 
 public sealed partial class ModelPicker : ComponentBase
 {
-    // Fixed rather than per-instance: only one composer is on screen at a time,
-    // and a stable id keeps the popovertarget wiring readable in the DOM.
+    // Fixed: only one composer is ever on screen.
     private const string PopoverId = "composer-switch-model-dropdown";
 
     [Parameter, EditorRequired]
@@ -21,12 +20,10 @@ public sealed partial class ModelPicker : ComponentBase
     [Parameter]
     public bool IsBusy { get; set; }
 
-    // Null when no turn has reported usage, in which case no model is marked —
-    // see ChatModel.WouldOverflow.
     [Parameter]
     public long? EstimatedContextTokens { get; set; }
 
-    // The visible label is the model's name alone, which says nothing about what
-    // the control does. Screen readers get the whole sentence.
+    // The visible label is just the model name, which doesn't say what the control
+    // does; screen readers get the whole sentence.
     private string TriggerLabel => $"Språkmodell: {Selected.DisplayName}. Velg en annen.";
 }

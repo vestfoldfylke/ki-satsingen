@@ -5,15 +5,11 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// The model boundary is derived from the ModelKey each turn records, never stored.
-// These tests pin which question carries it, and when it is not drawn at all.
 public sealed class TranscriptProjectionModelBoundaryTests
 {
     private static readonly ChatModelKey Fast = new("fast");
     private static readonly ChatModelKey Large = new("large");
 
-    // It marks the question whose *answer* came from the new model, not the last
-    // question the old model answered.
     [Fact]
     public void The_question_answered_by_a_new_model_carries_the_boundary()
     {
@@ -49,8 +45,7 @@ public sealed class TranscriptProjectionModelBoundaryTests
         Assert.Null(Assert.Single(views.OfType<UserBubbleView>()).ModelChangedTo);
     }
 
-    // Rows written before the picker existed carry no key. A null on either side
-    // means "unknown", which is not the same as "changed".
+    // Rows older than the picker: unknown is not the same as changed.
     [Fact]
     public void Turns_with_no_recorded_model_carry_no_boundary()
     {
@@ -78,8 +73,6 @@ public sealed class TranscriptProjectionModelBoundaryTests
             views.OfType<UserBubbleView>().Select(question => question.ModelChangedTo));
     }
 
-    // A model dropped from the catalogue leaves the key as its own name, rather
-    // than an empty divider.
     [Fact]
     public void A_model_with_no_display_name_is_named_by_its_key()
     {
@@ -92,9 +85,6 @@ public sealed class TranscriptProjectionModelBoundaryTests
         Assert.Equal("large", views.OfType<UserBubbleView>().Last().ModelChangedTo);
     }
 
-    // Whatever else landed between the question and its answer, the boundary
-    // belongs on the question — never on the notice that happens to sit nearest
-    // the turn.
     [Fact]
     public void A_notice_between_the_question_and_its_answer_does_not_take_the_boundary()
     {

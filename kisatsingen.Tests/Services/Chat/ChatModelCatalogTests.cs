@@ -27,9 +27,7 @@ public sealed class ChatModelCatalogTests
         Assert.Contains("At least one provider", failure.Message, StringComparison.Ordinal);
     }
 
-    // The case that motivates resolving the catalogue at startup: the default
-    // model's credentials are absent, so it was dropped, and every chat would
-    // otherwise fail on its first turn instead of at boot.
+    // Its credentials are missing: otherwise every chat fails on its first turn, not at boot.
     [Fact]
     public void A_default_that_was_not_registered_refuses_to_build()
     {
@@ -39,8 +37,7 @@ public sealed class ChatModelCatalogTests
         Assert.Contains("first", failure.Message, StringComparison.Ordinal);
     }
 
-    // Keys are persisted with every message, so a duplicate would make stored rows
-    // ambiguous about which model produced them.
+    // Keys are persisted, so a duplicate makes stored rows ambiguous.
     [Fact]
     public void Two_models_sharing_a_key_refuse_to_build()
     {
@@ -66,8 +63,6 @@ public sealed class ChatModelCatalogTests
         Assert.False(catalog.TryGet(Second, out _));
     }
 
-    // Every turn writes its own instructions onto the options it is given, so two
-    // turns must never be handed the same instance.
     [Fact]
     public void Each_call_for_options_returns_a_fresh_instance()
     {
@@ -112,8 +107,7 @@ public sealed class ChatModelCatalogTests
             _ => client ?? new DisposalRecordingChatClient(),
             new ChatOptions());
 
-    // The catalogue passes the provider straight to each factory and never reads
-    // it itself, so these tests have nothing to put in one.
+    // The catalogue only hands it to the factories; these tests' factories ignore it.
     private sealed class EmptyServiceProvider : IServiceProvider
     {
         public static readonly EmptyServiceProvider Instance = new();

@@ -5,11 +5,8 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// The size of a conversation, and whether a model can still hold it.
-//
-// These assert on behaviour rather than on exact figures. The estimate's
-// constants are tuning, and a test that pins them turns every adjustment into a
-// test edit while proving nothing about whether the number is useful.
+// Behaviour, not figures: the estimate's constants are tuning, and pinning them
+// would make every adjustment a test edit that proves nothing.
 public sealed class ContextWindowTests
 {
     [Fact]
@@ -32,13 +29,8 @@ public sealed class ContextWindowTests
         Assert.True(harness.Session.EstimatedContextTokens > afterOneTurn);
     }
 
-    // The bug this rewrite exists for. A turn that calls a tool makes one provider
-    // call per round trip, and ChatResponse.Usage sums them — so the old
-    // usage-derived size roughly doubled on any turn that used a tool. Measuring
-    // the request instead cannot double-count, because there is only one request.
-    //
-    // This also covers a provider that reports no usage at all, which used to
-    // leave the size null so the warning could never fire.
+    // Reported usage double-counts tool round trips and is missing from some
+    // providers; measuring the request avoids both.
     [Fact]
     public async Task The_size_does_not_depend_on_what_the_provider_reported()
     {
@@ -51,8 +43,7 @@ public sealed class ContextWindowTests
         await measured.Session.SendAsync("hei");
         await unmeasured.Session.SendAsync("hei");
 
-        // Asserted non-null first: two nulls would satisfy the comparison below
-        // while proving nothing.
+        // Two nulls would also pass the comparison below.
         Assert.NotNull(unmeasured.Session.EstimatedContextTokens);
         Assert.Equal(unmeasured.Session.EstimatedContextTokens, measured.Session.EstimatedContextTokens);
     }
@@ -69,8 +60,6 @@ public sealed class ContextWindowTests
         Assert.False(ModelHolding(1_000).WouldOverflow(1_000));
     }
 
-    // Unknown is not "too big". Warning on a number nobody has is worse than
-    // staying quiet.
     [Fact]
     public void An_unmeasured_conversation_never_overflows()
     {
@@ -90,8 +79,6 @@ public sealed class ContextWindowTests
     };
 }
 
-// The estimator itself, where the arithmetic is worth pinning down. Pure, so none
-// of this needs a session.
 public sealed class ContextTokenEstimatorTests
 {
     [Fact]
@@ -109,8 +96,7 @@ public sealed class ContextTokenEstimatorTests
         Assert.True(longer > shorter);
     }
 
-    // It travels as ChatOptions.Instructions rather than in the message list, which
-    // is exactly why it is easy to forget — and it occupies the window regardless.
+    // Easy to miss: it travels as Instructions, not in the message list.
     [Fact]
     public void The_system_prompt_counts_toward_the_estimate()
     {
@@ -120,9 +106,7 @@ public sealed class ContextTokenEstimatorTests
         Assert.True(withPrompt > withoutPrompt);
     }
 
-    // A tool result is routinely the largest thing in a conversation. An estimate
-    // that walked only message text would miss it entirely and understate the one
-    // conversation that actually overflows.
+    // Often the largest thing in a conversation.
     [Fact]
     public void A_tool_result_counts_toward_the_estimate()
     {

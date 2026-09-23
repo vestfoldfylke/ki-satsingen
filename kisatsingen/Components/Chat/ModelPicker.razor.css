@@ -1,11 +1,6 @@
-/* Load-bearing: .ds-dropdown is `position: absolute; inset: 0 auto auto 0`, and
-   Designsystemet's script moves it into place with `style.translate` once the
-   popover opens. Without a positioned ancestor here the panel's containing block
-   is .page, so its untranslated origin is the top-left corner of the whole app —
-   it paints over the sidebar for a frame before the script runs, and its
-   translated box can push past .page's 100dvh and raise a document scrollbar.
-   Anchoring it to the picker makes the pre-translate position already correct.
-   Floating UI reads the offset parent, so it keeps positioning correctly. */
+/* Load-bearing position: .ds-dropdown is absolutely positioned and only
+   translated into place once open. Without an anchor here it starts at .page's
+   top-left, flashes over the sidebar, and can raise a document scrollbar. */
 .model-picker {
     display: inline-flex;
     position: relative;
