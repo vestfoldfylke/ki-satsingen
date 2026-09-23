@@ -36,6 +36,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         if (!_stateWired)
         {
             Session.StateChanged += OnSessionChanged;
+            Session.ChatCreated += OnChatCreated;
             _stateWired = true;
         }
 
@@ -64,14 +65,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
                 return;
             }
 
-            var wasNew = Session.ChatId is null;
-
             await Session.SendAsync(text);
-
-            if (wasNew && Session.ChatId is { } id)
-            {
-                Navigation.NavigateTo($"/chat/{id}", replace: true);
-            }
         }
         finally
         {
@@ -82,6 +76,18 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private void Stop() => Session.Cancel();
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    // Replaced, not pushed: /new has nothing to go back to. The same page instance
+    // serves both routes and the session already holds this chat, so nothing reloads.
+    // Rechecked because it runs later: by then the user may have left the chat.
+    private void OnChatCreated(Guid chatId) =>
+        InvokeAsync(() =>
+        {
+            if (ChatId is null && Session.ChatId == chatId)
+            {
+                Navigation.NavigateTo($"/chat/{chatId}", replace: true);
+            }
+        });
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -120,6 +126,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         if (_stateWired)
         {
             Session.StateChanged -= OnSessionChanged;
+            Session.ChatCreated -= OnChatCreated;
         }
         // No cancel: this also runs on circuit teardown, where the session's own
         // disposal records the disconnect. A cancel here would label it wrongly.

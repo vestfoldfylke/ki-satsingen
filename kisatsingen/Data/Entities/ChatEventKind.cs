@@ -16,7 +16,8 @@ public enum ChatEventKind
     // an empty one.
     Failed,
 
-    // The Blazor circuit was lost mid-turn (tab closed, network drop). Not a
+    // The Blazor circuit was discarded mid-turn, e.g. once the reconnect period
+    // after a closed tab or network drop ran out before the answer did. Not a
     // user-initiated stop — kept apart from Stopped so the reload transcript
     // does not tell the user they pressed a button they did not.
     Disconnected,

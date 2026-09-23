@@ -74,6 +74,68 @@ public sealed class ChatSessionNavigationTests
         Assert.Empty(harness.Session.Committed);
     }
 
+    // So the URL names the chat before the answer ends, and "New chat" or the
+    // sidebar entry navigate away from it rather than to where the user already is.
+    [Fact]
+    public async Task A_first_message_announces_its_new_chat_while_the_answer_is_still_streaming()
+    {
+        await using var harness = new ChatSessionHarness();
+        Guid? announced = null;
+        var wasBusyWhenAnnounced = false;
+        harness.Session.ChatCreated += chatId =>
+        {
+            announced = chatId;
+            wasBusyWhenAnnounced = harness.Session.IsBusy;
+        };
+
+        var (sending, askedIn) = await StartStalledAnswer(harness);
+        harness.Session.Cancel();
+        await sending.WaitAsync(TurnWindDownLimit);
+
+        Assert.Equal(askedIn, announced);
+        Assert.True(wasBusyWhenAnnounced);
+    }
+
+    [Fact]
+    public async Task A_chat_created_after_the_user_left_is_neither_announced_nor_shown()
+    {
+        await using var harness = new ChatSessionHarness();
+        var other = StoreEmptyChat(harness);
+        var creating = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var createReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Repository.BeforeCreateChat = async () =>
+        {
+            creating.SetResult();
+            await createReleased.Task;
+        };
+        var announcements = 0;
+        harness.Session.ChatCreated += _ => announcements++;
+
+        var sending = harness.Session.SendAsync("hei");
+        await creating.Task.WaitAsync(TurnWindDownLimit);
+        var leaving = harness.Session.LoadAsync(other.Id);
+        createReleased.SetResult();
+        await leaving.WaitAsync(TurnWindDownLimit);
+        await sending.WaitAsync(TurnWindDownLimit);
+
+        Assert.Equal(0, announcements);
+        Assert.Equal(other.Id, harness.Session.ChatId);
+    }
+
+    [Fact]
+    public async Task A_message_in_an_existing_chat_announces_no_new_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+        var existing = StoreEmptyChat(harness);
+        await harness.Session.LoadAsync(existing.Id);
+        var announcements = 0;
+        harness.Session.ChatCreated += _ => announcements++;
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(0, announcements);
+    }
+
     [Fact]
     public async Task Starting_a_new_chat_mid_answer_stops_it_as_leaving_the_chat()
     {

@@ -7,6 +7,8 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
+    private const string NewChatPath = "new";
+
     [Inject]
     public required ChatSession Session { get; set; }
 
@@ -37,10 +39,21 @@ public partial class NavMenu : ComponentBase, IDisposable
         await Manager.EnsureLoadedAsync();
     }
 
-    private void StartNewChatAsync()
+    private async Task StartNewChatAsync()
     {
         Logger.LogInformation("New chat started");
-        Navigation.NavigateTo("/new", replace: true);
+
+        // Loaded here, not left to the page: until the first message has created
+        // its chat the URL is still /new, and navigating to /new changes no
+        // parameter, so the page would never load and that answer would carry on.
+        await Session.LoadAsync(null);
+
+        // Pushed: leaving a chat is a real navigation, and back should return to it.
+        // Skipped on /new itself, where it would only stack duplicate entries.
+        if (Navigation.ToBaseRelativePath(Navigation.Uri) != NewChatPath)
+        {
+            Navigation.NavigateTo($"/{NewChatPath}");
+        }
     }
 
     private async Task RenameChatAsync(Guid id, string currentTitle)
@@ -90,7 +103,8 @@ public partial class NavMenu : ComponentBase, IDisposable
         if (wasActive)
         {
             Session.Reset();
-            Navigation.NavigateTo("/new", replace: true);
+            // Replaced: back must not lead to the deleted chat.
+            Navigation.NavigateTo($"/{NewChatPath}", replace: true);
         }
     }
 

@@ -90,18 +90,31 @@ internal sealed class FakeChatRepository : IChatRepository
 
     private int _appendMessagesCalls;
 
-    public Task<ChatEntity> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default) =>
-        CreateChatFailure is not null
-            ? Task.FromException<ChatEntity>(CreateChatFailure)
-            : Task.FromResult(new ChatEntity
-            {
-                Id = Guid.NewGuid(),
-                OwnerId = ownerId,
-                AssistantId = assistantId,
-                Title = title,
-                CreatedAt = DateTimeOffset.UtcNow,
-                UpdatedAt = DateTimeOffset.UtcNow
-            });
+    // Lets a test act while the chat row is being created.
+    public Func<Task>? BeforeCreateChat { get; set; }
+
+    public async Task<ChatEntity> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    {
+        if (BeforeCreateChat is not null)
+        {
+            await BeforeCreateChat();
+        }
+
+        if (CreateChatFailure is not null)
+        {
+            throw CreateChatFailure;
+        }
+
+        return new ChatEntity
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ownerId,
+            AssistantId = assistantId,
+            Title = title,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow
+        };
+    }
 
     // Which chat each append went to, one entry per message or event.
     public List<Guid> MessageChatIds { get; } = [];

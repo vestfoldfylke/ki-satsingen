@@ -47,6 +47,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     public event Action? StateChanged;
 
+    // Raised once the first message has given the open view a chat row, so the
+    // page can put its id in the URL while the answer is still streaming.
+    public event Action<Guid>? ChatCreated;
+
     public ChatSession(
         IAuthenticationService authenticationService,
         IChatModelCatalog catalog,
@@ -461,11 +465,16 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
         _ = _channel.StreamStart(binding.StreamId);
 
+        var isNewChat = binding.ChatId is null;
         var chatId = await _chatManager.EnsurePersistedAsync(binding.ChatId, text, ct);
         binding.ChatId = chatId;
         if (OwnsView(binding))
         {
             _currentChatId = chatId;
+            if (isNewChat)
+            {
+                ChatCreated?.Invoke(chatId);
+            }
         }
 
         var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);

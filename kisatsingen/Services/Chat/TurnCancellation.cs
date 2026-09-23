@@ -5,11 +5,11 @@ namespace kisatsingen.Services.Chat;
 //
 // One source per cause, linked into the one token the turn actually awaits.
 // Splitting them is what lets a caller tell a user stop, a lost circuit and
-// leaving the chat apart after the fact: whichever source was cancelled is the cause, read from
-// CancellationTokenSource state that is safe to observe cross-thread by design.
-// No side-channel field, no ordering requirement, and a future third path
-// (timeout, admin abort) adds a third source rather than a new value on a shared
-// enum.
+// leaving the chat apart after the fact: whichever source was cancelled is the
+// cause, read from CancellationTokenSource state that is safe to observe
+// cross-thread by design. No side-channel field, no ordering requirement, and a
+// future path (timeout, admin abort) adds another source rather than a new value
+// on a shared enum.
 //
 // Deliberately knows nothing about transcripts, metrics or event kinds. It
 // answers "was this cancelled, and by which side" and leaves what to call that
@@ -24,17 +24,17 @@ internal sealed class TurnCancellation : IDisposable
     public TurnCancellation() =>
         _linked = CancellationTokenSource.CreateLinkedTokenSource(_user.Token, _disconnect.Token, _leave.Token);
 
-    // The token the turn awaits. Fires when either source is cancelled.
+    // The token the turn awaits. Fires when any source is cancelled.
     public CancellationToken Token => _linked.Token;
 
     // Whether this turn was cancelled by us at all. The distinction matters
     // because an OperationCanceledException can arrive from somewhere that never
-    // asked either of these sources — a provider's own HTTP timeout, say — and a
+    // asked any of these sources — a provider's own HTTP timeout, say — and a
     // caller that assumes otherwise files a real failure as an intended stop.
     public bool IsCancelled =>
         _user.IsCancellationRequested || _disconnect.IsCancellationRequested || _leave.IsCancellationRequested;
 
-    // Disconnect wins if both fired on the same turn: pressing stop on a dying
+    // Disconnect wins over any other source: pressing stop on a dying
     // tab is functionally a disconnect, and the connectivity signal is the more
     // useful one to keep.
     public bool IsDisconnect => _disconnect.IsCancellationRequested;
@@ -49,8 +49,7 @@ internal sealed class TurnCancellation : IDisposable
     // The user opened another chat or deleted this one.
     public void CancelForLeave() => TryCancel(_leave);
 
-    // The browser stopped listening — the transport dropped, the tab closed, the
-    // circuit was torn down.
+    // The circuit was torn down, so nobody is left to receive the answer.
     public void CancelForDisconnect() => TryCancel(_disconnect);
 
     // The async form, for teardown paths. Cancel() runs the linked source's
@@ -70,7 +69,7 @@ internal sealed class TurnCancellation : IDisposable
         }
     }
 
-    // Cancelling either underlying source is what fires the linked token;
+    // Cancelling an underlying source is what fires the linked token;
     // cancelling the linked source directly does not propagate back to them, and
     // would leave IsCancelled reading false for a turn that was very much
     // cancelled.
