@@ -235,6 +235,8 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
+    // A turn stops when the session is asked to show another chat, never when a
+    // route without a chat is opened: there it finishes and is waiting on return.
     public Task StopTurnForLeaveAsync()
     {
         _turnCancellation?.CancelForLeave();
@@ -349,34 +351,41 @@ public sealed class ChatSession : IAsyncDisposable
         }
         finally
         {
-            // Always, even for a view that moved on: the browser holds a buffer per stream.
-            _ = _channel.StreamEnd(binding.StreamId);
-            if (OwnsView(binding))
-            {
-                _streamingId = null;
-            }
-            IsBusy = false;
-
-            // Nulled before disposing, so a Cancel() arriving now no-ops instead of
-            // reaching disposed sources.
-            _turnCancellation = null;
-            turn.Dispose();
-
-            Notify();
-
-            // Last and guarded: Prometheus throws on a label mismatch. Earlier, that
-            // would skip the teardown and lock the composer; unguarded, it would mask
-            // the exception already leaving.
+            // Nested so a throwing StateChanged subscriber can't leave LoadAsync
+            // waiting on this turn forever.
             try
             {
-                CountSend(outcome, servedModelId ?? modelForThisTurn.ModelId, modelForThisTurn.Key);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Could not count the {Outcome} outcome for chat {ChatId}.", outcome, binding.ChatId);
-            }
+                // Always, even for a view that moved on: the browser holds a buffer per stream.
+                _ = _channel.StreamEnd(binding.StreamId);
+                if (OwnsView(binding))
+                {
+                    _streamingId = null;
+                }
+                IsBusy = false;
 
-            completion.SetResult();
+                // Nulled before disposing, so a Cancel() arriving now no-ops instead of
+                // reaching disposed sources.
+                _turnCancellation = null;
+                turn.Dispose();
+
+                Notify();
+
+                // Last and guarded: Prometheus throws on a label mismatch. Earlier, that
+                // would skip the teardown and lock the composer; unguarded, it would mask
+                // the exception already leaving.
+                try
+                {
+                    CountSend(outcome, servedModelId ?? modelForThisTurn.ModelId, modelForThisTurn.Key);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Could not count the {Outcome} outcome for chat {ChatId}.", outcome, binding.ChatId);
+                }
+            }
+            finally
+            {
+                completion.SetResult();
+            }
         }
     }
 

@@ -121,9 +121,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         {
             Session.StateChanged -= OnSessionChanged;
         }
-        // Cancel any in-flight send. Session is scoped, so DI owns its full
-        // disposal — we don't call Session.DisposeAsync here.
-        Session.Cancel();
+        // No cancel: this also runs on circuit teardown, where the session's own
+        // disposal records the disconnect. A cancel here would label it wrongly.
         return ValueTask.CompletedTask;
     }
 }

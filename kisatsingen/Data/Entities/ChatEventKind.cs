@@ -21,7 +21,7 @@ public enum ChatEventKind
     // does not tell the user they pressed a button they did not.
     Disconnected,
 
-    // The user opened another chat mid-turn, which stops it. Apart from Stopped
-    // for the same reason as Disconnected: they never pressed stop.
+    // The user opened another chat or deleted this one mid-turn, which stops it.
+    // Apart from Stopped for the same reason as Disconnected: they never pressed stop.
     LeftChat
 }

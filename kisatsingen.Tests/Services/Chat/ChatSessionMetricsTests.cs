@@ -9,8 +9,8 @@ namespace kisatsingen.Tests.Services.Chat;
 // attempts. Dashboards and alerts rely on that.
 public sealed class ChatSessionMetricsTests
 {
-    private const string SendCounter = "_Send";
-    private const string FailureCounter = "_Failure";
+    private const string SendCounter = RecordingMetricsService.SendCounter;
+    private const string FailureCounter = RecordingMetricsService.FailureCounter;
 
     // The count shares a finally with the teardown that unlocks the composer.
     [Fact]

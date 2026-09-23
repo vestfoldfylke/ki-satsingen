@@ -349,6 +349,9 @@ internal static class ModelStream
 // merely that something was counted.
 internal sealed class RecordingMetricsService : IMetricsService
 {
+    public const string SendCounter = "_Send";
+    public const string FailureCounter = "_Failure";
+
     public List<MetricCall> Calls { get; } = [];
 
     // What Prometheus does on a label mismatch, for one metric only.

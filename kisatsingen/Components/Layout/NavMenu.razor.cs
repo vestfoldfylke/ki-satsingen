@@ -22,9 +22,6 @@ public partial class NavMenu : ComponentBase, IDisposable
     [Inject]
     public required IJSRuntime JS { get; set; }
 
-    [Parameter]
-    public Guid? ChatId { get; set; }
-
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
@@ -37,21 +34,11 @@ public partial class NavMenu : ComponentBase, IDisposable
             _stateWired = true;
         }
 
-        if (Session.ChatId != ChatId)
-        {
-            await Session.LoadAsync(ChatId);
-        }
-
         await Manager.EnsureLoadedAsync();
     }
 
     private void StartNewChatAsync()
     {
-        if (Session.IsBusy)
-        {
-            return;
-        }
-
         Logger.LogInformation("New chat started");
         Navigation.NavigateTo("/new", replace: true);
     }

@@ -47,7 +47,7 @@ public sealed class ChatSessionNavigationTests
 
         await LeaveMidAnswer(harness, other.Id);
 
-        var send = Assert.Single(harness.Metrics.Named("_Send"));
+        var send = Assert.Single(harness.Metrics.Named(RecordingMetricsService.SendCounter));
         Assert.Equal(MetricConstants.MetricsResultLeftChatLabelValue, send.Label(MetricConstants.MetricsResultLabelName));
     }
 
@@ -59,7 +59,7 @@ public sealed class ChatSessionNavigationTests
 
         await LeaveMidAnswer(harness, other.Id);
 
-        Assert.Empty(harness.Metrics.Named("_Failure"));
+        Assert.Empty(harness.Metrics.Named(RecordingMetricsService.FailureCounter));
     }
 
     [Fact]
@@ -75,14 +75,53 @@ public sealed class ChatSessionNavigationTests
     }
 
     [Fact]
-    public async Task Leaving_a_chat_mid_answer_frees_the_composer()
+    public async Task Starting_a_new_chat_mid_answer_stops_it_as_leaving_the_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+        var (sending, askedIn) = await StartStalledAnswer(harness);
+
+        await harness.Session.LoadAsync(null).WaitAsync(TurnWindDownLimit);
+        await sending.WaitAsync(TurnWindDownLimit);
+
+        Assert.Equal(ChatEventKind.LeftChat, Assert.Single(harness.Repository.AppendedEvents).Kind);
+        Assert.Equal(askedIn, Assert.Single(harness.Repository.EventChatIds));
+        Assert.Null(harness.Session.ChatId);
+    }
+
+    // Checked before awaiting the send: once it has returned, IsBusy is false anyway.
+    [Fact]
+    public async Task Opening_another_chat_returns_only_once_the_answer_has_wound_down()
     {
         await using var harness = new ChatSessionHarness();
         var other = StoreEmptyChat(harness);
+        var (sending, _) = await StartStalledAnswer(harness);
 
-        await LeaveMidAnswer(harness, other.Id);
+        await harness.Session.LoadAsync(other.Id).WaitAsync(TurnWindDownLimit);
 
         Assert.False(harness.Session.IsBusy);
+        await sending.WaitAsync(TurnWindDownLimit);
+    }
+
+    [Fact]
+    public async Task Opening_another_chat_completes_even_when_the_turn_teardown_throws()
+    {
+        await using var harness = new ChatSessionHarness();
+        var other = StoreEmptyChat(harness);
+        var (sending, _) = await StartStalledAnswer(harness);
+        var isArmed = true;
+        harness.Session.StateChanged += () =>
+        {
+            if (isArmed && !harness.Session.IsBusy)
+            {
+                isArmed = false;
+                throw new InvalidOperationException("Scripted subscriber failure.");
+            }
+        };
+
+        await harness.Session.LoadAsync(other.Id).WaitAsync(TurnWindDownLimit);
+
+        Assert.Equal(other.Id, harness.Session.ChatId);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sending.WaitAsync(TurnWindDownLimit));
     }
 
     [Fact]
@@ -102,14 +141,20 @@ public sealed class ChatSessionNavigationTests
         Assert.Equal(second.Id, harness.Session.ChatId);
     }
 
-    private static async Task<Guid> LeaveMidAnswer(ChatSessionHarness harness, Guid destination)
+    private static async Task<(Task Sending, Guid AskedIn)> StartStalledAnswer(ChatSessionHarness harness)
     {
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         harness.Client.OnStream = ct => ModelStream.AnsweringThenStalling("halvferdig svar", reached, ct);
 
         var sending = harness.Session.SendAsync("hei");
         await reached.Task;
-        var askedIn = harness.Session.ChatId!.Value;
+
+        return (sending, harness.Session.ChatId!.Value);
+    }
+
+    private static async Task<Guid> LeaveMidAnswer(ChatSessionHarness harness, Guid destination)
+    {
+        var (sending, askedIn) = await StartStalledAnswer(harness);
 
         await harness.Session.LoadAsync(destination).WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);

@@ -46,7 +46,7 @@ internal sealed class TurnCancellation : IDisposable
     // The user asked for the turn to end.
     public void CancelForUser() => TryCancel(_user);
 
-    // The user opened another chat, or deleted this one.
+    // The user opened another chat or deleted this one.
     public void CancelForLeave() => TryCancel(_leave);
 
     // The browser stopped listening — the transport dropped, the tab closed, the
