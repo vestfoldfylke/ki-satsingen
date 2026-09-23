@@ -24,7 +24,7 @@
                     <button type="button"
                             class="model-picker-option"
                             role="menuitemradio"
-                            aria-checked="@isSelected"
+                            aria-checked="@(isSelected ? "true" : "false")"
                             popovertarget="@PopoverId"
                             popovertargetaction="hide"
                             title="@model.LongDescription"
