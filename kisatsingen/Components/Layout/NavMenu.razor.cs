@@ -84,6 +84,12 @@ public partial class NavMenu : ComponentBase, IDisposable
 
         var wasActive = Session.ChatId == id;
 
+        // Before the delete, so the turn's tail can't append to a row that is gone.
+        if (wasActive)
+        {
+            await Session.StopTurnForLeaveAsync();
+        }
+
         try
         {
             await Manager.DeleteAsync(id, CancellationToken.None);
@@ -96,10 +102,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 
         if (wasActive)
         {
-            // Cancel first so an in-flight turn on this chat winds down before
-            // Reset clears its identity — otherwise the tail of the turn tries
-            // to append to a row that no longer exists.
-            Session.Cancel();
             Session.Reset();
             Navigation.NavigateTo("/new", replace: true);
         }

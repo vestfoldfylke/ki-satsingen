@@ -8,6 +8,7 @@ internal enum TurnOutcome
 {
     Success,
     Stopped,
+    LeftChat,
     Disconnected,
     Unauthenticated,
     Failed
@@ -20,6 +21,7 @@ internal static class TurnOutcomeMetric
     {
         TurnOutcome.Success => MetricConstants.MetricsResultSuccessLabelValue,
         TurnOutcome.Stopped => MetricConstants.MetricsResultCancelledLabelValue,
+        TurnOutcome.LeftChat => MetricConstants.MetricsResultLeftChatLabelValue,
         TurnOutcome.Disconnected => MetricConstants.MetricsResultDisconnectedLabelValue,
         TurnOutcome.Unauthenticated => MetricConstants.MetricsResultUnauthenticatedLabelValue,
         TurnOutcome.Failed => MetricConstants.MetricsResultFailedLabelValue,

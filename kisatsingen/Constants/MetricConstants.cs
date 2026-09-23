@@ -19,6 +19,10 @@ public static class MetricConstants
     // Apart from Failed, so pressing stop never reaches failure alerts.
     public static string MetricsResultCancelledLabelValue => "Cancelled";
 
+    // Apart from Cancelled: how often this happens decides whether turns should
+    // keep running in the background.
+    public static string MetricsResultLeftChatLabelValue => "LeftChat";
+
     // Says something about connectivity, not the app.
     public static string MetricsResultDisconnectedLabelValue => "Disconnected";
 

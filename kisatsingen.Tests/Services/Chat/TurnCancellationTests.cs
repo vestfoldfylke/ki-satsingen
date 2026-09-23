@@ -65,6 +65,51 @@ public sealed class TurnCancellationTests
         Assert.True(turn.IsDisconnect);
     }
 
+    [Fact]
+    public void Leaving_the_chat_cancels_the_turn_as_a_leave()
+    {
+        using var turn = new TurnCancellation();
+
+        turn.CancelForLeave();
+
+        Assert.True(turn.IsCancelled);
+        Assert.True(turn.IsLeave);
+        Assert.False(turn.IsDisconnect);
+    }
+
+    [Fact]
+    public void A_user_stop_before_leaving_is_not_reported_as_a_leave()
+    {
+        using var turn = new TurnCancellation();
+
+        turn.CancelForUser();
+        turn.CancelForLeave();
+
+        Assert.False(turn.IsLeave);
+    }
+
+    [Fact]
+    public void A_disconnect_outranks_leaving_the_chat()
+    {
+        using var turn = new TurnCancellation();
+
+        turn.CancelForLeave();
+        turn.CancelForDisconnect();
+
+        Assert.True(turn.IsDisconnect);
+        Assert.False(turn.IsLeave);
+    }
+
+    [Fact]
+    public void The_awaited_token_fires_when_the_user_leaves_the_chat()
+    {
+        using var turn = new TurnCancellation();
+
+        turn.CancelForLeave();
+
+        Assert.True(turn.Token.IsCancellationRequested);
+    }
+
     [Theory]
     [InlineData(true)]
     [InlineData(false)]

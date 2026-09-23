@@ -103,10 +103,25 @@ internal sealed class FakeChatRepository : IChatRepository
                 UpdatedAt = DateTimeOffset.UtcNow
             });
 
-    public ChatEntity? StoredChat { get; set; }
+    // Which chat each append went to, one entry per message or event.
+    public List<Guid> MessageChatIds { get; } = [];
+    public List<Guid> EventChatIds { get; } = [];
 
-    public Task<ChatEntity?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default) =>
-        Task.FromResult(StoredChat);
+    public ChatEntity? StoredChat { get; set; }
+    public Dictionary<Guid, ChatEntity> StoredChats { get; } = [];
+
+    // Lets a test hold one load open while another completes.
+    public Func<Guid, Task>? BeforeGetChat { get; set; }
+
+    public async Task<ChatEntity?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    {
+        if (BeforeGetChat is not null)
+        {
+            await BeforeGetChat(chatId);
+        }
+
+        return StoredChats.GetValueOrDefault(chatId) ?? StoredChat;
+    }
 
     public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<ChatSummary>>([]);
@@ -132,6 +147,7 @@ internal sealed class FakeChatRepository : IChatRepository
         }
 
         AppendedMessages.AddRange(messages);
+        MessageChatIds.AddRange(messages.Select(_ => chatId));
         return Task.CompletedTask;
     }
 
@@ -143,6 +159,7 @@ internal sealed class FakeChatRepository : IChatRepository
         }
 
         AppendedEvents.Add(chatEvent);
+        EventChatIds.Add(chatId);
         return Task.CompletedTask;
     }
 

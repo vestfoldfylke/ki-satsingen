@@ -19,5 +19,9 @@ public enum ChatEventKind
     // The Blazor circuit was lost mid-turn (tab closed, network drop). Not a
     // user-initiated stop — kept apart from Stopped so the reload transcript
     // does not tell the user they pressed a button they did not.
-    Disconnected
+    Disconnected,
+
+    // The user opened another chat mid-turn, which stops it. Apart from Stopped
+    // for the same reason as Disconnected: they never pressed stop.
+    LeftChat
 }
