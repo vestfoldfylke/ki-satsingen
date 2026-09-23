@@ -41,9 +41,9 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task Reopening_a_chat_resumes_the_model_it_was_last_answered_by()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.StoredChat = ChatAnsweredBy(FakeChatModelCatalog.AlternativeKey.Value);
+        var chat = harness.Repository.Store(ChatAnsweredBy(FakeChatModelCatalog.AlternativeKey.Value));
 
-        await harness.Session.LoadAsync(harness.Repository.StoredChat.Id);
+        await harness.Session.LoadAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.SelectedModel.Key);
     }
@@ -53,9 +53,9 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_chat_whose_model_has_left_the_catalogue_falls_back_to_the_default()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.StoredChat = ChatAnsweredBy("a-model-that-was-removed");
+        var chat = harness.Repository.Store(ChatAnsweredBy("a-model-that-was-removed"));
 
-        await harness.Session.LoadAsync(harness.Repository.StoredChat.Id);
+        await harness.Session.LoadAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
@@ -65,9 +65,9 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_chat_with_no_recorded_model_falls_back_to_the_default()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.StoredChat = ChatAnsweredBy(null);
+        var chat = harness.Repository.Store(ChatAnsweredBy(null));
 
-        await harness.Session.LoadAsync(harness.Repository.StoredChat.Id);
+        await harness.Session.LoadAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
@@ -79,9 +79,9 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_chat_whose_recorded_model_is_blank_still_opens(string modelKey)
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.StoredChat = ChatAnsweredBy(modelKey);
+        var chat = harness.Repository.Store(ChatAnsweredBy(modelKey));
 
-        await harness.Session.LoadAsync(harness.Repository.StoredChat.Id);
+        await harness.Session.LoadAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }

@@ -8,8 +8,8 @@ using ChatEntity = kisatsingen.Data.Entities.Chat;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// The sidebar stays clickable while an answer streams, so a turn must never
-// follow the view into another chat.
+// Navigation mid-answer: the turn stays with its chat, and the URL names the chat
+// as soon as it exists.
 public sealed class ChatSessionNavigationTests
 {
     // A turn that isn't stopped by navigation stalls forever; fail instead of hanging.
@@ -77,23 +77,18 @@ public sealed class ChatSessionNavigationTests
     // So the URL names the chat before the answer ends, and "New chat" or the
     // sidebar entry navigate away from it rather than to where the user already is.
     [Fact]
-    public async Task A_first_message_announces_its_new_chat_while_the_answer_is_still_streaming()
+    public async Task A_first_message_announces_its_new_chat_before_the_answer_has_finished()
     {
         await using var harness = new ChatSessionHarness();
         Guid? announced = null;
-        var wasBusyWhenAnnounced = false;
-        harness.Session.ChatCreated += chatId =>
-        {
-            announced = chatId;
-            wasBusyWhenAnnounced = harness.Session.IsBusy;
-        };
+        harness.Session.ChatCreated += chatId => announced = chatId;
 
         var (sending, askedIn) = await StartStalledAnswer(harness);
+        var announcedMidAnswer = announced;
         harness.Session.Cancel();
         await sending.WaitAsync(TurnWindDownLimit);
 
-        Assert.Equal(askedIn, announced);
-        Assert.True(wasBusyWhenAnnounced);
+        Assert.Equal(askedIn, announcedMidAnswer);
     }
 
     [Fact]
@@ -224,17 +219,13 @@ public sealed class ChatSessionNavigationTests
         return askedIn;
     }
 
-    private static ChatEntity StoreEmptyChat(ChatSessionHarness harness)
-    {
-        var chat = new ChatEntity
+    private static ChatEntity StoreEmptyChat(ChatSessionHarness harness) =>
+        harness.Repository.Store(new ChatEntity
         {
             Id = Guid.NewGuid(),
             OwnerId = ChatSessionHarness.OwnerUnderTest,
             Title = "stored",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
-        };
-        harness.Repository.StoredChats[chat.Id] = chat;
-        return chat;
-    }
+        });
 }

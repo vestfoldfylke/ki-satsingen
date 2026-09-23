@@ -120,8 +120,13 @@ internal sealed class FakeChatRepository : IChatRepository
     public List<Guid> MessageChatIds { get; } = [];
     public List<Guid> EventChatIds { get; } = [];
 
-    public ChatEntity? StoredChat { get; set; }
-    public Dictionary<Guid, ChatEntity> StoredChats { get; } = [];
+    private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
+
+    public ChatEntity Store(ChatEntity chat)
+    {
+        _storedChats[chat.Id] = chat;
+        return chat;
+    }
 
     // Lets a test hold one load open while another completes.
     public Func<Guid, Task>? BeforeGetChat { get; set; }
@@ -133,7 +138,7 @@ internal sealed class FakeChatRepository : IChatRepository
             await BeforeGetChat(chatId);
         }
 
-        return StoredChats.GetValueOrDefault(chatId) ?? StoredChat;
+        return _storedChats.GetValueOrDefault(chatId);
     }
 
     public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default) =>

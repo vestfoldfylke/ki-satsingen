@@ -28,6 +28,7 @@ public sealed class TurnCancellationTests
 
         Assert.True(turn.IsCancelled);
         Assert.False(turn.IsDisconnect);
+        Assert.False(turn.IsLeave);
     }
 
     [Fact]
@@ -39,6 +40,7 @@ public sealed class TurnCancellationTests
 
         Assert.True(turn.IsCancelled);
         Assert.True(turn.IsDisconnect);
+        Assert.False(turn.IsLeave);
     }
 
     // Pressing stop on a dying tab is functionally a disconnect, so the answer
@@ -100,30 +102,32 @@ public sealed class TurnCancellationTests
         Assert.False(turn.IsLeave);
     }
 
-    [Fact]
-    public void The_awaited_token_fires_when_the_user_leaves_the_chat()
+    public enum CancelSource
     {
-        using var turn = new TurnCancellation();
-
-        turn.CancelForLeave();
-
-        Assert.True(turn.Token.IsCancellationRequested);
+        User,
+        Disconnect,
+        Leave
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void The_awaited_token_fires_whichever_source_was_cancelled(bool isDisconnect)
+    [InlineData(CancelSource.User)]
+    [InlineData(CancelSource.Disconnect)]
+    [InlineData(CancelSource.Leave)]
+    public void The_awaited_token_fires_whichever_source_was_cancelled(CancelSource source)
     {
         using var turn = new TurnCancellation();
 
-        if (isDisconnect)
+        switch (source)
         {
-            turn.CancelForDisconnect();
-        }
-        else
-        {
-            turn.CancelForUser();
+            case CancelSource.User:
+                turn.CancelForUser();
+                break;
+            case CancelSource.Disconnect:
+                turn.CancelForDisconnect();
+                break;
+            case CancelSource.Leave:
+                turn.CancelForLeave();
+                break;
         }
 
         Assert.True(turn.Token.IsCancellationRequested);
