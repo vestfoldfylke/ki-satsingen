@@ -118,6 +118,5 @@ public partial class NavMenu : ComponentBase, IDisposable
             Session.StateChanged -= OnStateChanged;
             Manager.ChatListChanged -= OnStateChanged;
         }
-        Session.Cancel();
     }
 }
