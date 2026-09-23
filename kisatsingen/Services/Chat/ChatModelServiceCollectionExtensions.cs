@@ -2,6 +2,7 @@ using System.ClientModel;
 using kisatsingen.AIFunctions;
 using Microsoft.Extensions.AI;
 using OpenAI;
+using OpenAI.Chat;
 
 namespace kisatsingen.Services.Chat;
 
@@ -20,38 +21,46 @@ internal static class ChatModelServiceCollectionExtensions
     // OpenAI-compatible, so it needs no adapter of its own.
     private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
-    private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.Fast;
+    private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.Mistral;
 
-    // PLACEHOLDER — display copy, context window and icon are all provisional.
-    private static readonly ChatModel FastModel = new()
+    private static readonly ChatModel MistralModel = new()
     {
-        Key = ChatModelKeys.Fast,
-        DisplayName = "Rask",
-        ShortDescription = "Rask og rimelig. Passer til de fleste spørsmål.",
+        Key = ChatModelKeys.Mistral,
+        DisplayName = "Mistral Large",
+        ShortDescription = "Raske svar, europeisk leverandør.",
         LongDescription =
-            "Svarer raskt og holder god kvalitet på vanlige oppgaver: oppsummering, omskriving, korte forklaringer "
-            + "og enkle spørsmål. Velg en annen modell hvis du trenger grundig resonnering over et langt eller "
-            + "komplisert underlag.",
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
+            + "Rask på oppsummering, omskriving og korte forklaringer.",
+        Provider = "Mistral AI",
+        ModelId = "mistral-large-latest",
+        ContextWindowTokens = 256_000,
+        IconName = "placeholder-eu"
+    };
+
+    private static readonly ChatModel OpenAIModel = new()
+    {
+        Key = ChatModelKeys.OpenAI,
+        DisplayName = "GPT-6 Luna",
+        ShortDescription = "Til de vanskeligere oppgavene.",
+        LongDescription =
+            "Takler større oppgaver som må løses i flere steg, og holder styr på lange samtaler.",
+        Provider = "OpenAI",
+        ModelId = "gpt-6-luna",
+        ContextWindowTokens = 1_000_000,
+        IconName = "placeholder-code"
+    };
+
+    private static readonly ChatModel TestModel = new()
+    {
+        Key = ChatModelKeys.Testing,
+        DisplayName = "Test",
+        ShortDescription = "Bare for testing, billig drit",
+        LongDescription =
+            "Kan alt og ingenting på en gang.",
         Provider = "OpenAI",
         ModelId = "gpt-4o-mini",
         ContextWindowTokens = 128_000,
-        IconName = "placeholder-fast"
-    };
-
-    // PLACEHOLDER — display copy, context window and icon are all provisional.
-    private static readonly ChatModel LargeModel = new()
-    {
-        Key = ChatModelKeys.Large,
-        DisplayName = "Kompleks",
-        ShortDescription = "Grundigere. Passer når oppgaven krever resonnering.",
-        LongDescription =
-            "Bruker lengre tid, men holder bedre på tråden i sammensatte oppgaver: analyse av lange dokumenter, "
-            + "flersteg-resonnering og oppgaver der detaljene henger sammen. Velg den raske modellen til korte "
-            + "spørsmål — denne er tregere uten å svare bedre på dem.",
-        Provider = "Mistral",
-        ModelId = "mistral-large-latest",
-        ContextWindowTokens = 256_000,
-        IconName = "placeholder-large"
+        IconName = "placeholder-dust"
     };
 
     public static IServiceCollection AddChatModels(this IServiceCollection services)
@@ -80,17 +89,31 @@ internal static class ChatModelServiceCollectionExtensions
             definitions,
             configuration,
             logger,
-            FastModel,
-            OpenAiConfigurationPath,
-            providerCredential => OpenAiCompatible(providerCredential, OpenAiEndpoint, FastModel.ModelId));
+            MistralModel,
+            MistralConfigurationPath,
+            providerCredential => (
+                OpenAiCompatibleChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
+                WithTools()));
 
         AddIfConfigured(
             definitions,
             configuration,
             logger,
-            LargeModel,
-            MistralConfigurationPath,
-            providerCredential => OpenAiCompatible(providerCredential, MistralEndpoint, LargeModel.ModelId));
+            OpenAIModel,
+            OpenAiConfigurationPath,
+            providerCredential => (
+                OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
+                WithToolsNoChatCompletionsStoreNoReasoning()));
+
+        AddIfConfigured(
+            definitions,
+            configuration,
+            logger,
+            TestModel,
+            OpenAiConfigurationPath,
+            providerCredential => (
+                OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, TestModel.ModelId),
+                WithToolsNoChatCompletionsStore()));
 
         return definitions;
     }
@@ -103,7 +126,7 @@ internal static class ChatModelServiceCollectionExtensions
         ILogger logger,
         ChatModel model,
         string configurationPath,
-        Func<string, Func<IServiceProvider, IChatClient>> createClientFactory)
+        Func<string, (Func<IServiceProvider, IChatClient> Client, ChatOptions Options)> build)
     {
         var providerCredential = configuration[configurationPath];
         if (string.IsNullOrWhiteSpace(providerCredential))
@@ -116,11 +139,33 @@ internal static class ChatModelServiceCollectionExtensions
             return;
         }
 
-        definitions.Add(new ChatModelDefinition(model, createClientFactory(providerCredential), WithTools()));
+        var (client, options) = build(providerCredential);
+        definitions.Add(new ChatModelDefinition(model, client, options));
     }
 
     // The only way in, so no model reaches the catalogue without its tools.
+    // No `store` here: it is an OpenAI extension, not ours to send elsewhere.
     private static ChatOptions WithTools() => new() { Tools = [.. ChatTools.All] };
+
+    // store=false is already the default, but set so a default change can't start
+    // retaining conversations. RawRepresentationFactory because the adapter drops
+    // AdditionalProperties.
+    private static ChatOptions WithToolsNoChatCompletionsStore() =>
+        new()
+        {
+            Tools = [.. ChatTools.All],
+            RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
+        };
+
+    // For gpt-6-luna, Chat Completions rejects tools with any effort but none.
+    // Reasoning with tools needs /v1/responses, which stores by default.
+    private static ChatOptions WithToolsNoChatCompletionsStoreNoReasoning() =>
+        new()
+        {
+            Tools = [.. ChatTools.All],
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None },
+            RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
+        };
 
     // Shared by every OpenAI-compatible provider; one that isn't brings its own.
     //
@@ -130,7 +175,7 @@ internal static class ChatModelServiceCollectionExtensions
     //   ChatOptions.Instructions becomes exactly one system message, and none when
     //   unset. A note rather than a test, because moving to the Responses API
     //   would change the body without changing the behaviour.
-    private static Func<IServiceProvider, IChatClient> OpenAiCompatible(
+    private static Func<IServiceProvider, IChatClient> OpenAiCompatibleChat(
         string providerCredential,
         Uri endpoint,
         string modelId)
