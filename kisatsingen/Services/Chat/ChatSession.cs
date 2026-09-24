@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using kisatsingen.AIFunctions;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -14,41 +12,48 @@ public sealed class ChatSession : IAsyncDisposable
 {
     private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
-    private static readonly ChatOptions Options = new()
-    {
-        Tools = [ChatTools.GetCurrentTimeUtcTool]
-    };
-
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_ChatSession";
 
     private readonly IAuthenticationService _authenticationService;
-    private readonly IChatClient _client;
+    private readonly IChatModelCatalog _catalog;
     private readonly IChatRepository _repo;
     private readonly ChatManager _chatManager;
     private readonly IMetricsService _metrics;
     private readonly ChatClientChannel _channel;
+    private readonly TurnStreamer _streamer;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<TranscriptEntry> _entries = [];
     private Guid? _streamingId;
 
-    // The chat this session is working on, or null between chats. ChatManager
-    // owns chat metadata (title, timestamps); Session tracks only identity plus
-    // the runtime state of the turn in flight.
+    // Identity only; ChatManager owns the chat's metadata.
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
-    // The cancellation state of the turn in flight, or null when there is none.
-    // Cancel() and the disconnect callbacks reach the live turn through this;
-    // both no-op on a null read, which is what makes a stop arriving between
-    // turns harmless.
+    // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
+    private ChatModel _selectedModel;
+
+    // What PendingModel compares the selection against.
+    private ChatModel? _lastAnsweredModel;
+
+    // Null between turns, which is what makes a late Cancel() a harmless no-op.
     private TurnCancellation? _turnCancellation;
+
+    private Task _turnCompletion = Task.CompletedTask;
+
+    // Bumped whenever the view switches chat. Anything that awaited across a bump
+    // no longer owns the view and must leave it alone.
+    private int _viewVersion;
 
     public event Action? StateChanged;
 
+    // Raised once the first message has given the open view a chat row, so the
+    // page can put its id in the URL while the answer is still streaming.
+    public event Action<Guid>? ChatCreated;
+
     public ChatSession(
         IAuthenticationService authenticationService,
-        IChatClient client,
+        IChatModelCatalog catalog,
         IChatRepository repo,
         ChatManager chatManager,
         IMetricsService metrics,
@@ -56,13 +61,15 @@ public sealed class ChatSession : IAsyncDisposable
         ILogger<ChatSession> logger)
     {
         _authenticationService = authenticationService;
-        _client = client;
+        _catalog = catalog;
+        _selectedModel = catalog.Default;
         _repo = repo;
         _chatManager = chatManager;
         _metrics = metrics;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
+        _streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
     }
 
     public Guid? ChatId => _currentChatId;
@@ -71,7 +78,61 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid? StreamingId => _streamingId;
 
+    public ChatModel SelectedModel => _selectedModel;
+
+    // A switch shows nothing until a turn runs on it, so the composer says so.
+    // Null before the first answer: there is no previous model to contrast with.
+    public ChatModel? PendingModel =>
+        _lastAnsweredModel is { } answered && answered.Key != _selectedModel.Key
+            ? _selectedModel
+            : null;
+
+    // The allow-list. Every user gets every model today; per-user gating goes here.
+    public IReadOnlyList<ChatModel> AvailableModels => _catalog.Models;
+
+    // The key comes from the browser, so it is checked against the allow-list
+    // rather than the catalogue — otherwise gating a model later has a way around.
+    public Task SelectModelAsync(ChatModelKey key)
+    {
+        var model = AvailableModels.FirstOrDefault(candidate => candidate.Key == key);
+
+        if (model is null)
+        {
+            _logger.LogWarning(
+                "Refused to switch chat {ChatId} to model {ModelKey}: not in this user's available models.",
+                _currentChatId,
+                key);
+            return Task.CompletedTask;
+        }
+
+        if (model.Key == _selectedModel.Key)
+        {
+            return Task.CompletedTask;
+        }
+
+        // State only, no I/O: that is what makes switching mid-stream safe.
+        _selectedModel = model;
+        Notify();
+        return Task.CompletedTask;
+    }
+
     public IReadOnlyList<ChatItemView> Committed => TranscriptProjection.Build(_entries);
+
+    // Estimated from the request we would send, not read from reported usage.
+    // Usage double-counts tool turns (FunctionInvokingChatClient sums every round
+    // trip), describes only the last answered turn, and is missing after a stop.
+    // ConversationUsage keeps real usage: right for cost, wrong for size.
+    public long? EstimatedContextTokens
+    {
+        get
+        {
+            var request = TranscriptRequest.Build(_entries);
+
+            return request.Count == 0
+                ? null
+                : ContextTokenEstimator.Estimate(request, _effectiveSystemPrompt);
+        }
+    }
 
     public MessageUsage? ConversationUsage
     {
@@ -100,37 +161,103 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task LoadAsync(Guid? chatId, CancellationToken ct = default)
     {
-        _entries.Clear();
-        _streamingId = null;
-        _currentChatId = null;
-        _effectiveSystemPrompt = DefaultSystemPrompt;
+        var viewVersion = ++_viewVersion;
+
+        // Leaving a chat stops its turn, and the turn winds down into its own chat
+        // before this one is shown.
+        await StopTurnForLeaveAsync();
+        if (viewVersion != _viewVersion)
+        {
+            return;
+        }
+
+        ClearView();
 
         if (chatId is Guid id)
         {
             var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var chat = await _repo.GetChatAsync(userObjectId, id, ct);
+
+            // A later navigation that finished first must not be overwritten.
+            if (viewVersion != _viewVersion)
+            {
+                return;
+            }
+
             if (chat is not null)
             {
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, _logger));
+                _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, ResolveModelName, _logger));
+
+                // Continuing a chat must not silently change who answers it.
+                _lastAnsweredModel = FindLastAnsweredModel(chat.Messages);
+                _selectedModel = _lastAnsweredModel ?? _catalog.Default;
             }
         }
 
         Notify();
     }
 
-    // Sync clear for when the currently-open chat has just been deleted out
-    // from under this session — there is nothing to load, so callers do not
-    // need to route back through LoadAsync.
+    // Nothing answered, rows older than the picker, and a model since removed all
+    // return null: to every caller they mean "no previous model".
+    private ChatModel? FindLastAnsweredModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
+    {
+        for (var index = messages.Count - 1; index >= 0; index--)
+        {
+            if (ChatModelKey.TryCreate(messages[index].ModelKey) is not { } storedKey)
+            {
+                continue;
+            }
+
+            if (_catalog.TryGet(storedKey, out var model))
+            {
+                return model;
+            }
+
+            _logger.LogInformation(
+                "Chat {ChatId} was last answered by model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
+                _currentChatId,
+                storedKey,
+                _catalog.Default.Key);
+
+            return null;
+        }
+
+        return null;
+    }
+
+    // A key can outlive its model; the raw key still beats a blank or wrong name.
+    private string ResolveModelName(ChatModelKey key) =>
+        _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
+
+    // For when the open chat was just deleted: there is nothing to load.
     public void Reset()
+    {
+        _viewVersion++;
+        ClearView();
+        Notify();
+    }
+
+    // A turn stops when the session is asked to show another chat, never when a
+    // route without a chat is opened: there it finishes and is waiting on return.
+    public Task StopTurnForLeaveAsync()
+    {
+        _turnCancellation?.CancelForLeave();
+        return _turnCompletion;
+    }
+
+    private void ClearView()
     {
         _entries.Clear();
         _streamingId = null;
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
-        Notify();
+        _selectedModel = _catalog.Default;
+        _lastAnsweredModel = null;
     }
+
+    private bool OwnsView(TurnBinding binding) => binding.ViewVersion == _viewVersion;
 
     public async Task SendAsync(string text)
     {
@@ -141,138 +268,166 @@ public sealed class ChatSession : IAsyncDisposable
 
         IsBusy = true;
 
-        // The catches read the local, not the field: a racing DisposeAsync nulls
-        // the field and would NRE the outcome branch. The field stays set so
-        // Cancel() and the disconnect callbacks can reach this turn while it runs.
+        // The branches below read this local, never the field: a racing
+        // DisposeAsync nulls the field mid-turn.
         var turn = new TurnCancellation();
         _turnCancellation = turn;
 
-        // Null means the turn ended before authentication returned: no chat to
-        // write to, only something to show on screen.
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _turnCompletion = completion.Task;
+
+        // The turn writes to this chat even after the view has moved on.
+        var binding = new TurnBinding(_viewVersion, _currentChatId);
+
         string? userObjectId = null;
 
         var stage = TurnStage.Authenticating;
 
+        // A turn that started on one model and prompt must finish on them.
+        var modelForThisTurn = _selectedModel;
+        var systemPromptForThisTurn = _effectiveSystemPrompt;
+
+        // Outside the try so a stopped or failed turn can still keep what it produced.
+        var progress = new TurnProgress();
+
+        // Counted once, in the finally, so every send lands on exactly one outcome.
+        // Starts as Failed so a branch that forgets to set it lands in the alerted bucket.
+        var outcome = TurnOutcome.Failed;
+
+        // Success is labelled with the model the provider served; the rest with the one requested.
+        string? servedModelId = null;
+
         try
         {
             userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            var systemPromptForThisTurn = _effectiveSystemPrompt;
 
             stage = TurnStage.SavingMessage;
-            var streamId = await PersistUserTurnAsync(userObjectId, text.Trim(), systemPromptForThisTurn, turn.Token);
+            await PersistUserTurnAsync(binding, userObjectId, text.Trim(), systemPromptForThisTurn, turn.Token);
 
             stage = TurnStage.Generating;
-            var (response, durationMs, firstTokenMs) = await StreamAssistantResponseAsync(streamId, systemPromptForThisTurn, turn.Token);
+            await StreamAssistantResponseAsync(binding.StreamId, modelForThisTurn, systemPromptForThisTurn, progress, turn.Token);
 
             stage = TurnStage.SavingResponse;
-            await PersistResponseAsync(userObjectId, response, durationMs, firstTokenMs, systemPromptForThisTurn, turn.Token);
+            var response = progress.ToResponse();
+            await PersistTurnMessagesAsync(binding, userObjectId, response, modelForThisTurn, progress, systemPromptForThisTurn, turn.Token);
+
+            // Only after the write: a turn is a success once its answer is stored.
+            servedModelId = response.ModelId;
+            outcome = TurnOutcome.Success;
         }
-        // The filter is load-bearing: a provider HTTP timeout arrives as
-        // TaskCanceledException, an OperationCanceledException nobody here asked
-        // for. Without it, outages are recorded as the user pressing stop —
-        // invisible to failure alerts. Only our own cancellation is cancellation.
+        // The filter is load-bearing: a provider timeout is also an
+        // OperationCanceledException, and without it outages would be recorded as
+        // the user pressing stop — invisible to failure alerts.
         catch (OperationCanceledException) when (turn.IsCancelled)
         {
-            if (turn.IsDisconnect)
+            (outcome, var eventKind) = turn switch
             {
-                CountSend(MetricConstants.MetricsResultDisconnectedLabelValue);
-                await RecordTurnEventAsync(userObjectId, ChatEventKind.Disconnected);
-            }
-            else
-            {
-                CountSend(MetricConstants.MetricsResultCancelledLabelValue);
-                await RecordTurnEventAsync(userObjectId, ChatEventKind.Stopped);
-            }
+                { IsDisconnect: true } => (TurnOutcome.Disconnected, ChatEventKind.Disconnected),
+                { IsLeave: true } => (TurnOutcome.LeftChat, ChatEventKind.LeftChat),
+                _ => (TurnOutcome.Stopped, ChatEventKind.Stopped)
+            };
+
+            // Partial first, so the transcript reads "what it said, then why it stopped".
+            await PersistPartialTurnAsync(binding, userObjectId, progress, stage, modelForThisTurn, systemPromptForThisTurn);
+            await RecordTurnEventAsync(binding, userObjectId, eventKind);
         }
-        // Allowed out: no identity means no chat to record an event against, and
-        // only the error boundary above can do the useful thing and send the user
-        // to sign in.
+        // Rethrown: only the error boundary can send the user to sign in.
         catch (UserNotAuthenticatedException)
         {
-            CountSend(MetricConstants.MetricsResultUnauthenticatedLabelValue);
+            outcome = TurnOutcome.Unauthenticated;
             throw;
         }
-        // Not swallowed: an allocation failure says nothing about this turn, and a
-        // retry allocates again and fails the same way. Letting it out sheds the
-        // circuit, not the process. Counted so every attempt still lands in exactly
-        // one Result bucket; deliberately absent from the Failure counter, the one
-        // place those two metrics do not reconcile.
+        // Rethrown: an allocation failure isn't this turn's fault and a retry fails
+        // the same way. Kept off the Failure counter, so the two don't reconcile here.
         catch (OutOfMemoryException)
         {
-            CountSend(MetricConstants.MetricsResultFailedLabelValue);
+            outcome = TurnOutcome.Failed;
             throw;
         }
-        // Catches our own bugs too: they are already logged whole and carry their
-        // type into the Failure counter, so taking the circuit down as well only
-        // costs the user their transcript.
-        //
-        // What must never reach here is control flow dressed as an exception —
-        // Blazor's NavigationException above all. There is none inside the try
-        // today; navigation happens in the page, after this returns. Keep it so.
+        // Swallowed, bugs included: they are logged whole, and taking the circuit
+        // down would only cost the user their transcript. Nothing that is control
+        // flow — Blazor's NavigationException above all — may ever be thrown in the try.
         catch (Exception ex)
         {
-            await HandleTurnFailureAsync(ex, stage, userObjectId);
+            outcome = TurnOutcome.Failed;
+            await PersistPartialTurnAsync(binding, userObjectId, progress, stage, modelForThisTurn, systemPromptForThisTurn);
+            await HandleTurnFailureAsync(binding, ex, stage, userObjectId);
         }
         finally
         {
-            if (_streamingId is Guid id)
+            // Nested so a throwing StateChanged subscriber can't leave LoadAsync
+            // waiting on this turn forever.
+            try
             {
-                _ = _channel.StreamEnd(id);
+                // Always, even for a view that moved on: the browser holds a buffer per stream.
+                _ = _channel.StreamEnd(binding.StreamId);
+                if (OwnsView(binding))
+                {
+                    _streamingId = null;
+                }
+                IsBusy = false;
+
+                // Nulled before disposing, so a Cancel() arriving now no-ops instead of
+                // reaching disposed sources.
+                _turnCancellation = null;
+                turn.Dispose();
+
+                Notify();
+
+                // Last and guarded: Prometheus throws on a label mismatch. Earlier, that
+                // would skip the teardown and lock the composer; unguarded, it would mask
+                // the exception already leaving.
+                try
+                {
+                    CountSend(outcome, servedModelId ?? modelForThisTurn.ModelId, modelForThisTurn.Key);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Could not count the {Outcome} outcome for chat {ChatId}.", outcome, binding.ChatId);
+                }
             }
-            _streamingId = null;
-            IsBusy = false;
-
-            // Null the field first so a Cancel() or disconnect callback arriving
-            // during teardown reads null and no-ops, rather than racing Cancel on
-            // sources that are about to be disposed.
-            _turnCancellation = null;
-            turn.Dispose();
-
-            Notify();
+            finally
+            {
+                completion.SetResult();
+            }
         }
     }
 
-    // Every press of send lands on exactly one Result, so the outcomes sum to the
-    // attempts. That holds only if each call site sits where the turn cannot leave
-    // — for Success, after the last await rather than before it.
-    //
-    // Prometheus fixes a metric's label names on first use and throws if a later
-    // call supplies a different number, so every outcome must report the same
-    // names in the same order. Building them here is what guarantees that.
-    private void CountSend(string result, string? modelId = null) =>
+    // One place builds the labels because Prometheus fixes a metric's label names
+    // on first use and throws if a later call differs.
+    private void CountSend(TurnOutcome outcome, string? modelId, ChatModelKey modelKey) =>
         _metrics.Count(
             $"{MetricPrefix}_Send",
             "Chat send attempts, by outcome",
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
-            (MetricConstants.MetricsResultLabelName, result));
+            (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),
+            (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
     // Swallows by design: the turn is lost, the chat is not. The exception is
-    // written here and only here — never shown, never persisted.
-    private async Task HandleTurnFailureAsync(Exception ex, TurnStage stage, string? userObjectId)
+    // logged here and never shown or persisted.
+    private async Task HandleTurnFailureAsync(TurnBinding binding, Exception ex, TurnStage stage, string? userObjectId)
     {
-        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, _currentChatId);
+        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, binding.ChatId);
 
-        CountSend(MetricConstants.MetricsResultFailedLabelValue);
         _metrics.Count(
             $"{MetricPrefix}_Failure",
             "Failed chat turns, by stage and exception type",
             (MetricConstants.MetricsStageLabelName, stage.ToString()),
             (MetricConstants.MetricsExceptionLabelName, ex.GetType().Name));
 
-        await RecordTurnEventAsync(userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
+        await RecordTurnEventAsync(binding, userObjectId, ChatEventKind.Failed, TurnStageNotice.Describe(stage));
     }
 
-    // The partial response is discarded; why the turn ended is kept, so a reload
-    // explains the gap instead of showing an unanswered message.
-    //
-    // The in-memory entry is added unconditionally, the write is not: a turn can
-    // end before there is a chat row to write to, and that is exactly when the
-    // user most needs to see something on screen.
-    private async Task RecordTurnEventAsync(string? userObjectId, ChatEventKind kind, string? detail = null)
+    // The entry is added even when there is no chat row to write to yet: a turn
+    // that fails that early is when the user most needs to see why.
+    private async Task RecordTurnEventAsync(TurnBinding binding, string? userObjectId, ChatEventKind kind, string? detail = null)
     {
-        _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
+        if (OwnsView(binding))
+        {
+            _entries.Add(new EventEntry(Guid.NewGuid(), kind, detail, DateTimeOffset.UtcNow));
+        }
 
-        if (userObjectId is null || _currentChatId is not Guid chatId)
+        if (userObjectId is null || binding.ChatId is not Guid chatId)
         {
             return;
         }
@@ -281,100 +436,120 @@ public sealed class ChatSession : IAsyncDisposable
 
         try
         {
-            // Not the turn's own source — it may already be cancelled, and would
-            // abort the very write recording that cancellation.
+            // CancellationToken.None, because the turn's own may already be
+            // cancelled and would abort recording that very cancellation.
             await _repo.AppendEventAsync(userObjectId, chatId, chatEvent, CancellationToken.None);
         }
         catch (Exception ex)
         {
-            // Must not replace the outcome it was recording. The entry is already
-            // in memory, so only a reload would lose it.
+            // Must not replace the outcome it was recording.
             _logger.LogWarning(ex, "Could not persist {Kind} event for chat {ChatId}", kind, chatId);
         }
     }
 
-    // Returns the stream id rather than leaving the caller to read the nullable
-    // field this already guaranteed is set.
-    private async Task<Guid> PersistUserTurnAsync(string userObjectId, string text, string systemPromptForThisTurn, CancellationToken ct)
+    private async Task PersistUserTurnAsync(
+        TurnBinding binding,
+        string userObjectId,
+        string text,
+        string systemPromptForThisTurn,
+        CancellationToken ct)
     {
+        // Stopped while authenticating: nothing was shown or saved yet, so keep it that way.
+        ct.ThrowIfCancellationRequested();
+
         var userMessage = new ChatMessage(ChatRole.User, text);
         _entries.Add(new MessageEntry(Guid.NewGuid(), userMessage, null));
-        var streamId = Guid.NewGuid();
-        _streamingId = streamId;
+        _streamingId = binding.StreamId;
 
-        // Notify before signalling the client: the render this triggers is what
-        // puts the streaming element in the DOM for the append calls to target.
+        // Render first: it puts the element the stream appends to in the DOM.
         Notify();
-        _ = _channel.StreamStart(streamId);
+        _ = _channel.StreamStart(binding.StreamId);
 
-        var chatId = await _chatManager.EnsurePersistedAsync(_currentChatId, text, ct);
-        _currentChatId = chatId;
+        var isNewChat = binding.ChatId is null;
+        var chatId = await _chatManager.EnsurePersistedAsync(binding.ChatId, text, ct);
+        binding.ChatId = chatId;
+        if (OwnsView(binding))
+        {
+            _currentChatId = chatId;
+            if (isNewChat)
+            {
+                ChatCreated?.Invoke(chatId);
+            }
+        }
 
         var entity = ChatMessageMapper.ToEntity(userMessage, systemPromptForThisTurn);
         await _repo.AppendMessagesAsync(userObjectId, chatId, [entity], ct);
-
-        return streamId;
     }
 
-    private async Task<(ChatResponse Response, long DurationMs, long? FirstTokenMs)> StreamAssistantResponseAsync(Guid streamId, string systemPromptForThisTurn, CancellationToken ct)
+    private Task StreamAssistantResponseAsync(
+        Guid streamId,
+        ChatModel modelForThisTurn,
+        string systemPromptForThisTurn,
+        TurnProgress progress,
+        CancellationToken ct)
     {
-        var duration = _metrics.Histogram($"{MetricPrefix}_Duration", "Elapsed time for a chat message");
+        var request = TranscriptRequest.Build(_entries);
+        var runtime = _catalog.Resolve(modelForThisTurn.Key);
 
-        // Stopwatch, not UtcNow: FlushCadence needs offsets that never go
-        // backwards, and a wall clock does when NTP steps it — which would freeze
-        // the visible stream until the clock caught up.
-        var elapsed = Stopwatch.StartNew();
-        long? firstTokenMs = null;
-        var updates = new List<ChatResponseUpdate>();
-        var cadence = new FlushCadence();
+        // As Instructions rather than a message (see TranscriptRequest), and the same
+        // snapshot the turn is persisted with, so the record can't drift from what was sent.
+        var options = runtime.CreateOptions();
+        options.Instructions = systemPromptForThisTurn;
 
-        var request = TranscriptRequest.Build(_entries, systemPromptForThisTurn);
-
-        await foreach (var update in _client.GetStreamingResponseAsync(request, Options, ct))
-        {
-            updates.Add(update);
-            var offsetMs = elapsed.ElapsedMilliseconds;
-
-            foreach (var content in update.Contents)
-            {
-                switch (content)
-                {
-                    case FunctionCallContent call:
-                        _metrics.Count($"{MetricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
-                        break;
-                    case FunctionResultContent:
-                        _metrics.Count($"{MetricPrefix}_ToolResult", "Number of tool results retrieved");
-                        break;
-                }
-            }
-
-            if (string.IsNullOrEmpty(update.Text))
-            {
-                continue;
-            }
-
-            firstTokenMs ??= offsetMs;
-
-            if (cadence.Append(offsetMs, update.Text) is { } due)
-            {
-                _ = _channel.StreamAppend(streamId, due);
-            }
-        }
-
-        if (cadence.Drain() is { } remaining)
-        {
-            _ = _channel.StreamAppend(streamId, remaining);
-        }
-
-        var response = updates.ToChatResponse();
-        var durationMs = (long)duration.ObserveDuration().TotalMilliseconds;
-        return (response, durationMs, firstTokenMs);
+        return _streamer.StreamAsync(runtime.Client, request, options, streamId, progress, ct);
     }
 
-    private async Task PersistResponseAsync(string userObjectId, ChatResponse response, long durationMs, long? firstTokenMs, string systemPromptForThisTurn, CancellationToken ct)
+    // Keeps what a stopped or failed turn had already said, which the user was
+    // reading. Only from Generating: earlier nothing was requested, later the turn
+    // is already written. Swallows failures so a lost partial can't also cost the
+    // user the notice of why the turn ended.
+    private async Task PersistPartialTurnAsync(
+        TurnBinding binding,
+        string? userObjectId,
+        TurnProgress progress,
+        TurnStage stage,
+        ChatModel modelForThisTurn,
+        string systemPromptForThisTurn)
+    {
+        if (stage != TurnStage.Generating || userObjectId is null || binding.ChatId is null || !progress.HasUpdates)
+        {
+            return;
+        }
+
+        // A raw partial can leave history a provider rejects forever; see PartialTurn.
+        if (PartialTurn.Prune(progress.ToResponse()) is not { } partial)
+        {
+            return;
+        }
+
+        try
+        {
+            // CancellationToken.None, because after a stop the turn's own is
+            // cancelled and would abort the write that keeps the answer.
+            await PersistTurnMessagesAsync(binding, userObjectId, partial, modelForThisTurn, progress, systemPromptForThisTurn, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Could not save the partial answer for chat {ChatId}. The turn's outcome is still recorded.",
+                binding.ChatId);
+        }
+    }
+
+    // Counts nothing: only SendAsync knows how the turn ended.
+    private async Task PersistTurnMessagesAsync(
+        TurnBinding binding,
+        string userObjectId,
+        ChatResponse response,
+        ChatModel modelForThisTurn,
+        TurnProgress progress,
+        string systemPromptForThisTurn,
+        CancellationToken ct)
     {
         var lastAssistant = response.Messages.LastOrDefault(m => m.Role == ChatRole.Assistant);
         var now = DateTimeOffset.UtcNow;
+        var isViewOwner = OwnsView(binding);
         var toPersist = new List<Data.Entities.ChatMessage>(response.Messages.Count);
         foreach (var newMessage in response.Messages)
         {
@@ -388,54 +563,53 @@ public sealed class ChatSession : IAsyncDisposable
                     : null;
                 metadata = new TurnMetadata(
                     response.ModelId,
+                    modelForThisTurn.Key,
+                    modelForThisTurn.DisplayName,
                     response.ResponseId,
                     response.FinishReason?.Value,
                     usage,
-                    durationMs,
-                    firstTokenMs,
+                    progress.DurationMs,
+                    progress.FirstTokenMs,
                     now,
                     systemPromptForThisTurn);
             }
 
-            _entries.Add(new MessageEntry(Guid.NewGuid(), newMessage, metadata));
-            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, durationMs, firstTokenMs, includeUsage));
+            if (isViewOwner)
+            {
+                _entries.Add(new MessageEntry(Guid.NewGuid(), newMessage, metadata));
+            }
+            toPersist.Add(ChatMessageMapper.ToEntity(newMessage, response, modelForThisTurn.Key, progress.DurationMs, progress.FirstTokenMs, includeUsage));
         }
 
-        var chatId = _currentChatId!.Value;
+        var chatId = binding.ChatId!.Value;
         await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
         _chatManager.MarkTouched(chatId, now);
 
-        // Counted last, after the write that makes the turn real. Counting it on
-        // entry instead would let one attempt land on two Results — Success, then
-        // Failed or Cancelled from whatever happened in the lines above — which is
-        // the one thing the outcome counter promises cannot happen.
-        CountSend(MetricConstants.MetricsResultSuccessLabelValue, response.ModelId);
+        // Partials too: the rows now carry this model's key, so a reload will report
+        // it as the last to answer, and the live session must agree.
+        if (OwnsView(binding))
+        {
+            _lastAnsweredModel = modelForThisTurn;
+        }
     }
 
     private void Notify() => StateChanged?.Invoke();
 
-    // The user asked for the turn to end.
     public void Cancel() => _turnCancellation?.CancelForUser();
 
-    // The circuit is gone for good — not merely disconnected, which Blazor
-    // recovers from. Same effect on the turn as Cancel, different reason, and the
-    // reason decides whether the reloaded transcript says the user stopped the
-    // turn or the connection did.
+    // Same effect as Cancel; the reason decides whether the transcript says the
+    // user stopped the turn or the connection did.
     public void CancelForDisconnect() => _turnCancellation?.CancelForDisconnect();
 
-    // The transport went away or came back on a circuit Blazor is retaining. The
-    // turn is unaffected either way — only delivery to the browser pauses, which
-    // is why neither of these touches cancellation.
+    // A transient disconnect Blazor recovers from: delivery pauses, the turn runs on.
     public void PauseDelivery() => _channel.Pause();
 
     public void ResumeDelivery() => _channel.Resume();
 
     public async ValueTask DisposeAsync()
     {
-        // A disconnect, not a stop: this runs on circuit teardown — tab closed,
-        // circuit evicted, host shutting down — none of which is a user pressing
-        // stop. Cleared first so a Cancel() racing teardown no-ops rather than
-        // reaching sources about to be disposed.
+        // Circuit teardown is a disconnect, not a stop. Cleared first so a racing
+        // Cancel() no-ops.
         var turn = _turnCancellation;
         _turnCancellation = null;
 
@@ -444,5 +618,15 @@ public sealed class ChatSession : IAsyncDisposable
             await turn.CancelForDisconnectAsync();
             turn.Dispose();
         }
+    }
+
+    private sealed class TurnBinding(int viewVersion, Guid? chatId)
+    {
+        public int ViewVersion { get; } = viewVersion;
+
+        // Null until the first message of a new chat creates its row.
+        public Guid? ChatId { get; set; } = chatId;
+
+        public Guid StreamId { get; } = Guid.NewGuid();
     }
 }

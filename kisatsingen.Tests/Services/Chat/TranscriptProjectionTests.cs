@@ -34,8 +34,6 @@ public sealed class TranscriptProjectionTests
             v => Assert.IsType<UserBubbleView>(v));
     }
 
-    // The shape a stop produces: the user's message stands, and the event
-    // explains why nothing followed it.
     [Fact]
     public void A_stopped_turn_renders_the_event_with_no_assistant_turn()
     {
@@ -108,5 +106,5 @@ public sealed class TranscriptProjectionTests
         new(Guid.NewGuid(), ChatEventKind.Stopped, null, DateTimeOffset.UtcNow);
 
     private static TurnMetadata Metadata(string modelId, DateTimeOffset createdAt) =>
-        new(modelId, null, null, null, null, null, createdAt, null);
+        new(modelId, null, null, null, null, null, null, null, createdAt, null);
 }

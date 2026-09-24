@@ -82,6 +82,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         message.Property(m => m.Content).IsRequired();
         message.Property(m => m.ResponseId).HasMaxLength(128);
         message.Property(m => m.ModelId).HasMaxLength(128);
+        message.Property(m => m.ModelKey).HasMaxLength(64);
         message.Property(m => m.FinishReason).HasMaxLength(64);
         message.Property(m => m.ContentsSchemaVersion).HasMaxLength(64);
 

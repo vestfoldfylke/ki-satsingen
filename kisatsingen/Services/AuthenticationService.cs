@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
 
 namespace kisatsingen.Services;
@@ -21,16 +22,22 @@ public class AuthenticationService : IAuthenticationService
         _logger = logger;
     }
 
-    public async Task<string?> GetUserObjectIdentifierAsync()
+    private async Task<ClaimsPrincipal> GetUserAsync()
     {
         var authState = await _authenticationStateProvider.GetAuthenticationStateAsync();
-        if (authState.User.Identity?.IsAuthenticated != true)
+        return authState.User;
+    }
+
+    public async Task<string?> GetUserObjectIdentifierAsync()
+    {
+        var user = await GetUserAsync();
+        if (user.Identity?.IsAuthenticated != true)
         {
-            _logger.LogWarning("UserIdentity not present ({IdentityPresent}) or user not Authenticated: {IsAuthenticated}", authState.User.Identity is null, authState.User.Identity?.IsAuthenticated == true);
+            _logger.LogWarning("UserIdentity not present ({IdentityPresent}) or user not Authenticated: {IsAuthenticated}", user.Identity is null, user.Identity?.IsAuthenticated == true);
             return null;
         }
 
-        var objectIdClaim = authState.User.Claims.FirstOrDefault(claim => claim.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier");
+        var objectIdClaim = user.Claims.FirstOrDefault(claim => claim.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier");
         return objectIdClaim?.Value;
     }
 

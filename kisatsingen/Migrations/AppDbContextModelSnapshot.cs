@@ -172,6 +172,10 @@ namespace kisatsingen.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<string>("ModelKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
                     b.Property<long?>("OutputTokens")
                         .HasColumnType("bigint");
 

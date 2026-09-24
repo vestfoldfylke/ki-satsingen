@@ -9,21 +9,16 @@ internal static class ChatMessageMapper
 {
     private static readonly JsonSerializerOptions ContentsJson = AIJsonUtilities.DefaultOptions;
 
-    // Read from the assembly that owns AIContent rather than maintained by hand:
-    // the format we depend on is theirs, so we would never know to bump a number
-    // of our own — it would be stale exactly when a failure needed it.
+    // Read from their assembly, not kept by hand: the format is theirs, so a
+    // number of our own would be stale exactly when a failure needed it.
     private static readonly string AiContentVersion =
         typeof(AIContent).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
         ?? typeof(AIContent).Assembly.GetName().Version?.ToString()
         ?? "unknown";
 
-    // Content is stored twice on purpose: ContentsJson keeps the structured parts
-    // a turn was made of, Content keeps the plain text. AIContent is polymorphic
-    // JSON from a fast-moving library, so a package upgrade can change its
-    // discriminators and make old rows unreadable — and without a fallback a
-    // single such row would throw on every attempt to open the chat, putting the
-    // whole conversation permanently out of reach. Degrading to the text is worth
-    // far more than the structure it loses.
+    // Falls back to the plain-text copy because AIContent's polymorphic JSON can
+    // change shape across package upgrades, and one unreadable row would otherwise
+    // lock the user out of the whole chat.
     public static ChatMessage FromEntity(Data.Entities.ChatMessage stored, ILogger logger)
     {
         var role = new ChatRole(stored.Role);
@@ -64,9 +59,11 @@ internal static class ChatMessageMapper
         SystemPromptSnapshot = systemPromptSnapshot
     };
 
+    // Both modelKey and response.ModelId are recorded: neither derives from the other.
     public static Data.Entities.ChatMessage ToEntity(
         ChatMessage message,
         ChatResponse response,
+        ChatModelKey modelKey,
         long durationMs,
         long? firstTokenMs,
         bool includeUsage)
@@ -80,6 +77,7 @@ internal static class ChatMessageMapper
             ContentsSchemaVersion = AiContentVersion,
             ResponseId = isAssistant ? response.ResponseId : null,
             ModelId = isAssistant ? response.ModelId : null,
+            ModelKey = isAssistant ? modelKey.Value : null,
             FinishReason = isAssistant ? response.FinishReason?.Value : null,
             InputTokens = isAssistant && includeUsage ? response.Usage?.InputTokenCount : null,
             OutputTokens = isAssistant && includeUsage ? response.Usage?.OutputTokenCount : null,

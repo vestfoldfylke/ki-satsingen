@@ -10,6 +10,11 @@ internal static class ChatTools
         name: "get_current_time_utc",
         description: "Returns the current UTC time as an ISO 8601 string. Use this when the user asks about the current time.");
 
+    // Given to every selectable model: an invariant, not a per-model flag that
+    // could be set wrong. Declared after the tools it names, because static
+    // initialisers run in textual order.
+    public static readonly IReadOnlyList<AITool> All = [GetCurrentTimeUtcTool];
+
     [Description("Returns the current UTC time as an ISO 8601 string.")]
     private static string GetCurrentTimeUtc()
         => DateTimeOffset.UtcNow.ToString("O");

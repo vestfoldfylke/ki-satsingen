@@ -5,32 +5,33 @@ public sealed class ChatMessage
     public Guid Id { get; set; }
     public Guid ChatId { get; set; }
 
-    // Orders this message against events in the same chat. Assigned by the
-    // database from a sequence both tables share, so ordering is exact, is
-    // independent of the clock, and cannot be set — or mis-set — from here.
+    // Assigned by the database from a sequence shared with events, so ordering is
+    // exact and independent of the clock.
     public long Seq { get; private set; }
 
     public required string Role { get; init; }
 
-    // Stored twice on purpose. Content is the plain text, ContentsJson the
-    // structured parts the turn was made of. The text is derivable from the JSON,
-    // and kept anyway: it is what a message degrades to when its contents can no
-    // longer be deserialised, which is the difference between losing a tool call
-    // and losing the conversation. Do not remove it as duplication.
+    // Content duplicates the text in ContentsJson on purpose: it is what a message
+    // degrades to when the JSON can no longer be read. Don't remove it.
     public required string Content { get; init; }
     public string? ContentsJson { get; init; }
 
-    // Which Microsoft.Extensions.AI version wrote ContentsJson. AIContent is that
-    // library's polymorphic hierarchy, not ours, so when a row stops
-    // deserialising this is what says which version produced it — the difference
-    // between an unreadable row and a migratable one.
+    // Which library version wrote ContentsJson: the difference between an
+    // unreadable row and a migratable one.
     public string? ContentsSchemaVersion { get; init; }
 
-    // Display only. Ordering is Seq's job.
+    // Display only; Seq orders.
     public DateTimeOffset CreatedAt { get; set; }
 
     public string? ResponseId { get; init; }
+
+    // What the provider says it served — a dated build, not what was asked for.
     public string? ModelId { get; init; }
+
+    // Stored alongside ModelId because neither derives from the other. A key for a
+    // model since removed is expected, so readers fall back rather than fail.
+    public string? ModelKey { get; init; }
+
     public string? FinishReason { get; init; }
     public long? InputTokens { get; init; }
     public long? OutputTokens { get; init; }

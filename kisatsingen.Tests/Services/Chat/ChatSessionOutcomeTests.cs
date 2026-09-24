@@ -187,7 +187,7 @@ public sealed class ChatSessionOutcomeTests
 
     // Circuit teardown disposes the session out from under a running turn. The
     // outcome still has to be attributable afterwards, and it is a disconnect —
-    // the tab closed, the circuit was evicted, the host is shutting down.
+    // the circuit was evicted after its reconnect period, the host is shutting down.
     [Fact]
     public async Task Disposing_the_session_mid_turn_is_recorded_as_a_disconnect()
     {

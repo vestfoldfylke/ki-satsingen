@@ -5,14 +5,24 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// The outcome counter promises one thing: every press of send lands in exactly
-// one Result bucket, so the buckets sum to the attempts. Dashboards and alerts
-// are built on that, and it is a promise only the call sites can keep — which
-// makes it worth pinning here rather than trusting to review.
+// Every send lands in exactly one Result bucket, so the buckets sum to the
+// attempts. Dashboards and alerts rely on that.
 public sealed class ChatSessionMetricsTests
 {
-    private const string SendCounter = "_Send";
-    private const string FailureCounter = "_Failure";
+    private const string SendCounter = RecordingMetricsService.SendCounter;
+    private const string FailureCounter = RecordingMetricsService.FailureCounter;
+
+    // The count shares a finally with the teardown that unlocks the composer.
+    [Fact]
+    public async Task A_metrics_failure_does_not_leave_the_session_busy()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Metrics.ThrowForNameEndingWith = SendCounter;
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.False(harness.Session.IsBusy);
+    }
 
     [Fact]
     public async Task A_turn_that_answers_counts_one_success()
@@ -63,8 +73,7 @@ public sealed class ChatSessionMetricsTests
         AssertSingleResult(harness, MetricConstants.MetricsResultDisconnectedLabelValue);
     }
 
-    // Rejected before the turn began, and still an attempt: a press of send that
-    // went uncounted would break the sum as surely as one counted twice.
+    // Still an attempt: uncounted breaks the sum as surely as counted twice.
     [Fact]
     public async Task An_unauthenticated_attempt_counts_one_rejection()
     {
@@ -76,10 +85,8 @@ public sealed class ChatSessionMetricsTests
         AssertSingleResult(harness, MetricConstants.MetricsResultUnauthenticatedLabelValue);
     }
 
-    // The regression this suite exists for. Success used to be counted on entry
-    // to the save, so a save that then failed reported Success and Failed for one
-    // attempt — inflating the success rate on the very dashboard you would use to
-    // judge whether the error handling works.
+    // Success counted before a failing save would report two outcomes for one
+    // send, inflating the success rate.
     [Fact]
     public async Task A_response_that_cannot_be_saved_is_not_also_counted_as_a_success()
     {
@@ -128,9 +135,7 @@ public sealed class ChatSessionMetricsTests
         Assert.Equal(nameof(TurnStage.SavingResponse), failure.Label(MetricConstants.MetricsStageLabelName));
     }
 
-    // A timeout is a failure, so it must carry a stage and an exception type an
-    // alert can read — not disappear into the cancellation bucket, which has no
-    // Failure series at all.
+    // Not the cancellation bucket, which has no Failure series for an alert to read.
     [Fact]
     public async Task A_provider_timeout_is_reported_as_a_failure_with_its_own_type()
     {
@@ -144,8 +149,6 @@ public sealed class ChatSessionMetricsTests
         Assert.Equal(nameof(TaskCanceledException), failure.Label(MetricConstants.MetricsExceptionLabelName));
     }
 
-    // Cancellation is an intended outcome, not a fault. Counting it on the
-    // failure counter would put expected behaviour into failure alerts.
     [Fact]
     public async Task A_stopped_turn_is_absent_from_the_failure_counter()
     {

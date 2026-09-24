@@ -20,6 +20,25 @@ public partial class AssistantTurn : ComponentBase
 
     private bool HasCopyableText => Turn.Parts.Any(p => !string.IsNullOrEmpty(p.Text));
 
+    // The chosen name leads and the provider's id follows as the precise answer.
+    // The key stands in for a name the catalogue no longer has. Blanks count as
+    // absent, so nothing renders as " ()".
+    private static string? DescribeModel(TurnMetadata meta)
+    {
+        var name = !string.IsNullOrWhiteSpace(meta.ModelDisplayName)
+            ? meta.ModelDisplayName
+            : meta.ModelKey?.Value;
+        var providerId = !string.IsNullOrWhiteSpace(meta.ModelId) ? meta.ModelId : null;
+
+        return (name, providerId) switch
+        {
+            (not null, not null) => $"{name} ({providerId})",
+            (not null, null) => name,
+            (null, not null) => providerId,
+            _ => null
+        };
+    }
+
     private static string FormatMs(long ms) => ms < 1000
         ? $"{ms} ms"
         : $"{ms / 1000.0:0.##} s";

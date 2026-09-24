@@ -11,10 +11,8 @@ using StoredMessage = kisatsingen.Data.Entities.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// The seam between storage and the reader's transcript. Rows go in through the
-// repository so the Seq values are the ones the database actually hands out,
-// which is the whole property the merge depends on — a fixture picking its own
-// numbers would prove nothing about the real ordering.
+// Rows go in through the repository so the Seq values are the database's own —
+// the property the merge depends on.
 [Collection(PostgresCollection.Name)]
 public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLifetime
 {
@@ -43,8 +41,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
             e => Assert.Equal("second", Assert.IsType<MessageEntry>(e).Message.Text));
     }
 
-    // The merge runs out of messages before it runs out of events here, which is
-    // the branch a transcript ending in a stop takes.
+    // The branch a transcript ending in a stop takes.
     [Fact]
     public async Task An_event_after_the_last_message_still_reaches_the_transcript()
     {
@@ -77,8 +74,6 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
             entries.Select(e => Assert.IsType<MessageEntry>(e).Message.Text));
     }
 
-    // The snapshot is carried forward from the user turn rather than read off the
-    // assistant row, so the metadata names the prompt that actually produced it.
     [Fact]
     public async Task An_assistant_message_reports_the_prompt_recorded_on_the_user_turn()
     {
@@ -94,7 +89,6 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.Equal("the prompt that produced it", assistant.Metadata!.SystemPrompt);
     }
 
-    // Nothing recorded a snapshot, so the prompt in force at load time stands in.
     [Fact]
     public async Task An_assistant_message_falls_back_to_the_prompt_in_force_when_no_snapshot_was_recorded()
     {
@@ -121,9 +115,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.Null(Assert.IsType<MessageEntry>(Assert.Single(entries)).Metadata);
     }
 
-    // The structured half of a message, all the way through Postgres and back.
-    // Nothing else covered this, and it is what the ContentsJson column exists
-    // for — a tool call that does not survive the round trip renders as nothing.
+    // A tool call that doesn't survive storage renders as nothing.
     [Fact]
     public async Task A_tool_call_survives_the_round_trip_through_storage()
     {
@@ -140,8 +132,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.Equal("get_current_time_utc", call.Name);
     }
 
-    // Both ToEntity overloads have to stamp this, and a third would too. Without
-    // it the warning above can say a row is unreadable but not what wrote it.
+    // Without it, an unreadable row can't say what wrote it.
     [Fact]
     public async Task A_written_message_records_which_library_version_produced_its_contents()
     {
@@ -156,9 +147,7 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.False(string.IsNullOrWhiteSpace(stored.ContentsSchemaVersion));
     }
 
-    // Before the fallback existed, one unreadable row threw on every attempt to
-    // open the chat, putting the whole conversation permanently out of reach. The
-    // structured parts are lost; the conversation is not.
+    // Otherwise one unreadable row makes the whole chat impossible to open.
     [Fact]
     public async Task A_message_whose_stored_contents_cannot_be_read_degrades_to_its_plain_text()
     {
@@ -178,7 +167,6 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
         Assert.Equal("the readable text", message.Message.Text);
     }
 
-    // A transcript with one unreadable row still restores the rest in order.
     [Fact]
     public async Task An_unreadable_message_does_not_take_the_rest_of_the_transcript_with_it()
     {
@@ -210,7 +198,8 @@ public sealed class TranscriptRestoreTests(PostgresFixture fixture) : IAsyncLife
     {
         var chat = await Repo.GetChatAsync(OwnerId, chatId);
 
-        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce, NullLogger.Instance);
+        // Pass-through: these tests are about the merge, and it keeps keys visible.
+        return TranscriptRestore.Build(chat!.Messages, chat.Events, PromptInForce, key => key.Value, NullLogger.Instance);
     }
 
     private static StoredMessage Message(string role, string content) => new()

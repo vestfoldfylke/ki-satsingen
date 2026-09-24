@@ -10,11 +10,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.AI;
 using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Npgsql;
-using OpenAI;
 using Prometheus;
 using Vestfold.Extensions.Logging;
 using Vestfold.Extensions.Metrics;
@@ -134,14 +132,8 @@ builder.Services.AddAuthorizationBuilder()
         .RequireRole(metricsRole));
 
 // ─── Application configuration ─────────────────────────
-var openAiKey = builder.Configuration["OpenAI:ApiKey"]
-    ?? throw new InvalidOperationException("OpenAI:ApiKey is not configured. Set it via user-secrets or environment variables.");
-var openAiModel = builder.Configuration["OpenAI:Model"] ?? "gpt-4o-mini";
-
-builder.Services.AddChatClient(new OpenAIClient(openAiKey)
-    .GetChatClient(openAiModel)
-    .AsIChatClient())
-    .UseFunctionInvocation();
+// No default IChatClient in the container: every caller picks a model by key.
+builder.Services.AddChatModels();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured. Set it via user-secrets or environment variables.");
@@ -177,6 +169,11 @@ builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
 var app = builder.Build();
+
+// ─── One-time startup: chat models ─────────────────────
+// Resolved eagerly because building the catalogue validates it: a bad catalogue
+// must stop startup, not surface later as a failed turn.
+_ = app.Services.GetRequiredService<IChatModelCatalog>();
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

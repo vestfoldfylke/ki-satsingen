@@ -1,0 +1,20 @@
+/* Matches ChatEventNotice's shape on purpose: both are quiet annotations that
+   are not part of the conversation. */
+.model-boundary {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1rem 0 0.25rem;
+}
+
+.model-boundary-line {
+    flex: 1;
+    height: 1px;
+    background: var(--ds-color-neutral-border-subtle, #e2e8f0);
+}
+
+.model-boundary-text {
+    font-size: 0.75rem;
+    color: #64748b;
+    white-space: nowrap;
+}

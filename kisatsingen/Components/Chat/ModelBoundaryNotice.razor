@@ -1,0 +1,12 @@
+@* A heading for the turns below it, not an event: it says who answers from
+   here, not that a button was pressed. *@
+<div class="model-boundary" role="separator" aria-label="@($"Herfra svarer {ModelDisplayName}")">
+    <span class="model-boundary-line" aria-hidden="true"></span>
+    <span class="model-boundary-text">@ModelDisplayName svarer herfra</span>
+    <span class="model-boundary-line" aria-hidden="true"></span>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public required string ModelDisplayName { get; set; }
+}

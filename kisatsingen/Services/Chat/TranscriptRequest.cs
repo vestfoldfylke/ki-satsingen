@@ -1,19 +1,17 @@
-using Microsoft.Extensions.AI;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// The model's view of the transcript. Pure, so the rule that matters most here —
-// events are never sent to the model — is a unit test rather than a code review
-// habit.
+// Pure, so "events are never sent to the model" is a unit test, not a habit.
+//
+// The system prompt is not in the list: it travels as ChatOptions.Instructions
+// and each adapter places it where its wire format wants it (a system message
+// for OpenAI, a top-level parameter for Anthropic).
 internal static class TranscriptRequest
 {
-    public static List<ChatMessage> Build(IReadOnlyList<TranscriptEntry> entries, string systemPrompt)
+    public static List<ChatMessage> Build(IReadOnlyList<TranscriptEntry> entries)
     {
-        var request = new List<ChatMessage>(entries.Count + 1)
-        {
-            new(ChatRole.System, systemPrompt)
-        };
+        var request = new List<ChatMessage>(entries.Count);
 
         foreach (var entry in entries)
         {

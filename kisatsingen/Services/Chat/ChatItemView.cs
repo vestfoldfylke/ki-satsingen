@@ -5,12 +5,12 @@ namespace kisatsingen.Services.Chat;
 
 public abstract record ChatItemView(Guid Id);
 
-public sealed record UserBubbleView(Guid Id, string Text) : ChatItemView(Id);
+// ModelChangedTo is set only when this question was answered by a different
+// model than the previous one. It sits on the question rather than being its own
+// item because a model boundary always heads a question. Derived, never stored.
+public sealed record UserBubbleView(Guid Id, string Text, string? ModelChangedTo = null) : ChatItemView(Id);
 
-// Something that happened in the chat but is not part of the conversation the
-// model sees: a stop, a lost connection, a turn that broke. Detail carries the
-// user-facing notice when there is one; ChatEventNotice falls back to a default
-// per kind when there is not.
+// Never sent to the model. Without a Detail, ChatEventNotice shows a default per kind.
 public sealed record ChatEventView(
     Guid Id,
     ChatEventKind Kind,
