@@ -44,24 +44,6 @@
                 </div>
 
                 <div class="chat-tail">
-                    @if (Session.ConversationUsage is { } totalUsage)
-                    {
-                        <div class="chat-usage-total" aria-label="Total token usage for this conversation">
-                            @if (totalUsage.InputTokens is { } input)
-                            {
-                                <span>in @input.ToString("N0")</span>
-                            }
-                            @if (totalUsage.OutputTokens is { } output)
-                            {
-                                <span>out @output.ToString("N0")</span>
-                            }
-                            @if (totalUsage.TotalTokens is { } total)
-                            {
-                                <span>total @total.ToString("N0")</span>
-                            }
-                        </div>
-                    }
-
                     <ChatComposer @ref="_composer"
                                   IsBusy="Session.IsBusy"
                                   OnSend="SendAsync"
@@ -70,6 +52,7 @@
                                   SelectedModel="Session.SelectedModel"
                                   PendingModel="Session.PendingModel"
                                   EstimatedContextTokens="Session.EstimatedContextTokens"
+                                  ConversationUsage="Session.ConversationUsage"
                                   OnSelectModel="SelectModelAsync" />
                 </div>
             </div>
@@ -97,7 +80,6 @@
                               Models="Session.AvailableModels"
                               SelectedModel="Session.SelectedModel"
                               PendingModel="Session.PendingModel"
-                              EstimatedContextTokens="Session.EstimatedContextTokens"
                               OnSelectModel="SelectModelAsync" />
             </div>
         }

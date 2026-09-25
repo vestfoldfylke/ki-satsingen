@@ -41,6 +41,9 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public long? EstimatedContextTokens { get; set; }
 
+    [Parameter]
+    public MessageUsage? ConversationUsage { get; set; }
+
     // The page's switch from empty state to transcript layout rebuilds this DOM
     // and drops the caret; it calls this to restore focus.
     public ValueTask FocusAsync() => _textarea.FocusAsync();

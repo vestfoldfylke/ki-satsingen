@@ -1,13 +1,19 @@
-.chat-composer {
+.chat-composer-container {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+}
+
+.chat-composer {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
     padding: 0.75rem 0.85rem;
     border: 1px solid var(--ds-color-neutral-border-default);
     border-radius: var(--ds-border-radius-xl);
     /* Must match the surface the .chat-tail gradient fades to, or a seam shows
-       behind the composer. Declared on .chat-page; inherits through Blazor's
-       CSS isolation, which scopes selectors but not inheritance. */
+    behind the composer. Declared on .chat-page; inherits through Blazor's
+    CSS isolation, which scopes selectors but not inheritance. */
     background: var(--chat-surface, #fff);
 }
 
@@ -32,10 +38,6 @@
     line-height: 1.4;
 }
 
-.chat-textarea::placeholder {
-    color: #94a3b8;
-}
-
 .chat-composer-actions {
     display: flex;
     align-items: center;
@@ -50,88 +52,13 @@
     gap: 0.5rem;
 }
 
-.composer-icon-button,
-.composer-stop-button,
-.composer-send-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    cursor: pointer;
-    padding: 0;
+#composer-stop-button,
+#composer-send-button {
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
-}
-
-.composer-icon-button {
-    width: 2rem;
-    height: 2rem;
-    background: transparent;
-    color: #475569;
-    border-color: #e2e8f0;
-}
-
-.composer-icon-button:hover:not(:disabled) {
-    background: #f1f5f9;
-    color: #0f172a;
-}
-
-.composer-stop-button {
-    width: 2.25rem;
-    height: 2.25rem;
-    background: transparent;
-    color: #475569;
-    border-color: #e2e8f0;
-}
-
-.composer-stop-button:hover {
-    background: #f1f5f9;
-    color: #0f172a;
-}
-
-.composer-send-button {
-    width: 2.25rem;
-    height: 2.25rem;
-    background: #0f172a;
-    color: #fff;
-}
-
-.composer-send-button:hover:not(:disabled) {
-    background: #1e293b;
-}
-
-.composer-icon-button:disabled,
-.composer-send-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.composer-pending-model {
-    margin: 0;
-    font-size: 0.75rem;
-    color: #64748b;
-    white-space: nowrap;
-}
-
-.composer-context-warning {
-    margin: 0;
-    font-size: 0.75rem;
-    color: #b45309;
-    line-height: 1.35;
-}
-
-/* Muted: glanced at, and must not compete with the warning that asks for action. */
-.composer-context-size {
-    margin: 0 0 0.25rem;
-    text-align: right;
-    font-size: 0.75rem;
-    color: #6b7280;
-    line-height: 1.35;
 }
 
 .chat-footer {
     margin: 0;
     text-align: center;
-    font-size: 0.75rem;
-    color: #64748b;
+    color: var(--ds-color-text-subtle);
 }

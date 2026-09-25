@@ -1,0 +1,61 @@
+@using kisatsingen.Services.Chat
+
+<button class="ds-button"
+        type="button"
+        data-variant="tertiary"
+        data-color="primary"
+        data-icon="true"
+        popovertarget="@PopoverId"
+        aria-label="Vis bruk av kontekstvinduet">
+    <span class="material-symbols-outlined">data_usage</span>
+</button>
+
+<div id="@PopoverId"
+     class="ds-popover context-usage"
+     popover="auto"
+     data-placement="top"
+     data-color="neutral">
+    <div class="context-usage-content">
+        <p class="ds-paragraph" data-size="sm"><strong>@StatusText</strong></p>
+
+        <div class="context-usage-meter">
+            <label class="ds-label" data-weight="regular" for="@MeterId">
+                Kontekstvindu: @Format(EstimatedContextTokens) av @Format(Model.ContextWindowTokens)
+            </label>
+            @* low == high: green until the threshold, red past it. A separate low would
+               paint every value above min yellow. *@
+            <meter id="@MeterId"
+                   value="@EstimatedContextTokens"
+                   min="0"
+                   max="@Model.ContextWindowTokens"
+                   low="@FillingThresholdTokens"
+                   high="@FillingThresholdTokens"
+                   optimum="0"></meter>
+        </div>
+
+        @if (Usage is { } usage)
+        {
+            <dl>
+                @if (usage.InputTokens is { } input)
+                {
+                    <dt>Sendt til KI</dt>
+                    <dd>@Format(input)</dd>
+                }
+                @if (usage.OutputTokens is { } output)
+                {
+                    <dt>Svar fra KI</dt>
+                    <dd>@Format(output)</dd>
+                }
+                @if (usage.TotalTokens is { } total)
+                {
+                    <dt>Totalt behandlet</dt>
+                    <dd>@Format(total)</dd>
+                }
+            </dl>
+        }
+
+        <p class="ds-paragraph context-usage-help" data-size="xs">
+            Tallene er tokens: små tekstbiter på omtrent et ord eller en del av et ord.
+        </p>
+    </div>
+</div>

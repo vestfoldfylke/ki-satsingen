@@ -1,74 +1,81 @@
 <div class="chat-composer-container">
-<div class="chat-composer">
-    <textarea @ref="_textarea"
-              id="chat-textarea"
-              class="ds-input chat-textarea"
-              placeholder="Spør om hva som helst..."
-              disabled="@IsBusy"></textarea>
+    <div class="chat-composer">
+        <textarea @ref="_textarea"
+                id="chat-textarea"
+                class="ds-input chat-textarea"
+                placeholder="Spør om hva som helst..."
+                disabled="@IsBusy"></textarea>
 
-    <div class="chat-composer-actions">
-        <div class="composer-actions-left">
+        <div class="chat-composer-actions">
+            <div class="composer-actions-left">
                 <button class="ds-button" data-variant="tertiary" data-color="primary" data-icon="true" aria-label="Legg ved fil">
                     <span class="material-symbols-outlined">add</span>
                 </button>
-            </button>
-            @* One model is no choice, so no picker. *@
-            @if (Models.Count > 1 && SelectedModel is not null)
-            {
-                <ModelPicker Models="Models"
-                             Selected="SelectedModel"
-                             OnSelect="OnSelectModel"
-                             IsBusy="IsBusy"
-                             EstimatedContextTokens="EstimatedContextTokens" />
-            }
 
-            @* aria-live, because the picker's own label changes silently. The
-               warning outranks the pending line: it says the next answer may not
-               arrive at all. *@
-            @if (SelectedModel?.WouldOverflow(EstimatedContextTokens) == true)
-            {
-                <p class="composer-context-warning" aria-live="polite">
-                    Samtalen er trolig for lang for @SelectedModel.DisplayName. Svaret kan feile.
-                </p>
-            }
-            else if (PendingModel is { } pending)
-            {
-                <p class="composer-pending-model" aria-live="polite">Neste svar: @pending.DisplayName</p>
-            }
-        </div>
+                @if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
+                {
+                    <ContextUsagePopover Model="contextModel"
+                                         EstimatedContextTokens="contextTokens"
+                                         Usage="ConversationUsage" />
+                }
 
-        <div class="composer-actions-right">
-            @* Stop is Blazor's: IsBusy is its only input. Send is JS's, because its
-               disabled state also depends on the textarea being empty. *@
-            @if (IsBusy)
-            {
+                @* One model is no choice, so no picker. *@
+                @if (Models.Count > 1 && SelectedModel is not null)
+                {
+                    <ModelPicker Models="Models"
+                                Selected="SelectedModel"
+                                OnSelect="OnSelectModel"
+                                IsBusy="IsBusy"
+                                EstimatedContextTokens="EstimatedContextTokens" />
+                }
+
+                @* aria-live, because the picker's own label changes silently. The
+                warning outranks the pending line: it says the next answer may not
+                arrive at all. *@
+                @if (SelectedModel?.WouldOverflow(EstimatedContextTokens) == true)
+                {
+                    <p class="composer-context-warning" aria-live="polite">
+                        Samtalen er trolig for lang for @SelectedModel.DisplayName. Svaret kan feile.
+                    </p>
+                }
+                else if (PendingModel is { } pending)
+                {
+                    <p class="composer-pending-model" aria-live="polite">Neste svar: @pending.DisplayName</p>
+                }
+            </div>
+
+            <div class="composer-actions-right">
+                @* Stop is Blazor's: IsBusy is its only input. Send is JS's, because its
+                disabled state also depends on the textarea being empty. *@
+                @if (IsBusy)
+                {
                     <button id="composer-stop-button"
                             class="ds-button"
-                        type="button"
+                            type="button"
                             data-variant="secondary"
                             data-color="neutral"
                             data-icon="true"
-                        aria-label="Stopp generering"
-                        @onclick="OnStop">
+                            aria-label="Stopp generering"
+                            @onclick="OnStop">
                         <span class="material-symbols-outlined">stop</span>
-                </button>
-            }
-            @* Static: right for an empty textarea, and chat-composer.ts owns it
-               after that. Blazor must never re-render it. *@
+                    </button>
+                }
+                @* Static: right for an empty textarea, and chat-composer.ts owns it
+                after that. Blazor must never re-render it. *@
                 <button id="composer-send-button"
                         class="ds-button"
                         data-variant="primary"
                         data-icon="true"
-                    type="button"
-                    aria-label="Send melding"
-                    disabled
-                    @onclick="OnSend">
+                        type="button"
+                        aria-label="Send melding"
+                        disabled
+                        @onclick="OnSend">
                     <span class="material-symbols-outlined">arrow_upward</span>
-            </button>
+                </button>
+            </div>
         </div>
     </div>
-</div>
-
+    
     <p class="ds-paragraph chat-footer" data-size="xs" data-color="neutral">KI kan gjøre feil. Vurder alltid svarene kritisk.</p>
 
 </div>
