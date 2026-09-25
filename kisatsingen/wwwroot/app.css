@@ -3,6 +3,11 @@ html, body {
     margin: 0;
 }
 
+/* Scrolling happens in the chat window and internally in other blocks - not in html */
+html {
+    overflow-y: clip;
+}
+
 .content {
     display: flex;
     flex-direction: column;
@@ -18,6 +23,12 @@ html, body {
     color: white;
 }
 
-    .blazor-error-boundary::after {
-        content: "An error has occurred."
-    }
+.blazor-error-boundary::after {
+    content: "An error has occurred."
+}
+
+/* custom override here, tooltips should not be wider anyways, and i want smaller font */
+.ds-tooltip {
+    max-width: 20rem;
+    font-size: (--ds-body-sm-font-size);
+}
