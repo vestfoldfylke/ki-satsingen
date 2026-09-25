@@ -17,6 +17,10 @@
     background: var(--chat-surface, #fff);
 }
 
+.composer-notice {
+    margin-block-end: 0.5rem;
+}
+
 .chat-composer:focus-within {
     box-shadow: var(--dsc-focus-boxShadow);
     outline: var(--dsc-focus-outline);

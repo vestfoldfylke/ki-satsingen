@@ -24,8 +24,24 @@ public sealed record ChatModel
 
     public required string IconName { get; init; }
 
+    private const double FillingThresholdRatio = 0.8;
+    private const double NearlyFullThresholdRatio = 0.9;
+
+    public long FillingThresholdTokens => (long)(ContextWindowTokens * FillingThresholdRatio);
+
+    public long NearlyFullThresholdTokens => (long)(ContextWindowTokens * NearlyFullThresholdRatio);
+
     // The estimate runs high, so this fires a little before the window is full —
     // the useful direction. Null means nothing to send, never "too big".
     public bool WouldOverflow(long? estimatedContextTokens) =>
         estimatedContextTokens is { } tokens && tokens > ContextWindowTokens;
+
+    public ContextFillLevel ClassifyContext(long? estimatedContextTokens) => estimatedContextTokens switch
+    {
+        null => ContextFillLevel.Roomy,
+        var tokens when tokens > ContextWindowTokens => ContextFillLevel.Overflowing,
+        var tokens when tokens >= NearlyFullThresholdTokens => ContextFillLevel.NearlyFull,
+        var tokens when tokens >= FillingThresholdTokens => ContextFillLevel.Filling,
+        _ => ContextFillLevel.Roomy,
+    };
 }

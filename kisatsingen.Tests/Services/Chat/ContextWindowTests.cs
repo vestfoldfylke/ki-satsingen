@@ -66,6 +66,57 @@ public sealed class ContextWindowTests
         Assert.False(ModelHolding(1).WouldOverflow(null));
     }
 
+    [Fact]
+    public void An_unmeasured_conversation_is_roomy()
+    {
+        Assert.Equal(ContextFillLevel.Roomy, ModelHolding(1).ClassifyContext(null));
+    }
+
+    [Fact]
+    public void A_conversation_just_below_the_filling_threshold_is_roomy()
+    {
+        var model = ModelHolding(1_000);
+
+        Assert.Equal(ContextFillLevel.Roomy, model.ClassifyContext(model.FillingThresholdTokens - 1));
+    }
+
+    [Fact]
+    public void A_conversation_at_the_filling_threshold_is_filling()
+    {
+        var model = ModelHolding(1_000);
+
+        Assert.Equal(ContextFillLevel.Filling, model.ClassifyContext(model.FillingThresholdTokens));
+    }
+
+    [Fact]
+    public void A_conversation_at_the_nearly_full_threshold_is_nearly_full()
+    {
+        var model = ModelHolding(1_000);
+
+        Assert.Equal(ContextFillLevel.NearlyFull, model.ClassifyContext(model.NearlyFullThresholdTokens));
+    }
+
+    // Must agree with WouldOverflow, which the model picker also uses.
+    [Fact]
+    public void A_conversation_that_exactly_fills_the_window_is_nearly_full_not_overflowing()
+    {
+        Assert.Equal(ContextFillLevel.NearlyFull, ModelHolding(1_000).ClassifyContext(1_000));
+    }
+
+    [Fact]
+    public void A_conversation_larger_than_the_window_is_overflowing()
+    {
+        Assert.Equal(ContextFillLevel.Overflowing, ModelHolding(1_000).ClassifyContext(1_001));
+    }
+
+    [Fact]
+    public void The_filling_threshold_comes_before_the_nearly_full_threshold()
+    {
+        var model = ModelHolding(1_000);
+
+        Assert.True(model.FillingThresholdTokens < model.NearlyFullThresholdTokens);
+    }
+
     private static ChatModel ModelHolding(int contextWindowTokens) => new()
     {
         Key = new ChatModelKey("under-test"),
