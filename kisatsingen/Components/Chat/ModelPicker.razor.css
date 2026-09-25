@@ -1,83 +1,9 @@
-/* Load-bearing position: .ds-dropdown is absolutely positioned and only
-   translated into place once open. Without an anchor here it starts at .page's
-   top-left, flashes over the sidebar, and can raise a document scrollbar. */
-.model-picker {
-    display: inline-flex;
-    position: relative;
-}
-
-/* Matches .composer-icon-button's visual language rather than .ds-button: it
-   sits in the same row, and the two would otherwise read as different weights of
-   control. */
-.model-picker-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    height: 2rem;
-    padding: 0 0.6rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 999px;
-    background: transparent;
-    color: #475569;
-    font: inherit;
-    font-size: 0.8125rem;
-    cursor: pointer;
-    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
-}
-
-.model-picker-trigger:hover {
-    background: #f1f5f9;
-    color: #0f172a;
-}
-
-.model-picker-trigger:focus-visible {
-    box-shadow: var(--dsc-focus-boxShadow);
-    outline: var(--dsc-focus-outline);
-    outline-offset: var(--ds-border-width-focus);
-}
-
-.model-picker-trigger-name {
-    white-space: nowrap;
-}
-
-.model-picker-menu {
-    min-width: 17rem;
-    max-width: 22rem;
-    padding: 0.35rem;
-}
-
-.model-picker-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-}
-
 .model-picker-option {
     display: flex;
     flex-direction: column;
-    gap: 0.15rem;
-    width: 100%;
+    align-items: stretch;
     text-align: left;
-    padding: 0.5rem 0.6rem;
-    border: none;
-    border-radius: var(--ds-border-radius-md, 0.375rem);
-    background: transparent;
-    font: inherit;
-    color: inherit;
-    cursor: pointer;
-}
-
-.model-picker-option:hover {
-    background: #f1f5f9;
-}
-
-.model-picker-option:focus-visible {
-    box-shadow: var(--dsc-focus-boxShadow);
-    outline: var(--dsc-focus-outline);
-    outline-offset: calc(var(--ds-border-width-focus) * -1);
+    flex-grow: 1;
 }
 
 .model-picker-option-heading {
@@ -85,37 +11,4 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
-}
-
-.model-picker-option-name {
-    font-weight: 600;
-    font-size: 0.875rem;
-}
-
-/* The tick is not the only marker: aria-checked carries the same fact to anyone
-   not looking at the colour. */
-.model-picker-check {
-    color: #0f172a;
-    flex-shrink: 0;
-}
-
-.model-picker-option-description {
-    font-size: 0.75rem;
-    color: #64748b;
-    line-height: 1.35;
-}
-
-/* Not colour alone: the wording says what is wrong, so the colour only
-   reinforces it. */
-.model-picker-option-warning {
-    font-size: 0.7rem;
-    color: #b45309;
-    line-height: 1.35;
-}
-
-.model-picker-hint {
-    margin: 0.35rem 0.6rem 0.25rem;
-    font-size: 0.7rem;
-    color: #64748b;
-    line-height: 1.35;
 }

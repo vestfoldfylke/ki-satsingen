@@ -1,20 +1,19 @@
 @using kisatsingen.Services.Chat
 
-<div class="model-picker">
-    <button class="model-picker-trigger"
+<div>
+    <button class="ds-button"
             type="button"
+            data-variant="tertiary"
+            data-color="primary"
             popovertarget="@PopoverId"
             aria-haspopup="menu"
             aria-label="@TriggerLabel">
-        <span class="model-picker-trigger-name">@Selected.DisplayName</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <polyline points="6 9 12 15 18 9"/>
-        </svg>
+        <span class="ds-paragraph" data-size="sm">@Selected.DisplayName</span>
     </button>
 
     @* Opens upward: the composer sits at the bottom of the viewport. *@
-    <div id="@PopoverId" class="ds-dropdown model-picker-menu" popover="auto" data-placement="top-start">
-        <ul class="model-picker-list" role="menu" aria-label="Velg språkmodell">
+    <div id="@PopoverId" class="ds-dropdown" popover="auto" data-placement="top-start">
+        <ul role="menu" aria-label="Velg språkmodell">
             @foreach (var model in Models)
             {
                 var isSelected = model.Key == Selected.Key;
@@ -22,29 +21,30 @@
                     @* A click inside popover="auto" doesn't dismiss it; this does,
                        without JS. *@
                     <button type="button"
-                            class="model-picker-option"
+                            class="ds-button model-picker-option"
+                            data-variant="tertiary"
+                            data-color="neutral"
                             role="menuitemradio"
                             aria-checked="@(isSelected ? "true" : "false")"
                             popovertarget="@PopoverId"
                             popovertargetaction="hide"
-                            title="@model.LongDescription"
+                            data-tooltip="@model.LongDescription"
+                            data-placement="right"
                             @onclick="() => OnSelect.InvokeAsync(model.Key)">
                         <span class="model-picker-option-heading">
-                            <span class="model-picker-option-name">@model.DisplayName</span>
+                            <span class="ds-paragraph" data-size="sm">@model.DisplayName</span>
                             @if (isSelected)
                             {
-                                <svg class="model-picker-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <polyline points="20 6 9 17 4 12"/>
-                                </svg>
+                                <span class="material-symbols-outlined">check</span>
                             }
                         </span>
-                        <span class="model-picker-option-description">@model.ShortDescription</span>
+                        <span class="ds-paragraph" data-size="xs">@model.ShortDescription</span>
                         @* Shown before picking, so the choice is made knowing the
-                           consequence. Still selectable: it is an estimate, and
-                           it runs high. *@
+                        consequence. Still selectable: it is an estimate, and
+                        it runs high. *@
                         @if (model.WouldOverflow(EstimatedContextTokens))
                         {
-                            <span class="model-picker-option-warning">
+                            <span class="ds-alert ds-paragraph" data-size="xs" data-color="warning">
                                 Samtalen er trolig for lang for denne modellen
                             </span>
                         }
@@ -57,7 +57,7 @@
            disabling the menu and leaving the user to guess. *@
         @if (IsBusy)
         {
-            <p class="model-picker-hint">Et svar genereres nå. Byttet gjelder fra neste melding.</p>
+            <p class="ds-alert ds-paragraph" data-size="xs">Et svar genereres nå. Byttet gjelder fra neste melding.</p>
         }
     </div>
 </div>
