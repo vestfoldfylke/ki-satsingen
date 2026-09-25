@@ -200,6 +200,15 @@ app.MapHealthChecks("/healthz");
 // ─── Forwarded headers (must run before auth/HTTPS redirect) ───
 app.UseForwardedHeaders();
 
+// ─── Culture ───────────────────────────────────────────
+// Fixed, not negotiated: the app is Norwegian only. A circuit keeps the culture
+// of the request that opened it.
+const string AppCulture = "nb-NO";
+app.UseRequestLocalization(new RequestLocalizationOptions()
+    .SetDefaultCulture(AppCulture)
+    .AddSupportedCultures(AppCulture)
+    .AddSupportedUICultures(AppCulture));
+
 // ─── Security response headers (apply to every response) ───
 var scriptSrc = app.Environment.IsDevelopment()
     ? "'self' 'unsafe-inline'"                          // dotnet-watch injects an inline bootstrapper
