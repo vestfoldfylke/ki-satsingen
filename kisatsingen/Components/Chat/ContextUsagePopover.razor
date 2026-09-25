@@ -3,10 +3,10 @@
 <button class="ds-button"
         type="button"
         data-variant="tertiary"
-        data-color="primary"
+        data-color="@TriggerColor"
         data-icon="true"
         popovertarget="@PopoverId"
-        aria-label="Vis bruk av kontekstvinduet">
+        aria-label="@TriggerLabel">
     <span class="material-symbols-outlined">data_usage</span>
 </button>
 
@@ -22,14 +22,13 @@
             <label class="ds-label" data-weight="regular" for="@MeterId">
                 Kontekstvindu: @Format(EstimatedContextTokens) av @Format(Model.ContextWindowTokens)
             </label>
-            @* low == high: green until the threshold, red past it. A separate low would
-               paint every value above min yellow. *@
+            @* Same thresholds as the trigger colour: green, then yellow, then red. *@
             <meter id="@MeterId"
                    value="@EstimatedContextTokens"
                    min="0"
                    max="@Model.ContextWindowTokens"
                    low="@FillingThresholdTokens"
-                   high="@FillingThresholdTokens"
+                   high="@NearlyFullThresholdTokens"
                    optimum="0"></meter>
         </div>
 
