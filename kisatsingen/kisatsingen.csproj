@@ -75,6 +75,15 @@
       <Exec Command="npm run build" WorkingDirectory="browser-chat-client" />
     </Target>
 
+    <!-- The SDK globs wwwroot/** before any target runs, so on a clean checkout
+         the bundles above don't exist yet and never reach the static assets
+         manifest. MapStaticAssets then 404s them outside Development. -->
+    <Target Name="IncludeBundlesAsContent" BeforeTargets="BeforeBuild" DependsOnTargets="BundleDesignsystemet;BundleChatClient">
+      <ItemGroup>
+        <Content Include="wwwroot\designsystemet\**;wwwroot\chat-client\**" Exclude="@(Content)" />
+      </ItemGroup>
+    </Target>
+
     <Target Name="EnsureDockerComposeRunning" BeforeTargets="Build" Condition="'$(Configuration)' == 'Debug'">
         <Exec Command="docker compose -f $(MSBuildProjectDirectory)/../compose.yml up -d" />
     </Target>
