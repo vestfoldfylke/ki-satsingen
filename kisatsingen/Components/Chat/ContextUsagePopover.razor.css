@@ -1,0 +1,35 @@
+.context-usage {
+    min-width: 16rem;
+}
+
+/* data-size only sizes .ds-paragraph and .ds-heading; label and dl inherit this. */
+.context-usage-content {
+    font-size: var(--ds-body-sm-font-size);
+    line-height: var(--ds-body-sm-line-height);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.context-usage-meter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.context-usage meter {
+    width: 100%;
+}
+
+.context-usage dl {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.25rem 1rem;
+    margin: 0;
+}
+
+.context-usage dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}

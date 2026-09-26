@@ -29,22 +29,6 @@ public sealed class PartialResponsePersistenceTests
         Assert.Equal(ChatEventKind.Stopped, Assert.Single(harness.Repository.AppendedEvents).Kind);
     }
 
-    // A reload would name this model as the last to answer; the live session must agree.
-    [Fact]
-    public async Task A_stopped_turn_takes_a_pending_switch_into_effect()
-    {
-        await using var harness = new ChatSessionHarness();
-        await harness.Session.SendAsync("hei");
-        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
-
-        // PendingModel is also null when nothing has answered; rule that out first.
-        Assert.NotNull(harness.Session.PendingModel);
-
-        await StopAfterAnswering(harness, "halvferdig svar");
-
-        Assert.Null(harness.Session.PendingModel);
-    }
-
     // Through the real fold, from a streamed UsageContent rather than a property set by hand.
     [Fact]
     public async Task A_stopped_turn_persists_the_usage_the_provider_had_already_reported()
@@ -115,6 +99,18 @@ public sealed class PartialResponsePersistenceTests
         await sending;
 
         Assert.DoesNotContain(harness.Repository.AppendedMessages, message => message.Role == ChatRole.Assistant.Value);
+    }
+
+    // LoadAsync picks the model from this key, so a partial must carry it too.
+    [Fact]
+    public async Task A_stopped_turn_records_the_model_key_it_ran_on()
+    {
+        await using var harness = new ChatSessionHarness();
+        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
+
+        await StopAfterAnswering(harness, "halvferdig svar");
+
+        Assert.Equal(FakeChatModelCatalog.AlternativeKey.Value, AssistantMessage(harness).ModelKey);
     }
 
     private static async Task StopAfterAnswering(ChatSessionHarness harness, string text)

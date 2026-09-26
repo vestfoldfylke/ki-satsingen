@@ -88,7 +88,7 @@
     width: 100%;
     max-width: var(--chat-column-width);
     margin: 0 auto;
-    padding: var(--chat-fade-height) 0.75rem 1.5rem;
+    padding: var(--chat-fade-height) 0.75rem 1rem;
     box-sizing: border-box;
     background: linear-gradient(
         to bottom,
@@ -167,12 +167,4 @@
     font-size: 1.75rem;
     font-weight: 600;
     text-align: center;
-}
-
-.chat-usage-total {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    font-size: 0.75rem;
-    color: #64748b;
 }

@@ -36,10 +36,22 @@ public sealed partial class ChatComposer : ComponentBase
     public EventCallback<ChatModelKey> OnSelectModel { get; set; }
 
     [Parameter]
-    public ChatModel? PendingModel { get; set; }
+    public long? EstimatedContextTokens { get; set; }
 
     [Parameter]
-    public long? EstimatedContextTokens { get; set; }
+    public MessageUsage? ConversationUsage { get; set; }
+
+    private sealed record ComposerNotice(string Color, string Text);
+
+    private ComposerNotice? Notice => SelectedModel is not { } model
+        ? null
+        : model.ClassifyContext(EstimatedContextTokens) switch
+        {
+            ContextFillLevel.Overflowing => new("danger", $"Samtalen er trolig for lang for {model.DisplayName}. Svaret kan feile. Start en ny samtale eller bytt modell."),
+            ContextFillLevel.NearlyFull => new("danger", $"Samtalen er nesten full for {model.DisplayName}. Start en ny samtale snart."),
+            ContextFillLevel.Filling => new("warning", $"Samtalen nærmer seg grensen for {model.DisplayName}."),
+            _ => null,
+        };
 
     // The page's switch from empty state to transcript layout rebuilds this DOM
     // and drops the caret; it calls this to restore focus.

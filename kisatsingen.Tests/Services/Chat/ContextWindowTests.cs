@@ -48,22 +48,69 @@ public sealed class ContextWindowTests
         Assert.Equal(unmeasured.Session.EstimatedContextTokens, measured.Session.EstimatedContextTokens);
     }
 
+    // Matches the smallest real model in ChatModelServiceCollectionExtensions;
+    // toy sizes let the threshold ratios round to the same integer and hide bugs.
+    private const int RealisticContextWindow = 128_000;
+
     [Fact]
     public void A_conversation_larger_than_the_window_would_overflow_it()
     {
-        Assert.True(ModelHolding(1_000).WouldOverflow(1_001));
+        Assert.True(ModelHolding(RealisticContextWindow).WouldOverflow(RealisticContextWindow + 1));
     }
 
     [Fact]
     public void A_conversation_that_exactly_fills_the_window_does_not_overflow_it()
     {
-        Assert.False(ModelHolding(1_000).WouldOverflow(1_000));
+        Assert.False(ModelHolding(RealisticContextWindow).WouldOverflow(RealisticContextWindow));
     }
 
     [Fact]
     public void An_unmeasured_conversation_never_overflows()
     {
-        Assert.False(ModelHolding(1).WouldOverflow(null));
+        Assert.False(ModelHolding(RealisticContextWindow).WouldOverflow(null));
+    }
+
+    [Fact]
+    public void An_unmeasured_conversation_is_roomy()
+    {
+        Assert.Equal(ContextFillLevel.Roomy, ModelHolding(RealisticContextWindow).ClassifyContext(null));
+    }
+
+    [Fact]
+    public void A_conversation_just_below_the_filling_threshold_is_roomy()
+    {
+        var model = ModelHolding(RealisticContextWindow);
+
+        Assert.Equal(ContextFillLevel.Roomy, model.ClassifyContext(model.FillingThresholdTokens - 1));
+    }
+
+    [Fact]
+    public void A_conversation_at_the_filling_threshold_is_filling()
+    {
+        var model = ModelHolding(RealisticContextWindow);
+
+        Assert.Equal(ContextFillLevel.Filling, model.ClassifyContext(model.FillingThresholdTokens));
+    }
+
+    [Fact]
+    public void A_conversation_at_the_nearly_full_threshold_is_nearly_full()
+    {
+        var model = ModelHolding(RealisticContextWindow);
+
+        Assert.Equal(ContextFillLevel.NearlyFull, model.ClassifyContext(model.NearlyFullThresholdTokens));
+    }
+
+    // Must agree with WouldOverflow, which the model picker also uses.
+    [Fact]
+    public void A_conversation_that_exactly_fills_the_window_is_nearly_full_not_overflowing()
+    {
+        Assert.Equal(ContextFillLevel.NearlyFull, ModelHolding(RealisticContextWindow).ClassifyContext(RealisticContextWindow));
+    }
+
+    [Fact]
+    public void A_conversation_larger_than_the_window_is_overflowing()
+    {
+        Assert.Equal(ContextFillLevel.Overflowing, ModelHolding(RealisticContextWindow).ClassifyContext(RealisticContextWindow + 1));
     }
 
     private static ChatModel ModelHolding(int contextWindowTokens) => new()

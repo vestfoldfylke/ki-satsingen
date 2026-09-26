@@ -11,7 +11,7 @@
 // ChatComposer instance only ever calls this once, on its own firstRender.
 
 const SELECTOR_TEXTAREA = '#chat-textarea';
-const SELECTOR_SEND_BUTTON = '.composer-send-button';
+const SELECTOR_SEND_BUTTON = '#composer-send-button';
 
 let textareaElement: HTMLTextAreaElement | null = null;
 let isBusy = false;
