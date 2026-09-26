@@ -33,9 +33,6 @@ public sealed class ChatSession : IAsyncDisposable
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
 
-    // What PendingModel compares the selection against.
-    private ChatModel? _lastAnsweredModel;
-
     // Null between turns, which is what makes a late Cancel() a harmless no-op.
     private TurnCancellation? _turnCancellation;
 
@@ -79,13 +76,6 @@ public sealed class ChatSession : IAsyncDisposable
     public Guid? StreamingId => _streamingId;
 
     public ChatModel SelectedModel => _selectedModel;
-
-    // A switch shows nothing until a turn runs on it, so the composer says so.
-    // Null before the first answer: there is no previous model to contrast with.
-    public ChatModel? PendingModel =>
-        _lastAnsweredModel is { } answered && answered.Key != _selectedModel.Key
-            ? _selectedModel
-            : null;
 
     // The allow-list. Every user gets every model today; per-user gating goes here.
     public IReadOnlyList<ChatModel> AvailableModels => _catalog.Models;
@@ -191,8 +181,7 @@ public sealed class ChatSession : IAsyncDisposable
                 _entries.AddRange(TranscriptRestore.Build(chat.Messages, chat.Events, _effectiveSystemPrompt, ResolveModelName, _logger));
 
                 // Continuing a chat must not silently change who answers it.
-                _lastAnsweredModel = FindLastAnsweredModel(chat.Messages);
-                _selectedModel = _lastAnsweredModel ?? _catalog.Default;
+                _selectedModel = FindLastAnsweredModel(chat.Messages) ?? _catalog.Default;
             }
         }
 
@@ -200,7 +189,7 @@ public sealed class ChatSession : IAsyncDisposable
     }
 
     // Nothing answered, rows older than the picker, and a model since removed all
-    // return null: to every caller they mean "no previous model".
+    // return null: they all mean "no previous model".
     private ChatModel? FindLastAnsweredModel(IReadOnlyList<Data.Entities.ChatMessage> messages)
     {
         for (var index = messages.Count - 1; index >= 0; index--)
@@ -254,7 +243,6 @@ public sealed class ChatSession : IAsyncDisposable
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
         _selectedModel = _catalog.Default;
-        _lastAnsweredModel = null;
     }
 
     private bool OwnsView(TurnBinding binding) => binding.ViewVersion == _viewVersion;
@@ -584,13 +572,6 @@ public sealed class ChatSession : IAsyncDisposable
         var chatId = binding.ChatId!.Value;
         await _repo.AppendMessagesAsync(userObjectId, chatId, toPersist, ct);
         _chatManager.MarkTouched(chatId, now);
-
-        // Partials too: the rows now carry this model's key, so a reload will report
-        // it as the last to answer, and the live session must agree.
-        if (OwnsView(binding))
-        {
-            _lastAnsweredModel = modelForThisTurn;
-        }
     }
 
     private void Notify() => StateChanged?.Invoke();

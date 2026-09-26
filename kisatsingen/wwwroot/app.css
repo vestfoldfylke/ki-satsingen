@@ -27,8 +27,8 @@ html {
     content: "An error has occurred."
 }
 
-/* custom override here, tooltips should not be wider anyways, and i want smaller font */
+/* Designsystemet recommend only a few words in tooltip, but i don't care, so set max-width */
 .ds-tooltip {
     max-width: 20rem;
-    font-size: (--ds-body-sm-font-size);
+    font-size: var(--ds-body-sm-font-size);
 }

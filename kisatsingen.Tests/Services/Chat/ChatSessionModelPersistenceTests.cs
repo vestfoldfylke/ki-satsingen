@@ -86,42 +86,6 @@ public sealed class ChatSessionModelPersistenceTests
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
 
-    [Fact]
-    public async Task A_switch_that_has_not_taken_effect_yet_is_reported_as_pending()
-    {
-        await using var harness = new ChatSessionHarness();
-        await harness.Session.SendAsync("hei");
-
-        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
-
-        Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.PendingModel?.Key);
-    }
-
-    [Fact]
-    public async Task A_switch_stops_being_pending_once_a_turn_has_run_on_it()
-    {
-        await using var harness = new ChatSessionHarness();
-        await harness.Session.SendAsync("hei");
-        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
-
-        // PendingModel is also null when nothing has answered; rule that out first.
-        Assert.NotNull(harness.Session.PendingModel);
-
-        await harness.Session.SendAsync("hei igjen");
-
-        Assert.Null(harness.Session.PendingModel);
-    }
-
-    [Fact]
-    public async Task Nothing_is_pending_before_the_first_answer()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
-
-        Assert.Null(harness.Session.PendingModel);
-    }
-
     private static ChatEntity ChatAnsweredBy(string? modelKey) => new()
     {
         Id = Guid.NewGuid(),

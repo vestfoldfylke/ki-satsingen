@@ -15,10 +15,6 @@
     }
 }
 
-.navbar-brand {
-    font-size: 1.1rem;
-}
-
 .nav-item > button > span {
     font-size: .85rem;
 }
@@ -118,10 +114,6 @@
     background: #e0eaff;
 }
 
-.chat-sidebar-item-dropdown[popover] {
-    display: block;
-}
-
 .chat-sidebar-item-option-button {
     --dsc-button-size: 1.7rem;
     flex: 0 0 auto;
@@ -164,19 +156,10 @@
     color: inherit;
 }
 
-.chat-sidebar-menu-trigger {
-    flex-shrink: 0;
-}
-
 .chat-sidebar-title {
     font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.chat-sidebar-time {
-    font-size: 0.7rem;
-    opacity: 0.55;
 }
 

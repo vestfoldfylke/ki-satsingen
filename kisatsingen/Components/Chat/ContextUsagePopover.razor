@@ -22,13 +22,15 @@
             <label class="ds-label" data-weight="regular" for="@MeterId">
                 Kontekstvindu: @Format(EstimatedContextTokens) av @Format(Model.ContextWindowTokens)
             </label>
-            @* Same thresholds as the trigger colour: green, then yellow, then red. *@
+            @* Same thresholds as the trigger colour: green, then yellow, then red.
+               A meter's low/high are inclusive of the calmer colour, while ClassifyContext
+               switches at the threshold, hence the - 1. *@
             <meter id="@MeterId"
                    value="@EstimatedContextTokens"
                    min="0"
                    max="@Model.ContextWindowTokens"
-                   low="@Model.FillingThresholdTokens"
-                   high="@Model.NearlyFullThresholdTokens"
+                   low="@(Model.FillingThresholdTokens - 1)"
+                   high="@(Model.NearlyFullThresholdTokens - 1)"
                    optimum="0"></meter>
         </div>
 
