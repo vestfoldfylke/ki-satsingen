@@ -1,0 +1,22 @@
+@using kisatsingen.Services.Chat
+
+@* No wrapper element, on purpose: chat-scroll.ts watches the direct children of
+   .chat-log-inner for a new .user-bubble, and every block here is a flex child
+   of it (the notices stretch, the bubble keeps its align-self: flex-end). *@
+@if (View.ModelChangedTo is { } model)
+{
+    <ModelBoundaryNotice ModelDisplayName="@model" />
+}
+<UserBubble Text="@View.Turn.Prompt" />
+@if (View.IsLive || View.Turn.Answer.Count > 0)
+{
+    <AssistantTurn Turn="View.Turn" IsLive="View.IsLive" />
+}
+@if (TurnNotice.Describe(View.Turn) is { } notice)
+{
+    <TurnNoticeLine Text="@notice" />
+}
+
+@code {
+    [Parameter, EditorRequired] public required TurnView View { get; set; }
+}

@@ -8,9 +8,8 @@ namespace kisatsingen.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    // Messages and events share one sequence so a chat's transcript has a single
-    // exact order across both tables.
-    public const string EntrySequenceName = "chat_entry_seq";
+    // Orders a chat's turns exactly, whatever the clock says.
+    public const string TurnSequenceName = "chat_turn_seq";
 
     // Set only by CreateForMigrations. EF disposes a data source only when it
     // built one itself, so the one handed to it below would otherwise outlive
@@ -22,8 +21,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
 
     public DbSet<Chat> Chats => Set<Chat>();
-    public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
-    public DbSet<ChatEvent> ChatEvents => Set<ChatEvent>();
+    public DbSet<ChatTurn> ChatTurns => Set<ChatTurn>();
     public DbSet<Assistant> Assistants => Set<Assistant>();
     public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
     public DbSet<KnowledgeFileChunk> KnowledgeFileChunks => Set<KnowledgeFileChunk>();
@@ -74,44 +72,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         chat.Property(c => c.AssistantNameSnapshot).HasMaxLength(Assistant.MaxNameLength);
         chat.HasIndex(c => new { c.OwnerId, c.UpdatedAt });
 
-        modelBuilder.HasSequence<long>(EntrySequenceName);
+        modelBuilder.HasSequence<long>(TurnSequenceName);
 
-        var message = modelBuilder.Entity<ChatMessage>();
-        message.HasKey(m => m.Id);
-        message.Property(m => m.Role).HasMaxLength(32).IsRequired();
-        message.Property(m => m.Content).IsRequired();
-        message.Property(m => m.ResponseId).HasMaxLength(128);
-        message.Property(m => m.ModelId).HasMaxLength(128);
-        message.Property(m => m.ModelKey).HasMaxLength(64);
-        message.Property(m => m.FinishReason).HasMaxLength(64);
-        message.Property(m => m.ContentsSchemaVersion).HasMaxLength(64);
+        var turn = modelBuilder.Entity<ChatTurn>();
+        turn.HasKey(t => t.Id);
+        turn.Property(t => t.Prompt).HasColumnType("text").IsRequired();
+        turn.Property(t => t.SystemPrompt).HasColumnType("text").IsRequired();
+        turn.Property(t => t.ModelKey).HasMaxLength(ChatTurn.MaxModelKeyLength).IsRequired();
+        turn.Property(t => t.Status).HasMaxLength(ChatTurn.MaxStatusLength).IsRequired();
+        turn.Property(t => t.FailedAt).HasMaxLength(ChatTurn.MaxStatusLength);
+        turn.Property(t => t.ServedModelId).HasMaxLength(ChatTurn.MaxProviderIdLength);
+        turn.Property(t => t.ResponseId).HasMaxLength(ChatTurn.MaxProviderIdLength);
+        turn.Property(t => t.FinishReason).HasMaxLength(ChatTurn.MaxFinishReasonLength);
 
-        // Deliberately text and not jsonb. jsonb normalises key order, and
-        // System.Text.Json requires the "$type" discriminator to come first when
-        // deserialising a polymorphic AIContent — so a jsonb round trip silently
-        // turns every tool call back into plain text. Verified by
-        // a_tool_call_survives_the_round_trip_through_storage, which fails on
-        // jsonb. This column stores bytes a strict deserialiser has to read back
-        // exactly; querying into it is not a use case.
-        message.Property(m => m.ContentsJson).HasColumnType("text");
-        message.HasIndex(m => new { m.ChatId, m.Seq });
-        ConfigureSeq(message.Property(m => m.Seq));
+        // text, not jsonb: jsonb rejects a \u0000 anywhere in the document, and
+        // model output and tool results are text we do not control. A turn that
+        // cannot be saved over one stray byte is not worth the querying.
+        turn.Property(t => t.AnswerJson).HasColumnType("text").IsRequired();
 
-        message.HasOne<Chat>()
-            .WithMany(c => c.Messages)
-            .HasForeignKey(m => m.ChatId)
-            .OnDelete(DeleteBehavior.Cascade);
+        turn.HasIndex(t => new { t.ChatId, t.Seq });
+        ConfigureSeq(turn.Property(t => t.Seq));
 
-        var chatEvent = modelBuilder.Entity<ChatEvent>();
-        chatEvent.HasKey(e => e.Id);
-        chatEvent.Property(e => e.Kind).HasConversion<string>().HasMaxLength(32).IsRequired();
-        chatEvent.Property(e => e.Detail).HasMaxLength(500);
-        chatEvent.HasIndex(e => new { e.ChatId, e.Seq });
-        ConfigureSeq(chatEvent.Property(e => e.Seq));
-
-        chatEvent.HasOne<Chat>()
-            .WithMany(c => c.Events)
-            .HasForeignKey(e => e.ChatId)
+        turn.HasOne<Chat>()
+            .WithMany(c => c.Turns)
+            .HasForeignKey(t => t.ChatId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var assistant = modelBuilder.Entity<Assistant>();
@@ -189,7 +173,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // sorts it ahead of the whole transcript.
     private static void ConfigureSeq(PropertyBuilder<long> seq)
     {
-        seq.HasDefaultValueSql($"nextval('{EntrySequenceName}')").ValueGeneratedOnAdd();
+        seq.HasDefaultValueSql($"nextval('{TurnSequenceName}')").ValueGeneratedOnAdd();
         seq.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
         seq.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
     }

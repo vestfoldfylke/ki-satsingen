@@ -41,12 +41,12 @@ public sealed class PostgresFixtureTests(PostgresFixture fixture)
     // owner and the init script grants USAGE on that owner's future sequences.
     // Three links, so worth asserting directly rather than inferring it.
     [Fact]
-    public async Task The_application_role_can_draw_from_the_entry_sequence()
+    public async Task The_application_role_can_draw_from_the_turn_sequence()
     {
         await using var db = await fixture.Factory.CreateDbContextAsync();
 
         var next = await db.Database
-            .SqlQuery<long>($"""SELECT nextval('chat_entry_seq') AS "Value" """)
+            .SqlQuery<long>($"""SELECT nextval('chat_turn_seq') AS "Value" """)
             .SingleAsync();
 
         Assert.True(next > 0);

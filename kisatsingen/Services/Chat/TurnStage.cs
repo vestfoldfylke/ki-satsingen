@@ -6,9 +6,11 @@ namespace kisatsingen.Services.Chat;
 //
 // Deliberately a position in the turn rather than a classification of the
 // exception. The exception itself goes to the log whole, where there is room for
-// it; what survives into a metric label and a persisted, user-facing notice has
-// to be a small bounded set that is safe to render, and this is that set.
-internal enum TurnStage
+// it; what survives into a metric label and a persisted turn has to be a small
+// bounded set that is safe to render, and this is that set.
+//
+// Persisted by name on a failed turn, so members can be reordered but not renamed.
+public enum TurnStage
 {
     Authenticating,
     SavingMessage,
@@ -19,10 +21,8 @@ internal enum TurnStage
 internal static class TurnStageNotice
 {
     // What the user lost, in their terms. Derived from the stage rather than the
-    // exception: a stage is a bounded set written for a reader of the transcript,
-    // an exception message is unbounded text written for a reader of the logs and
-    // routinely carries connection strings and provider error bodies — which this
-    // is both persisted into and rendered from.
+    // exception: an exception message is unbounded text written for a reader of
+    // the logs and routinely carries connection strings and provider error bodies.
     public static string Describe(TurnStage stage) => stage switch
     {
         TurnStage.Authenticating => "Innlogging kunne ikke bekreftes",

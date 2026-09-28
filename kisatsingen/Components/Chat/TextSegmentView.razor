@@ -1,0 +1,8 @@
+@* One element for the segment's whole life. While it is the live tail the
+   browser streams into it by id; once it is not, it is rendered from Text. So
+   nothing is swapped out when the stream moves on or the turn ends. *@
+<div id="stream-@Segment.Id" class="assistant-markdown" @ref="_element"></div>
+@if (!IsStreaming)
+{
+    <div class="markdown-fallback">@Segment.Text</div>
+}

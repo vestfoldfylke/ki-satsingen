@@ -1,114 +1,93 @@
-@using Microsoft.Extensions.AI
+@using kisatsingen.Services.Chat
 
-<div class="assistant-turn">
-    @foreach (var (part, index) in Turn.Parts.Select((p, i) => (p, i)))
+<div class="assistant-turn" data-live="@IsLive">
+    @foreach (var segment in Turn.Answer)
     {
-        if (!string.IsNullOrEmpty(part.Text))
+        switch (segment)
         {
-            <div class="assistant-markdown" @ref="_markdownRefs![index]"></div>
-            <div class="markdown-fallback">@part.Text</div>
-        }
-        foreach (var content in part.Contents)
-        {
-            switch (content)
-            {
-                case FunctionCallContent call:
-                    <ToolCallBlock Call="call" />
-                    break;
-                case FunctionResultContent result:
-                    <ToolResultBlock Result="result" />
-                    break;
-            }
+            case TextSegment text:
+                <TextSegmentView @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
+                break;
+            case ToolSegment tool:
+                <ToolCallView @key="tool.Id" Segment="tool" />
+                break;
         }
     }
 
-    <footer class="assistant-turn-footer">
-        @if (Turn.StartedAt is { } startedAt)
-        {
-            <time datetime="@startedAt.ToString("o")">@startedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</time>
-        }
-        <div class="assistant-turn-actions">
-            @if (HasCopyableText)
-            {
+    @if (!IsLive)
+    {
+        <footer class="assistant-turn-footer">
+            <time datetime="@Turn.StartedAt.ToString("o")">@Turn.StartedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</time>
+            <div class="assistant-turn-actions">
+                @if (HasCopyableText)
+                {
+                    <button type="button"
+                            class="assistant-turn-copy"
+                            data-copy-turn-id="@Turn.Id"
+                            aria-label="Copy response">
+                            copy
+                    </button>
+                }
                 <button type="button"
-                        class="assistant-turn-copy"
-                        data-copy-turn-id="@Turn.Id"
-                        aria-label="Copy response">
-                        copy
+                        popovertarget="@PopoverId"
+                        aria-controls="@PopoverId"
+                        aria-label="Show message metadata">
+                        metadata
                 </button>
-            }
-            <button type="button"
-                    popovertarget="@PopoverId"
-                    aria-controls="@PopoverId"
-                    aria-label="Show message metadata">
-                    metadata
-            </button>
-        </div>
-    </footer>
+            </div>
+        </footer>
 
-    <div id="@PopoverId" class="assistant-metadata" popover="auto">
-        @if (Turn.Metadata is { } meta)
-        {
+        <div id="@PopoverId" class="assistant-metadata" popover="auto">
             <dl class="assistant-metadata-list">
-                @* Not gated on ModelId: some providers report none, and our own
-                   name or key can still fill the row. *@
-                @if (DescribeModel(meta) is { } modelDescription)
+                @if (DescribeModel(Turn) is { } modelDescription)
                 {
                     <dt>Model</dt>
                     <dd>@modelDescription</dd>
                 }
-                @if (meta.ResponseId is { } responseId)
+                @if (Turn.Metadata is { } meta)
                 {
-                    <dt>Response ID</dt>
-                    <dd>@responseId</dd>
-                }
-                @if (meta.FinishReason is { } finish)
-                {
-                    <dt>Finish reason</dt>
-                    <dd>@finish</dd>
-                }
-                @if (meta.Usage is { } usage)
-                {
-                    <dt>Tokens</dt>
-                    <dd class="assistant-metadata-usage">
-                        @if (usage.InputTokens is { } input)
-                        {
-                            <span>in @input.ToString("N0")</span>
-                        }
-                        @if (usage.OutputTokens is { } output)
-                        {
-                            <span>out @output.ToString("N0")</span>
-                        }
-                        @if (usage.TotalTokens is { } total)
-                        {
-                            <span>total @total.ToString("N0")</span>
-                        }
-                    </dd>
-                }
-                @if (meta.DurationMs is { } duration)
-                {
-                    <dt>Duration</dt>
-                    <dd>@FormatMs(duration)</dd>
-                }
-                @if (meta.TimeToFirstTokenMs is { } ttft)
-                {
-                    <dt>Time to first token</dt>
-                    <dd>@FormatMs(ttft)</dd>
+                    @if (meta.ResponseId is { } responseId)
+                    {
+                        <dt>Response ID</dt>
+                        <dd>@responseId</dd>
+                    }
+                    @if (meta.FinishReason is { } finish)
+                    {
+                        <dt>Finish reason</dt>
+                        <dd>@finish</dd>
+                    }
+                    @if (meta.Usage is { } usage)
+                    {
+                        <dt>Tokens</dt>
+                        <dd class="assistant-metadata-usage">
+                            @if (usage.InputTokens is { } input)
+                            {
+                                <span>in @input.ToString("N0")</span>
+                            }
+                            @if (usage.OutputTokens is { } output)
+                            {
+                                <span>out @output.ToString("N0")</span>
+                            }
+                            @if (usage.TotalTokens is { } total)
+                            {
+                                <span>total @total.ToString("N0")</span>
+                            }
+                        </dd>
+                    }
+                    @if (meta.DurationMs is { } duration)
+                    {
+                        <dt>Duration</dt>
+                        <dd>@FormatMs(duration)</dd>
+                    }
+                    @if (meta.TimeToFirstTokenMs is { } ttft)
+                    {
+                        <dt>Time to first token</dt>
+                        <dd>@FormatMs(ttft)</dd>
+                    }
                 }
                 <dt>System instructions</dt>
-                @if (meta.SystemPrompt is { } systemPrompt)
-                {
-                    <dd class="assistant-metadata-system">@systemPrompt</dd>
-                }
-                else
-                {
-                    <dd class="assistant-metadata-empty">Not recorded for this turn.</dd>
-                }
+                <dd class="assistant-metadata-system">@Turn.SystemPrompt</dd>
             </dl>
-        }
-        else
-        {
-            <p class="assistant-metadata-empty">No metadata recorded for this turn.</p>
-        }
-    </div>
+        </div>
+    }
 </div>

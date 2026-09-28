@@ -1,12 +1,14 @@
 // Client-side Markdown renderer for chat.
 //
-// Lifecycle for one assistant response:
+// A stream is one text segment of an answer, keyed by the segment's id; an
+// answer that calls a tool between two stretches of text is two streams.
+// Lifecycle for one segment:
 //   streamStart(id)                → init buffer for a new stream (once).
 //   streamAppend(id, text) × N     → server pushes tokens over SignalR.
-//   streamEnd(id)                  → drop buffer; Blazor then removes the
-//                                    stream-{id} div and renders the committed
-//                                    <AssistantTurn>, which calls renderMarkdown.
-//   renderMarkdown(el, source)     → final render on the committed message,
+//   streamEnd(id)                  → drop buffer. The stream-{id} div stays;
+//                                    Blazor's <TextSegmentView> now renders it
+//                                    from the segment's text via renderMarkdown.
+//   renderMarkdown(el, source)     → final render of a finished segment,
 //                                    with hljs syntax highlighting and code-copy
 //                                    buttons injected per <pre>.
 //
@@ -181,8 +183,8 @@ export function streamAppend(id: string, text: string): void {
     scheduleRender(state);
 }
 
-// Cancel any in-flight frame before dropping state — otherwise it would render
-// into a DOM node Blazor is about to remove.
+// Cancel any in-flight frame before dropping state — otherwise a stale frame
+// could overwrite the final render Blazor is about to put in the same node.
 export function streamEnd(id: string): void {
     const state = streamStates.get(id);
     if (state?.rafHandle) {

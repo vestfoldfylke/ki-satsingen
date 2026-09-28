@@ -81,13 +81,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        // Split query: two collection includes in one statement would return
-        // messages x events rows, repeating every message's Content payload once
-        // per event.
         return await db.Chats
-            .Include(c => c.Messages.OrderBy(m => m.Seq))
-            .Include(c => c.Events.OrderBy(e => e.Seq))
-            .AsSplitQuery()
+            .Include(c => c.Turns.OrderBy(t => t.Seq))
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == chatId && c.OwnerId == ownerId, ct);
     }
@@ -102,71 +97,62 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .ToListAsync(ct);
     }
 
-    public async Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<ChatMessage> messages, CancellationToken ct = default)
-    {
-        if (messages.Count == 0)
-        {
-            return;
-        }
-
-        await using var db = await factory.CreateDbContextAsync(ct);
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        var now = DateTimeOffset.UtcNow;
-
-        foreach (var message in messages)
-        {
-            message.Id = message.Id == Guid.Empty ? Guid.NewGuid() : message.Id;
-            message.ChatId = chatId;
-            message.CreatedAt = message.CreatedAt == default ? now : message.CreatedAt;
-        }
-
-        await TouchChatAsync(db, ownerId, chatId, messages[^1].CreatedAt, ct);
-
-        // One SaveChanges per message, deliberately: Seq comes from a column
-        // default, and Postgres does not promise to evaluate defaults in row
-        // order for a multi-row insert. Order within a batch is what must not
-        // drift — a tool call has to stay ahead of its result — so each row gets
-        // its own statement. Do not collapse this into AddRange, and do not
-        // reduce it to a MaxBatchSize option: the constraint belongs here, where
-        // the reason is visible. A batch is a handful of rows on a path that just
-        // spent seconds in the model, so the extra round trips do not register.
-        foreach (var message in messages)
-        {
-            db.ChatMessages.Add(message);
-            await db.SaveChangesAsync(ct);
-        }
-
-        await transaction.CommitAsync(ct);
-    }
-
-    public async Task AppendEventAsync(string ownerId, Guid chatId, ChatEvent chatEvent, CancellationToken ct = default)
+    public async Task InsertTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        chatEvent.Id = chatEvent.Id == Guid.Empty ? Guid.NewGuid() : chatEvent.Id;
-        chatEvent.ChatId = chatId;
-        chatEvent.CreatedAt = chatEvent.CreatedAt == default ? DateTimeOffset.UtcNow : chatEvent.CreatedAt;
+        turn.ChatId = chatId;
+        await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct);
 
-        await TouchChatAsync(db, ownerId, chatId, chatEvent.CreatedAt, ct);
-
-        db.ChatEvents.Add(chatEvent);
+        db.ChatTurns.Add(turn);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
     }
 
+    // Everything a turn's ending can change; identity, prompt and ordering are fixed at insert.
+    public async Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct);
+
+        var updatedTurnCount = await db.ChatTurns
+            .Where(t => t.Id == turn.Id && t.ChatId == chatId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Status, turn.Status)
+                .SetProperty(t => t.FailedAt, turn.FailedAt)
+                .SetProperty(t => t.AnswerJson, turn.AnswerJson)
+                .SetProperty(t => t.ServedModelId, turn.ServedModelId)
+                .SetProperty(t => t.ResponseId, turn.ResponseId)
+                .SetProperty(t => t.FinishReason, turn.FinishReason)
+                .SetProperty(t => t.InputTokens, turn.InputTokens)
+                .SetProperty(t => t.OutputTokens, turn.OutputTokens)
+                .SetProperty(t => t.TotalTokens, turn.TotalTokens)
+                .SetProperty(t => t.DurationMs, turn.DurationMs)
+                .SetProperty(t => t.TimeToFirstTokenMs, turn.TimeToFirstTokenMs), ct);
+
+        if (updatedTurnCount == 0)
+        {
+            throw new InvalidOperationException(
+                $"Turn {turn.Id} was not found in chat {chatId}. A turn has to be inserted with InsertTurnAsync before its ending can be saved.");
+        }
+
+        await transaction.CommitAsync(ct);
+    }
+
     // Does more than its name suggests, and callers depend on all three: it bumps
-    // UpdatedAt, it fails the append when the chat is not the caller's, and — the
+    // UpdatedAt, it fails the write when the chat is not the caller's, and — the
     // part that is easy to lose — it takes a row lock on the chat that is held
     // until the transaction commits.
     //
-    // That lock is what orders appends across transactions. Seq is drawn at insert
-    // time but the row only becomes visible at commit, so two concurrent appends
+    // That lock is what orders inserts across transactions. Seq is drawn at insert
+    // time but the row only becomes visible at commit, so two concurrent inserts
     // to one chat could otherwise commit in the opposite order to their Seq and
-    // drop a message into the middle of a transcript a reader has already seen.
+    // drop a turn into the middle of a transcript a reader has already seen.
     // Serialising them on the chat row is what makes that impossible. Keep this
-    // call ahead of the inserts.
+    // call ahead of the insert.
     private static async Task TouchChatAsync(AppDbContext db, string ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedChatCount = await db.Chats

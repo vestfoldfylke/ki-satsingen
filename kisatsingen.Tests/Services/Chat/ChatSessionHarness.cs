@@ -15,7 +15,6 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 // collides with System.Threading.ITimer.
 using ChatEntity = kisatsingen.Data.Entities.Chat;
 using MetricTimer = Prometheus.ITimer;
-using StoredMessage = kisatsingen.Data.Entities.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
@@ -50,12 +49,20 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.
-    public IReadOnlyList<ChatEventView> VisibleEvents =>
-        Session.Committed.OfType<ChatEventView>().ToList();
+    public Turn VisibleTurn => Assert.Single(Session.Transcript).Turn;
 
-    public ChatEventView SingleVisibleEvent => Assert.Single(VisibleEvents);
+    public string? VisibleNotice => TurnNotice.Describe(VisibleTurn);
+
+    // Read back through the real mapper, so a field the mapper drops fails the test.
+    public Turn StoredTurn =>
+        ChatTurnMapper.FromEntity(Repository.SingleStoredTurn, key => key.Value, NullLogger.Instance);
 
     public ValueTask DisposeAsync() => Session.DisposeAsync();
+}
+
+internal static class TurnText
+{
+    public static string Of(Turn turn) => string.Concat(turn.Answer.OfType<TextSegment>().Select(text => text.Text));
 }
 
 internal sealed class FakeAuthenticationService : IAuthenticationService
@@ -73,25 +80,40 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 
 internal sealed class FakeChatRepository : IChatRepository
 {
-    public List<ChatEvent> AppendedEvents { get; } = [];
-    public List<StoredMessage> AppendedMessages { get; } = [];
-
     public Exception? CreateChatFailure { get; set; }
-    public Exception? AppendEventFailure { get; set; }
+    public Exception? InsertTurnFailure { get; set; }
 
-    // By call index: a turn appends twice, and "the answer couldn't be saved" fails
-    // only the second. Later appends are unscripted, so a second send doesn't
-    // inherit the first turn's script.
-    public Exception? FirstAppendMessagesFailure { get; set; }
-    public Exception? SecondAppendMessagesFailure { get; set; }
+    // By call: the first update is a turn's own save, and "the answer couldn't be
+    // saved" fails only that one. Later updates record how a turn ended.
+    public Exception? FirstUpdateFailure { get; set; }
+    public Exception? LaterUpdateFailure { get; set; }
 
     // Lets a test act while the turn is genuinely mid-save.
-    public Action? BeforeSecondAppendMessages { get; set; }
-
-    private int _appendMessagesCalls;
+    public Action? BeforeFirstUpdate { get; set; }
 
     // Lets a test act while the chat row is being created.
     public Func<Task>? BeforeCreateChat { get; set; }
+
+    // Lets a test hold one load open while another completes.
+    public Func<Guid, Task>? BeforeGetChat { get; set; }
+
+    // Every write of every turn, oldest first.
+    public List<TurnWrite> Writes { get; } = [];
+
+    private int _updateCalls;
+    private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
+
+    // The latest write of each turn, in the order the turns were first written.
+    public IReadOnlyList<ChatTurn> StoredTurns =>
+        Writes.GroupBy(write => write.Turn.Id).Select(writes => writes.Last().Turn).ToList();
+
+    public ChatTurn SingleStoredTurn => Assert.Single(StoredTurns);
+
+    public ChatEntity Store(ChatEntity chat)
+    {
+        _storedChats[chat.Id] = chat;
+        return chat;
+    }
 
     public async Task<ChatEntity> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
@@ -116,21 +138,6 @@ internal sealed class FakeChatRepository : IChatRepository
         };
     }
 
-    // Which chat each append went to, one entry per message or event.
-    public List<Guid> MessageChatIds { get; } = [];
-    public List<Guid> EventChatIds { get; } = [];
-
-    private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
-
-    public ChatEntity Store(ChatEntity chat)
-    {
-        _storedChats[chat.Id] = chat;
-        return chat;
-    }
-
-    // Lets a test hold one load open while another completes.
-    public Func<Guid, Task>? BeforeGetChat { get; set; }
-
     public async Task<ChatEntity?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         if (BeforeGetChat is not null)
@@ -144,40 +151,32 @@ internal sealed class FakeChatRepository : IChatRepository
     public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<ChatSummary>>([]);
 
-    public Task AppendMessagesAsync(string ownerId, Guid chatId, IReadOnlyList<StoredMessage> messages, CancellationToken ct = default)
+    public Task InsertTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
-        var call = ++_appendMessagesCalls;
-        if (call == 2)
+        if (InsertTurnFailure is not null)
         {
-            BeforeSecondAppendMessages?.Invoke();
+            return Task.FromException(InsertTurnFailure);
         }
 
-        var failure = call switch
-        {
-            1 => FirstAppendMessagesFailure,
-            2 => SecondAppendMessagesFailure,
-            _ => null
-        };
+        Writes.Add(new TurnWrite(chatId, turn));
+        return Task.CompletedTask;
+    }
 
+    public Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    {
+        var isFirst = ++_updateCalls == 1;
+        if (isFirst)
+        {
+            BeforeFirstUpdate?.Invoke();
+        }
+
+        var failure = isFirst ? FirstUpdateFailure : LaterUpdateFailure;
         if (failure is not null)
         {
             return Task.FromException(failure);
         }
 
-        AppendedMessages.AddRange(messages);
-        MessageChatIds.AddRange(messages.Select(_ => chatId));
-        return Task.CompletedTask;
-    }
-
-    public Task AppendEventAsync(string ownerId, Guid chatId, ChatEvent chatEvent, CancellationToken ct = default)
-    {
-        if (AppendEventFailure is not null)
-        {
-            return Task.FromException(AppendEventFailure);
-        }
-
-        AppendedEvents.Add(chatEvent);
-        EventChatIds.Add(chatId);
+        Writes.Add(new TurnWrite(chatId, turn));
         return Task.CompletedTask;
     }
 
@@ -187,6 +186,8 @@ internal sealed class FakeChatRepository : IChatRepository
     public Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default) =>
         Task.FromResult(true);
 }
+
+internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
 internal sealed class FakeChatClient : IChatClient
 {
@@ -288,15 +289,18 @@ internal static class ModelStream
     public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringWithUsage(string text, long inputTokens, long outputTokens)
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, text);
-        yield return new ChatResponseUpdate(ChatRole.Assistant,
-        [
-            new UsageContent(new UsageDetails
-            {
-                InputTokenCount = inputTokens,
-                OutputTokenCount = outputTokens,
-                TotalTokenCount = inputTokens + outputTokens
-            })
-        ]);
+        yield return Usage(inputTokens, outputTokens);
+        await Task.CompletedTask;
+    }
+
+    // The shape FunctionInvokingChatClient streams: the call, then its result as a
+    // tool message, then the next round's answer.
+    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after)
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant, before);
+        yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", "get_current_time_utc")]);
+        yield return new ChatResponseUpdate(ChatRole.Tool, [new FunctionResultContent("call-1", "2026-09-28T12:00:00Z")]);
+        yield return new ChatResponseUpdate(ChatRole.Assistant, after);
         await Task.CompletedTask;
     }
 
@@ -328,20 +332,12 @@ internal static class ModelStream
         [EnumeratorCancellation] CancellationToken ct)
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, text);
-        yield return new ChatResponseUpdate(ChatRole.Assistant,
-        [
-            new UsageContent(new UsageDetails
-            {
-                InputTokenCount = inputTokens,
-                OutputTokenCount = outputTokens,
-                TotalTokenCount = inputTokens + outputTokens
-            })
-        ]);
+        yield return Usage(inputTokens, outputTokens);
         reached.TrySetResult();
         await Task.Delay(Timeout.Infinite, ct);
     }
 
-    // Leaves a call that nothing answered; see PartialTurn.
+    // Stopped while the tool runs: a call that nothing answered.
     public static async IAsyncEnumerable<ChatResponseUpdate> CallingAToolThenStalling(
         TaskCompletionSource reached,
         [EnumeratorCancellation] CancellationToken ct)
@@ -361,6 +357,17 @@ internal static class ModelStream
         await Task.Delay(Timeout.Infinite, ct);
         yield break;
     }
+
+    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens) =>
+        new(ChatRole.Assistant,
+        [
+            new UsageContent(new UsageDetails
+            {
+                InputTokenCount = inputTokens,
+                OutputTokenCount = outputTokens,
+                TotalTokenCount = inputTokens + outputTokens
+            })
+        ]);
 }
 
 // Records names and labels, so tests assert on what ops would see rather than

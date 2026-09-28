@@ -1,34 +1,32 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
 public partial class AssistantTurn : ComponentBase
 {
-    [Inject]
-    public required IJSRuntime JS { get; set; }
-    [Inject]
-    public required ILogger<AssistantTurn> Logger { get; set; }
+    [Parameter, EditorRequired] public required Turn Turn { get; set; }
 
-    [Parameter, EditorRequired] public required AssistantTurnView Turn { get; set; }
-
-    private ElementReference[]? _markdownRefs;
-    private string?[] _lastRendered = [];
+    // The turn this session is streaming. Its footer waits for the ending, and
+    // its last text segment belongs to the browser's stream.
+    [Parameter] public bool IsLive { get; set; }
 
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
 
-    private bool HasCopyableText => Turn.Parts.Any(p => !string.IsNullOrEmpty(p.Text));
+    private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
+
+    // Only the last segment can still grow, and only while the turn is live.
+    private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
 
     // The chosen name leads and the provider's id follows as the precise answer.
     // The key stands in for a name the catalogue no longer has. Blanks count as
     // absent, so nothing renders as " ()".
-    private static string? DescribeModel(TurnMetadata meta)
+    private static string? DescribeModel(Turn turn)
     {
-        var name = !string.IsNullOrWhiteSpace(meta.ModelDisplayName)
-            ? meta.ModelDisplayName
-            : meta.ModelKey?.Value;
-        var providerId = !string.IsNullOrWhiteSpace(meta.ModelId) ? meta.ModelId : null;
+        var name = !string.IsNullOrWhiteSpace(turn.ModelDisplayName)
+            ? turn.ModelDisplayName
+            : turn.ModelKey?.Value;
+        var providerId = !string.IsNullOrWhiteSpace(turn.Metadata?.ServedModelId) ? turn.Metadata.ServedModelId : null;
 
         return (name, providerId) switch
         {
@@ -42,44 +40,4 @@ public partial class AssistantTurn : ComponentBase
     private static string FormatMs(long ms) => ms < 1000
         ? $"{ms} ms"
         : $"{ms / 1000.0:0.##} s";
-
-    protected override void OnParametersSet()
-    {
-        if (_markdownRefs is null || _markdownRefs.Length != Turn.Parts.Count)
-        {
-            _markdownRefs = new ElementReference[Turn.Parts.Count];
-            Array.Resize(ref _lastRendered, Turn.Parts.Count);
-        }
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_markdownRefs is null)
-        {
-            return;
-        }
-
-        for (var i = 0; i < Turn.Parts.Count; i++)
-        {
-            var text = Turn.Parts[i].Text;
-            if (string.IsNullOrEmpty(text))
-            {
-                continue;
-            }
-            if (_lastRendered[i] == text)
-            {
-                continue;
-            }
-
-            try
-            {
-                await JS.InvokeVoidAsync("chatClient.renderMarkdown", _markdownRefs[i], text);
-                _lastRendered[i] = text;
-            }
-            catch (Exception ex)
-            {
-                Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.renderMarkdown");
-            }
-        }
-    }
 }

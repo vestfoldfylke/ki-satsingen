@@ -18,11 +18,10 @@ public sealed class Chat
 
     // Snapshotted from Assistant.Name at chat creation and never overwritten,
     // so the sidebar can still say "Chat with Legal Advisor (deleted)" after
-    // the row is gone. Same principle as ChatMessage.SystemPromptSnapshot: past
+    // the row is gone. Same principle as ChatTurn.SystemPrompt: past
     // chats keep their identifying context regardless of what happens to the
     // source. Null iff the chat was never bound to an assistant.
     public string? AssistantNameSnapshot { get; init; }
 
-    public List<ChatMessage> Messages { get; init; } = [];
-    public List<ChatEvent> Events { get; init; } = [];
+    public List<ChatTurn> Turns { get; init; } = [];
 }

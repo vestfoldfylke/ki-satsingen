@@ -1,0 +1,9 @@
+<div class="chat-event-notice" role="note">
+    <span class="chat-event-line" aria-hidden="true"></span>
+    <span class="chat-event-text">@Text</span>
+    <span class="chat-event-line" aria-hidden="true"></span>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public required string Text { get; set; }
+}
