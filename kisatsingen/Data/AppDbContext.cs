@@ -11,11 +11,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     // Orders a chat's turns exactly, whatever the clock says.
     public const string TurnSequenceName = "chat_turn_seq";
 
-    // Set only by CreateForMigrations. EF disposes a data source only when it
-    // built one itself, so the one handed to it below would otherwise outlive
-    // every caller — and it cannot simply be wrapped in a using here, because the
-    // returned context queries through it long after this method returns.
-    // Disposing it with the context is what gives it the right lifetime.
+    // Set only by CreateForMigrations. EF disposes only data sources it built, and
+    // this one cannot be a using there because the returned context queries through
+    // it later, so it is disposed with the context.
     private NpgsqlDataSource? _ownedDataSource;
 
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
@@ -162,15 +160,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .OnDelete(DeleteBehavior.Cascade);
     }
 
-    // The two Ignore behaviours are the point of this: EF omits Seq from every
-    // INSERT and every UPDATE regardless of what the entity holds, so the
-    // sequence default is the only thing that can ever produce a value. No
-    // application code path — not a future one that skips ChatRepository — can
-    // assign an ordering number.
-    //
-    // AfterSaveBehavior matters as much as BeforeSaveBehavior: without it an
-    // Update() on an entity built in code writes Seq = 0 over a real row and
-    // sorts it ahead of the whole transcript.
+    // The Ignore behaviours keep Seq out of every INSERT and UPDATE, so only the
+    // sequence default ever assigns it, whatever code path saves. AfterSaveBehavior
+    // matters as much: without it, an Update() of an entity built in code writes
+    // Seq = 0 and sorts the turn ahead of the whole chat.
     private static void ConfigureSeq(PropertyBuilder<long> seq)
     {
         seq.HasDefaultValueSql($"nextval('{TurnSequenceName}')").ValueGeneratedOnAdd();

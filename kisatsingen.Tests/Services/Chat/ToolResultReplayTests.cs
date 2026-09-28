@@ -9,10 +9,9 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// TurnBuilder stores a tool result as the text the provider was sent, on the
-// strength of how Microsoft.Extensions.AI's OpenAI adapter writes one. Pinned
-// against the adapter itself, by capturing the request body: if an upgrade
-// changes that rule, a replayed result would no longer match what the model saw.
+// TurnBuilder stores a tool result as the text it assumes the OpenAI adapter sent.
+// Pinned against the adapter's real request body, so an upgrade that changes the
+// rule fails here instead of replaying results the model never saw.
 public sealed class ToolResultReplayTests
 {
     public static TheoryData<object> Results => new()

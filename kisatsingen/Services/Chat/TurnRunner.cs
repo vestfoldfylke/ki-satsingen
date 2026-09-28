@@ -6,18 +6,14 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// What the page learns while a turn runs. ChatPersisted fires once the question
-// has a chat row, so a new chat's id can reach the URL mid-answer.
+// ChatPersisted fires mid-turn so a new chat's id can reach the URL before the answer ends.
 internal sealed record TurnObserver(Action<Guid> ChatPersisted, Action<Turn> Changed);
 
-// Runs one turn from question to stored ending: authenticate, store the question,
-// stream the answer, store how it ended, count the outcome. Knows nothing of the
-// view; ChatSession decides what a snapshot means for the page.
+// Knows nothing of the view; ChatSession decides what a snapshot means for the page.
 //
-// One write path for every ending. The turn is inserted as Running before the
-// model is asked, and updated once when it ends — answered, stopped or failed
-// alike — so a stop needs no separate event row and a crash mid-turn still
-// leaves a row that says the turn never finished.
+// One write path for every ending: inserted as Running before the model is asked,
+// updated once however it ends. So a crash mid-turn still leaves a row that says
+// the turn never finished.
 internal sealed class TurnRunner
 {
     private readonly IAuthenticationService _authenticationService;
@@ -49,8 +45,8 @@ internal sealed class TurnRunner
         _logger = logger;
     }
 
-    // Returns the turn as it ended. Throws only what the page must handle itself:
-    // an unauthenticated caller, and an allocation failure.
+    // Throws only what the page must handle itself: an unauthenticated caller and
+    // an allocation failure.
     public async Task<Turn> RunAsync(
         Turn turn,
         Guid? chatId,
@@ -90,8 +86,8 @@ internal sealed class TurnRunner
             return answered;
         }
         // The filter is load-bearing: a provider timeout is also an
-        // OperationCanceledException, and without it outages would be recorded as
-        // the user pressing stop — invisible to failure alerts.
+        // OperationCanceledException, and without it outages would be filed as
+        // user stops, invisible to failure alerts.
         catch (OperationCanceledException) when (cancellation.IsCancelled)
         {
             (outcome, var status) = cancellation switch
@@ -105,10 +101,9 @@ internal sealed class TurnRunner
             await SaveEndingAsync(row, stopped);
             return stopped;
         }
-        // Rethrown: this turn cannot fix it. There is no error boundary, so it ends
-        // the circuit, and the reload that follows is what the sign-in middleware
-        // redirects. Practically unreachable mid-chat: a circuit's sign-in state is
-        // fixed when it starts, and the page requires one.
+        // Rethrown: with no error boundary it ends the circuit, and the reload is what
+        // the sign-in middleware redirects. Practically unreachable mid-chat: a
+        // circuit's sign-in state is fixed when it starts.
         catch (UserNotAuthenticatedException)
         {
             outcome = TurnOutcome.Unauthenticated;
@@ -132,8 +127,7 @@ internal sealed class TurnRunner
             var failed = builder.Finish(TurnStatus.Failed, stage);
 
             // Not when the save itself failed: retried, the row would hold the whole
-            // answer under a notice saying it was not stored. Left Running, it reads
-            // back as unfinished, which is what the user should be told.
+            // answer under a notice saying it was not stored.
             if (stage != TurnStage.SavingResponse)
             {
                 await SaveEndingAsync(row, failed);
@@ -179,8 +173,7 @@ internal sealed class TurnRunner
     {
         var runtime = _catalog.Resolve(model.Key);
 
-        // As Instructions rather than a message (see TranscriptRequest), and the same
-        // snapshot the turn is stored with, so the record can't drift from what was sent.
+        // The snapshot the turn is stored with, so the record can't drift from what was sent.
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
 
@@ -194,10 +187,9 @@ internal sealed class TurnRunner
         _chatManager.MarkTouched(chatId, DateTimeOffset.UtcNow);
     }
 
-    // For endings that are not a success. CancellationToken.None, because after a
-    // stop the turn's own is cancelled and would abort the write that records it.
-    // Swallows failures: the ending is already on screen, and losing the stored
-    // copy must not replace the outcome the user is shown.
+    // CancellationToken.None: after a stop the turn's own is cancelled and would
+    // abort the write that records it. Swallows failures so a lost stored copy
+    // cannot replace the outcome the user is shown.
     private async Task SaveEndingAsync(TurnRow row, Turn ended)
     {
         if (!row.IsInserted)
@@ -241,12 +233,11 @@ internal sealed class TurnRunner
             (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),
             (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
-    // Where the turn's row stands, filled in as the turn gets that far.
     private sealed class TurnRow(Guid? chatId)
     {
         public string? OwnerId { get; set; }
 
-        // Null until the first question of a new chat creates its row.
+        // Null until a new chat's first question creates its row.
         public Guid? ChatId { get; set; } = chatId;
 
         public bool IsInserted { get; set; }

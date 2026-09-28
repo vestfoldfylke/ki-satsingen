@@ -5,8 +5,7 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// What a turn keeps, on screen and in storage, however it ends. People press
-// stop when they have what they need, so an answer must survive it.
+// People press stop when they have what they need, so an answer must survive it.
 public sealed class ChatSessionAnswerTests
 {
     [Fact]

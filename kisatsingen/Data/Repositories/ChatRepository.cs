@@ -22,11 +22,9 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
         string? assistantNameSnapshot = null;
 
-        // The foreign key only proves the assistant exists. Unchecked, this
-        // would hand the caller another owner's instructions and files. The
-        // same query also fetches the name for the snapshot column so the
-        // sidebar can render "Chat with X (deleted)" after the assistant is
-        // gone — see Chat.AssistantNameSnapshot for the reasoning.
+        // The foreign key only proves the assistant exists; unchecked, this would
+        // hand the caller another owner's instructions and files. The same query
+        // fetches the name for Chat.AssistantNameSnapshot.
         if (assistantId is Guid resolvedAssistantId)
         {
             assistantNameSnapshot = await db.Assistants
@@ -60,12 +58,8 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         }
         catch (DbUpdateException ex) when (IsAssistantForeignKeyViolation(ex))
         {
-            // The pre-check passed but the assistant was deleted between then
-            // and the insert (rare — same user in two tabs today, more common
-            // once sharing lets a different owner delete). SetNull makes the
-            // eventual outcome benign either way; translating the error here
-            // gives callers the same InvalidOperationException they would see
-            // if the pre-check had lost the race.
+            // Deleted between the pre-check and the insert. Translated so callers see
+            // the same exception as when the pre-check itself finds it gone.
             throw new InvalidOperationException(
                 $"Assistant {assistantId!.Value} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.", ex);
         }
@@ -81,8 +75,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        // Split query: as one JOIN, the chat row — its system prompt included —
-        // would come back once per turn.
+        // As one JOIN, the chat row, system prompt included, would repeat per turn.
         return await db.Chats
             .Include(c => c.Turns.OrderBy(t => t.Seq))
             .AsSplitQuery()
@@ -113,7 +106,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await transaction.CommitAsync(ct);
     }
 
-    // Everything a turn's ending can change; identity, prompt and ordering are fixed at insert.
+    // Identity, prompt and ordering are fixed at insert, so only the ending is written.
     public async Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -145,17 +138,11 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await transaction.CommitAsync(ct);
     }
 
-    // Does more than its name suggests, and callers depend on all three: it bumps
-    // UpdatedAt, it fails the write when the chat is not the caller's, and — the
-    // part that is easy to lose — it takes a row lock on the chat that is held
-    // until the transaction commits.
-    //
-    // That lock is what orders inserts across transactions. Seq is drawn at insert
-    // time but the row only becomes visible at commit, so two concurrent inserts
-    // to one chat could otherwise commit in the opposite order to their Seq and
-    // drop a turn into the middle of a transcript a reader has already seen.
-    // Serialising them on the chat row is what makes that impossible. Keep this
-    // call ahead of the insert.
+    // Callers depend on all three things this does: it bumps UpdatedAt, fails when
+    // the chat is not the caller's, and — easy to lose — locks the chat row until
+    // commit. The lock orders inserts: Seq is drawn at insert but visible only at
+    // commit, so two concurrent inserts could otherwise commit out of Seq order and
+    // drop a turn into a transcript a reader has already seen. Keep it ahead of the insert.
     private static async Task TouchChatAsync(AppDbContext db, string ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedChatCount = await db.Chats

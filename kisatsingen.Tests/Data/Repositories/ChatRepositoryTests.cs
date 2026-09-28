@@ -196,10 +196,9 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.Equal(turn.Seq, (await db.ChatTurns.SingleAsync()).Seq);
     }
 
-    // The hole the two Ignore behaviours in AppDbContext.ConfigureSeq close. An
-    // Update() of an entity built in code holds Seq = 0, and without them EF would
-    // write that over the stored value, moving the turn to the front of the chat.
-    // Not a path the app takes, which is why nothing else would catch it.
+    // Pins AppDbContext.ConfigureSeq's Ignore behaviours: without them, an Update()
+    // of an entity built in code writes Seq = 0 and moves the turn to the front.
+    // No app path does this, which is why nothing else would catch it.
     [Fact]
     public async Task An_update_that_bypasses_the_repository_leaves_Seq_untouched()
     {

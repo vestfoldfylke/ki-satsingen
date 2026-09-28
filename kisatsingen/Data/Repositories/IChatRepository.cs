@@ -11,8 +11,7 @@ public interface IChatRepository
     Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default);
     Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default);
 
-    // A turn is inserted once when its question is sent and updated once when it
-    // ends. Both fail when the chat is not the owner's.
+    // Both fail when the chat is not the owner's.
     Task InsertTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
     Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
 

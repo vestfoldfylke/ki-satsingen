@@ -4,14 +4,10 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// How a turn ends, and what the user is told about it afterwards — on the page
-// now, and from the stored row on the next load.
 public sealed class ChatSessionOutcomeTests
 {
-    // The bug this exists for: an HTTP timeout inside the provider client
-    // surfaces as TaskCanceledException, which is an OperationCanceledException
-    // nobody here asked for. Read as a cancellation, a real outage is filed as
-    // the user pressing a button they never pressed.
+    // The bug this exists for: a provider's HTTP timeout surfaces as
+    // TaskCanceledException. Read as a cancellation, an outage is filed as a user stop.
     [Fact]
     public async Task A_provider_timeout_is_recorded_as_a_failure_rather_than_a_user_stop()
     {
@@ -47,8 +43,7 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal("Svaret ble vist, men ikke lagret", harness.VisibleNotice);
     }
 
-    // Retried, the row would hold the whole answer under a notice saying it was
-    // not stored. Left as inserted, it reads back as unfinished — which is true.
+    // Retried, the row would hold the whole answer under a notice saying it was not stored.
     [Fact]
     public async Task A_response_that_cannot_be_saved_leaves_the_stored_turn_running()
     {
@@ -86,8 +81,7 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(["prøv igjen"], harness.Client.LastMessages.Select(message => message.Text));
     }
 
-    // Provider and database exceptions routinely carry connection details and
-    // error bodies in their messages. Nothing derived from one may reach the page.
+    // Exception messages carry connection details and provider error bodies.
     [Fact]
     public async Task The_exception_message_never_reaches_the_transcript()
     {
@@ -113,8 +107,8 @@ public sealed class ChatSessionOutcomeTests
         Assert.False(harness.Session.IsBusy);
     }
 
-    // Storing the ending is itself a database write, and it can fail for the
-    // same reason the turn did. It must not replace the outcome it was recording.
+    // Storing the ending can fail for the same reason the turn did, and must not
+    // replace the outcome it was recording.
     [Fact]
     public async Task A_failure_to_store_how_a_turn_ended_does_not_escape_the_turn()
     {
@@ -128,8 +122,8 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(TurnStatus.Failed, harness.VisibleTurn.Status);
     }
 
-    // Nothing was stored and nothing can be — there is no chat row yet. Going
-    // silent here would leave the user staring at a question that never got an answer.
+    // Nothing can be stored without a chat row, but silence would leave a question
+    // with no answer and no reason.
     [Fact]
     public async Task A_failure_before_the_chat_exists_still_shows_the_user_a_notice()
     {
@@ -153,10 +147,8 @@ public sealed class ChatSessionOutcomeTests
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
     }
 
-    // The other exception allowed out. An allocation failure says nothing about
-    // this turn, and recording it as a chat problem invites a retry that fails
-    // the same way. Nothing in the compiler stops someone removing that clause,
-    // after which it would be swallowed like any other fault.
+    // Recorded as a chat problem, an allocation failure would invite a retry that
+    // fails the same way. Nothing but this test stops the clause being removed.
     [Fact]
     public async Task An_allocation_failure_is_not_swallowed_as_a_chat_problem()
     {
@@ -211,9 +203,8 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(TurnStatus.Disconnected, harness.VisibleTurn.Status);
     }
 
-    // Circuit teardown disposes the session out from under a running turn. The
-    // outcome still has to be attributable afterwards, and it is a disconnect —
-    // the circuit was evicted after its reconnect period, the host is shutting down.
+    // Circuit teardown disposes the session under a running turn: an eviction or
+    // shutdown, so a disconnect.
     [Fact]
     public async Task Disposing_the_session_mid_turn_is_recorded_as_a_disconnect()
     {
@@ -295,9 +286,7 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal("Svaret ble ikke fullført", harness.VisibleNotice);
     }
 
-    // Parks the model mid-turn and hands back a task that completes once the
-    // stream is genuinely running, so a test cancels a turn in flight rather
-    // than one that already finished.
+    // So a test cancels a turn genuinely in flight, not one already finished.
     private static Task InFlight(ChatSessionHarness harness)
     {
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -1,8 +1,7 @@
 // Client-side Markdown renderer for chat.
 //
-// A stream is one text segment of an answer, keyed by the segment's id; an
-// answer that calls a tool between two stretches of text is two streams.
-// Lifecycle for one segment:
+// A stream is one text segment, keyed by its id: text either side of a tool call
+// is two streams. Lifecycle for one segment:
 //   streamStart(id)                → init buffer for a new stream (once).
 //   streamAppend(id, text) × N     → server pushes tokens over SignalR.
 //   streamEnd(id)                  → drop buffer. The stream-{id} div stays;
@@ -144,8 +143,8 @@ function renderInto(el: HTMLElement | null, source: string | null | undefined, {
         el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node as HTMLElement));
         injectCodeBlockCopy(el);
     }
-    // No scroll call here: chat-scroll.ts watches the transcript's size, which
-    // catches this after layout rather than forcing one right after the write.
+    // No scroll call: chat-scroll.ts reacts to size after layout instead of
+    // forcing one right after this write.
 }
 
 function elForStream(id: string): HTMLElement | null {
@@ -183,11 +182,9 @@ export function streamAppend(id: string, text: string): void {
     scheduleRender(state);
 }
 
-// Paints whatever is still waiting for a frame, then drops the stream. The last
-// chunk usually arrives right before this call: cancelling its frame would leave
-// that text off screen until Blazor's final render, which waits on a database
-// write. Painting now, rather than letting the frame run, also keeps a late
-// frame from landing over that final render.
+// Paints before dropping rather than cancelling the frame: the last chunk usually
+// arrives just before this, and Blazor's final render waits on a database write.
+// Painting now also stops a late frame landing over that render.
 export function streamEnd(id: string): void {
     const state = streamStates.get(id);
     if (state?.rafHandle) {

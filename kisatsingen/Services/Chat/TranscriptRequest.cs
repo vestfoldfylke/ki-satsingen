@@ -4,29 +4,19 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// Turns back into the messages a provider expects. The only place that writes
-// Microsoft.Extensions.AI's message types, and so the only place that has to know
-// what a provider will accept.
+// The only writer of Microsoft.Extensions.AI's message types, so the only place
+// that knows what a provider accepts. The system prompt travels separately, as
+// ChatOptions.Instructions.
 //
-// The system prompt is not in the list: it travels as ChatOptions.Instructions
-// and each adapter places it where its wire format wants it.
+// The transcript keeps what the user saw; a provider will not always take it. So a
+// tool call is sent only with a result and text after it, which drops the shapes
+// that would break the chat for good once stored: a call with no result (every
+// provider rejects it), and an answer ending on a tool result (Mistral rejects the
+// next question: "Unexpected role 'user' after role 'tool'").
 //
-// A transcript stores what the user saw, which a provider will not always take.
-// One rule keeps the two apart: a tool call is sent only if it has a result and
-// the model said something after it. That drops the two shapes providers reject
-// forever once stored:
-//
-//   an unanswered call — every provider rejects a call with no result;
-//   an answer ending on a tool result — the next question would follow the tool
-//   message directly, which Mistral rejects ("Unexpected role 'user' after role
-//   'tool'").
-//
-// Nothing the model acted on is lost: a call counts only once text follows it.
-//
-// A turn whose question was never saved is not sent at all. It stays on the page
-// so the user sees why it failed, but a reload would not have it, and the model
-// must not be working from a history the chat does not contain. A question that
-// was saved and never answered is still sent: "prøv igjen" needs it.
+// A question that was never saved is not sent, so the model never works from a
+// history a reload would not show. One saved but unanswered still is: "prøv igjen"
+// needs it.
 internal static class TranscriptRequest
 {
     public static List<ChatMessage> Build(IReadOnlyList<Turn> turns)
@@ -82,9 +72,8 @@ internal static class TranscriptRequest
         }
     }
 
-    // The stages before the question is stored. A turn stopped rather than failed
-    // in that window — while its chat row or its own row is being written — carries
-    // no stage and is still sent, as it was before turns existed.
+    // A turn stopped, rather than failed, before its row was written carries no
+    // stage and is still sent, as it was before turns existed.
     private static bool WasNeverSaved(Turn turn) =>
         turn.FailedAt is TurnStage.Authenticating or TurnStage.SavingMessage;
 

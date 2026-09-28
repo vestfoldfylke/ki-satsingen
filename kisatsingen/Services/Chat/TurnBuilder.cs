@@ -4,15 +4,12 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.Services.Chat;
 
-// Folds a model stream into a turn's answer. The one place that reads
-// Microsoft.Extensions.AI's streamed content; everything downstream sees segments.
+// The only reader of Microsoft.Extensions.AI's streamed content. Filled as the
+// stream runs rather than returned at the end, so a stopped or failed turn keeps
+// everything that arrived.
 //
-// No I/O, so a stream is tested by feeding it updates. Filled by the stream rather
-// than returning at the end, so a stopped or failed turn still has everything that
-// arrived once the exception has unwound.
-//
-// Content it does not keep (reasoning, citations, hosted tools) is dropped here;
-// TurnStreamer counts it so a new kind shows up in metrics rather than nowhere.
+// Content it does not keep (reasoning, citations, hosted tools) is dropped;
+// TurnStreamer counts it, so a new kind shows up in metrics.
 internal sealed class TurnBuilder
 {
     private static readonly JsonSerializerOptions ContentJson = AIJsonUtilities.DefaultOptions;
@@ -21,7 +18,7 @@ internal sealed class TurnBuilder
     private readonly List<TurnSegment> _segments = [];
     private readonly Dictionary<string, int> _toolIndexByCallId = new(StringComparer.Ordinal);
 
-    // The open text segment grows here, not by replacing its record per token.
+    // Rather than replacing the segment's record on every token.
     private readonly StringBuilder _openText = new();
     private int _openTextIndex = -1;
 
@@ -126,10 +123,9 @@ internal sealed class TurnBuilder
         changes.Add(new TurnChange.ToolFinished(tool.Id));
     }
 
-    // The rule Microsoft.Extensions.AI's OpenAI adapter applies, which every model
-    // here goes through: a string as is, anything else as its JSON. Stored as that
-    // text, a result replays byte for byte. A provider with a different adapter
-    // needs its own rule here.
+    // The OpenAI adapter's rule, which every model here goes through, so the stored
+    // text replays byte for byte (pinned by ToolResultReplayTests). Another
+    // adapter would need its own rule.
     private static string? AsSentToProvider(object? result) => result switch
     {
         null => null,
@@ -187,7 +183,6 @@ internal sealed class TurnBuilder
         _usage.Add(details);
     }
 
-    // Null when the model was never asked, which is when there is nothing to report.
     private TurnMetadata? BuildMetadata() => DurationMs is null
         ? null
         : new TurnMetadata(

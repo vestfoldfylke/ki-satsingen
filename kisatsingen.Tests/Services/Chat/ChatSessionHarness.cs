@@ -96,13 +96,11 @@ internal sealed class FakeChatRepository : IChatRepository
     // Lets a test hold one load open while another completes.
     public Func<Guid, Task>? BeforeGetChat { get; set; }
 
-    // Every write of every turn, oldest first.
     public List<TurnWrite> Writes { get; } = [];
 
     private int _updateCalls;
     private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
 
-    // The latest write of each turn, in the order the turns were first written.
     public IReadOnlyList<ChatTurn> StoredTurns =>
         Writes.GroupBy(write => write.Turn.Id).Select(writes => writes.Last().Turn).ToList();
 

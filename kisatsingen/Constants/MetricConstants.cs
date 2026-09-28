@@ -42,6 +42,6 @@ public static class MetricConstants
 
     public static string MetricsToolLabelName => "Tool";
 
-    // The content's type name, which the package bounds: never anything the model wrote.
+    // A type name, so the package bounds it: never anything the model wrote.
     public static string MetricsContentTypeLabelName => "Type";
 }

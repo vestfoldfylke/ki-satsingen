@@ -324,12 +324,10 @@ export function initChatLog(): void {
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
 
-        // The one hook for content growing: streamed text, a finished segment's
-        // final render, a tool block appearing in the live answer, its result
-        // arriving. Size is what following cares about, so watch that rather
-        // than every mutation in the subtree. It runs after layout, so nothing
-        // forces one right after a write. While a turn streams, the spacer
-        // reserves a screen below the content, so every bit of growth resizes this.
+        // The one hook for content growth — text, final renders, tool blocks and
+        // their results — because size is what following cares about. It runs
+        // after layout, so no write forces one. While a turn streams, the spacer
+        // reserves space below the content, so all growth resizes this.
         contentResizeObserver = new ResizeObserver(notifyContentChanged);
         contentResizeObserver.observe(inner);
 

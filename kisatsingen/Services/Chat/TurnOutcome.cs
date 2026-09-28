@@ -2,8 +2,7 @@ using kisatsingen.Constants;
 
 namespace kisatsingen.Services.Chat;
 
-// How a send ended, for metrics. Not TurnStatus: that is what the transcript
-// stores, and an unauthenticated attempt stores nothing.
+// For metrics. Not TurnStatus: an unauthenticated attempt has an outcome but no turn.
 internal enum TurnOutcome
 {
     Success,

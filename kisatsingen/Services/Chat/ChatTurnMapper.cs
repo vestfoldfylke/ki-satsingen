@@ -5,10 +5,8 @@ namespace kisatsingen.Services.Chat;
 
 internal static class ChatTurnMapper
 {
-    // How long after it started a Running row may still be being answered
-    // somewhere else. A reload leaves the old circuit answering for up to Blazor's
-    // retention period (3 minutes by default), and a long answer with tools can
-    // outlast that; past this, nothing is still writing it.
+    // Covers Blazor's circuit retention (3 minutes by default), during which a
+    // reload leaves the old circuit answering, plus a long answer with tools.
     public static readonly TimeSpan StillRunningElsewhereFor = TimeSpan.FromMinutes(10);
 
     private static readonly JsonSerializerOptions AnswerJson = new(JsonSerializerDefaults.Web);
@@ -33,11 +31,9 @@ internal static class ChatTurnMapper
         TimeToFirstTokenMs = turn.Metadata?.TimeToFirstTokenMs
     };
 
-    // resolveModelName must answer for keys no longer registered: a chat outlives
-    // the models that answered it.
-    //
-    // loadedAt decides how a Running row reads, since only its age tells a turn
-    // still being answered elsewhere from one whose ending was never written.
+    // resolveModelName must answer for removed models too: a chat outlives them.
+    // loadedAt is needed because only a Running row's age tells a turn still being
+    // answered elsewhere from one whose ending was never written.
     public static Turn FromEntity(
         StoredTurn stored,
         DateTimeOffset loadedAt,
@@ -72,9 +68,9 @@ internal static class ChatTurnMapper
         };
     }
 
-    // Null when the answer cannot be read. One unreadable answer must not lock the
-    // user out of the whole chat. NotSupportedException is how System.Text.Json
-    // reports a segment it cannot place, such as one without its "kind" first.
+    // Null rather than throwing: one unreadable answer must not lock the user out of
+    // the chat. System.Text.Json throws NotSupportedException for a segment whose
+    // "kind" is not first.
     private static IReadOnlyList<TurnSegment>? ReadAnswer(StoredTurn stored, ILogger logger)
     {
         try

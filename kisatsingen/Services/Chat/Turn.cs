@@ -1,38 +1,34 @@
 namespace kisatsingen.Services.Chat;
 
-// One exchange: the question, the answer and how it ended. The unit the
-// transcript, the database and the UI all share, so none of them has to regroup
-// messages to find out what belonged together.
+// One question, its answer and how it ended — the unit the page, the database
+// and the request share, so none of them regroups messages.
 //
-// Immutable: a running turn is replaced by a newer snapshot, never changed in
-// place, which is what lets a render read one without racing the stream.
+// Immutable: a running turn is replaced by a newer snapshot, so a render never
+// reads one the stream is changing.
 public sealed record Turn
 {
     public required Guid Id { get; init; }
     public required string Prompt { get; init; }
 
-    // The instructions in force when the question was sent, and so the ones sent with it.
+    // Snapshotted per turn, so the record matches what was sent even after the
+    // chat's instructions change.
     public required string SystemPrompt { get; init; }
 
-    // Null only for a stored key that is blank: one bad field must not make a chat unopenable.
+    // Null for a blank stored key: one bad field must not make a chat unopenable.
     public required ChatModelKey? ModelKey { get; init; }
 
-    // Resolved when the turn is built, so a model since removed keeps a name.
+    // Resolved at load, so a model since removed keeps a name.
     public required string? ModelDisplayName { get; init; }
 
     public required DateTimeOffset StartedAt { get; init; }
 
     public IReadOnlyList<TurnSegment> Answer { get; init; } = [];
 
-    // A stored answer this build could not read. Answer is then empty, so the
-    // model is not sent a garbled version of it; the page says what happened.
+    // Answer is then empty rather than garbled, so the model is not sent it.
     public bool IsAnswerUnreadable { get; init; }
 
     public TurnStatus Status { get; init; } = TurnStatus.Running;
-
-    // Set only when Status is Failed.
     public TurnStage? FailedAt { get; init; }
-
     public TurnMetadata? Metadata { get; init; }
 
     public static Turn Start(string prompt, ChatModel model, string systemPrompt) => new()

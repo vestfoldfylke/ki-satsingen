@@ -7,8 +7,8 @@ namespace kisatsingen.Components.Chat;
 
 public partial class ToolCallView : ComponentBase
 {
-    // Relaxed, or "Kjøretøy" reads as "Kjøretøy". Safe because Blazor
-    // HTML-encodes the text it renders; this JSON never reaches a script.
+    // Relaxed, or every æ, ø and å is shown as an escape sequence. Safe because
+    // Blazor HTML-encodes the text it renders; this JSON never reaches a script.
     private static readonly JsonSerializerOptions IndentedJson = new()
     {
         WriteIndented = true,
@@ -23,8 +23,6 @@ public partial class ToolCallView : ComponentBase
     private string? _result;
 
     // Mapped explicitly, so renaming a member can't silently rename a CSS hook.
-    // Stored data this build cannot read never reaches here (see
-    // ToolStatusJsonConverter), so the fallback is for a status added without a hook.
     private string StatusName => Segment.Status switch
     {
         ToolStatus.Running => "running",
@@ -59,8 +57,6 @@ public partial class ToolCallView : ComponentBase
     private static string FormatArguments(JsonElement arguments) =>
         arguments.ValueKind == JsonValueKind.Undefined ? string.Empty : JsonSerializer.Serialize(arguments, IndentedJson);
 
-    // A result is the text the model was sent, which is often JSON and then reads
-    // better indented. Anything else is shown as it is.
     private static string FormatResult(string result)
     {
         if (result.AsSpan().TrimStart() is not ['{' or '[', ..])

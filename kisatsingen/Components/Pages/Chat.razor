@@ -19,9 +19,8 @@
                     }
                     @if (Session.HasLiveTurn)
                     {
-                        @* Present only while a turn streams. The spacer rule and
-                           chat-scroll.ts key off it: its removal is how the page
-                           learns the turn has ended. *@
+                        @* The spacer rule and chat-scroll.ts key off this: its
+                           removal is how the page learns the turn has ended. *@
                         <div class="assistant-streaming" aria-hidden="true"></div>
                     }
                     <div class="chat-log-spacer" aria-hidden="true"></div>

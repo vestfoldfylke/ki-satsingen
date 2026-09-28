@@ -7,20 +7,15 @@ public partial class AssistantTurn : ComponentBase
 {
     [Parameter, EditorRequired] public required Turn Turn { get; set; }
 
-    // The turn this session is streaming. Its footer waits for the ending, and
-    // its last text segment belongs to the browser's stream.
     [Parameter] public bool IsLive { get; set; }
 
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
 
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 
-    // Only the last segment can still grow, and only while the turn is live.
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
 
-    // The chosen name leads and the provider's id follows as the precise answer.
-    // The key stands in for a name the catalogue no longer has. Blanks count as
-    // absent, so nothing renders as " ()".
+    // Blanks count as absent, so nothing renders as " ()".
     private static string? DescribeModel(Turn turn)
     {
         var name = !string.IsNullOrWhiteSpace(turn.ModelDisplayName)

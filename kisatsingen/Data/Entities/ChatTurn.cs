@@ -1,12 +1,10 @@
 namespace kisatsingen.Data.Entities;
 
-// One question and its answer. Inserted as Running when the question is sent and
-// updated once when the turn ends, however it ends — so a row still Running
-// after the fact is itself the record that the turn never finished.
+// Inserted as Running and updated once however the turn ends, so a row still
+// Running long after is itself the record that the turn never finished.
 //
-// Status and FailedAt are the names of Services.Chat enums, kept as strings so
-// a value this build does not know (after a rollback, say) degrades on read
-// instead of making the chat unopenable.
+// Status and FailedAt are enum names kept as strings, so a value this build does
+// not know (after a rollback, say) degrades on read instead of failing the load.
 public sealed class ChatTurn
 {
     public const int MaxStatusLength = 32;
@@ -29,7 +27,7 @@ public sealed class ChatTurn
     public required string Status { get; init; }
     public string? FailedAt { get; init; }
 
-    // A JSON array of TurnSegment, in a schema this codebase owns.
+    // TurnSegment JSON: our schema, not Microsoft.Extensions.AI's.
     public required string AnswerJson { get; init; }
 
     // What the provider says it served — a dated build, not what was asked for.

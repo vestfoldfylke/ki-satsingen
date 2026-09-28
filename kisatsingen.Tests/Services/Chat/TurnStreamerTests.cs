@@ -6,11 +6,9 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// What the browser and the page see while an answer streams. Two things are the
-// contract: each text segment gets a render, so the page grows the element its
-// stream writes into — the browser looks that element up lazily, so which comes
-// first does not matter — and a stream is dropped before the page is asked to
-// render over it, which does.
+// The contract: every text segment gets a render, so its element exists (in any
+// order: the browser looks it up lazily), and a stream is dropped before the page
+// is asked to render over it (in that order).
 public sealed class TurnStreamerTests
 {
     [Fact]

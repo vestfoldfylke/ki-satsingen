@@ -5,9 +5,7 @@ using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
 
-// The open chat as the page sees it: which chat, its turns, the model picked for
-// the next one, and whether one is running. Running a turn is TurnRunner's job;
-// this decides what the page shows while it does.
+// What the page shows of the open chat. Running a turn is TurnRunner's job.
 public sealed class ChatSession : IAsyncDisposable
 {
     private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
@@ -23,8 +21,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<Turn> _turns = [];
 
-    // The one turn this session is streaming. Every other Running turn is one
-    // whose ending was never written.
+    // Not derivable from status: a Running turn may have been loaded that way.
     private Guid? _liveTurnId;
 
     // Identity only; ChatManager owns the chat's metadata.
@@ -45,8 +42,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public event Action? StateChanged;
 
-    // Raised once the first message has given the open view a chat row, so the
-    // page can put its id in the URL while the answer is still streaming.
+    // Mid-turn, so the page can put a new chat's id in the URL before the answer ends.
     public event Action<Guid>? ChatCreated;
 
     public ChatSession(
@@ -107,10 +103,9 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    // Estimated from the request we would send, not read from reported usage.
-    // Usage double-counts tool turns (FunctionInvokingChatClient sums every round
-    // trip), describes only the last answered turn, and is missing after a stop.
-    // ConversationUsage keeps real usage: right for cost, wrong for size.
+    // Estimated from the request we would send, not from reported usage: usage sums
+    // every tool round trip and is missing after a stop. Right for cost (see
+    // ConversationUsage), wrong for size.
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
@@ -171,8 +166,7 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    // No turns, a blank stored key, and a model since removed all return null:
-    // they all mean "no previous model".
+    // No turns, a blank key and a removed model all mean "no previous model".
     private ChatModel? FindLastModel()
     {
         if (_turns.LastOrDefault(turn => turn.ModelKey is not null)?.ModelKey is not { } storedKey)
@@ -242,8 +236,8 @@ public sealed class ChatSession : IAsyncDisposable
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _turnCompletion = completion.Task;
 
-        // The view this turn was started in. The turn keeps writing to its own chat
-        // after the user moves on; only the page stops following it.
+        // The turn keeps writing to its own chat after the user moves on; only the
+        // page stops following it.
         var viewVersion = _viewVersion;
         var isNewChat = _currentChatId is null;
 
@@ -276,7 +270,7 @@ public sealed class ChatSession : IAsyncDisposable
                 }
                 IsBusy = false;
 
-                // The one owner of its disposal. Nulled first, so a Cancel() arriving
+                // The only place it is disposed. Nulled first, so a Cancel() arriving
                 // now no-ops instead of reaching disposed sources.
                 _turnCancellation = null;
                 cancellation.Dispose();
@@ -343,9 +337,8 @@ public sealed class ChatSession : IAsyncDisposable
 
     public void ResumeDelivery() => _channel.Resume();
 
-    // Circuit teardown is a disconnect, not a stop. Cancels only: the turn is still
-    // winding down and reads its cancellation as it does, so disposing it is left
-    // to SendAsync, which does so once the turn has ended.
+    // Circuit teardown is a disconnect, not a stop. Cancels without disposing: the
+    // turn still reads its cancellation while it winds down, and SendAsync disposes it.
     public async ValueTask DisposeAsync()
     {
         if (_turnCancellation is { } turn)

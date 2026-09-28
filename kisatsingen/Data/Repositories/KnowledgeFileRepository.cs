@@ -111,9 +111,8 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         await TouchScopeAsync(db, ownerId, assistantId, chatId, now, ct);
 
-        // One SaveChanges for the whole graph. Postgres does not promise to
-        // evaluate column defaults in row order for a multi-row insert, which
-        // would matter for a sequence default — but Sequence here is assigned above.
+        // One SaveChanges for the graph: multi-row insert order only matters for a
+        // sequence default, and Sequence is assigned above.
         db.KnowledgeFiles.Add(file);
         await db.SaveChangesAsync(ct);
 
