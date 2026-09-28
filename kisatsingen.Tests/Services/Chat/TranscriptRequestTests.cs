@@ -64,6 +64,30 @@ public sealed class TranscriptRequestTests
         Assert.Equal(ChatRole.User, Assert.Single(request).Role);
     }
 
+    // A reload would not have it, so the model must not have seen it either.
+    [Theory]
+    [InlineData(TurnStage.Authenticating)]
+    [InlineData(TurnStage.SavingMessage)]
+    public void A_question_that_was_never_saved_is_not_sent(TurnStage failedAt)
+    {
+        var unsaved = TurnWith("aldri lagret") with { Status = TurnStatus.Failed, FailedAt = failedAt };
+
+        var request = TranscriptRequest.Build([unsaved, TurnWith("prøv igjen")]);
+
+        Assert.Equal(["prøv igjen"], request.Select(message => message.Text));
+    }
+
+    // "prøv igjen" means nothing without the question it refers to.
+    [Fact]
+    public void A_saved_question_that_failed_before_any_answer_is_still_sent()
+    {
+        var unanswered = TurnWith("hva er budsjettet?") with { Status = TurnStatus.Failed, FailedAt = TurnStage.Generating };
+
+        var request = TranscriptRequest.Build([unanswered, TurnWith("prøv igjen")]);
+
+        Assert.Equal(["hva er budsjettet?", "prøv igjen"], request.Select(message => message.Text));
+    }
+
     [Fact]
     public void A_failed_tool_is_sent_with_the_result_the_model_saw()
     {
@@ -72,7 +96,7 @@ public sealed class TranscriptRequestTests
             Text(1, "Det gikk ikke."))]);
 
         var result = Assert.Single(request.SelectMany(message => message.Contents).OfType<FunctionResultContent>());
-        Assert.Equal("Error: Function failed.", ((JsonElement)result.Result!).GetString());
+        Assert.Equal("Error: Function failed.", result.Result);
     }
 
     [Fact]
@@ -108,5 +132,5 @@ public sealed class TranscriptRequestTests
         "probe",
         JsonSerializer.SerializeToElement(new Dictionary<string, string>()),
         status,
-        result is null ? null : JsonSerializer.SerializeToElement(result));
+        result);
 }

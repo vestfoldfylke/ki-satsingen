@@ -41,16 +41,39 @@ public sealed class TurnBuilderTests
     }
 
     [Fact]
-    public void A_result_completes_the_call_it_answers_and_keeps_what_the_model_was_given()
+    public void A_result_completes_the_call_it_answers()
+    {
+        var builder = Builder();
+
+        builder.Apply(Call("call-1"));
+        builder.Apply(Result("call-1"));
+
+        Assert.Equal(ToolStatus.Completed, SingleTool(builder).Status);
+    }
+
+    // Replayed next turn, it must read exactly as it did the first time: unquoted.
+    [Fact]
+    public void A_text_result_is_kept_as_the_text_the_provider_was_sent()
     {
         var builder = Builder();
 
         builder.Apply(Call("call-1"));
         builder.Apply(Result("call-1", "tolv"));
 
-        var tool = SingleTool(builder);
-        Assert.Equal(ToolStatus.Completed, tool.Status);
-        Assert.Equal("tolv", tool.Result?.GetString());
+        Assert.Equal("tolv", SingleTool(builder).Result);
+    }
+
+    // Byte for byte against the adapter in ToolResultReplayTests; here, that it is the JSON.
+    [Fact]
+    public void A_structured_result_is_kept_as_its_json()
+    {
+        var builder = Builder();
+
+        builder.Apply(Call("call-1"));
+        builder.Apply(new ChatResponseUpdate(ChatRole.Tool, [new FunctionResultContent("call-1", new { hour = 12 })]));
+
+        using var stored = System.Text.Json.JsonDocument.Parse(SingleTool(builder).Result!);
+        Assert.Equal(12, stored.RootElement.GetProperty("hour").GetInt32());
     }
 
     // FunctionInvokingChatClient reports a throwing tool this way; see FunctionInvocationOrderingTests.
