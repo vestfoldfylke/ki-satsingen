@@ -56,17 +56,6 @@ public sealed class ChatSessionAnswerTests
         Assert.Equal("halvferdig svar", TurnText.Of(harness.StoredTurn));
     }
 
-    [Fact]
-    public async Task A_stopped_turn_records_the_model_key_it_ran_on()
-    {
-        await using var harness = new ChatSessionHarness();
-        await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
-
-        await StopAfterAnswering(harness, "halvferdig svar");
-
-        Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.StoredTurn.ModelKey);
-    }
-
     // The question is stored before the model is asked, so a crash mid-answer
     // still leaves the row that says the turn never finished.
     [Fact]

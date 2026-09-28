@@ -180,8 +180,9 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.Equal(("Completed", """[{"kind":"text"}]""", (long?)1200), (stored.Status, stored.AnswerJson, stored.DurationMs));
     }
 
-    // The update is the only rewrite a turn gets. Seq is set to be ignored on
-    // every write; this is the write that proves it.
+    // The update is the only rewrite a turn gets, and it names its columns, so
+    // this pins the repository's contract. The EF configuration that guards other
+    // writes is pinned by the test below.
     [Fact]
     public async Task UpdateTurnAsync_leaves_the_turns_place_in_the_chat_untouched()
     {
@@ -193,6 +194,27 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
 
         await using var db = await Factory.CreateDbContextAsync();
         Assert.Equal(turn.Seq, (await db.ChatTurns.SingleAsync()).Seq);
+    }
+
+    // The hole the two Ignore behaviours in AppDbContext.ConfigureSeq close. An
+    // Update() of an entity built in code holds Seq = 0, and without them EF would
+    // write that over the stored value, moving the turn to the front of the chat.
+    // Not a path the app takes, which is why nothing else would catch it.
+    [Fact]
+    public async Task An_update_that_bypasses_the_repository_leaves_Seq_untouched()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var turn = Row("hi");
+        await Repo.InsertTurnAsync(OwnerId, chat.Id, turn);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var rebuilt = Row("edited", id: turn.Id);
+        rebuilt.ChatId = chat.Id;
+        db.Update(rebuilt);
+        await db.SaveChangesAsync();
+
+        await using var after = await Factory.CreateDbContextAsync();
+        Assert.Equal(turn.Seq, (await after.ChatTurns.SingleAsync()).Seq);
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed class TurnNoticeTests
 
     // Otherwise the user sees a question with nothing under it and no reason why.
     [Fact]
-    public void A_turn_running_elsewhere_says_it_is_still_being_written()
+    public void A_turn_running_elsewhere_says_it_may_not_be_finished_or_saved()
     {
         Assert.NotNull(TurnNotice.Describe(Seen(TurnEnded(TurnStatus.Running))));
     }

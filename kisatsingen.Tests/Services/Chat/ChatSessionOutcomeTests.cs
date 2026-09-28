@@ -142,8 +142,10 @@ public sealed class ChatSessionOutcomeTests
         Assert.Empty(harness.Repository.Writes);
     }
 
+    // Let out on purpose: it ends the circuit, and the reload that follows is
+    // what the sign-in middleware redirects.
     [Fact]
-    public async Task An_unauthenticated_caller_still_reaches_the_error_boundary()
+    public async Task An_unauthenticated_caller_is_not_swallowed_as_a_chat_problem()
     {
         await using var harness = new ChatSessionHarness();
         harness.Authentication.Failure = new UserNotAuthenticatedException();

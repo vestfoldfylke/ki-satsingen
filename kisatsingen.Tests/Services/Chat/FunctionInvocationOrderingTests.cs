@@ -12,22 +12,10 @@ public sealed class FunctionInvocationOrderingTests
 {
     private const string ToolName = "probe";
 
+    // The two orderings that matter: the call reaches us before the tool runs,
+    // so it can show as running, and its result before the next round starts.
     [Fact]
-    public async Task The_call_reaches_the_caller_before_the_tool_runs()
-    {
-        var log = new List<string>();
-        using var client = BuildClient();
-
-        await foreach (var update in client.GetStreamingResponseAsync([new AiMessage(ChatRole.User, "hei")], Options(log)))
-        {
-            Record(log, update);
-        }
-
-        Assert.True(log.IndexOf("saw call") < log.IndexOf("tool ran"), string.Join(", ", log));
-    }
-
-    [Fact]
-    public async Task The_result_reaches_the_caller_before_the_next_round_starts()
+    public async Task A_tool_turn_reaches_the_caller_in_the_order_it_happened()
     {
         var log = new List<string>();
         using var client = BuildClient();

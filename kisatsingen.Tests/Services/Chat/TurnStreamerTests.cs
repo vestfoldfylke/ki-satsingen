@@ -6,10 +6,11 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// What the browser and the page see while an answer streams, in the order they
-// see it. The order is the contract: the page must render an element before the
-// browser streams into it, and the browser must drop a stream before the page
-// renders over it.
+// What the browser and the page see while an answer streams. Two things are the
+// contract: each text segment gets a render, so the page grows the element its
+// stream writes into — the browser looks that element up lazily, so which comes
+// first does not matter — and a stream is dropped before the page is asked to
+// render over it, which does.
 public sealed class TurnStreamerTests
 {
     [Fact]
@@ -32,14 +33,15 @@ public sealed class TurnStreamerTests
         Assert.InRange(endOfText, 0, firstToolRender - 1);
     }
 
+    // Without it the stream would write into an element the page never renders.
     [Fact]
-    public async Task A_new_text_segment_is_rendered_before_the_browser_is_sent_its_text()
+    public async Task Every_text_segment_asks_the_page_to_render_it()
     {
-        var (log, _) = await Stream(ModelStream.Answering("Hei"));
+        var (log, builder) = await Stream(ModelStream.UsingATool("før", "etter"));
 
-        var render = log.FindIndex(entry => entry is Render);
-        var firstAppend = log.FindIndex(entry => entry is JsCall { Method: "chatClient.streamAppend" });
-        Assert.InRange(render, 0, firstAppend - 1);
+        var segmentIds = builder.Snapshot().Answer.OfType<TextSegment>().Select(text => text.Id);
+        var renderedIds = log.OfType<Render>().SelectMany(render => render.Answer.OfType<TextSegment>()).Select(text => text.Id);
+        Assert.Subset(renderedIds.ToHashSet(), segmentIds.ToHashSet());
     }
 
     // The browser holds a buffer per stream, so a stopped turn must release it too.

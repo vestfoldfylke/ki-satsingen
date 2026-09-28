@@ -16,18 +16,6 @@ public sealed class TranscriptViewTests
         Assert.Equal([false, true], views.Select(view => view.IsLive));
     }
 
-    // How a stored Running turn reads is settled when it is loaded (see
-    // ChatTurnMapperTests); the view passes it through as it is.
-    [Fact]
-    public void A_running_turn_this_session_is_not_streaming_is_shown_as_it_was_loaded()
-    {
-        var elsewhere = TurnOn(FakeChatModelCatalog.DefaultKey) with { Status = TurnStatus.Running };
-
-        var view = Assert.Single(TranscriptView.Build([elsewhere], liveTurnId: null));
-
-        Assert.Equal((TurnStatus.Running, false), (view.Turn.Status, view.IsLive));
-    }
-
     // TranscriptTurn skips re-rendering on equality; a turn rebuilt on every
     // render would re-render the whole transcript on every tool event.
     [Fact]

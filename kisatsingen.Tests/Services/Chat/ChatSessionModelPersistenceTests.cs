@@ -20,10 +20,10 @@ public sealed class ChatSessionModelPersistenceTests
     }
 
     [Fact]
-    public async Task Reopening_a_chat_resumes_the_model_it_was_last_answered_by()
+    public async Task Reopening_a_chat_resumes_the_model_it_was_last_used_with()
     {
         await using var harness = new ChatSessionHarness();
-        var chat = harness.Repository.Store(ChatAnsweredBy(FakeChatModelCatalog.AlternativeKey.Value));
+        var chat = harness.Repository.Store(ChatLastUsedWith(FakeChatModelCatalog.AlternativeKey.Value));
 
         await harness.Session.LoadAsync(chat.Id);
 
@@ -35,7 +35,7 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_chat_whose_model_has_left_the_catalogue_falls_back_to_the_default()
     {
         await using var harness = new ChatSessionHarness();
-        var chat = harness.Repository.Store(ChatAnsweredBy("a-model-that-was-removed"));
+        var chat = harness.Repository.Store(ChatLastUsedWith("a-model-that-was-removed"));
 
         await harness.Session.LoadAsync(chat.Id);
 
@@ -49,7 +49,7 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_chat_whose_recorded_model_is_blank_still_opens(string modelKey)
     {
         await using var harness = new ChatSessionHarness();
-        var chat = harness.Repository.Store(ChatAnsweredBy(modelKey));
+        var chat = harness.Repository.Store(ChatLastUsedWith(modelKey));
 
         await harness.Session.LoadAsync(chat.Id);
 
@@ -60,14 +60,14 @@ public sealed class ChatSessionModelPersistenceTests
     public async Task A_model_that_has_left_the_catalogue_is_named_by_its_key()
     {
         await using var harness = new ChatSessionHarness();
-        var chat = harness.Repository.Store(ChatAnsweredBy("a-model-that-was-removed"));
+        var chat = harness.Repository.Store(ChatLastUsedWith("a-model-that-was-removed"));
 
         await harness.Session.LoadAsync(chat.Id);
 
         Assert.Equal("a-model-that-was-removed", harness.VisibleTurn.ModelDisplayName);
     }
 
-    private static ChatEntity ChatAnsweredBy(string modelKey) => new()
+    private static ChatEntity ChatLastUsedWith(string modelKey) => new()
     {
         Id = Guid.NewGuid(),
         OwnerId = ChatSessionHarness.OwnerUnderTest,

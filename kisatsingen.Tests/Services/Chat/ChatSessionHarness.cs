@@ -83,10 +83,9 @@ internal sealed class FakeChatRepository : IChatRepository
     public Exception? CreateChatFailure { get; set; }
     public Exception? InsertTurnFailure { get; set; }
 
-    // By call: the first update is a turn's own save, and "the answer couldn't be
-    // saved" fails only that one. Later updates record how a turn ended.
+    // Only the first update: "the answer couldn't be saved" fails that one, and
+    // later updates are unscripted so a second send doesn't inherit the failure.
     public Exception? FirstUpdateFailure { get; set; }
-    public Exception? LaterUpdateFailure { get; set; }
 
     // Lets a test act while the turn is genuinely mid-save.
     public Action? BeforeFirstUpdate { get; set; }
@@ -170,7 +169,7 @@ internal sealed class FakeChatRepository : IChatRepository
             BeforeFirstUpdate?.Invoke();
         }
 
-        var failure = isFirst ? FirstUpdateFailure : LaterUpdateFailure;
+        var failure = isFirst ? FirstUpdateFailure : null;
         if (failure is not null)
         {
             return Task.FromException(failure);
