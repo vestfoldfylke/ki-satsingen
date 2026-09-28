@@ -61,8 +61,10 @@ internal sealed class TurnStreamer
                     {
                         case TurnChange.TextStarted started:
                             cadence = new FlushCadence();
+                            // The render only queues, so the stream can start before the page has
+                            // the segment's element. chat-streaming.ts looks it up on every frame
+                            // rather than here, which is what makes that order safe.
                             _ = _channel.StreamStart(started.SegmentId);
-                            // Render first: it puts the element the stream appends to in the DOM.
                             onStructureChanged();
                             break;
 

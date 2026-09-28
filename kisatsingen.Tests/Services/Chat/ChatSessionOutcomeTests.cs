@@ -263,6 +263,36 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
     }
 
+    // Proves the load wires its clock into the mapper, not just that the mapper has one.
+    [Fact]
+    public async Task Reopening_a_chat_whose_turn_never_finished_says_so()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = harness.Repository.Store(new kisatsingen.Data.Entities.Chat
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Title = "stored",
+            Turns =
+            [
+                new kisatsingen.Data.Entities.ChatTurn
+                {
+                    Id = Guid.NewGuid(),
+                    StartedAt = DateTimeOffset.UtcNow - TimeSpan.FromDays(1),
+                    Prompt = "hei",
+                    SystemPrompt = "be brief",
+                    ModelKey = FakeChatModelCatalog.DefaultKey.Value,
+                    Status = nameof(TurnStatus.Running),
+                    AnswerJson = "[]"
+                }
+            ]
+        });
+
+        await harness.Session.LoadAsync(chat.Id);
+
+        Assert.Equal("Svaret ble ikke fullført", harness.VisibleNotice);
+    }
+
     // Parks the model mid-turn and hands back a task that completes once the
     // stream is genuinely running, so a test cancels a turn in flight rather
     // than one that already finished.

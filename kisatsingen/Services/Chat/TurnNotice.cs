@@ -8,8 +8,10 @@ internal static class TurnNotice
     {
         { IsAnswerUnreadable: true } => "Svaret kunne ikke leses",
         { Status: TurnStatus.Running } when view.IsLive => null,
-        // Being answered by another tab, or by the circuit a reload left behind.
-        { Status: TurnStatus.Running } => "Svaret skrives fortsatt. Last inn siden på nytt om litt for å se det.",
+        // Loaded while recent and Running: another tab or the circuit a reload left
+        // behind may still be answering it, or it failed to save. Nothing here can
+        // tell which, so the notice does not pretend to.
+        { Status: TurnStatus.Running } => "Svaret er ikke ferdig, eller ble ikke lagret. Last inn siden på nytt om litt.",
         { Status: TurnStatus.Completed } => null,
         { Status: TurnStatus.Stopped } => "Generering stoppet",
         { Status: TurnStatus.LeftChat } => "Generering stoppet fordi du forlot samtalen",

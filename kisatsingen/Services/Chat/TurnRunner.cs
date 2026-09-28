@@ -105,7 +105,10 @@ internal sealed class TurnRunner
             await SaveEndingAsync(row, stopped);
             return stopped;
         }
-        // Rethrown: only the error boundary can send the user to sign in.
+        // Rethrown: this turn cannot fix it. There is no error boundary, so it ends
+        // the circuit, and the reload that follows is what the sign-in middleware
+        // redirects. Practically unreachable mid-chat: a circuit's sign-in state is
+        // fixed when it starts, and the page requires one.
         catch (UserNotAuthenticatedException)
         {
             outcome = TurnOutcome.Unauthenticated;

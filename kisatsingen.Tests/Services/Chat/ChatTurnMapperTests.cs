@@ -58,7 +58,7 @@ public sealed class ChatTurnMapperTests
     {
         var unreadable = Copy(ChatTurnMapper.ToEntity(TurnWith()), answerJson: answerJson);
 
-        var restored = ChatTurnMapper.FromEntity(unreadable, key => key.Value, NullLogger.Instance);
+        var restored = ChatTurnMapper.FromEntity(unreadable, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
         Assert.True(restored.IsAnswerUnreadable);
         Assert.Empty(restored.Answer);
@@ -78,7 +78,7 @@ public sealed class ChatTurnMapperTests
         var stored = ChatTurnMapper.ToEntity(TurnWith());
         var unknown = Copy(stored, status: "SomethingNewer");
 
-        var restored = ChatTurnMapper.FromEntity(unknown, key => key.Value, NullLogger.Instance);
+        var restored = ChatTurnMapper.FromEntity(unknown, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
         Assert.Equal(TurnStatus.Unfinished, restored.Status);
     }
@@ -88,13 +88,48 @@ public sealed class ChatTurnMapperTests
     {
         var stored = ChatTurnMapper.ToEntity(TurnWith());
 
-        var restored = ChatTurnMapper.FromEntity(stored, _ => "Named now", NullLogger.Instance);
+        var restored = ChatTurnMapper.FromEntity(stored, DateTimeOffset.UtcNow, _ => "Named now", NullLogger.Instance);
 
         Assert.Equal("Named now", restored.ModelDisplayName);
     }
 
+    // Its ending was never written: the process died, or the final save failed.
+    [Fact]
+    public void A_running_turn_loaded_long_after_it_started_reads_as_unfinished()
+    {
+        var started = DateTimeOffset.UtcNow;
+        var stored = ChatTurnMapper.ToEntity(TurnWith() with { Status = TurnStatus.Running, StartedAt = started });
+
+        var restored = ChatTurnMapper.FromEntity(stored, started + ChatTurnMapper.StillRunningElsewhereFor + TimeSpan.FromSeconds(1), key => key.Value, NullLogger.Instance);
+
+        Assert.Equal(TurnStatus.Unfinished, restored.Status);
+    }
+
+    // A reload mid-answer: the circuit left behind may still be writing it.
+    [Fact]
+    public void A_running_turn_loaded_soon_after_it_started_is_still_running()
+    {
+        var started = DateTimeOffset.UtcNow;
+        var stored = ChatTurnMapper.ToEntity(TurnWith() with { Status = TurnStatus.Running, StartedAt = started });
+
+        var restored = ChatTurnMapper.FromEntity(stored, started + TimeSpan.FromSeconds(30), key => key.Value, NullLogger.Instance);
+
+        Assert.Equal(TurnStatus.Running, restored.Status);
+    }
+
+    [Fact]
+    public void A_turn_that_ended_reads_as_it_ended_however_long_ago()
+    {
+        var started = DateTimeOffset.UtcNow;
+        var stored = ChatTurnMapper.ToEntity(TurnWith() with { Status = TurnStatus.Stopped, StartedAt = started });
+
+        var restored = ChatTurnMapper.FromEntity(stored, started + TimeSpan.FromDays(30), key => key.Value, NullLogger.Instance);
+
+        Assert.Equal(TurnStatus.Stopped, restored.Status);
+    }
+
     private static Turn RoundTrip(Turn turn) =>
-        ChatTurnMapper.FromEntity(ChatTurnMapper.ToEntity(turn), key => key.Value, NullLogger.Instance);
+        ChatTurnMapper.FromEntity(ChatTurnMapper.ToEntity(turn), DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
     // JsonElement compares by reference, so segments are compared by their JSON.
     private static string Describe(IReadOnlyList<TurnSegment> answer) => JsonSerializer.Serialize(answer);

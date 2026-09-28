@@ -74,7 +74,7 @@ public sealed class ChatSession : IAsyncDisposable
     public bool HasVisibleMessages => _turns.Count > 0;
     public bool HasLiveTurn => _liveTurnId is not null;
 
-    public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId, DateTimeOffset.UtcNow);
+    public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId);
 
     public ChatModel SelectedModel => _selectedModel;
 
@@ -160,7 +160,8 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, ResolveModelName, _logger)));
+                var loadedAt = DateTimeOffset.UtcNow;
+                _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
 
                 // Continuing a chat must not silently change who answers it.
                 _selectedModel = FindLastModel() ?? _catalog.Default;
@@ -185,7 +186,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
 
         _logger.LogInformation(
-            "Chat {ChatId} was last answered by model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
+            "Chat {ChatId} was last used with model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
             _currentChatId,
             storedKey,
             _catalog.Default.Key);
@@ -222,7 +223,7 @@ public sealed class ChatSession : IAsyncDisposable
         _selectedModel = _catalog.Default;
     }
 
-    private bool OwnsView(TurnBinding binding) => binding.ViewVersion == _viewVersion;
+    private bool OwnsView(int viewVersion) => viewVersion == _viewVersion;
 
     public async Task SendAsync(string text)
     {
@@ -233,16 +234,18 @@ public sealed class ChatSession : IAsyncDisposable
 
         IsBusy = true;
 
-        // The branches below read this local, never the field: a racing
-        // DisposeAsync nulls the field mid-turn.
+        // The branches below read this local, never the field: the field is what
+        // Cancel() reaches, and it is nulled before this turn's teardown is done.
         var cancellation = new TurnCancellation();
         _turnCancellation = cancellation;
 
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _turnCompletion = completion.Task;
 
-        // The turn writes to this chat even after the view has moved on.
-        var binding = new TurnBinding(_viewVersion, _currentChatId);
+        // The view this turn was started in. The turn keeps writing to its own chat
+        // after the user moves on; only the page stops following it.
+        var viewVersion = _viewVersion;
+        var isNewChat = _currentChatId is null;
 
         // A turn that started on one model and prompt must finish on them.
         var model = _selectedModel;
@@ -255,11 +258,11 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                chatId => OnChatPersisted(binding, chatId),
-                snapshot => ShowSnapshot(binding, snapshot));
+                chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
+                snapshot => ShowSnapshot(viewVersion, snapshot));
 
-            var ended = await _runner.RunAsync(turn, binding.ChatId, TranscriptRequest.Build(_turns), model, cancellation, observer);
-            Replace(binding, ended);
+            var ended = await _runner.RunAsync(turn, _currentChatId, TranscriptRequest.Build(_turns), model, cancellation, observer);
+            Replace(viewVersion, ended);
         }
         finally
         {
@@ -267,14 +270,14 @@ public sealed class ChatSession : IAsyncDisposable
             // waiting on this turn forever.
             try
             {
-                if (OwnsView(binding))
+                if (OwnsView(viewVersion))
                 {
                     _liveTurnId = null;
                 }
                 IsBusy = false;
 
-                // Nulled before disposing, so a Cancel() arriving now no-ops instead of
-                // reaching disposed sources.
+                // The one owner of its disposal. Nulled first, so a Cancel() arriving
+                // now no-ops instead of reaching disposed sources.
                 _turnCancellation = null;
                 cancellation.Dispose();
 
@@ -287,12 +290,9 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private void OnChatPersisted(TurnBinding binding, Guid chatId)
+    private void OnChatPersisted(int viewVersion, Guid chatId, bool isNewChat)
     {
-        var isNewChat = binding.ChatId is null;
-        binding.ChatId = chatId;
-
-        if (!OwnsView(binding))
+        if (!OwnsView(viewVersion))
         {
             return;
         }
@@ -304,18 +304,18 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private void ShowSnapshot(TurnBinding binding, Turn snapshot)
+    private void ShowSnapshot(int viewVersion, Turn snapshot)
     {
-        if (Replace(binding, snapshot))
+        if (Replace(viewVersion, snapshot))
         {
             Notify();
         }
     }
 
     // By id: a view that has moved on no longer holds the turn, so nothing matches.
-    private bool Replace(TurnBinding binding, Turn turn)
+    private bool Replace(int viewVersion, Turn turn)
     {
-        if (!OwnsView(binding))
+        if (!OwnsView(viewVersion))
         {
             return false;
         }
@@ -343,25 +343,14 @@ public sealed class ChatSession : IAsyncDisposable
 
     public void ResumeDelivery() => _channel.Resume();
 
+    // Circuit teardown is a disconnect, not a stop. Cancels only: the turn is still
+    // winding down and reads its cancellation as it does, so disposing it is left
+    // to SendAsync, which does so once the turn has ended.
     public async ValueTask DisposeAsync()
     {
-        // Circuit teardown is a disconnect, not a stop. Cleared first so a racing
-        // Cancel() no-ops.
-        var turn = _turnCancellation;
-        _turnCancellation = null;
-
-        if (turn is not null)
+        if (_turnCancellation is { } turn)
         {
             await turn.CancelForDisconnectAsync();
-            turn.Dispose();
         }
-    }
-
-    private sealed class TurnBinding(int viewVersion, Guid? chatId)
-    {
-        public int ViewVersion { get; } = viewVersion;
-
-        // Null until the first message of a new chat creates its row.
-        public Guid? ChatId { get; set; } = chatId;
     }
 }

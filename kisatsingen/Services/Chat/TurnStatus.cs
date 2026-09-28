@@ -19,6 +19,6 @@ public enum TurnStatus
 
     // Never written. A turn read back as Running long after it started, so nothing
     // is still running it: the process died mid-turn, or its final save failed.
-    // TranscriptView derives it.
+    // ChatTurnMapper derives it when a chat is loaded.
     Unfinished
 }

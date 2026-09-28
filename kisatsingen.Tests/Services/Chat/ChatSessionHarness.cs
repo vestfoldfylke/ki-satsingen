@@ -55,7 +55,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     // Read back through the real mapper, so a field the mapper drops fails the test.
     public Turn StoredTurn =>
-        ChatTurnMapper.FromEntity(Repository.SingleStoredTurn, key => key.Value, NullLogger.Instance);
+        ChatTurnMapper.FromEntity(Repository.SingleStoredTurn, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
     public ValueTask DisposeAsync() => Session.DisposeAsync();
 }

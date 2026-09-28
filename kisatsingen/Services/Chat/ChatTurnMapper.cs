@@ -5,6 +5,12 @@ namespace kisatsingen.Services.Chat;
 
 internal static class ChatTurnMapper
 {
+    // How long after it started a Running row may still be being answered
+    // somewhere else. A reload leaves the old circuit answering for up to Blazor's
+    // retention period (3 minutes by default), and a long answer with tools can
+    // outlast that; past this, nothing is still writing it.
+    public static readonly TimeSpan StillRunningElsewhereFor = TimeSpan.FromMinutes(10);
+
     private static readonly JsonSerializerOptions AnswerJson = new(JsonSerializerDefaults.Web);
 
     public static StoredTurn ToEntity(Turn turn) => new()
@@ -29,7 +35,23 @@ internal static class ChatTurnMapper
 
     // resolveModelName must answer for keys no longer registered: a chat outlives
     // the models that answered it.
-    public static Turn FromEntity(StoredTurn stored, Func<ChatModelKey, string> resolveModelName, ILogger logger)
+    //
+    // loadedAt decides how a Running row reads, since only its age tells a turn
+    // still being answered elsewhere from one whose ending was never written.
+    public static Turn FromEntity(
+        StoredTurn stored,
+        DateTimeOffset loadedAt,
+        Func<ChatModelKey, string> resolveModelName,
+        ILogger logger)
+    {
+        var turn = Read(stored, resolveModelName, logger);
+
+        return turn.Status == TurnStatus.Running && loadedAt - turn.StartedAt > StillRunningElsewhereFor
+            ? turn.EndedAs(TurnStatus.Unfinished)
+            : turn;
+    }
+
+    private static Turn Read(StoredTurn stored, Func<ChatModelKey, string> resolveModelName, ILogger logger)
     {
         var modelKey = ChatModelKey.TryCreate(stored.ModelKey);
         var answer = ReadAnswer(stored, logger);

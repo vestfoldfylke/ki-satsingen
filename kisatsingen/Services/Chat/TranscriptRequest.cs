@@ -82,9 +82,9 @@ internal static class TranscriptRequest
         }
     }
 
-    // The stages before the question is stored. A turn stopped in that window is
-    // not caught here: it carries no stage, and the window is the few milliseconds
-    // of an insert.
+    // The stages before the question is stored. A turn stopped rather than failed
+    // in that window — while its chat row or its own row is being written — carries
+    // no stage and is still sent, as it was before turns existed.
     private static bool WasNeverSaved(Turn turn) =>
         turn.FailedAt is TurnStage.Authenticating or TurnStage.SavingMessage;
 

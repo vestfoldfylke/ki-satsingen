@@ -327,7 +327,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         await Repo.InsertTurnAsync(OwnerId, chat.Id, ChatTurnMapper.ToEntity(answered with { Answer = [], Status = TurnStatus.Running }));
         await Repo.UpdateTurnAsync(OwnerId, chat.Id, ChatTurnMapper.ToEntity(answered));
         var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
-        var restored = ChatTurnMapper.FromEntity(Assert.Single(reloaded!.Turns), key => key.Value, NullLogger.Instance);
+        var restored = ChatTurnMapper.FromEntity(Assert.Single(reloaded!.Turns), DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
         var tool = Assert.IsType<ToolSegment>(restored.Answer[0]);
         Assert.Equal(("call-1", ToolStatus.Completed, "12:00"), (tool.CallId, tool.Status, tool.Result));
