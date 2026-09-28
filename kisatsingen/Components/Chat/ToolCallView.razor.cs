@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
 using kisatsingen.Services.Chat;
@@ -6,7 +7,13 @@ namespace kisatsingen.Components.Chat;
 
 public partial class ToolCallView : ComponentBase
 {
-    private static readonly JsonSerializerOptions IndentedJson = new() { WriteIndented = true };
+    // Relaxed, or "Kjøretøy" reads as "Kjøretøy". Safe because Blazor
+    // HTML-encodes the text it renders; this JSON never reaches a script.
+    private static readonly JsonSerializerOptions IndentedJson = new()
+    {
+        WriteIndented = true,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     [Parameter, EditorRequired] public required ToolSegment Segment { get; set; }
 

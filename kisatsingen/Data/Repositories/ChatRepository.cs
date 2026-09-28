@@ -81,8 +81,11 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
+        // Split query: as one JOIN, the chat row — its system prompt included —
+        // would come back once per turn.
         return await db.Chats
             .Include(c => c.Turns.OrderBy(t => t.Seq))
+            .AsSplitQuery()
             .AsNoTracking()
             .FirstOrDefaultAsync(c => c.Id == chatId && c.OwnerId == ownerId, ct);
     }
