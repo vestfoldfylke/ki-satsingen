@@ -53,6 +53,7 @@ let isPinned = true;
 let following = false;
 let mutationObserver: MutationObserver | null = null;
 let tailResizeObserver: ResizeObserver | null = null;
+let contentResizeObserver: ResizeObserver | null = null;
 let bottomInsetPx = 0;
 let userActivityAt = 0;
 let lastScrollTop = 0;
@@ -281,6 +282,10 @@ export function initChatLog(): void {
             tailResizeObserver.disconnect();
             tailResizeObserver = null;
         }
+        if (contentResizeObserver) {
+            contentResizeObserver.disconnect();
+            contentResizeObserver = null;
+        }
         if (chatLogElement) {
             chatLogElement.removeEventListener('scroll', onScroll);
             chatLogElement.removeEventListener('wheel', markUserActivity);
@@ -318,6 +323,13 @@ export function initChatLog(): void {
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
 
+        // Growth that is neither a new top-level child nor streamed text — a
+        // tool block appearing inside the live answer, its result arriving —
+        // reaches no other hook. Size is what following cares about, so watch
+        // that rather than every mutation in the subtree.
+        contentResizeObserver = new ResizeObserver(notifyContentChanged);
+        contentResizeObserver.observe(inner);
+
         if (chatTailElement) {
             tailResizeObserver = new ResizeObserver(publishTailHeight);
             tailResizeObserver.observe(chatTailElement);
@@ -348,7 +360,8 @@ export function initChatLog(): void {
 }
 
 // Called from chat-streaming.js after every renderInto (streaming tokens),
-// and from onLogMutation on non-user-bubble mutations.
+// from onLogMutation on non-user-bubble mutations, and whenever the transcript
+// changes size.
 // Gated on `following` — user intent, not DOM position — so popToTop's
 // "no auto-scroll after send" survives even on short chats where the user
 // bubble happens to end up near the bottom.

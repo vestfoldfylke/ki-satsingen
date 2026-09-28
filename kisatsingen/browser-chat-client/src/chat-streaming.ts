@@ -183,12 +183,18 @@ export function streamAppend(id: string, text: string): void {
     scheduleRender(state);
 }
 
-// Cancel any in-flight frame before dropping state — otherwise a stale frame
-// could overwrite the final render Blazor is about to put in the same node.
+// Paints whatever is still waiting for a frame, then drops the stream. The last
+// chunk usually arrives right before this call: cancelling its frame would leave
+// that text off screen until Blazor's final render, which waits on a database
+// write. Painting now, rather than letting the frame run, also keeps a late
+// frame from landing over that final render.
 export function streamEnd(id: string): void {
     const state = streamStates.get(id);
     if (state?.rafHandle) {
         cancelAnimationFrame(state.rafHandle);
+        state.rafHandle = 0;
+        state.el ??= elForStream(state.id);
+        renderInto(state.el, state.buffer);
     }
     streamStates.delete(id);
 }
