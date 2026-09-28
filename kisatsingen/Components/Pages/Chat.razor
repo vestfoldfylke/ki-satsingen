@@ -2,7 +2,6 @@
 @page "/chat/{ChatId:guid?}"
 @rendermode InteractiveServer
 @using kisatsingen.Components.Chat
-@using kisatsingen.Services.Chat
 
 @inject IWebHostEnvironment Env
 
@@ -14,25 +13,15 @@
         {
             <div class="chat-log" role="log" aria-live="polite">
                 <div class="chat-log-inner">
-                    @foreach (var item in Session.Committed)
+                    @foreach (var view in Session.Transcript)
                     {
-                        if (item is UserBubbleView bubble)
-                        {
-                            <UserBubble @key="item.Id" Bubble="bubble" />
-                        }
-                        else if (item is AssistantTurnView turn)
-                        {
-                            <AssistantTurn @key="item.Id" Turn="turn" />
-                        }
-                        else if (item is ChatEventView chatEvent)
-                        {
-                            <ChatEventNotice @key="item.Id" Event="chatEvent" />
-                        }
+                        <TranscriptTurn @key="view.Turn.Id" View="view" />
                     }
-                    @if (Session.StreamingId is not null)
+                    @if (Session.HasLiveTurn)
                     {
-                        var streamingId = Session.StreamingId.Value;
-                        <StreamingChatMessage Id="streamingId" />
+                        @* The spacer rule and chat-scroll.ts key off this: its
+                           removal is how the page learns the turn has ended. *@
+                        <div class="assistant-streaming" aria-hidden="true"></div>
                     }
                     <div class="chat-log-spacer" aria-hidden="true"></div>
                     <button type="button" class="chat-jump-latest" hidden aria-label="Jump to latest">

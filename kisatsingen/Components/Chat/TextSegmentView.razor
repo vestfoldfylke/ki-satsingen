@@ -1,0 +1,7 @@
+@* One element for the segment's whole life, streamed into while live and
+   rendered from Text after, so nothing is swapped out when the turn ends. *@
+<div id="stream-@Segment.Id" class="assistant-markdown" @ref="_element"></div>
+@if (!IsStreaming)
+{
+    <div class="markdown-fallback">@Segment.Text</div>
+}

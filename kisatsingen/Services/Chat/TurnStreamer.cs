@@ -1,13 +1,14 @@
 using System.Diagnostics;
+using kisatsingen.Constants;
 using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
-// Carries a model stream to the browser. Knows nothing of the transcript or the
-// database, so ChatSession reads as the sequence of a turn rather than the
-// mechanics of a stream.
+// Split by how often things fire: text goes per token to the browser's stream for
+// its segment, with no Blazor render; a segment or tool starting or finishing
+// re-renders the page, which is rare enough to afford.
 internal sealed class TurnStreamer
 {
     private readonly ChatClientChannel _channel;
@@ -22,14 +23,14 @@ internal sealed class TurnStreamer
         _metricPrefix = metricPrefix;
     }
 
-    // Writes into progress rather than returning, so an exception unwinding out of
-    // here leaves the caller holding everything that arrived.
+    // Writes into the builder rather than returning, so a caller whose stream threw
+    // still has everything that arrived.
     public async Task StreamAsync(
         IChatClient client,
         IReadOnlyList<ChatMessage> request,
         ChatOptions options,
-        Guid streamId,
-        TurnProgress progress,
+        TurnBuilder builder,
+        Action onStructureChanged,
         CancellationToken ct)
     {
         var duration = _metrics.Histogram($"{_metricPrefix}_Duration", "Elapsed time for a chat message");
@@ -37,56 +38,98 @@ internal sealed class TurnStreamer
         // Not UtcNow: FlushCadence needs offsets that never go backwards, and an NTP
         // step would freeze the visible stream.
         var elapsed = Stopwatch.StartNew();
+
+        // Renewed per segment, so one segment's leftovers never land in the next.
         var cadence = new FlushCadence();
 
         try
         {
             await foreach (var update in client.GetStreamingResponseAsync(request, options, ct))
             {
-                progress.Add(update);
+                CountContent(update);
                 var offsetMs = elapsed.ElapsedMilliseconds;
 
-                CountToolActivity(update);
-
-                if (string.IsNullOrEmpty(update.Text))
+                foreach (var change in builder.Apply(update))
                 {
-                    continue;
-                }
+                    switch (change)
+                    {
+                        case TurnChange.TextStarted started:
+                            cadence = new FlushCadence();
+                            // The render only queues, so the stream may start before the element
+                            // exists; chat-streaming.ts looks it up per frame, which makes that safe.
+                            _ = _channel.StreamStart(started.SegmentId);
+                            onStructureChanged();
+                            break;
 
-                progress.FirstTokenMs ??= offsetMs;
+                        case TurnChange.TextAppended appended:
+                            builder.TimeToFirstTokenMs ??= offsetMs;
+                            if (cadence.Append(offsetMs, appended.Delta) is { } due)
+                            {
+                                _ = _channel.StreamAppend(appended.SegmentId, due);
+                            }
+                            break;
 
-                if (cadence.Append(offsetMs, update.Text) is { } due)
-                {
-                    _ = _channel.StreamAppend(streamId, due);
+                        // Before the render, or the stream's last paint could land over the
+                        // page's final render of the segment.
+                        case TurnChange.TextEnded ended:
+                            EndStream(ended.SegmentId, cadence);
+                            break;
+
+                        case TurnChange.ToolStarted or TurnChange.ToolFinished:
+                            onStructureChanged();
+                            break;
+                    }
                 }
             }
 
-            if (cadence.Drain() is { } remaining)
+            if (builder.OpenTextSegmentId is { } openId && cadence.Drain() is { } remaining)
             {
-                _ = _channel.StreamAppend(streamId, remaining);
+                _ = _channel.StreamAppend(openId, remaining);
             }
         }
         finally
         {
-            // A stopped turn is persisted with its duration too.
-            progress.DurationMs = elapsed.ElapsedMilliseconds;
+            // Even when stopped: the browser holds a buffer per stream.
+            if (builder.OpenTextSegmentId is { } openId)
+            {
+                _ = _channel.StreamEnd(openId);
+            }
+
+            // In the finally, so a stopped turn is stored with its duration too.
+            builder.DurationMs = elapsed.ElapsedMilliseconds;
         }
 
         // Success only: observing other turns would change what the dashboards mean.
         duration.ObserveDuration();
     }
 
-    private void CountToolActivity(ChatResponseUpdate update)
+    private void EndStream(Guid segmentId, FlushCadence cadence)
+    {
+        if (cadence.Drain() is { } remaining)
+        {
+            _ = _channel.StreamAppend(segmentId, remaining);
+        }
+
+        _ = _channel.StreamEnd(segmentId);
+    }
+
+    private void CountContent(ChatResponseUpdate update)
     {
         foreach (var content in update.Contents)
         {
             switch (content)
             {
                 case FunctionCallContent call:
-                    _metrics.Count($"{_metricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
+                    _metrics.Count($"{_metricPrefix}_ToolCall", "Number of tool calls performed", (MetricConstants.MetricsToolLabelName, call.Name));
                     break;
                 case FunctionResultContent:
                     _metrics.Count($"{_metricPrefix}_ToolResult", "Number of tool results retrieved");
+                    break;
+                case TextContent or UsageContent:
+                    break;
+                // TurnBuilder drops these; counted so a kind an upgrade starts sending is noticed.
+                default:
+                    _metrics.Count($"{_metricPrefix}_UnkeptContent", "Streamed content the transcript does not keep", (MetricConstants.MetricsContentTypeLabelName, content.GetType().Name));
                     break;
             }
         }

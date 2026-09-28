@@ -111,9 +111,8 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         await TouchScopeAsync(db, ownerId, assistantId, chatId, now, ct);
 
-        // One SaveChanges for the whole graph, unlike the per-row loop in
-        // ChatRepository.AppendMessagesAsync: that loop exists because Seq is a
-        // column default, and Sequence here is assigned above. Do not match it.
+        // One SaveChanges for the graph: multi-row insert order only matters for a
+        // sequence default, and Sequence is assigned above.
         db.KnowledgeFiles.Add(file);
         await db.SaveChangesAsync(ct);
 

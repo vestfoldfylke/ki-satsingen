@@ -8,20 +8,17 @@ namespace kisatsingen.Tests.Services.Chat;
 public sealed class ChatSessionInstructionsTests
 {
     [Fact]
-    public async Task The_instructions_sent_to_the_model_are_the_ones_persisted_with_the_turn()
+    public async Task The_instructions_sent_to_the_model_are_the_ones_stored_with_the_turn()
     {
         await using var harness = new ChatSessionHarness();
 
         await harness.Session.SendAsync("hei");
 
         var instructionsSent = harness.Client.LastOptions?.Instructions;
-        var instructionsStored = harness.Repository.AppendedMessages
-            .Single(message => message.Role == ChatRole.User.Value)
-            .SystemPromptSnapshot;
 
         // Two nulls would also pass the comparison below.
         Assert.NotNull(instructionsSent);
-        Assert.Equal(instructionsSent, instructionsStored);
+        Assert.Equal(instructionsSent, harness.StoredTurn.SystemPrompt);
     }
 
     [Fact]

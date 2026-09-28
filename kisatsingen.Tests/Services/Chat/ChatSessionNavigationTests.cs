@@ -1,7 +1,5 @@
 using kisatsingen.Constants;
-using kisatsingen.Data.Entities;
 using kisatsingen.Services.Chat;
-using Microsoft.Extensions.AI;
 using Xunit;
 // Aliased: this namespace's .Chat shadows the entity.
 using ChatEntity = kisatsingen.Data.Entities.Chat;
@@ -23,8 +21,8 @@ public sealed class ChatSessionNavigationTests
 
         var askedIn = await LeaveMidAnswer(harness, other.Id);
 
-        Assert.All(harness.Repository.MessageChatIds, chatId => Assert.Equal(askedIn, chatId));
-        Assert.Contains(harness.Repository.AppendedMessages, message => message.Content == "halvferdig svar");
+        Assert.All(harness.Repository.Writes, write => Assert.Equal(askedIn, write.ChatId));
+        Assert.Equal("halvferdig svar", TurnText.Of(harness.StoredTurn));
     }
 
     [Fact]
@@ -35,8 +33,8 @@ public sealed class ChatSessionNavigationTests
 
         var askedIn = await LeaveMidAnswer(harness, other.Id);
 
-        Assert.Equal(ChatEventKind.LeftChat, Assert.Single(harness.Repository.AppendedEvents).Kind);
-        Assert.Equal(askedIn, Assert.Single(harness.Repository.EventChatIds));
+        Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
+        Assert.Equal(askedIn, harness.Repository.Writes[^1].ChatId);
     }
 
     [Fact]
@@ -71,7 +69,7 @@ public sealed class ChatSessionNavigationTests
         await LeaveMidAnswer(harness, other.Id);
 
         Assert.Equal(other.Id, harness.Session.ChatId);
-        Assert.Empty(harness.Session.Committed);
+        Assert.Empty(harness.Session.Transcript);
     }
 
     // So the URL names the chat before the answer ends, and "New chat" or the
@@ -140,8 +138,8 @@ public sealed class ChatSessionNavigationTests
         await harness.Session.LoadAsync(null).WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
-        Assert.Equal(ChatEventKind.LeftChat, Assert.Single(harness.Repository.AppendedEvents).Kind);
-        Assert.Equal(askedIn, Assert.Single(harness.Repository.EventChatIds));
+        Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
+        Assert.Equal(askedIn, harness.Repository.Writes[^1].ChatId);
         Assert.Null(harness.Session.ChatId);
     }
 

@@ -27,8 +27,8 @@ public sealed class TurnStageNoticeTests
         Assert.DoesNotContain(generic, AllStages.Select(TurnStageNotice.Describe));
     }
 
-    // Persisted and rendered as-is, so an empty or whitespace notice would show
-    // the user a blank event rather than an explanation.
+    // Rendered as-is, so an empty or whitespace notice would show the user a
+    // blank line rather than an explanation.
     [Fact]
     public void Every_notice_is_something_the_user_can_read()
     {

@@ -1,0 +1,119 @@
+using System.Text.Encodings.Web;
+using System.Text.Json;
+using StoredTurn = kisatsingen.Data.Entities.ChatTurn;
+
+namespace kisatsingen.Services.Chat;
+
+internal static class ChatTurnMapper
+{
+    // Covers Blazor's circuit retention (3 minutes by default), during which a
+    // reload leaves the old circuit answering, plus a long answer with tools.
+    public static readonly TimeSpan StillRunningElsewhereFor = TimeSpan.FromMinutes(10);
+
+    // Relaxed, or every æ, ø and å is stored as a six-character escape. Safe: this
+    // JSON is only ever read back by this mapper, never rendered as HTML.
+    private static readonly JsonSerializerOptions AnswerJson = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    public static StoredTurn ToEntity(Turn turn) => new()
+    {
+        Id = turn.Id,
+        StartedAt = turn.StartedAt,
+        Prompt = turn.Prompt,
+        SystemPrompt = turn.SystemPrompt,
+        ModelKey = turn.ModelKey?.Value ?? string.Empty,
+        Status = turn.Status.ToString(),
+        FailedAt = turn.FailedAt?.ToString(),
+        AnswerJson = JsonSerializer.Serialize(turn.Answer, AnswerJson),
+        ServedModelId = turn.Metadata?.ServedModelId,
+        ResponseId = turn.Metadata?.ResponseId,
+        FinishReason = turn.Metadata?.FinishReason,
+        InputTokens = turn.Metadata?.Usage?.InputTokens,
+        OutputTokens = turn.Metadata?.Usage?.OutputTokens,
+        TotalTokens = turn.Metadata?.Usage?.TotalTokens,
+        DurationMs = turn.Metadata?.DurationMs,
+        TimeToFirstTokenMs = turn.Metadata?.TimeToFirstTokenMs
+    };
+
+    // resolveModelName must answer for removed models too: a chat outlives them.
+    // loadedAt is needed because only a Running row's age tells a turn still being
+    // answered elsewhere from one whose ending was never written.
+    public static Turn FromEntity(
+        StoredTurn stored,
+        DateTimeOffset loadedAt,
+        Func<ChatModelKey, string> resolveModelName,
+        ILogger logger)
+    {
+        var turn = Read(stored, resolveModelName, logger);
+
+        return turn.Status == TurnStatus.Running && loadedAt - turn.StartedAt > StillRunningElsewhereFor
+            ? turn.EndedAs(TurnStatus.Unfinished)
+            : turn;
+    }
+
+    private static Turn Read(StoredTurn stored, Func<ChatModelKey, string> resolveModelName, ILogger logger)
+    {
+        var modelKey = ChatModelKey.TryCreate(stored.ModelKey);
+        var answer = ReadAnswer(stored, logger);
+
+        return new Turn
+        {
+            Id = stored.Id,
+            Prompt = stored.Prompt,
+            SystemPrompt = stored.SystemPrompt,
+            ModelKey = modelKey,
+            ModelDisplayName = modelKey is { } key ? resolveModelName(key) : null,
+            StartedAt = stored.StartedAt,
+            Answer = answer ?? [],
+            IsAnswerUnreadable = answer is null,
+            Status = ReadStatus(stored, logger),
+            FailedAt = Enum.TryParse<TurnStage>(stored.FailedAt, out var stage) ? stage : null,
+            Metadata = ReadMetadata(stored)
+        };
+    }
+
+    // Null rather than throwing: one unreadable answer must not lock the user out of
+    // the chat. System.Text.Json throws NotSupportedException for a segment whose
+    // "kind" is not first.
+    private static IReadOnlyList<TurnSegment>? ReadAnswer(StoredTurn stored, ILogger logger)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<List<TurnSegment>>(stored.AnswerJson, AnswerJson) ?? [];
+        }
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
+        {
+            logger.LogWarning(
+                ex,
+                "The stored answer for turn {TurnId} could not be read and is shown as unreadable. It was most likely written by a newer build with a segment kind this one does not know; redeploying that build restores it.",
+                stored.Id);
+            return null;
+        }
+    }
+
+    private static TurnStatus ReadStatus(StoredTurn stored, ILogger logger)
+    {
+        if (Enum.TryParse<TurnStatus>(stored.Status, out var status))
+        {
+            return status;
+        }
+
+        logger.LogWarning(
+            "Turn {TurnId} has status {Status}, which this build does not know. It is shown as unfinished.",
+            stored.Id,
+            stored.Status);
+        return TurnStatus.Unfinished;
+    }
+
+    private static TurnMetadata? ReadMetadata(StoredTurn stored) => stored.DurationMs is null
+        ? null
+        : new TurnMetadata(
+            stored.ServedModelId,
+            stored.ResponseId,
+            stored.FinishReason,
+            MessageUsage.FromCounts(stored.InputTokens, stored.OutputTokens, stored.TotalTokens),
+            stored.DurationMs,
+            stored.TimeToFirstTokenMs);
+}

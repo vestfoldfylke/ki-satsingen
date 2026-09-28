@@ -53,6 +53,7 @@ let isPinned = true;
 let following = false;
 let mutationObserver: MutationObserver | null = null;
 let tailResizeObserver: ResizeObserver | null = null;
+let contentResizeObserver: ResizeObserver | null = null;
 let bottomInsetPx = 0;
 let userActivityAt = 0;
 let lastScrollTop = 0;
@@ -281,6 +282,10 @@ export function initChatLog(): void {
             tailResizeObserver.disconnect();
             tailResizeObserver = null;
         }
+        if (contentResizeObserver) {
+            contentResizeObserver.disconnect();
+            contentResizeObserver = null;
+        }
         if (chatLogElement) {
             chatLogElement.removeEventListener('scroll', onScroll);
             chatLogElement.removeEventListener('wheel', markUserActivity);
@@ -296,6 +301,7 @@ export function initChatLog(): void {
         scrollToBottomPillElement = pill;
         spacerElement = log.querySelector<HTMLElement>('.chat-log-spacer');
         chatTailElement = log.querySelector<HTMLElement>('.chat-tail');
+        lastScrollTop = log.scrollTop;
 
         log.addEventListener('scroll', onScroll, { passive: true });
         log.addEventListener('wheel', markUserActivity, { passive: true });
@@ -317,6 +323,13 @@ export function initChatLog(): void {
         }
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
+
+        // The one hook for content growth — text, final renders, tool blocks and
+        // their results — because size is what following cares about. It runs
+        // after layout, so no write forces one. While a turn streams, the spacer
+        // reserves space below the content, so all growth resizes this.
+        contentResizeObserver = new ResizeObserver(notifyContentChanged);
+        contentResizeObserver.observe(inner);
 
         if (chatTailElement) {
             tailResizeObserver = new ResizeObserver(publishTailHeight);
@@ -347,12 +360,12 @@ export function initChatLog(): void {
     scrollToBottom(false);
 }
 
-// Called from chat-streaming.js after every renderInto (streaming tokens),
-// and from onLogMutation on non-user-bubble mutations.
+// Called whenever the transcript changes size, and from onLogMutation on
+// non-user-bubble mutations.
 // Gated on `following` — user intent, not DOM position — so popToTop's
 // "no auto-scroll after send" survives even on short chats where the user
 // bubble happens to end up near the bottom.
-export function notifyContentChanged(): void {
+function notifyContentChanged(): void {
     if (!chatLogElement) {
         return;
     }

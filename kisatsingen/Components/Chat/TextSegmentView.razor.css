@@ -1,0 +1,8 @@
+.markdown-fallback {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.assistant-markdown:not(:empty) + .markdown-fallback {
+    display: none;
+}

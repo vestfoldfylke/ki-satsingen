@@ -1,19 +1,13 @@
-using kisatsingen.Data.Entities;
 using kisatsingen.Services;
+using kisatsingen.Services.Chat;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// How a turn ends, and what the user is told about it afterwards. Every case
-// here produces no answer, so the only thing distinguishing them is the event
-// the session records — which is exactly what a reader of a reloaded transcript
-// depends on being right.
 public sealed class ChatSessionOutcomeTests
 {
-    // The bug this exists for: an HTTP timeout inside the provider client
-    // surfaces as TaskCanceledException, which is an OperationCanceledException
-    // nobody here asked for. Read as a cancellation, a real outage is filed as
-    // the user pressing a button they never pressed.
+    // The bug this exists for: a provider's HTTP timeout surfaces as
+    // TaskCanceledException. Read as a cancellation, an outage is filed as a user stop.
     [Fact]
     public async Task A_provider_timeout_is_recorded_as_a_failure_rather_than_a_user_stop()
     {
@@ -22,7 +16,7 @@ public sealed class ChatSessionOutcomeTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(ChatEventKind.Failed, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Failed, harness.VisibleTurn.Status);
     }
 
     [Fact]
@@ -33,7 +27,7 @@ public sealed class ChatSessionOutcomeTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal("Svaret kunne ikke fullføres", harness.SingleVisibleEvent.Detail);
+        Assert.Equal("Svaret kunne ikke fullføres", harness.VisibleNotice);
     }
 
     // The one failure the user cannot see for themselves: the answer is on their
@@ -42,27 +36,52 @@ public sealed class ChatSessionOutcomeTests
     public async Task A_response_that_cannot_be_saved_says_it_was_shown_but_not_stored()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.SecondAppendMessagesFailure = new InvalidOperationException("database away");
+        harness.Repository.FirstUpdateFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal("Svaret ble vist, men ikke lagret", harness.SingleVisibleEvent.Detail);
+        Assert.Equal("Svaret ble vist, men ikke lagret", harness.VisibleNotice);
+    }
+
+    // Retried, the row would hold the whole answer under a notice saying it was not stored.
+    [Fact]
+    public async Task A_response_that_cannot_be_saved_leaves_the_stored_turn_running()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.FirstUpdateFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(TurnStatus.Running, harness.StoredTurn.Status);
     }
 
     [Fact]
     public async Task A_message_that_cannot_be_saved_says_so_before_the_model_is_ever_called()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.FirstAppendMessagesFailure = new InvalidOperationException("database away");
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal("Meldingen ble ikke lagret", harness.SingleVisibleEvent.Detail);
+        Assert.Equal("Meldingen ble ikke lagret", harness.VisibleNotice);
+        Assert.Empty(harness.Catalog.ResolvedKeys);
     }
 
-    // Provider and database exceptions routinely carry connection details and
-    // error bodies in their messages. The notice is persisted and rendered, so
-    // nothing derived from the exception may reach it.
+    // Proves the rule is wired into the request, not just tested beside it.
+    [Fact]
+    public async Task A_message_that_cannot_be_saved_is_not_sent_with_the_next_one()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+        await harness.Session.SendAsync("aldri lagret");
+        harness.Repository.InsertTurnFailure = null;
+
+        await harness.Session.SendAsync("prøv igjen");
+
+        Assert.Equal(["prøv igjen"], harness.Client.LastMessages.Select(message => message.Text));
+    }
+
+    // Exception messages carry connection details and provider error bodies.
     [Fact]
     public async Task The_exception_message_never_reaches_the_transcript()
     {
@@ -73,7 +92,7 @@ public sealed class ChatSessionOutcomeTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.DoesNotContain(leakMarker, harness.SingleVisibleEvent.Detail);
+        Assert.DoesNotContain(leakMarker, harness.VisibleNotice);
     }
 
     [Fact]
@@ -88,24 +107,23 @@ public sealed class ChatSessionOutcomeTests
         Assert.False(harness.Session.IsBusy);
     }
 
-    // Recording the failure is itself a database write, and it can fail for the
-    // same reason the turn did. It must not replace the outcome it was recording.
+    // Storing the ending can fail for the same reason the turn did, and must not
+    // replace the outcome it was recording.
     [Fact]
-    public async Task A_failure_to_persist_the_failure_does_not_escape_the_turn()
+    public async Task A_failure_to_store_how_a_turn_ended_does_not_escape_the_turn()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new InvalidOperationException("provider exploded"));
-        harness.Repository.AppendEventFailure = new InvalidOperationException("database still away");
+        harness.Repository.FirstUpdateFailure = new InvalidOperationException("database still away");
 
         var failure = await Record.ExceptionAsync(() => harness.Session.SendAsync("hei"));
 
         Assert.Null(failure);
-        Assert.Equal(ChatEventKind.Failed, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Failed, harness.VisibleTurn.Status);
     }
 
-    // Nothing was persisted and nothing can be — there is no chat row yet and no
-    // owner to attribute one to. Going silent here would leave the user staring
-    // at a message that simply never got an answer.
+    // Nothing can be stored without a chat row, but silence would leave a question
+    // with no answer and no reason.
     [Fact]
     public async Task A_failure_before_the_chat_exists_still_shows_the_user_a_notice()
     {
@@ -114,12 +132,14 @@ public sealed class ChatSessionOutcomeTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(ChatEventKind.Failed, harness.SingleVisibleEvent.Kind);
-        Assert.Empty(harness.Repository.AppendedEvents);
+        Assert.Equal(TurnStatus.Failed, harness.VisibleTurn.Status);
+        Assert.Empty(harness.Repository.Writes);
     }
 
+    // Let out on purpose: it ends the circuit, and the reload that follows is
+    // what the sign-in middleware redirects.
     [Fact]
-    public async Task An_unauthenticated_caller_still_reaches_the_error_boundary()
+    public async Task An_unauthenticated_caller_is_not_swallowed_as_a_chat_problem()
     {
         await using var harness = new ChatSessionHarness();
         harness.Authentication.Failure = new UserNotAuthenticatedException();
@@ -127,10 +147,8 @@ public sealed class ChatSessionOutcomeTests
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
     }
 
-    // The other exception allowed out. An allocation failure says nothing about
-    // this turn, and recording it as a chat problem invites a retry that fails
-    // the same way. Nothing in the compiler stops someone removing that clause,
-    // after which it would be swallowed like any other fault.
+    // Recorded as a chat problem, an allocation failure would invite a retry that
+    // fails the same way. Nothing but this test stops the clause being removed.
     [Fact]
     public async Task An_allocation_failure_is_not_swallowed_as_a_chat_problem()
     {
@@ -139,7 +157,7 @@ public sealed class ChatSessionOutcomeTests
 
         await Assert.ThrowsAsync<OutOfMemoryException>(() => harness.Session.SendAsync("hei"));
 
-        Assert.Empty(harness.VisibleEvents);
+        Assert.Equal(TurnStatus.Running, harness.StoredTurn.Status);
     }
 
     [Fact]
@@ -153,7 +171,7 @@ public sealed class ChatSessionOutcomeTests
         harness.Session.Cancel();
         await send;
 
-        Assert.Equal(ChatEventKind.Stopped, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
     }
 
     [Fact]
@@ -167,7 +185,7 @@ public sealed class ChatSessionOutcomeTests
         harness.Session.CancelForDisconnect();
         await send;
 
-        Assert.Equal(ChatEventKind.Disconnected, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Disconnected, harness.VisibleTurn.Status);
     }
 
     [Fact]
@@ -182,12 +200,11 @@ public sealed class ChatSessionOutcomeTests
         harness.Session.CancelForDisconnect();
         await send;
 
-        Assert.Equal(ChatEventKind.Disconnected, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Disconnected, harness.VisibleTurn.Status);
     }
 
-    // Circuit teardown disposes the session out from under a running turn. The
-    // outcome still has to be attributable afterwards, and it is a disconnect —
-    // the circuit was evicted after its reconnect period, the host is shutting down.
+    // Circuit teardown disposes the session under a running turn: an eviction or
+    // shutdown, so a disconnect.
     [Fact]
     public async Task Disposing_the_session_mid_turn_is_recorded_as_a_disconnect()
     {
@@ -199,11 +216,11 @@ public sealed class ChatSessionOutcomeTests
         await harness.DisposeAsync();
         await send;
 
-        Assert.Equal(ChatEventKind.Disconnected, harness.SingleVisibleEvent.Kind);
+        Assert.Equal(TurnStatus.Disconnected, harness.StoredTurn.Status);
     }
 
     [Fact]
-    public async Task A_cancelled_turn_persists_its_reason_for_the_next_reload()
+    public async Task A_stopped_turn_stores_that_it_was_stopped_for_the_next_load()
     {
         await using var harness = new ChatSessionHarness();
         var reached = InFlight(harness);
@@ -213,39 +230,130 @@ public sealed class ChatSessionOutcomeTests
         harness.Session.Cancel();
         await send;
 
-        var persisted = Assert.Single(harness.Repository.AppendedEvents);
-        Assert.Equal(ChatEventKind.Stopped, persisted.Kind);
+        Assert.Equal(TurnStatus.Stopped, harness.StoredTurn.Status);
     }
 
-    // The in-memory notice is what the current page shows; this is what survives
-    // to explain the gap on the next load, which is the whole point of the event.
     [Fact]
-    public async Task A_failed_turn_persists_its_notice_for_the_next_reload()
+    public async Task A_failed_turn_stores_the_stage_it_failed_at_for_the_next_load()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new InvalidOperationException("provider exploded"));
 
         await harness.Session.SendAsync("hei");
 
-        var persisted = Assert.Single(harness.Repository.AppendedEvents);
-        Assert.Equal(ChatEventKind.Failed, persisted.Kind);
-        Assert.Equal("Svaret kunne ikke fullføres", persisted.Detail);
+        Assert.Equal(TurnStatus.Failed, harness.StoredTurn.Status);
+        Assert.Equal(TurnStage.Generating, harness.StoredTurn.FailedAt);
     }
 
     [Fact]
-    public async Task A_turn_that_answers_records_no_event_at_all()
+    public async Task A_turn_that_answers_shows_no_notice()
     {
         await using var harness = new ChatSessionHarness();
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Empty(harness.VisibleEvents);
-        Assert.Empty(harness.Repository.AppendedEvents);
+        Assert.Null(harness.VisibleNotice);
+        Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
     }
 
-    // Parks the model mid-turn and hands back a task that completes once the
-    // stream is genuinely running, so a test cancels a turn in flight rather
-    // than one that already finished.
+    [Fact]
+    public async Task A_stop_during_the_final_save_stores_the_answer_as_completed()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.BeforeFirstUpdate = () => harness.Session.Cancel();
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
+    }
+
+    // It would open empty, with nothing to say why.
+    [Fact]
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_deleted()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Single(harness.Repository.DeletedChatIds);
+    }
+
+    // Announced, the URL would name a chat that no longer exists.
+    [Fact]
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_never_announced()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+        var announcements = 0;
+        harness.Session.ChatCreated += _ => announcements++;
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal((0, (Guid?)null), (announcements, harness.Session.ChatId));
+    }
+
+    [Fact]
+    public async Task An_existing_chat_is_kept_when_a_question_cannot_be_saved()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = harness.Repository.Store(new kisatsingen.Data.Entities.Chat
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Title = "stored"
+        });
+        await harness.Session.LoadAsync(chat.Id);
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Empty(harness.Repository.DeletedChatIds);
+    }
+
+    // A content filter or token limit can end a turn without a word.
+    [Fact]
+    public async Task A_turn_that_completes_without_saying_anything_says_so()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage(string.Empty, inputTokens: 10, outputTokens: 0);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal("Modellen ga ikke noe svar", harness.VisibleNotice);
+    }
+
+    // Proves the load wires its clock into the mapper, not just that the mapper has one.
+    [Fact]
+    public async Task Reopening_a_chat_whose_turn_never_finished_says_so()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = harness.Repository.Store(new kisatsingen.Data.Entities.Chat
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Title = "stored",
+            Turns =
+            [
+                new kisatsingen.Data.Entities.ChatTurn
+                {
+                    Id = Guid.NewGuid(),
+                    StartedAt = DateTimeOffset.UtcNow - TimeSpan.FromDays(1),
+                    Prompt = "hei",
+                    SystemPrompt = "be brief",
+                    ModelKey = FakeChatModelCatalog.DefaultKey.Value,
+                    Status = nameof(TurnStatus.Running),
+                    AnswerJson = "[]"
+                }
+            ]
+        });
+
+        await harness.Session.LoadAsync(chat.Id);
+
+        Assert.Equal("Svaret ble ikke fullført", harness.VisibleNotice);
+    }
+
+    // So a test cancels a turn genuinely in flight, not one already finished.
     private static Task InFlight(ChatSessionHarness harness)
     {
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

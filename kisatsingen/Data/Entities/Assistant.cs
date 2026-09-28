@@ -14,7 +14,7 @@ public sealed class Assistant
     public required string Name { get; init; }
     public string? Description { get; init; }
 
-    // Not versioned: ChatMessage.SystemPromptSnapshot already records what each
+    // Not versioned: ChatTurn.SystemPrompt already records what each
     // turn was actually sent, so editing this cannot rewrite past chats.
     public required string Instructions { get; init; }
 

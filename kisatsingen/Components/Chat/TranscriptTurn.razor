@@ -1,0 +1,35 @@
+@using kisatsingen.Services.Chat
+
+@* No wrapper element: chat-scroll.ts watches .chat-log-inner's direct children
+   for a new .user-bubble, and the layout relies on each block being its flex child. *@
+@if (View.ModelChangedTo is { } model)
+{
+    <ModelBoundaryNotice ModelDisplayName="@model" />
+}
+<UserBubble Text="@View.Turn.Prompt" />
+@if (View.IsLive || View.Turn.Answer.Count > 0)
+{
+    <AssistantTurn Turn="View.Turn" IsLive="View.IsLive" />
+}
+@if (TurnNotice.Describe(View) is { } notice)
+{
+    <TurnNoticeLine Text="@notice" />
+}
+
+@code {
+    [Parameter, EditorRequired] public required TurnView View { get; set; }
+
+    private TurnView? _rendered;
+    private bool _hasChanged = true;
+
+    // Each page render hands every turn a fresh TurnView, so without this the whole
+    // transcript re-renders on every tool event. Turns are immutable, so equal
+    // means unchanged, and for an unchanged turn that is a reference check.
+    protected override void OnParametersSet()
+    {
+        _hasChanged = !Equals(_rendered, View);
+        _rendered = View;
+    }
+
+    protected override bool ShouldRender() => _hasChanged;
+}

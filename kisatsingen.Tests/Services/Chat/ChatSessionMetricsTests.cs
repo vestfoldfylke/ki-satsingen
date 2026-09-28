@@ -91,23 +91,23 @@ public sealed class ChatSessionMetricsTests
     public async Task A_response_that_cannot_be_saved_is_not_also_counted_as_a_success()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.SecondAppendMessagesFailure = new InvalidOperationException("database away");
+        harness.Repository.FirstUpdateFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 
         AssertSingleResult(harness, MetricConstants.MetricsResultFailedLabelValue);
     }
 
+    // The answer was complete before the stop, so the stop cannot undo it.
     [Fact]
-    public async Task A_turn_cancelled_while_saving_its_response_is_not_also_counted_as_a_success()
+    public async Task A_stop_during_the_final_save_still_counts_one_success()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.BeforeSecondAppendMessages = () => harness.Session.Cancel();
-        harness.Repository.SecondAppendMessagesFailure = new OperationCanceledException();
+        harness.Repository.BeforeFirstUpdate = () => harness.Session.Cancel();
 
         await harness.Session.SendAsync("hei");
 
-        AssertSingleResult(harness, MetricConstants.MetricsResultCancelledLabelValue);
+        AssertSingleResult(harness, MetricConstants.MetricsResultSuccessLabelValue);
     }
 
     [Fact]
@@ -127,7 +127,7 @@ public sealed class ChatSessionMetricsTests
     public async Task A_failure_saving_the_response_is_reported_against_that_stage()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.SecondAppendMessagesFailure = new InvalidOperationException("database away");
+        harness.Repository.FirstUpdateFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 

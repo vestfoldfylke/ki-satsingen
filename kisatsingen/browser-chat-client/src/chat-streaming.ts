@@ -1,12 +1,13 @@
 // Client-side Markdown renderer for chat.
 //
-// Lifecycle for one assistant response:
+// A stream is one text segment, keyed by its id: text either side of a tool call
+// is two streams. Lifecycle for one segment:
 //   streamStart(id)                → init buffer for a new stream (once).
 //   streamAppend(id, text) × N     → server pushes tokens over SignalR.
-//   streamEnd(id)                  → drop buffer; Blazor then removes the
-//                                    stream-{id} div and renders the committed
-//                                    <AssistantTurn>, which calls renderMarkdown.
-//   renderMarkdown(el, source)     → final render on the committed message,
+//   streamEnd(id)                  → drop buffer. The stream-{id} div stays;
+//                                    Blazor's <TextSegmentView> now renders it
+//                                    from the segment's text via renderMarkdown.
+//   renderMarkdown(el, source)     → final render of a finished segment,
 //                                    with hljs syntax highlighting and code-copy
 //                                    buttons injected per <pre>.
 //
@@ -18,7 +19,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
-import { initChatLog, notifyContentChanged } from './chat-scroll.js';
+import { initChatLog } from './chat-scroll.js';
 import { initComposer, setComposerBusy, takeComposerValue } from './chat-composer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
@@ -142,8 +143,8 @@ function renderInto(el: HTMLElement | null, source: string | null | undefined, {
         el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node as HTMLElement));
         injectCodeBlockCopy(el);
     }
-    // Notify content changed, so that we can do fancy auto-scrolling
-    notifyContentChanged();
+    // No scroll call: chat-scroll.ts reacts to size after layout instead of
+    // forcing one right after this write.
 }
 
 function elForStream(id: string): HTMLElement | null {
@@ -181,18 +182,22 @@ export function streamAppend(id: string, text: string): void {
     scheduleRender(state);
 }
 
-// Cancel any in-flight frame before dropping state — otherwise it would render
-// into a DOM node Blazor is about to remove.
+// Paints before dropping rather than cancelling the frame: the last chunk usually
+// arrives just before this, and Blazor's final render waits on a database write.
+// Painting now also stops a late frame landing over that render.
 export function streamEnd(id: string): void {
     const state = streamStates.get(id);
     if (state?.rafHandle) {
         cancelAnimationFrame(state.rafHandle);
+        state.rafHandle = 0;
+        state.el ??= elForStream(state.id);
+        renderInto(state.el, state.buffer);
     }
     streamStates.delete(id);
 }
 
-// Called from AssistantTurn.OnAfterRenderAsync for every committed message.
-// This is the only path that runs hljs and injects copy buttons.
+// Called by TextSegmentView for each finished segment. The only path that runs
+// hljs and injects copy buttons.
 export function renderMarkdown(element: HTMLElement | null, source: string): void {
     renderInto(element, source, {highlight: true});
 }
