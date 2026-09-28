@@ -196,8 +196,8 @@ export function streamEnd(id: string): void {
     streamStates.delete(id);
 }
 
-// Called from AssistantTurn.OnAfterRenderAsync for every committed message.
-// This is the only path that runs hljs and injects copy buttons.
+// Called by TextSegmentView for each finished segment. The only path that runs
+// hljs and injects copy buttons.
 export function renderMarkdown(element: HTMLElement | null, source: string): void {
     renderInto(element, source, {highlight: true});
 }

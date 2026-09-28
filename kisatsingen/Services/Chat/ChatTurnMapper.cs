@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using StoredTurn = kisatsingen.Data.Entities.ChatTurn;
 
@@ -9,7 +10,12 @@ internal static class ChatTurnMapper
     // reload leaves the old circuit answering, plus a long answer with tools.
     public static readonly TimeSpan StillRunningElsewhereFor = TimeSpan.FromMinutes(10);
 
-    private static readonly JsonSerializerOptions AnswerJson = new(JsonSerializerDefaults.Web);
+    // Relaxed, or every æ, ø and å is stored as a six-character escape. Safe: this
+    // JSON is only ever read back by this mapper, never rendered as HTML.
+    private static readonly JsonSerializerOptions AnswerJson = new(JsonSerializerDefaults.Web)
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
 
     public static StoredTurn ToEntity(Turn turn) => new()
     {

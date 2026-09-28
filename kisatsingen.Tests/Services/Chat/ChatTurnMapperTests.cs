@@ -28,6 +28,14 @@ public sealed class ChatTurnMapperTests
     }
 
     [Fact]
+    public void Norwegian_text_is_stored_as_written_rather_than_escaped()
+    {
+        var stored = ChatTurnMapper.ToEntity(TurnWith(new TextSegment(Guid.NewGuid(), 0, "Kjøretøy på vei")));
+
+        Assert.Contains("Kjøretøy på vei", stored.AnswerJson);
+    }
+
+    [Fact]
     public void How_a_turn_ended_survives_the_round_trip()
     {
         var turn = TurnWith() with { Status = TurnStatus.Failed, FailedAt = TurnStage.Generating };

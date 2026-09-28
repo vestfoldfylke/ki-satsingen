@@ -13,8 +13,16 @@ public sealed class TurnNoticeTests
     [Fact]
     public void A_turn_streaming_here_or_answered_has_nothing_to_say()
     {
+        var answered = TurnEnded(TurnStatus.Completed) with { Answer = [new TextSegment(Guid.NewGuid(), 0, "svar")] };
+
         Assert.Null(TurnNotice.Describe(Live(TurnEnded(TurnStatus.Running))));
-        Assert.Null(TurnNotice.Describe(Seen(TurnEnded(TurnStatus.Completed))));
+        Assert.Null(TurnNotice.Describe(Seen(answered)));
+    }
+
+    [Fact]
+    public void A_turn_that_completed_without_any_text_says_so()
+    {
+        Assert.Equal("Modellen ga ikke noe svar", TurnNotice.Describe(Seen(TurnEnded(TurnStatus.Completed))));
     }
 
     // Otherwise the user sees a question with nothing under it and no reason why.

@@ -98,16 +98,16 @@ public sealed class ChatSessionMetricsTests
         AssertSingleResult(harness, MetricConstants.MetricsResultFailedLabelValue);
     }
 
+    // The answer was complete before the stop, so the stop cannot undo it.
     [Fact]
-    public async Task A_turn_cancelled_while_saving_its_response_is_not_also_counted_as_a_success()
+    public async Task A_stop_during_the_final_save_still_counts_one_success()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.BeforeFirstUpdate = () => harness.Session.Cancel();
-        harness.Repository.FirstUpdateFailure = new OperationCanceledException();
 
         await harness.Session.SendAsync("hei");
 
-        AssertSingleResult(harness, MetricConstants.MetricsResultCancelledLabelValue);
+        AssertSingleResult(harness, MetricConstants.MetricsResultSuccessLabelValue);
     }
 
     [Fact]

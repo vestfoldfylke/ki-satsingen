@@ -180,8 +180,13 @@ internal sealed class FakeChatRepository : IChatRepository
     public Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default) =>
         Task.CompletedTask;
 
-    public Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default) =>
-        Task.FromResult(true);
+    public List<Guid> DeletedChatIds { get; } = [];
+
+    public Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    {
+        DeletedChatIds.Add(chatId);
+        return Task.FromResult(true);
+    }
 }
 
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);

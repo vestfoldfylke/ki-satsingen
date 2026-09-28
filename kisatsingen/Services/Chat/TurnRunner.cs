@@ -76,9 +76,11 @@ internal sealed class TurnRunner
             stage = TurnStage.Generating;
             await StreamAsync(turn, builder, request, model, observer, cancellation.Token);
 
+            // CancellationToken.None: the answer is complete, so a stop or a switch of
+            // chat during this one write must not store it as stopped.
             stage = TurnStage.SavingResponse;
             var answered = builder.Finish(TurnStatus.Completed);
-            await SaveAsync(row, answered, cancellation.Token);
+            await SaveAsync(row, answered, CancellationToken.None);
 
             // Only after the write: a turn is a success once its answer is stored.
             servedModelId = answered.Metadata?.ServedModelId;
@@ -152,15 +154,40 @@ internal sealed class TurnRunner
 
     private async Task InsertAsync(TurnRow row, Turn turn, TurnObserver observer, CancellationToken ct)
     {
-        // Stopped while authenticating: nothing was saved yet, so keep it that way.
+        // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
 
+        var isNewChat = row.ChatId is null;
         var chatId = await _chatManager.EnsurePersistedAsync(row.ChatId, turn.Prompt, ct);
-        row.ChatId = chatId;
-        observer.ChatPersisted(chatId);
 
-        await _repo.InsertTurnAsync(row.OwnerId!, chatId, ChatTurnMapper.ToEntity(turn), ct);
+        try
+        {
+            await _repo.InsertTurnAsync(row.OwnerId!, chatId, ChatTurnMapper.ToEntity(turn), ct);
+        }
+        // A new chat whose first question did not save would open empty, so it goes.
+        // Announced only after this, so neither the URL nor the view ever held it.
+        catch (Exception) when (isNewChat)
+        {
+            await DiscardChatAsync(chatId);
+            throw;
+        }
+
+        row.ChatId = chatId;
         row.IsInserted = true;
+        observer.ChatPersisted(chatId);
+    }
+
+    // Swallows failures: the turn's own failure is the one to report.
+    private async Task DiscardChatAsync(Guid chatId)
+    {
+        try
+        {
+            await _chatManager.DeleteAsync(chatId, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not delete chat {ChatId} after its first question failed to save. It will show as an empty chat.", chatId);
+        }
     }
 
     private Task StreamAsync(

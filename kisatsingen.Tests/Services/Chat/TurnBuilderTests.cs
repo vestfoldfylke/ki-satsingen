@@ -113,6 +113,22 @@ public sealed class TurnBuilderTests
         Assert.Equal([0, 0, 1], builder.Snapshot().Answer.Select(segment => segment.Round));
     }
 
+    // Otherwise the next round's text joins it and is replayed before the result.
+    [Fact]
+    public void Text_written_after_a_call_stays_in_that_calls_round()
+    {
+        var builder = Builder();
+
+        builder.Apply(Text("a"));
+        builder.Apply(Call("call-1"));
+        builder.Apply(Text("b"));
+        builder.Apply(Result("call-1"));
+        builder.Apply(Text("c"));
+
+        var texts = builder.Snapshot().Answer.OfType<TextSegment>().Select(text => (text.Text, text.Round));
+        Assert.Equal([("a", 0), ("b", 0), ("c", 1)], texts);
+    }
+
     [Fact]
     public void Calls_made_together_share_their_round()
     {

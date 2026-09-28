@@ -107,6 +107,9 @@ internal sealed class TurnBuilder
 
     private void FinishTool(FunctionResultContent result, List<TurnChange> changes)
     {
+        // Text the model wrote after its call belongs to this round; left open, the
+        // next round's text would be appended to it and replayed before the result.
+        CloseText(changes);
         _isRoundClosed = true;
 
         // A result for a call this stream never carried has nothing to attach to.

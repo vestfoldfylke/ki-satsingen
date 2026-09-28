@@ -256,6 +256,73 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
     }
 
+    [Fact]
+    public async Task A_stop_during_the_final_save_stores_the_answer_as_completed()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.BeforeFirstUpdate = () => harness.Session.Cancel();
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
+    }
+
+    // It would open empty, with nothing to say why.
+    [Fact]
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_deleted()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Single(harness.Repository.DeletedChatIds);
+    }
+
+    // Announced, the URL would name a chat that no longer exists.
+    [Fact]
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_never_announced()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+        var announcements = 0;
+        harness.Session.ChatCreated += _ => announcements++;
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal((0, (Guid?)null), (announcements, harness.Session.ChatId));
+    }
+
+    [Fact]
+    public async Task An_existing_chat_is_kept_when_a_question_cannot_be_saved()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = harness.Repository.Store(new kisatsingen.Data.Entities.Chat
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Title = "stored"
+        });
+        await harness.Session.LoadAsync(chat.Id);
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Empty(harness.Repository.DeletedChatIds);
+    }
+
+    // A content filter or token limit can end a turn without a word.
+    [Fact]
+    public async Task A_turn_that_completes_without_saying_anything_says_so()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage(string.Empty, inputTokens: 10, outputTokens: 0);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal("Modellen ga ikke noe svar", harness.VisibleNotice);
+    }
+
     // Proves the load wires its clock into the mapper, not just that the mapper has one.
     [Fact]
     public async Task Reopening_a_chat_whose_turn_never_finished_says_so()
