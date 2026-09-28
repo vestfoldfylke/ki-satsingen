@@ -20,7 +20,7 @@ import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
-import { initChatLog, notifyContentChanged } from './chat-scroll.js';
+import { initChatLog } from './chat-scroll.js';
 import { initComposer, setComposerBusy, takeComposerValue } from './chat-composer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
@@ -144,8 +144,8 @@ function renderInto(el: HTMLElement | null, source: string | null | undefined, {
         el.querySelectorAll('pre code').forEach(node => hljs.highlightElement(node as HTMLElement));
         injectCodeBlockCopy(el);
     }
-    // Notify content changed, so that we can do fancy auto-scrolling
-    notifyContentChanged();
+    // No scroll call here: chat-scroll.ts watches the transcript's size, which
+    // catches this after layout rather than forcing one right after the write.
 }
 
 function elForStream(id: string): HTMLElement | null {

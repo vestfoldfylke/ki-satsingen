@@ -324,10 +324,12 @@ export function initChatLog(): void {
         mutationObserver = new MutationObserver(onLogMutation);
         mutationObserver.observe(inner, { childList: true });
 
-        // Growth that is neither a new top-level child nor streamed text — a
-        // tool block appearing inside the live answer, its result arriving —
-        // reaches no other hook. Size is what following cares about, so watch
-        // that rather than every mutation in the subtree.
+        // The one hook for content growing: streamed text, a finished segment's
+        // final render, a tool block appearing in the live answer, its result
+        // arriving. Size is what following cares about, so watch that rather
+        // than every mutation in the subtree. It runs after layout, so nothing
+        // forces one right after a write. While a turn streams, the spacer
+        // reserves a screen below the content, so every bit of growth resizes this.
         contentResizeObserver = new ResizeObserver(notifyContentChanged);
         contentResizeObserver.observe(inner);
 
@@ -360,13 +362,12 @@ export function initChatLog(): void {
     scrollToBottom(false);
 }
 
-// Called from chat-streaming.js after every renderInto (streaming tokens),
-// from onLogMutation on non-user-bubble mutations, and whenever the transcript
-// changes size.
+// Called whenever the transcript changes size, and from onLogMutation on
+// non-user-bubble mutations.
 // Gated on `following` — user intent, not DOM position — so popToTop's
 // "no auto-scroll after send" survives even on short chats where the user
 // bubble happens to end up near the bottom.
-export function notifyContentChanged(): void {
+function notifyContentChanged(): void {
     if (!chatLogElement) {
         return;
     }
