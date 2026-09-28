@@ -301,6 +301,7 @@ export function initChatLog(): void {
         scrollToBottomPillElement = pill;
         spacerElement = log.querySelector<HTMLElement>('.chat-log-spacer');
         chatTailElement = log.querySelector<HTMLElement>('.chat-tail');
+        lastScrollTop = log.scrollTop;
 
         log.addEventListener('scroll', onScroll, { passive: true });
         log.addEventListener('wheel', markUserActivity, { passive: true });
