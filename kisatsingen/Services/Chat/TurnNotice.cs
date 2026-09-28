@@ -15,7 +15,7 @@ internal static class TurnNotice
         { Status: TurnStatus.Completed } => null,
         { Status: TurnStatus.Stopped } => "Generering stoppet",
         { Status: TurnStatus.LeftChat } => "Generering stoppet fordi du forlot samtalen",
-        { Status: TurnStatus.Disconnected } => "Tilkoblingen ble brutt under generering",
+        { Status: TurnStatus.Disconnected } => "Generering stoppet fordi siden ble lukket eller mistet forbindelsen",
         { Status: TurnStatus.Unfinished } => "Svaret ble ikke fullført",
         { Status: TurnStatus.Failed, FailedAt: { } stage } => TurnStageNotice.Describe(stage),
         _ => "Noe gikk galt under generering"
