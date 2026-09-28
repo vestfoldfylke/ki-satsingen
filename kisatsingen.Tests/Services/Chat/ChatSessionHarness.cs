@@ -51,7 +51,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     // Through the public projection, so an outcome the UI can't render fails the test.
     public Turn VisibleTurn => Assert.Single(Session.Transcript).Turn;
 
-    public string? VisibleNotice => TurnNotice.Describe(VisibleTurn);
+    public string? VisibleNotice => TurnNotice.Describe(Assert.Single(Session.Transcript));
 
     // Read back through the real mapper, so a field the mapper drops fails the test.
     public Turn StoredTurn =>

@@ -121,10 +121,21 @@ internal sealed class TurnBuilder
         _segments[index] = tool with
         {
             Status = result.Exception is null ? ToolStatus.Completed : ToolStatus.Failed,
-            Result = result.Result is null ? null : JsonSerializer.SerializeToElement(result.Result, ContentJson)
+            Result = AsSentToProvider(result.Result)
         };
         changes.Add(new TurnChange.ToolFinished(tool.Id));
     }
+
+    // The rule Microsoft.Extensions.AI's OpenAI adapter applies, which every model
+    // here goes through: a string as is, anything else as its JSON. Stored as that
+    // text, a result replays byte for byte. A provider with a different adapter
+    // needs its own rule here.
+    private static string? AsSentToProvider(object? result) => result switch
+    {
+        null => null,
+        string text => text,
+        _ => JsonSerializer.Serialize(result, ContentJson)
+    };
 
     private void CloseText(List<TurnChange> changes)
     {

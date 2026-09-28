@@ -39,4 +39,9 @@ public static class MetricConstants
     // The type name, never the message: messages carry ids and provider bodies, and
     // would make the series cardinality unbounded.
     public static string MetricsExceptionLabelName => "Exception";
+
+    public static string MetricsToolLabelName => "Tool";
+
+    // The content's type name, which the package bounds: never anything the model wrote.
+    public static string MetricsContentTypeLabelName => "Type";
 }

@@ -32,6 +32,7 @@ internal static class ChatTurnMapper
     public static Turn FromEntity(StoredTurn stored, Func<ChatModelKey, string> resolveModelName, ILogger logger)
     {
         var modelKey = ChatModelKey.TryCreate(stored.ModelKey);
+        var answer = ReadAnswer(stored, logger);
 
         return new Turn
         {
@@ -41,27 +42,30 @@ internal static class ChatTurnMapper
             ModelKey = modelKey,
             ModelDisplayName = modelKey is { } key ? resolveModelName(key) : null,
             StartedAt = stored.StartedAt,
-            Answer = ReadAnswer(stored, logger),
+            Answer = answer ?? [],
+            IsAnswerUnreadable = answer is null,
             Status = ReadStatus(stored, logger),
             FailedAt = Enum.TryParse<TurnStage>(stored.FailedAt, out var stage) ? stage : null,
             Metadata = ReadMetadata(stored)
         };
     }
 
-    // One unreadable answer must not lock the user out of the whole chat.
-    private static IReadOnlyList<TurnSegment> ReadAnswer(StoredTurn stored, ILogger logger)
+    // Null when the answer cannot be read. One unreadable answer must not lock the
+    // user out of the whole chat. NotSupportedException is how System.Text.Json
+    // reports a segment it cannot place, such as one without its "kind" first.
+    private static IReadOnlyList<TurnSegment>? ReadAnswer(StoredTurn stored, ILogger logger)
     {
         try
         {
             return JsonSerializer.Deserialize<List<TurnSegment>>(stored.AnswerJson, AnswerJson) ?? [];
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or NotSupportedException)
         {
             logger.LogWarning(
                 ex,
-                "The stored answer for turn {TurnId} could not be read and is shown as empty. It was most likely written by a newer build with a segment kind this one does not know; redeploying that build restores it.",
+                "The stored answer for turn {TurnId} could not be read and is shown as unreadable. It was most likely written by a newer build with a segment kind this one does not know; redeploying that build restores it.",
                 stored.Id);
-            return [];
+            return null;
         }
     }
 

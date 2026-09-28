@@ -72,6 +72,20 @@ public sealed class ChatSessionOutcomeTests
         Assert.Empty(harness.Catalog.ResolvedKeys);
     }
 
+    // Proves the rule is wired into the request, not just tested beside it.
+    [Fact]
+    public async Task A_message_that_cannot_be_saved_is_not_sent_with_the_next_one()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+        await harness.Session.SendAsync("aldri lagret");
+        harness.Repository.InsertTurnFailure = null;
+
+        await harness.Session.SendAsync("prøv igjen");
+
+        Assert.Equal(["prøv igjen"], harness.Client.LastMessages.Select(message => message.Text));
+    }
+
     // Provider and database exceptions routinely carry connection details and
     // error bodies in their messages. Nothing derived from one may reach the page.
     [Fact]

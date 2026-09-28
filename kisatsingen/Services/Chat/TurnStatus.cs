@@ -17,7 +17,8 @@ public enum TurnStatus
 
     Failed,
 
-    // Never written. A turn read back as Running with nothing still running it:
-    // the process died mid-turn, or its final save failed. TranscriptView derives it.
+    // Never written. A turn read back as Running long after it started, so nothing
+    // is still running it: the process died mid-turn, or its final save failed.
+    // TranscriptView derives it.
     Unfinished
 }

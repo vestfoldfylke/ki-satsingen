@@ -74,7 +74,7 @@ public sealed class ChatSession : IAsyncDisposable
     public bool HasVisibleMessages => _turns.Count > 0;
     public bool HasLiveTurn => _liveTurnId is not null;
 
-    public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId);
+    public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId, DateTimeOffset.UtcNow);
 
     public ChatModel SelectedModel => _selectedModel;
 

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using kisatsingen.Constants;
 using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
@@ -124,7 +125,7 @@ internal sealed class TurnStreamer
             switch (content)
             {
                 case FunctionCallContent call:
-                    _metrics.Count($"{_metricPrefix}_ToolCall", "Number of tool calls performed", ("Tool", call.Name));
+                    _metrics.Count($"{_metricPrefix}_ToolCall", "Number of tool calls performed", (MetricConstants.MetricsToolLabelName, call.Name));
                     break;
                 case FunctionResultContent:
                     _metrics.Count($"{_metricPrefix}_ToolResult", "Number of tool results retrieved");
@@ -134,7 +135,7 @@ internal sealed class TurnStreamer
                 // TurnBuilder drops these. Counted so a kind a package upgrade starts
                 // sending shows up here instead of disappearing without a trace.
                 default:
-                    _metrics.Count($"{_metricPrefix}_UnkeptContent", "Streamed content the transcript does not keep", ("Type", content.GetType().Name));
+                    _metrics.Count($"{_metricPrefix}_UnkeptContent", "Streamed content the transcript does not keep", (MetricConstants.MetricsContentTypeLabelName, content.GetType().Name));
                     break;
             }
         }

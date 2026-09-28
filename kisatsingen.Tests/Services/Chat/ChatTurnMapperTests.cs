@@ -19,7 +19,7 @@ public sealed class ChatTurnMapperTests
                 "search",
                 JsonSerializer.SerializeToElement(new Dictionary<string, string> { ["query"] = "vær" }),
                 ToolStatus.Failed,
-                JsonSerializer.SerializeToElement("Error: Function failed.")),
+                "Error: Function failed."),
             new TextSegment(Guid.NewGuid(), 1, "Det gikk ikke."));
 
         var restored = RoundTrip(turn);
@@ -48,15 +48,28 @@ public sealed class ChatTurnMapperTests
     }
 
     // One unreadable row must not lock the user out of the whole chat.
-    [Fact]
-    public void An_answer_that_cannot_be_read_is_shown_as_empty_rather_than_failing_the_load()
+    [Theory]
+    [InlineData("""[{"kind":"from-a-newer-build"}]""")]
+    // System.Text.Json reports this one as NotSupportedException, not JsonException.
+    [InlineData("""[{"id":"00000000-0000-0000-0000-000000000000","kind":"text","round":0,"text":"hei"}]""")]
+    // Refused by name-only enum reading, so no status the view cannot handle gets through.
+    [InlineData("""[{"kind":"tool","id":"00000000-0000-0000-0000-000000000000","round":0,"callId":"c","toolName":"t","arguments":{},"status":7,"result":null}]""")]
+    public void An_answer_that_cannot_be_read_is_marked_unreadable_rather_than_failing_the_load(string answerJson)
     {
-        var stored = ChatTurnMapper.ToEntity(TurnWith());
-        var unreadable = Copy(stored, answerJson: """[{"kind":"from-a-newer-build"}]""");
+        var unreadable = Copy(ChatTurnMapper.ToEntity(TurnWith()), answerJson: answerJson);
 
         var restored = ChatTurnMapper.FromEntity(unreadable, key => key.Value, NullLogger.Instance);
 
+        Assert.True(restored.IsAnswerUnreadable);
         Assert.Empty(restored.Answer);
+    }
+
+    [Fact]
+    public void An_answer_that_reads_is_not_marked_unreadable()
+    {
+        var restored = RoundTrip(TurnWith(new TextSegment(Guid.NewGuid(), 0, "hei")));
+
+        Assert.False(restored.IsAnswerUnreadable);
     }
 
     [Fact]

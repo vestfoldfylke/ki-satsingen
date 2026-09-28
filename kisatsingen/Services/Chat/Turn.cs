@@ -23,6 +23,11 @@ public sealed record Turn
     public required DateTimeOffset StartedAt { get; init; }
 
     public IReadOnlyList<TurnSegment> Answer { get; init; } = [];
+
+    // A stored answer this build could not read. Answer is then empty, so the
+    // model is not sent a garbled version of it; the page says what happened.
+    public bool IsAnswerUnreadable { get; init; }
+
     public TurnStatus Status { get; init; } = TurnStatus.Running;
 
     // Set only when Status is Failed.

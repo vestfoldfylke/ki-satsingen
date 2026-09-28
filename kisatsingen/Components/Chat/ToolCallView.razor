@@ -7,10 +7,10 @@
     <span class="chat-tool-status">@StatusText</span>
     <details class="chat-tool-details">
         <summary>Detaljer</summary>
-        <pre class="chat-tool-arguments">@FormatJson(Segment.Arguments)</pre>
-        @if (Segment.Result is { } result)
+        <pre class="chat-tool-arguments">@_arguments</pre>
+        @if (_result is not null)
         {
-            <pre class="chat-tool-result">@FormatJson(result)</pre>
+            <pre class="chat-tool-result">@_result</pre>
         }
     </details>
 </div>

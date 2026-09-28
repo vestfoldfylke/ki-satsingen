@@ -12,11 +12,26 @@
 {
     <AssistantTurn Turn="View.Turn" IsLive="View.IsLive" />
 }
-@if (TurnNotice.Describe(View.Turn) is { } notice)
+@if (TurnNotice.Describe(View) is { } notice)
 {
     <TurnNoticeLine Text="@notice" />
 }
 
 @code {
     [Parameter, EditorRequired] public required TurnView View { get; set; }
+
+    private TurnView? _rendered;
+    private bool _hasChanged = true;
+
+    // Every render of the page hands each turn a fresh TurnView, so Blazor alone
+    // would re-render the whole transcript on every tool event. Turns are
+    // immutable and replaced when they change, so equal means unchanged — and
+    // equality on an unchanged turn is a reference check.
+    protected override void OnParametersSet()
+    {
+        _hasChanged = !Equals(_rendered, View);
+        _rendered = View;
+    }
+
+    protected override bool ShouldRender() => _hasChanged;
 }

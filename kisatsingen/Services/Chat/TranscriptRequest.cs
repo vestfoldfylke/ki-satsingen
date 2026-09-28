@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.AI;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
@@ -21,6 +22,11 @@ namespace kisatsingen.Services.Chat;
 //   'tool'").
 //
 // Nothing the model acted on is lost: a call counts only once text follows it.
+//
+// A turn whose question was never saved is not sent at all. It stays on the page
+// so the user sees why it failed, but a reload would not have it, and the model
+// must not be working from a history the chat does not contain. A question that
+// was saved and never answered is still sent: "prøv igjen" needs it.
 internal static class TranscriptRequest
 {
     public static List<ChatMessage> Build(IReadOnlyList<Turn> turns)
@@ -29,6 +35,11 @@ internal static class TranscriptRequest
 
         foreach (var turn in turns)
         {
+            if (WasNeverSaved(turn))
+            {
+                continue;
+            }
+
             request.Add(new ChatMessage(ChatRole.User, turn.Prompt));
             AppendAnswer(request, turn.Answer);
         }
@@ -71,6 +82,12 @@ internal static class TranscriptRequest
         }
     }
 
+    // The stages before the question is stored. A turn stopped in that window is
+    // not caught here: it carries no stage, and the window is the few milliseconds
+    // of an insert.
+    private static bool WasNeverSaved(Turn turn) =>
+        turn.FailedAt is TurnStage.Authenticating or TurnStage.SavingMessage;
+
     private static int FindLastTextIndex(IReadOnlyList<TurnSegment> answer)
     {
         for (var index = answer.Count - 1; index >= 0; index--)
@@ -85,7 +102,7 @@ internal static class TranscriptRequest
     }
 
     private static Dictionary<string, object?>? ToArguments(ToolSegment tool) =>
-        tool.Arguments.ValueKind == System.Text.Json.JsonValueKind.Object
+        tool.Arguments.ValueKind == JsonValueKind.Object
             ? tool.Arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value)
             : null;
 }
