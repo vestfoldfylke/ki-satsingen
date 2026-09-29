@@ -1,0 +1,37 @@
+@using kisatsingen.Services.Attachments
+
+@if (Notice is { } notice)
+{
+    <p class="ds-paragraph" data-size="sm" data-color="danger">@notice</p>
+}
+
+@if (Attachments.Count > 0)
+{
+    <ul class="composer-attachments" aria-label="Vedlegg">
+        @foreach (var attachment in Attachments)
+        {
+            <li @key="attachment.UploadId" class="composer-attachment">
+                <span class="composer-attachment-name">@attachment.FileName</span>
+                <span class="composer-attachment-status" data-color="@(AttachmentText.IsRejected(attachment) ? "danger" : null)">
+                    @AttachmentText.DescribeStatus(attachment)
+                </span>
+                <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
+                        aria-label="@($"Fjern {attachment.FileName}")"
+                        @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
+                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
+                </button>
+            </li>
+        }
+    </ul>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<PendingAttachment> Attachments { get; set; } = [];
+
+    [Parameter]
+    public string? Notice { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnRemove { get; set; }
+}

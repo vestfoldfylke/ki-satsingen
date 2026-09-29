@@ -3,6 +3,7 @@ using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Attachments;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -168,12 +169,37 @@ builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
+// ─── Attachments ───────────────────────────────────────
+// Defaults live in AttachmentOptions; the section overrides them.
+var attachmentOptions = builder.Configuration.GetSection(AttachmentOptions.SectionName).Get<AttachmentOptions>()
+    ?? new AttachmentOptions();
+attachmentOptions.Validate();
+
+builder.Services.AddSingleton(attachmentOptions);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(sp => new TempFileStore(
+    Path.Combine(Path.GetTempPath(), TempFileStore.DefaultFolderName),
+    sp.GetRequiredService<ILogger<TempFileStore>>()));
+builder.Services.AddSingleton<AttachmentUploader>();
+builder.Services.AddSingleton<PendingAttachmentRegistry>();
+builder.Services.AddHostedService<TempFileSweeper>();
+builder.Services.AddScoped<ChatAttachments>();
+
 var app = builder.Build();
 
 // ─── One-time startup: chat models ─────────────────────
 // Resolved eagerly because building the catalogue validates it: a bad catalogue
 // must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
+
+// ─── One-time startup: attachment temp files ───────────
+// Before the server accepts a request, so no upload can race it. Whatever is
+// left belongs to a process that no longer exists.
+var orphanedTempFiles = app.Services.GetRequiredService<TempFileStore>().DeleteAll();
+if (orphanedTempFiles > 0)
+{
+    app.Logger.LogInformation("Deleted {Count} attachment temp files left by a previous run.", orphanedTempFiles);
+}
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

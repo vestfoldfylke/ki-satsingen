@@ -2,9 +2,16 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    gap: 1.5rem;
     min-height: 0;
     width: 100%;
+}
+
+/* The files panel sits beside the chat, not over it, so the transcript
+   narrows rather than hiding behind it. */
+.chat-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
 }
 
 /* --chat-surface / --chat-surface-fade are declared as a pair on purpose:

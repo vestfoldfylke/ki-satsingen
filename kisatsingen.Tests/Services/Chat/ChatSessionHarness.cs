@@ -3,6 +3,7 @@ using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using kisatsingen.Tests.Services.Attachments;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.AI;
@@ -34,15 +35,20 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public ChatManager Manager { get; }
 
+    public AttachmentTestEnvironment AttachmentEnvironment { get; } = new();
+    public ChatAttachments Attachments { get; }
+
     public ChatSessionHarness()
     {
         Catalog = new FakeChatModelCatalog(Client);
         Manager = new ChatManager(Authentication, Repository, NullLogger<ChatManager>.Instance);
+        Attachments = AttachmentEnvironment.CreateChatAttachments(Authentication);
         Session = new ChatSession(
             Authentication,
             Catalog,
             Repository,
             Manager,
+            Attachments,
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance);
@@ -57,7 +63,12 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public Turn StoredTurn =>
         ChatTurnMapper.FromEntity(Repository.SingleStoredTurn, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
-    public ValueTask DisposeAsync() => Session.DisposeAsync();
+    public async ValueTask DisposeAsync()
+    {
+        await Session.DisposeAsync();
+        Attachments.Dispose();
+        AttachmentEnvironment.Dispose();
+    }
 }
 
 internal static class TurnText

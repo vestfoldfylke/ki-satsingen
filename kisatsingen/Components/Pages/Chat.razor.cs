@@ -11,6 +11,12 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required ChatSession Session { get; set; }
 
     [Inject]
+    public required ChatAttachments Attachments { get; set; }
+
+    [Inject]
+    public required ChatManager Manager { get; set; }
+
+    [Inject]
     public required ILogger<Chat> Logger { get; set; }
 
     [Inject]
@@ -28,8 +34,16 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private bool _isSending;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
+    private bool _isFilesPanelOpen;
+
+    // From the sidebar's list rather than a load of its own: that list already
+    // tracks renames and the title a new chat is given. Null for a new chat.
+    private string? Title =>
+        Manager.Entries.FirstOrDefault(entry => entry.Id == Session.ChatId)?.Title;
 
     private Task SelectModelAsync(ChatModelKey key) => Session.SelectModelAsync(key);
+
+    private void ToggleFilesPanel() => _isFilesPanelOpen = !_isFilesPanelOpen;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -37,6 +51,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         {
             Session.StateChanged += OnSessionChanged;
             Session.ChatCreated += OnChatCreated;
+            Attachments.Changed += OnSessionChanged;
+            Manager.ChatListChanged += OnSessionChanged;
             _stateWired = true;
         }
 
@@ -51,7 +67,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         // Synchronous, checked before any await: a rapid double-trigger (e.g.
         // Enter racing a click) is rejected here at zero network cost, rather
         // than after a wasted round trip to read the composer's text.
-        if (_isSending || _composer is null)
+        // Uploading is checked too: the browser holds send while it lasts, and
+        // this is the guard that does not trust it.
+        if (_isSending || _composer is null || Attachments.IsUploading)
         {
             return;
         }
@@ -127,6 +145,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         {
             Session.StateChanged -= OnSessionChanged;
             Session.ChatCreated -= OnChatCreated;
+            Attachments.Changed -= OnSessionChanged;
+            Manager.ChatListChanged -= OnSessionChanged;
         }
         // No cancel: this also runs on circuit teardown, where the session's own
         // disposal records the disconnect. A cancel here would label it wrongly.

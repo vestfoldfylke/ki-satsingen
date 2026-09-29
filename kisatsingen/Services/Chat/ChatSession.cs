@@ -17,6 +17,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IChatRepository _repo;
     private readonly ChatClientChannel _channel;
     private readonly TurnRunner _runner;
+    private readonly ChatAttachments _attachments;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<Turn> _turns = [];
@@ -50,6 +51,7 @@ public sealed class ChatSession : IAsyncDisposable
         IChatModelCatalog catalog,
         IChatRepository repo,
         ChatManager chatManager,
+        ChatAttachments attachments,
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger)
@@ -58,6 +60,7 @@ public sealed class ChatSession : IAsyncDisposable
         _catalog = catalog;
         _selectedModel = catalog.Default;
         _repo = repo;
+        _attachments = attachments;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
@@ -215,6 +218,9 @@ public sealed class ChatSession : IAsyncDisposable
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
         _selectedModel = _catalog.Default;
+
+        // Attached to the chat being left, not the one being opened.
+        _attachments.Reset();
     }
 
     private bool OwnsView(int viewVersion) => viewVersion == _viewVersion;

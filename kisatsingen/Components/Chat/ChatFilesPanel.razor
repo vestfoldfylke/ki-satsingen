@@ -1,0 +1,49 @@
+@using kisatsingen.Services.Attachments
+
+@* Pending files only for now; the chat's saved files join them once sending
+   saves them. Items are list entries rather than links: when parsed content
+   can be viewed, each saved file becomes the button that opens it. *@
+<aside id="chat-files-panel" class="chat-files-panel" aria-label="Filer i samtalen">
+    <div class="chat-files-panel-header">
+        <h2 class="ds-heading" data-size="xs">Filer</h2>
+        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true" aria-label="Lukk filpanelet" @onclick="OnClose">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+    </div>
+
+    @if (Pending.Count == 0)
+    {
+        <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
+    }
+    else
+    {
+        <h3 class="ds-heading" data-size="2xs">Ikke sendt ennå</h3>
+        <ul class="chat-files-list">
+            @foreach (var attachment in Pending)
+            {
+                <li @key="attachment.UploadId" class="chat-files-item">
+                    <span class="chat-files-item-name">@attachment.FileName</span>
+                    <span class="chat-files-item-meta">@AttachmentText.FormatSize(attachment.DeclaredSizeBytes)</span>
+                    <span class="chat-files-item-status" data-color="@(AttachmentText.IsRejected(attachment) ? "danger" : null)">
+                        @AttachmentText.DescribeStatus(attachment)
+                    </span>
+                    <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
+                            @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
+                        Fjern
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</aside>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<PendingAttachment> Pending { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<Guid> OnRemove { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+}

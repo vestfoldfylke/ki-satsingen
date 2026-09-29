@@ -56,6 +56,12 @@
     gap: 0.5rem;
 }
 
+/* The file input inside is invisible, so its focus shows on the label. */
+.composer-attach:focus-within {
+    outline: var(--dsc-focus-outline);
+    outline-offset: var(--ds-border-width-focus);
+}
+
 #composer-stop-button,
 #composer-send-button {
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;

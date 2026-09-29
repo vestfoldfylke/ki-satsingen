@@ -8,67 +8,91 @@
 <PageTitle>Chat</PageTitle>
 
 <div class="chat-layout">
-    <div class="chat-page">
-        @if (Session.HasVisibleMessages)
-        {
-            <div class="chat-log" role="log" aria-live="polite">
-                <div class="chat-log-inner">
-                    @foreach (var view in Session.Transcript)
-                    {
-                        <TranscriptTurn @key="view.Turn.Id" View="view" />
-                    }
-                    @if (Session.HasLiveTurn)
-                    {
-                        @* The spacer rule and chat-scroll.ts key off this: its
-                           removal is how the page learns the turn has ended. *@
-                        <div class="assistant-streaming" aria-hidden="true"></div>
-                    }
-                    <div class="chat-log-spacer" aria-hidden="true"></div>
-                    <button type="button" class="chat-jump-latest" hidden aria-label="Jump to latest">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <polyline points="19 12 12 19 5 12"/>
-                        </svg>
-                    </button>
-                </div>
+    <ChatHeader Title="@Title"
+                FileCount="Attachments.Pending.Count"
+                IsFilesPanelOpen="_isFilesPanelOpen"
+                OnToggleFiles="ToggleFilesPanel" />
 
-                <div class="chat-tail">
+    <div class="chat-body">
+        <div class="chat-page">
+            @if (Session.HasVisibleMessages)
+            {
+                <div class="chat-log" role="log" aria-live="polite">
+                    <div class="chat-log-inner">
+                        @foreach (var view in Session.Transcript)
+                        {
+                            <TranscriptTurn @key="view.Turn.Id" View="view" />
+                        }
+                        @if (Session.HasLiveTurn)
+                        {
+                            @* The spacer rule and chat-scroll.ts key off this: its
+                               removal is how the page learns the turn has ended. *@
+                            <div class="assistant-streaming" aria-hidden="true"></div>
+                        }
+                        <div class="chat-log-spacer" aria-hidden="true"></div>
+                        <button type="button" class="chat-jump-latest" hidden aria-label="Jump to latest">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <polyline points="19 12 12 19 5 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="chat-tail">
+                        <ChatComposer @ref="_composer"
+                                      IsBusy="Session.IsBusy"
+                                      OnSend="SendAsync"
+                                      OnStop="Stop"
+                                      Models="Session.AvailableModels"
+                                      SelectedModel="Session.SelectedModel"
+                                      EstimatedContextTokens="Session.EstimatedContextTokens"
+                                      ConversationUsage="Session.ConversationUsage"
+                                      OnSelectModel="SelectModelAsync"
+                                      Attachments="Attachments.Pending"
+                                      AttachmentNotice="Attachments.SelectionNotice"
+                                      IsUploading="Attachments.IsUploading"
+                                      OnFilesSelected="Attachments.UploadAsync"
+                                      OnRemoveAttachment="Attachments.Remove" />
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="chat-intro">
+                    <div class="chat-greeting">
+                        @if (Env.IsDevelopment())
+                        {
+                            <span class="chat-greeting-emoji">🖕</span>
+                            <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+                        }
+                        else
+                        {
+                            <span class="chat-greeting-emoji">👋</span>
+                            <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
+                        }
+                    </div>
+
                     <ChatComposer @ref="_composer"
                                   IsBusy="Session.IsBusy"
                                   OnSend="SendAsync"
                                   OnStop="Stop"
                                   Models="Session.AvailableModels"
                                   SelectedModel="Session.SelectedModel"
-                                  EstimatedContextTokens="Session.EstimatedContextTokens"
-                                  ConversationUsage="Session.ConversationUsage"
-                                  OnSelectModel="SelectModelAsync" />
+                                  OnSelectModel="SelectModelAsync"
+                                  Attachments="Attachments.Pending"
+                                  AttachmentNotice="Attachments.SelectionNotice"
+                                  IsUploading="Attachments.IsUploading"
+                                  OnFilesSelected="Attachments.UploadAsync"
+                                  OnRemoveAttachment="Attachments.Remove" />
                 </div>
-            </div>
-        }
-        else
-        {
-            <div class="chat-intro">
-                <div class="chat-greeting">
-                    @if (Env.IsDevelopment())
-                    {
-                        <span class="chat-greeting-emoji">🖕</span>
-                        <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
-                    }
-                    else
-                    {
-                        <span class="chat-greeting-emoji">👋</span>
-                        <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
-                    }
-                </div>
+            }
+        </div>
 
-                <ChatComposer @ref="_composer"
-                              IsBusy="Session.IsBusy"
-                              OnSend="SendAsync"
-                              OnStop="Stop"
-                              Models="Session.AvailableModels"
-                              SelectedModel="Session.SelectedModel"
-                              OnSelectModel="SelectModelAsync" />
-            </div>
+        @if (_isFilesPanelOpen)
+        {
+            <ChatFilesPanel Pending="Attachments.Pending"
+                            OnRemove="Attachments.Remove"
+                            OnClose="ToggleFilesPanel" />
         }
     </div>
 </div>

@@ -17,17 +17,21 @@ let textareaElement: HTMLTextAreaElement | null = null;
 let isBusy = false;
 let isEmpty = true;
 
+// A message sent while a file is still uploading would go without it.
+let isUploading = false;
+
 function sendButton(): HTMLButtonElement | null {
     return document.querySelector<HTMLButtonElement>(SELECTOR_SEND_BUTTON);
 }
 
 // Single writer for the send button's `disabled` — Blazor never touches it
 // past its static initial markup (see ChatComposer.razor). Busy comes from
-// the server via setComposerBusy; emptiness is tracked locally from keystrokes.
+// the server via setComposerBusy and setComposerUploading; emptiness is tracked
+// locally from keystrokes.
 function updateSendButtonDisabled(): void {
     const button = sendButton();
     if (button) {
-        button.disabled = isBusy || isEmpty;
+        button.disabled = isBusy || isEmpty || isUploading;
     }
 }
 
@@ -80,6 +84,11 @@ export function initComposer(): void {
 
 export function setComposerBusy(busy: boolean): void {
     isBusy = busy;
+    updateSendButtonDisabled();
+}
+
+export function setComposerUploading(uploading: boolean): void {
+    isUploading = uploading;
     updateSendButtonDisabled();
 }
 
