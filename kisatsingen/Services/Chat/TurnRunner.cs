@@ -24,6 +24,7 @@ internal sealed class TurnRunner
     private readonly TurnStreamer _streamer;
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
+    private readonly IConsumptionRepository _consumptionRepository;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -33,7 +34,8 @@ internal sealed class TurnRunner
         IMetricsService metrics,
         TurnStreamer streamer,
         string metricPrefix,
-        ILogger logger)
+        ILogger logger,
+        IConsumptionRepository consumptionRepository)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -43,6 +45,7 @@ internal sealed class TurnRunner
         _streamer = streamer;
         _metricPrefix = metricPrefix;
         _logger = logger;
+        _consumptionRepository = consumptionRepository;
     }
 
     // Throws only what the page must handle itself: an unauthenticated caller and
@@ -66,9 +69,14 @@ internal sealed class TurnRunner
         // Success is labelled with the model the provider served; the rest with the one requested.
         string? servedModelId = null;
 
+        Guid? consumptionId = null;
+
+        var initialTokenCount = ContextTokenEstimator.Estimate(request, turn.SystemPrompt);
+
         try
         {
             row.OwnerId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            consumptionId = await _consumptionRepository.InsertConsumptionAsync(row.OwnerId, model.Provider, model.ModelId, initialTokenCount, TurnStatus.Running, cancellation.Token);
 
             stage = TurnStage.SavingMessage;
             await InsertAsync(row, turn, observer, cancellation.Token);
@@ -85,6 +93,10 @@ internal sealed class TurnRunner
             // Only after the write: a turn is a success once its answer is stored.
             servedModelId = answered.Metadata?.ServedModelId;
             outcome = TurnOutcome.Success;
+
+            var tokenCount = answered.Metadata?.Usage?.TotalTokens ?? 0;
+            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, TurnStatus.Completed, cancellation.Token);
+
             return answered;
         }
         // The filter is load-bearing: a provider timeout is also an
@@ -101,6 +113,12 @@ internal sealed class TurnRunner
 
             var stopped = builder.Finish(status);
             await SaveEndingAsync(row, stopped);
+
+            row.OwnerId ??= await _authenticationService.RequireUserObjectIdentifierAsync();
+            // NOTE: usage here is null... We need to estimate it from what we got so far (what we started with + what we got)
+            var tokenCount = initialTokenCount + ContextTokenEstimator.Estimate([.. stopped.Answer.OfType<TextSegment>()], turn.SystemPrompt);
+            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, status, CancellationToken.None);
+
             return stopped;
         }
         // Rethrown: with no error boundary it ends the circuit, and the reload is what
@@ -135,6 +153,11 @@ internal sealed class TurnRunner
                 await SaveEndingAsync(row, failed);
             }
 
+            row.OwnerId ??= await _authenticationService.RequireUserObjectIdentifierAsync();
+            // NOTE: usage here is null... We need to estimate it from what we got so far (what we started with + what we got)
+            var tokenCount = initialTokenCount + ContextTokenEstimator.Estimate([.. failed.Answer.OfType<TextSegment>()], turn.SystemPrompt);
+            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, TurnStatus.Failed, CancellationToken.None);
+
             return failed;
         }
         finally
@@ -151,6 +174,11 @@ internal sealed class TurnRunner
             }
         }
     }
+
+    private Task UpdateConsumptionAsync(Guid? consumptionId, string ownerId, long tokenCount, TurnStatus status, CancellationToken ct) =>
+        consumptionId is { } id
+            ? _consumptionRepository.UpdateConsumptionAsync(id, ownerId, tokenCount, status, ct)
+            : Task.CompletedTask;
 
     private async Task InsertAsync(TurnRow row, Turn turn, TurnObserver observer, CancellationToken ct)
     {

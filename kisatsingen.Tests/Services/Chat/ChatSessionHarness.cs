@@ -27,6 +27,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
+    public FakeConsumptionRepository ConsumptionRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -45,7 +46,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Manager,
             Metrics,
             new SilentJsRuntime(),
-            NullLogger<ChatSession>.Instance);
+            NullLogger<ChatSession>.Instance,
+            ConsumptionRepository);
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.
@@ -190,6 +192,31 @@ internal sealed class FakeChatRepository : IChatRepository
 }
 
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
+
+// Records every write, so tests assert the row was opened as Running and closed
+// with the outcome the turn ended on.
+internal sealed class FakeConsumptionRepository : IConsumptionRepository
+{
+    public List<ConsumptionInsert> Inserts { get; } = [];
+    public List<ConsumptionUpdate> Updates { get; } = [];
+
+    public Task<Guid?> InsertConsumptionAsync(string ownerId, string provider, string modelId, long tokenCount, TurnStatus status, CancellationToken ct = default)
+    {
+        var id = Guid.NewGuid();
+        Inserts.Add(new ConsumptionInsert(id, ownerId, provider, modelId, tokenCount, status));
+        return Task.FromResult<Guid?>(id);
+    }
+
+    public Task UpdateConsumptionAsync(Guid id, string ownerId, long tokenCount, TurnStatus status, CancellationToken ct = default)
+    {
+        Updates.Add(new ConsumptionUpdate(id, ownerId, tokenCount, status));
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed record ConsumptionInsert(Guid Id, string OwnerId, string Provider, string ModelId, long TokenCount, TurnStatus Status);
+
+internal sealed record ConsumptionUpdate(Guid Id, string OwnerId, long TokenCount, TurnStatus Status);
 
 internal sealed class FakeChatClient : IChatClient
 {

@@ -35,6 +35,25 @@ internal static class ContextTokenEstimator
         return (characters / TokenLengthInCharacters) + (messageCount * TokensPerMessage);
     }
 
+    public static long Estimate(IReadOnlyList<TextSegment> textSegments, string? systemPrompt)
+    {
+        long characters = 0;
+        long textSegmentCount = textSegments.Count;
+
+        foreach (var textSegment in textSegments)
+        {
+            characters += CountCharacters(textSegment);
+        }
+
+        if (!string.IsNullOrEmpty(systemPrompt))
+        {
+            characters += systemPrompt.Length;
+            textSegmentCount++;
+        }
+
+        return (characters / TokenLengthInCharacters) + (textSegmentCount * TokensPerMessage);
+    }
+
     private static long CountCharacters(ChatMessage message)
     {
         long characters = 0;
@@ -55,6 +74,8 @@ internal static class ContextTokenEstimator
 
         return characters;
     }
+    
+    private static long CountCharacters(TextSegment textSegment) => textSegment.Text.Length;
 
     // ToString, not JsonSerializer: the values are JsonElement already, and an
     // estimate doesn't justify re-serialising the transcript on every render.

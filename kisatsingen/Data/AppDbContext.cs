@@ -23,6 +23,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<Assistant> Assistants => Set<Assistant>();
     public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
     public DbSet<KnowledgeFileChunk> KnowledgeFileChunks => Set<KnowledgeFileChunk>();
+    public DbSet<Consumption> Consumptions => Set<Consumption>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
     // always go through the low-privilege DefaultConnection registered in DI.
@@ -158,6 +159,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany(f => f.Chunks)
             .HasForeignKey(c => c.KnowledgeFileId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var consumption = modelBuilder.Entity<Consumption>();
+        consumption.HasKey(c => c.Id);
+        consumption.Property(c => c.OwnerId).HasMaxLength(Consumption.MaxOwnerIdLength).IsRequired();
+        consumption.Property(c => c.Provider).HasMaxLength(Consumption.MaxProviderLength).IsRequired();
+        consumption.Property(c => c.ModelId).HasMaxLength(Consumption.MaxModelIdLength).IsRequired();
+        consumption.Property(c => c.Status).HasConversion<string>().HasMaxLength(Consumption.MaxStatusLength).IsRequired();
+        consumption.HasIndex(c => new { c.OwnerId, c.Timestamp });
     }
 
     // The Ignore behaviours keep Seq out of every INSERT and UPDATE, so only the
