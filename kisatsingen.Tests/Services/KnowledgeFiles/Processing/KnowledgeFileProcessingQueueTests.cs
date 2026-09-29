@@ -5,6 +5,7 @@ using kisatsingen.Services.KnowledgeFiles.Processing;
 using kisatsingen.Tests.Services.Attachments;
 using kisatsingen.Tests.Services.Chat;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vestfold.Extensions.Metrics.Services;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Processing;
@@ -32,9 +33,9 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
     }
 
     // Replaces the default pipeline for tests that need other limits.
-    private async Task StartAsync(KnowledgeFileProcessingOptions options)
+    private async Task StartAsync(KnowledgeFileProcessingOptions options, IMetricsService? metricsService = null)
     {
-        var metrics = new RecordingMetricsService();
+        var metrics = new KnowledgeFileProcessingMetrics(metricsService ?? new RecordingMetricsService(), NullLogger<KnowledgeFileProcessingMetrics>.Instance);
         var processor = new KnowledgeFileProcessor(
             new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, new ThrowingConverter()]),
             new OpeningExcerptSummarizer(),
@@ -47,11 +48,11 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
         await _worker.StartAsync(CancellationToken.None);
     }
 
-    private async Task RestartAsync(KnowledgeFileProcessingOptions options)
+    private async Task RestartAsync(KnowledgeFileProcessingOptions options, IMetricsService? metricsService = null)
     {
         await _worker.StopAsync(CancellationToken.None);
         _worker.Dispose();
-        await StartAsync(options);
+        await StartAsync(options, metricsService);
     }
 
     private ReadyAttachment Markdown() =>
@@ -59,7 +60,7 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
 
     private ReadyAttachment Stalling() => ReadyAttachments.From(_environment, [1], StallingConverter.Type);
 
-    private Task<ProcessingResult> ProcessAsync(ReadyAttachment attachment, string owner = Owner, CancellationToken ct = default) =>
+    private Task<KnowledgeFileProcessingResult> ProcessAsync(ReadyAttachment attachment, string owner = Owner, CancellationToken ct = default) =>
         _queue.ProcessAsync(owner, attachment, new RecordingProgress(), ct);
 
     [Fact]
@@ -67,7 +68,7 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
     {
         var result = await ProcessAsync(Markdown());
 
-        Assert.IsType<ProcessingResult.Processed>(result);
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(result);
     }
 
     [Fact]
@@ -97,7 +98,7 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
 
         var result = await ProcessAsync(Stalling());
 
-        Assert.Equal(new ProcessingResult.Rejected(ProcessingRejections.TimedOut), result);
+        Assert.Equal(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.TimedOut), result);
     }
 
     [Fact]
@@ -176,8 +177,24 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
 
         Assert.False(waitingForRoom.IsCompleted);
         _stalling.Release();
-        Assert.IsType<ProcessingResult.Processed>(await waitingForRoom);
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(await waitingForRoom);
         await Task.WhenAll(running, queued);
+    }
+
+    // Prometheus throws on a registration conflict; a metric must never cost a
+    // file, strand its caller or keep its owner's slot.
+    [Fact]
+    public async Task A_metrics_failure_neither_fails_the_file_nor_keeps_the_owners_slot()
+    {
+        await RestartAsync(new KnowledgeFileProcessingOptions { Workers = 1, MaxActiveJobsPerUser = 1 }, new BrokenMetricsService());
+        var first = Markdown();
+
+        var firstResult = await ProcessAsync(first);
+        var secondResult = await ProcessAsync(Markdown());
+
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(firstResult);
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(secondResult);
+        await Eventually.TrueAsync(() => !File.Exists(first.File.Path), "The temp file outlived its job.");
     }
 
     // Without the drain, the queued caller would wait forever.
@@ -192,7 +209,7 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
 
         await _worker.StopAsync(CancellationToken.None);
 
-        var shuttingDown = new ProcessingResult.Rejected(ProcessingRejections.ShuttingDown);
+        var shuttingDown = new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.ShuttingDown);
         Assert.Equal([shuttingDown, shuttingDown], await Task.WhenAll(runningResult, queuedResult));
         Assert.False(File.Exists(running.File.Path) || File.Exists(queued.File.Path));
     }
@@ -205,7 +222,7 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
 
         var result = await ProcessAsync(late);
 
-        Assert.Equal(new ProcessingResult.Rejected(ProcessingRejections.ShuttingDown), result);
+        Assert.Equal(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.ShuttingDown), result);
         Assert.False(File.Exists(late.File.Path));
     }
 }

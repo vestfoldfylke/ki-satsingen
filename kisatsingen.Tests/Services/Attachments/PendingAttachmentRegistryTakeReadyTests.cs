@@ -58,6 +58,20 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
         Assert.True(File.Exists(file.Path));
     }
 
+    // Pending for most of a day, then sent: the age sweep must not reach it
+    // while it is being processed.
+    [Fact]
+    public void A_taken_file_has_its_age_reset_so_the_age_sweep_leaves_it_alone()
+    {
+        var file = AttachReady();
+        File.SetLastWriteTimeUtc(file.Path, DateTime.UtcNow.AddDays(-2));
+        Registry.TakeReady(Owner, _scopeKey);
+
+        _environment.Store.DeleteOlderThan(DateTimeOffset.UtcNow.AddDays(-1));
+
+        Assert.True(File.Exists(file.Path));
+    }
+
     [Fact]
     public void Refused_and_unfinished_attachments_are_not_taken()
     {

@@ -12,16 +12,16 @@ namespace kisatsingen.Services.Attachments;
 // startup), and with scale-out a circuit only sees its own instance's files.
 public sealed class PendingAttachmentRegistry
 {
-    private readonly Lock _gate = new();
+    private readonly Lock _entriesLock = new();
     private readonly Dictionary<Guid, PendingAttachmentEntry> _entries = [];
     private readonly TempFileStore _store;
-    private readonly AttachmentOptions _options;
+    private readonly PendingAttachmentLimits _limits;
     private readonly TimeProvider _time;
 
     public PendingAttachmentRegistry(TempFileStore store, AttachmentOptions options, TimeProvider time)
     {
         _store = store;
-        _options = options;
+        _limits = new PendingAttachmentLimits(options);
         _time = time;
     }
 
@@ -32,27 +32,29 @@ public sealed class PendingAttachmentRegistry
     public UploadReservation? Reserve(string ownerId, Guid scopeKey, string fileName, long declaredSizeBytes)
     {
         UploadReservation? reservation;
-        lock (_gate)
+        List<PendingAttachmentEntry> evicted = [];
+        lock (_entriesLock)
         {
             var type = AttachmentContentTypes.FromFileName(fileName);
             var refusal = type is null
                 ? UploadRejections.UnsupportedType
-                : FindReservationRefusal(ownerId, declaredSizeBytes);
+                : _limits.FindReservationRefusal(_entries.Values, ownerId, declaredSizeBytes);
 
             var entry = new PendingAttachmentEntry(Guid.NewGuid(), ownerId, scopeKey, fileName, type, declaredSizeBytes, _time.GetUtcNow());
+            _entries.Add(entry.UploadId, entry);
+
             if (refusal is not null)
             {
-                entry.Reject(refusal);
+                evicted = RejectLocked(entry, refusal);
                 reservation = null;
             }
             else
             {
                 reservation = new UploadReservation(entry.UploadId, type!, entry.Cancellation.Token);
             }
-
-            _entries.Add(entry.UploadId, entry);
         }
 
+        Discard(evicted);
         Changed?.Invoke(scopeKey);
         return reservation;
     }
@@ -63,27 +65,28 @@ public sealed class PendingAttachmentRegistry
     {
         bool isStarted;
         Guid scopeKey;
-        lock (_gate)
+        List<PendingAttachmentEntry> evicted = [];
+        lock (_entriesLock)
         {
             if (!_entries.TryGetValue(uploadId, out var entry) || entry.Status != AttachmentStatus.Waiting)
             {
                 return false;
             }
 
-            var uploading = _entries.Values.Count(other => other.OwnerId == entry.OwnerId && other.Status == AttachmentStatus.Uploading);
-            isStarted = uploading < _options.MaxConcurrentUploadsPerUser;
+            isStarted = _limits.CanStartUpload(_entries.Values, entry.OwnerId);
             if (isStarted)
             {
                 entry.Status = AttachmentStatus.Uploading;
             }
             else
             {
-                entry.Reject(UploadRejections.ConcurrentUploads);
+                evicted = RejectLocked(entry, UploadRejections.ConcurrentUploads);
             }
 
             scopeKey = entry.ScopeKey;
         }
 
+        Discard(evicted);
         Changed?.Invoke(scopeKey);
         return isStarted;
     }
@@ -91,7 +94,7 @@ public sealed class PendingAttachmentRegistry
     public void ReportProgress(Guid uploadId, long receivedBytes)
     {
         Guid scopeKey;
-        lock (_gate)
+        lock (_entriesLock)
         {
             if (!_entries.TryGetValue(uploadId, out var entry) || !entry.AdvanceProgress(receivedBytes))
             {
@@ -111,15 +114,14 @@ public sealed class PendingAttachmentRegistry
     {
         Guid? scopeKey = null;
         var isKept = false;
-        lock (_gate)
+        List<PendingAttachmentEntry> evicted = [];
+        lock (_entriesLock)
         {
             if (_entries.TryGetValue(uploadId, out var entry))
             {
-                // The reservation check trusted the declared size; this one does not.
-                var otherPendingBytes = PendingBytes(entry.OwnerId, except: uploadId);
-                if (otherPendingBytes + stored.SizeBytes > _options.MaxPendingBytesPerUser)
+                if (_limits.FindCompletionRefusal(_entries.Values, entry.OwnerId, uploadId, stored.SizeBytes) is { } refusal)
                 {
-                    entry.Reject(UploadRejections.TooManyPendingBytes(_options.MaxPendingBytesPerUser));
+                    evicted = RejectLocked(entry, refusal);
                 }
                 else
                 {
@@ -136,6 +138,7 @@ public sealed class PendingAttachmentRegistry
             _store.Delete(stored.File);
         }
 
+        Discard(evicted);
         if (scopeKey is Guid changed)
         {
             Changed?.Invoke(changed);
@@ -145,23 +148,41 @@ public sealed class PendingAttachmentRegistry
     public void Reject(Guid uploadId, string reason)
     {
         Guid scopeKey;
-        lock (_gate)
+        List<PendingAttachmentEntry> evicted;
+        lock (_entriesLock)
         {
             if (!_entries.TryGetValue(uploadId, out var entry))
             {
                 return;
             }
 
-            entry.Reject(reason);
+            evicted = RejectLocked(entry, reason);
             scopeKey = entry.ScopeKey;
         }
 
+        Discard(evicted);
         Changed?.Invoke(scopeKey);
+    }
+
+    // The one way an entry is refused, so the cap on refused entries (see
+    // PendingAttachmentLimits) holds on every path. Returns the entries it
+    // pushed out, for the caller to discard once outside the lock.
+    private List<PendingAttachmentEntry> RejectLocked(PendingAttachmentEntry entry, string reason)
+    {
+        entry.Reject(reason);
+
+        var evicted = _limits.SelectEvictedRejections(_entries.Values, entry);
+        foreach (var old in evicted)
+        {
+            _entries.Remove(old.UploadId);
+        }
+
+        return evicted;
     }
 
     public IReadOnlyList<PendingAttachment> List(string ownerId, Guid scopeKey)
     {
-        lock (_gate)
+        lock (_entriesLock)
         {
             return _entries.Values
                 .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey)
@@ -177,7 +198,7 @@ public sealed class PendingAttachmentRegistry
     public IReadOnlyList<ReadyAttachment> TakeReady(string ownerId, Guid scopeKey)
     {
         List<ReadyAttachment> taken = [];
-        lock (_gate)
+        lock (_entriesLock)
         {
             var inScope = _entries.Values
                 .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey)
@@ -194,6 +215,16 @@ public sealed class PendingAttachmentRegistry
             }
         }
 
+        // Outside the lock, like all file I/O here. Without it, a file that
+        // waited nearly a day before being sent could be swept mid-processing.
+        // Between leaving the registry and having its age reset, a file just short of
+        // the maximum age is exposed for microseconds to a sweep that runs at
+        // that exact moment; accepted rather than doing file I/O under the lock.
+        foreach (var attachment in taken)
+        {
+            _store.ResetAge(attachment.File);
+        }
+
         if (taken.Count > 0)
         {
             Changed?.Invoke(scopeKey);
@@ -206,7 +237,7 @@ public sealed class PendingAttachmentRegistry
     public bool Remove(string ownerId, Guid uploadId)
     {
         PendingAttachmentEntry? removed;
-        lock (_gate)
+        lock (_entriesLock)
         {
             if (!_entries.TryGetValue(uploadId, out removed) || removed.OwnerId != ownerId)
             {
@@ -231,7 +262,7 @@ public sealed class PendingAttachmentRegistry
     private int RemoveWhere(Func<PendingAttachmentEntry, bool> predicate)
     {
         List<PendingAttachmentEntry> removed;
-        lock (_gate)
+        lock (_entriesLock)
         {
             removed = _entries.Values.Where(predicate).ToList();
             foreach (var entry in removed)
@@ -262,34 +293,4 @@ public sealed class PendingAttachmentRegistry
             }
         }
     }
-
-    private string? FindReservationRefusal(string ownerId, long declaredSizeBytes)
-    {
-        // The declared size is the client's claim: good enough to refuse an
-        // honest oversized file early, never trusted to reserve one.
-        if (declaredSizeBytes > _options.MaxFileBytes)
-        {
-            return UploadRejections.TooLarge(_options.MaxFileBytes);
-        }
-
-        var pendingCount = _entries.Values.Count(entry => entry.OwnerId == ownerId && entry.Status != AttachmentStatus.Rejected);
-        if (pendingCount >= _options.MaxPendingFilesPerUser)
-        {
-            return UploadRejections.TooManyPending(_options.MaxPendingFilesPerUser);
-        }
-
-        if (PendingBytes(ownerId, except: null) + declaredSizeBytes > _options.MaxPendingBytesPerUser)
-        {
-            return UploadRejections.TooManyPendingBytes(_options.MaxPendingBytesPerUser);
-        }
-
-        return null;
-    }
-
-    // Stored files count at their real size; the rest at what they claim,
-    // capped at the file limit the upload will enforce.
-    private long PendingBytes(string ownerId, Guid? except) =>
-        _entries.Values
-            .Where(entry => entry.OwnerId == ownerId && entry.UploadId != except && entry.Status != AttachmentStatus.Rejected)
-            .Sum(entry => entry.SizeBytes ?? Math.Min(entry.DeclaredSizeBytes, _options.MaxFileBytes));
 }

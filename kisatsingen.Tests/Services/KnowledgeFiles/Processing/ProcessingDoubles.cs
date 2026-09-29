@@ -66,11 +66,11 @@ internal static class ReadyAttachments
     }
 }
 
-internal sealed class RecordingProgress : IProgress<ProcessingStage>
+internal sealed class RecordingProgress : IProgress<KnowledgeFileProcessingStage>
 {
-    public List<ProcessingStage> Reported { get; } = [];
+    public List<KnowledgeFileProcessingStage> Reported { get; } = [];
 
-    public void Report(ProcessingStage value)
+    public void Report(KnowledgeFileProcessingStage value)
     {
         lock (Reported)
         {
@@ -95,4 +95,21 @@ internal static class Eventually
             await Task.Delay(10);
         }
     }
+}
+
+// Every call throws, the way Prometheus does on a registration conflict.
+internal sealed class BrokenMetricsService : Vestfold.Extensions.Metrics.Services.IMetricsService
+{
+    private static InvalidOperationException Broken() => new("Metrics are broken.");
+
+    public void Count(string name, string? description, int value = 1) => throw Broken();
+    public void Count(string name, string? description, params (string, string)[] labels) => throw Broken();
+    public void Count(string name, string? description, int value, params (string, string)[] labels) => throw Broken();
+    public void Gauge(string name, double value) => throw Broken();
+    public void Gauge(string name, string description, double value) => throw Broken();
+    public void Gauge(string name, double value, params (string, string)[] labels) => throw Broken();
+    public void Gauge(string name, string description, double value, params (string, string)[] labels) => throw Broken();
+    public Prometheus.ITimer Histogram(string name, string? description) => throw Broken();
+    public Prometheus.ITimer Histogram(string name, params (string, string)[] labels) => throw Broken();
+    public Prometheus.ITimer Histogram(string name, string? description, params (string, string)[] labels) => throw Broken();
 }

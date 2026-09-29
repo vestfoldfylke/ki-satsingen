@@ -60,19 +60,37 @@ public static class DocumentOutline
     {
         var headings = document.Descendants<HeadingBlock>().ToList();
         var startLines = headings.Select(heading => LineOf(lineStarts, heading.Span.Start)).ToList();
-        var entries = new List<OutlineEntry>(headings.Count);
+        var endLines = FindSectionEnds(headings, startLines, lineCount);
+
+        return headings
+            .Select((heading, index) => new OutlineEntry(startLines[index], endLines[index], OutlineKind.Heading, heading.Level, Truncate(TextOf(heading))))
+            .ToList();
+    }
+
+    // One pass, linear in the number of headings: the outline is rebuilt on
+    // every read, and a generated file can have tens of thousands of them. Each
+    // heading stays open until one at its own level or above closes it.
+    private static int[] FindSectionEnds(List<HeadingBlock> headings, List<int> startLines, int lineCount)
+    {
+        var endLines = new int[headings.Count];
+        var open = new Stack<int>();
 
         for (var index = 0; index < headings.Count; index++)
         {
-            var heading = headings[index];
-            var nextSection = Enumerable.Range(index + 1, headings.Count - index - 1)
-                .FirstOrDefault(next => headings[next].Level <= heading.Level, -1);
-            var endLine = nextSection < 0 ? lineCount : startLines[nextSection] - 1;
+            while (open.Count > 0 && headings[open.Peek()].Level >= headings[index].Level)
+            {
+                endLines[open.Pop()] = startLines[index] - 1;
+            }
 
-            entries.Add(new OutlineEntry(startLines[index], endLine, OutlineKind.Heading, heading.Level, Truncate(TextOf(heading))));
+            open.Push(index);
         }
 
-        return entries;
+        while (open.Count > 0)
+        {
+            endLines[open.Pop()] = lineCount;
+        }
+
+        return endLines;
     }
 
     // Text before the first heading belongs to no section, so without its own
@@ -163,5 +181,5 @@ public static class DocumentOutline
     }
 
     private static string Truncate(string title) =>
-        title.Length <= MaxTitleLength ? title : title[..(MaxTitleLength - 1)] + "…";
+        title.Length <= MaxTitleLength ? title : TextTruncation.Prefix(title, MaxTitleLength - 1) + "…";
 }

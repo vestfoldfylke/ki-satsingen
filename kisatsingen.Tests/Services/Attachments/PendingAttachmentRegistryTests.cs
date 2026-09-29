@@ -38,6 +38,24 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         Assert.Equal((AttachmentStatus.Rejected, UploadRejections.UnsupportedType), (listed.Status, listed.RejectionReason));
     }
 
+    // Refusals count towards no limit, so picking bad files over and over must
+    // not grow memory without bound.
+    [Fact]
+    public void Refused_files_are_capped_per_scope_and_the_newest_are_kept()
+    {
+        var time = new ManualTime();
+        using var environment = new AttachmentTestEnvironment(time: time);
+        foreach (var index in Enumerable.Range(0, 15))
+        {
+            environment.Registry.Reserve(Owner, _scopeKey, $"program{index}.exe", Kilobyte);
+            time.Advance(TimeSpan.FromSeconds(1));
+        }
+
+        var listed = environment.Registry.List(Owner, _scopeKey);
+
+        Assert.Equal(Enumerable.Range(5, 10).Select(index => $"program{index}.exe"), listed.Select(attachment => attachment.FileName));
+    }
+
     [Fact]
     public void A_file_declared_over_the_size_limit_is_refused_before_any_bytes_are_read()
     {

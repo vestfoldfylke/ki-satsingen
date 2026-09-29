@@ -13,19 +13,19 @@ public sealed class KnowledgeFileProcessor(
     int maxEstimatedTokens,
     ILogger<KnowledgeFileProcessor> logger)
 {
-    public async Task<ProcessingResult> ProcessAsync(ReadyAttachment attachment, IProgress<ProcessingStage> progress, CancellationToken ct)
+    public async Task<KnowledgeFileProcessingResult> ProcessAsync(ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage> progress, CancellationToken ct)
     {
         var contentType = attachment.Type.ContentType;
         if (!converters.TryGet(contentType, out var converter))
         {
-            return new ProcessingResult.Rejected(ProcessingRejections.UnsupportedType);
+            return new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.UnsupportedType);
         }
 
-        progress.Report(ProcessingStage.Converting);
+        progress.Report(KnowledgeFileProcessingStage.Converting);
         var conversion = await ConvertAsync(converter, attachment, contentType, ct);
         if (conversion is ConversionResult.Rejected rejected)
         {
-            return new ProcessingResult.Rejected(rejected.Reason);
+            return new KnowledgeFileProcessingResult.Rejected(rejected.Reason);
         }
 
         var converted = (ConversionResult.Converted)conversion;
@@ -34,15 +34,15 @@ public sealed class KnowledgeFileProcessor(
         // only rules out files certain to be too large, and a summary may cost.
         if (TokenEstimate.FromCharacters(converted.Markdown.Length) > maxEstimatedTokens)
         {
-            return new ProcessingResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens));
+            return new KnowledgeFileProcessingResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens));
         }
 
         var outline = DocumentOutline.Build(converted.Markdown);
 
-        progress.Report(ProcessingStage.Summarizing);
+        progress.Report(KnowledgeFileProcessingStage.Summarizing);
         var summary = await SummarizeAsync(attachment, converted.Markdown, outline, ct);
 
-        return new ProcessingResult.Processed(new KnowledgeFileDraft(
+        return new KnowledgeFileProcessingResult.Processed(new KnowledgeFileDraft(
             attachment.FileName,
             contentType,
             attachment.SizeBytes,

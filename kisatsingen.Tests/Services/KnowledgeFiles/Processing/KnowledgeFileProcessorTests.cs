@@ -28,7 +28,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     private ReadyAttachment Markdown(string text) =>
         ReadyAttachments.From(_environment, Encoding.UTF8.GetBytes(text), AttachmentContentTypes.Markdown, "notat.md");
 
-    private static Task<ProcessingResult> ProcessAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, IProgress<ProcessingStage>? progress = null) =>
+    private static Task<KnowledgeFileProcessingResult> ProcessAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage>? progress = null) =>
         processor.ProcessAsync(attachment, progress ?? new RecordingProgress(), CancellationToken.None);
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
 
         var result = await ProcessAsync(Processor(), attachment);
 
-        var draft = Assert.IsType<ProcessingResult.Processed>(result).Draft;
+        var draft = Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft;
         Assert.Equal(
             ("notat.md", "# Budsjett\n\nTall for 2027.", ContentOrigin.TextFile, attachment.Sha256),
             (draft.FileName, draft.Markdown, draft.Origin, draft.Sha256));
@@ -51,7 +51,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
 
         var result = await ProcessAsync(Processor(), binary);
 
-        Assert.Equal(new ProcessingResult.Rejected(ConversionRejections.Binary), result);
+        Assert.Equal(new KnowledgeFileProcessingResult.Rejected(ConversionRejections.Binary), result);
     }
 
     // The converter's early check only rules out files certain to be too large.
@@ -62,7 +62,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
 
         var result = await ProcessAsync(Processor(maxEstimatedTokens: 3, summarizer), Markdown("# Tittel\n\nMer enn ni tegn."));
 
-        Assert.IsType<ProcessingResult.Rejected>(result);
+        Assert.IsType<KnowledgeFileProcessingResult.Rejected>(result);
         Assert.Equal(0, summarizer.Calls);
     }
 
@@ -71,7 +71,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var result = await ProcessAsync(Processor(summarizer: new FailingSummarizer()), Markdown("# Tittel\n\nTekst."));
 
-        Assert.Null(Assert.IsType<ProcessingResult.Processed>(result).Draft.Summary);
+        Assert.Null(Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft.Summary);
     }
 
     // A provider's HTTP timeout is a TaskCanceledException nobody here asked for.
@@ -80,7 +80,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var result = await ProcessAsync(Processor(summarizer: new TimingOutSummarizer()), Markdown("# Tittel\n\nTekst."));
 
-        Assert.Null(Assert.IsType<ProcessingResult.Processed>(result).Draft.Summary);
+        Assert.Null(Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft.Summary);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
 
         var result = await ProcessAsync(Processor(), unknown);
 
-        Assert.IsType<ProcessingResult.Rejected>(result);
+        Assert.IsType<KnowledgeFileProcessingResult.Rejected>(result);
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
 
         await ProcessAsync(Processor(), Markdown("tekst"), progress);
 
-        Assert.Equal([ProcessingStage.Converting, ProcessingStage.Summarizing], progress.Reported);
+        Assert.Equal([KnowledgeFileProcessingStage.Converting, KnowledgeFileProcessingStage.Summarizing], progress.Reported);
     }
 
     // Deleting it is the job of whoever took it, so a caller can still retry with it.

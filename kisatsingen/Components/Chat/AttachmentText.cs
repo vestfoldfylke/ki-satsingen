@@ -1,4 +1,3 @@
-using System.Globalization;
 using kisatsingen.Services.Attachments;
 
 namespace kisatsingen.Components.Chat;
@@ -7,9 +6,6 @@ namespace kisatsingen.Components.Chat;
 // in both.
 internal static class AttachmentText
 {
-    private const double Kilobyte = 1024;
-    private const double Megabyte = Kilobyte * 1024;
-
     public static string DescribeStatus(PendingAttachment attachment) => attachment.Status switch
     {
         AttachmentStatus.Waiting => "Venter",
@@ -21,13 +17,6 @@ internal static class AttachmentText
 
     public static bool IsRejected(PendingAttachment attachment) =>
         attachment.Status == AttachmentStatus.Rejected;
-
-    public static string FormatSize(long bytes) => bytes switch
-    {
-        < 1024 => $"{bytes} B",
-        < 1024 * 1024 => string.Create(CultureInfo.CurrentCulture, $"{bytes / Kilobyte:0} kB"),
-        _ => string.Create(CultureInfo.CurrentCulture, $"{bytes / Megabyte:0.#} MB")
-    };
 
     // From the declared size, which is only a display estimate here.
     private static int Percent(PendingAttachment attachment) =>

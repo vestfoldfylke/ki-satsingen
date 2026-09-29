@@ -17,6 +17,8 @@ public sealed class ChatAttachments : IDisposable
     // there is no authentication state to ask.
     private string? _ownerId;
 
+    private readonly Lock _pendingLock = new();
+
     // Cancelled when the view moves on, so its uploads stop with it.
     private CancellationTokenSource _viewCancellation = new();
 
@@ -43,8 +45,11 @@ public sealed class ChatAttachments : IDisposable
     // About the selection as a whole, which no single attachment can carry.
     public string? SelectionNotice { get; private set; }
 
-    public IReadOnlyList<PendingAttachment> Pending =>
-        _ownerId is null ? [] : _registry.List(_ownerId, ComposerKey);
+    // A snapshot taken once per change in the registry, not a scan per read:
+    // the page reads this several times per render, and every scan takes the
+    // lock all users share. Replaced whole, so a render never sees it half
+    // updated, even when the change came from the sweep's thread.
+    public IReadOnlyList<PendingAttachment> Pending { get; private set; } = [];
 
     // Holds send, and the picker: a new selection makes the files of the one
     // still uploading unreadable.
@@ -140,6 +145,7 @@ public sealed class ChatAttachments : IDisposable
         _viewCancellation = new CancellationTokenSource();
         ComposerKey = Guid.NewGuid();
         SelectionNotice = null;
+        RefreshPending();
         Changed?.Invoke();
     }
 
@@ -160,7 +166,20 @@ public sealed class ChatAttachments : IDisposable
     {
         if (scopeKey == ComposerKey)
         {
+            RefreshPending();
             Changed?.Invoke();
+        }
+    }
+
+    // Computed and assigned under one lock: changes can arrive on the circuit
+    // and the sweep's thread at once, and without it an older list could be
+    // assigned after a newer one and stay shown until the next change. No
+    // deadlock, since the registry raises its events outside its own lock.
+    private void RefreshPending()
+    {
+        lock (_pendingLock)
+        {
+            Pending = _ownerId is null ? [] : _registry.List(_ownerId, ComposerKey);
         }
     }
 

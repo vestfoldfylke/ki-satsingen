@@ -18,6 +18,14 @@ public sealed class DocumentOutlineTests
             headings);
     }
 
+    [Fact]
+    public void A_heading_closes_every_deeper_section_still_open_and_leaves_shallower_ones_open()
+    {
+        var headings = Headings("# A\n## A.1\n### A.1.a\n## A.2\ntekst");
+
+        Assert.Equal([(1, 5), (2, 3), (3, 3), (4, 5)], headings.Select(heading => (heading.Line, heading.EndLine)));
+    }
+
     // Otherwise a model navigating by outline would never see the introduction.
     [Fact]
     public void Text_before_the_first_heading_gets_an_entry_of_its_own()

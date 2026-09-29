@@ -13,7 +13,7 @@ public sealed class ImagePlaceholderConverter(long maxSidePixels, long maxTotalP
 
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
-        if (await ImageHeader.ReadAsync(request.Content, request.ContentType, ct) is not { } size || size.Width == 0 || size.Height == 0)
+        if (await ImageHeaderReader.ReadAsync(request.Content, request.ContentType, ct) is not { } size || size.Width == 0 || size.Height == 0)
         {
             return new ConversionResult.Rejected(ConversionRejections.MalformedImage);
         }

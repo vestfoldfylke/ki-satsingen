@@ -1,3 +1,4 @@
+@using kisatsingen.Services
 @using kisatsingen.Services.Attachments
 
 @* Pending files only for now; the chat's saved files join them once sending
@@ -23,7 +24,7 @@
             {
                 <li @key="attachment.UploadId" class="chat-files-item">
                     <span class="chat-files-item-name">@attachment.FileName</span>
-                    <span class="chat-files-item-meta">@AttachmentText.FormatSize(attachment.DeclaredSizeBytes)</span>
+                    <span class="chat-files-item-meta">@ByteSize.Format(attachment.DeclaredSizeBytes)</span>
                     <span class="chat-files-item-status" data-color="@(AttachmentText.IsRejected(attachment) ? "danger" : null)">
                         @AttachmentText.DescribeStatus(attachment)
                     </span>

@@ -6,10 +6,8 @@ public sealed class AttachmentOptions
 {
     public const string SectionName = "Attachments";
 
-    private const long Megabyte = 1024 * 1024;
-
     // High on purpose until uploads over SignalR are measured in the cloud.
-    public long MaxFileBytes { get; init; } = 50 * Megabyte;
+    public long MaxFileBytes { get; init; } = 50 * ByteSize.Megabyte;
 
     // GetMultipleFiles throws above its limit, so a selection is checked
     // against this before any file is read.
@@ -19,7 +17,7 @@ public sealed class AttachmentOptions
     public int MaxPendingFilesPerUser { get; init; } = 10;
 
     // Pending files sit on disk until their message is sent.
-    public long MaxPendingBytesPerUser { get; init; } = 200 * Megabyte;
+    public long MaxPendingBytesPerUser { get; init; } = 200 * ByteSize.Megabyte;
 
     // Uploads share the circuit's SignalR connection with rendering.
     public int MaxConcurrentUploadsPerUser { get; init; } = 2;

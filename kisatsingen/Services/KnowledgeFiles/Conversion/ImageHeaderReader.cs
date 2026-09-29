@@ -10,7 +10,7 @@ public sealed record ImageDimensions(long Width, long Height);
 // Width and height from the header alone, with no image library, so a size
 // limit can be checked before anything is decoded. Null means the header is
 // malformed, which is itself a reason to refuse the file.
-internal static class ImageHeader
+internal static class ImageHeaderReader
 {
     // Signature (8) + IHDR length (4) + "IHDR" (4) + width (4) + height (4).
     private const int PngHeaderLength = 24;
@@ -35,7 +35,7 @@ internal static class ImageHeader
             return await ReadJpegAsync(image, ct);
         }
 
-        throw new ArgumentException($"ImageHeader cannot read '{contentType}'. Only PNG and JPEG are supported.", nameof(contentType));
+        throw new ArgumentException($"ImageHeaderReader cannot read '{contentType}'. Only PNG and JPEG are supported.", nameof(contentType));
     }
 
     private static async Task<ImageDimensions?> ReadPngAsync(Stream image, CancellationToken ct)

@@ -2,12 +2,12 @@ namespace kisatsingen.Services.Attachments;
 
 // The last cleanup path: attachments nobody sent or removed, and temp files
 // nothing tracks (a crash between creating a file and registering it).
-public sealed class TempFileSweeper(
+public sealed class AttachmentSweeper(
     PendingAttachmentRegistry registry,
     TempFileStore store,
     AttachmentOptions options,
     TimeProvider time,
-    ILogger<TempFileSweeper> logger) : BackgroundService
+    ILogger<AttachmentSweeper> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

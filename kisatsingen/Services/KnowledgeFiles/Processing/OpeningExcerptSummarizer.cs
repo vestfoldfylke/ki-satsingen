@@ -11,7 +11,7 @@ public sealed class OpeningExcerptSummarizer : IDocumentSummarizer
 
     public Task<string?> SummarizeAsync(string markdown, IReadOnlyList<OutlineEntry> outline, CancellationToken ct)
     {
-        var opening = markdown.Length <= ExcerptLength ? markdown : markdown[..ExcerptLength];
+        var opening = TextTruncation.Prefix(markdown, ExcerptLength);
         var excerpt = string.Join(' ', opening.Split((char[])['\n', ' ', '\t'], StringSplitOptions.RemoveEmptyEntries));
 
         return Task.FromResult<string?>(excerpt.Length == 0

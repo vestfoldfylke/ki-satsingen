@@ -36,9 +36,18 @@ public sealed class TextDocumentConverter : IDocumentConverter
         TokenEstimate.FromCharacters(byteCount / MaxBytesPerCharacter);
 
     // Whole, because decoding needs all of it. Bounded by the early check: a
-    // file that passes it is a few MB at most for any sensible token cap.
+    // file that passes it is a few MB at most for any sensible token cap. Read
+    // straight into an array of the known length where there is one, rather
+    // than through a growing buffer and a copy.
     private static async Task<byte[]> ReadAllAsync(Stream content, CancellationToken ct)
     {
+        if (content.CanSeek)
+        {
+            var bytes = new byte[content.Length - content.Position];
+            await content.ReadExactlyAsync(bytes, ct);
+            return bytes;
+        }
+
         using var buffer = new MemoryStream();
         await content.CopyToAsync(buffer, ct);
         return buffer.ToArray();

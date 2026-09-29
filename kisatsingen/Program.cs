@@ -184,7 +184,7 @@ builder.Services.AddSingleton(sp => new TempFileStore(
     sp.GetRequiredService<ILogger<TempFileStore>>()));
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<PendingAttachmentRegistry>();
-builder.Services.AddHostedService<TempFileSweeper>();
+builder.Services.AddHostedService<AttachmentSweeper>();
 builder.Services.AddScoped<ChatAttachments>();
 
 // ─── Knowledge-file processing ─────────────────────────
@@ -207,6 +207,7 @@ builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
     sp.GetRequiredService<TempFileStore>(),
     maxKnowledgeFileTokens,
     sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
+builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
 builder.Services.AddSingleton<KnowledgeFileProcessingQueue>();
 builder.Services.AddHostedService<KnowledgeFileProcessingWorker>();
 

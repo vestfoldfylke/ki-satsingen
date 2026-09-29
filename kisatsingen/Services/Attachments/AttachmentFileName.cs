@@ -25,7 +25,7 @@ public static class AttachmentFileName
         // The extension decides the type, so it survives the cut.
         var extension = Path.GetExtension(name);
         return extension.Length >= KnowledgeFile.MaxFileNameLength
-            ? name[..KnowledgeFile.MaxFileNameLength]
-            : name[..(KnowledgeFile.MaxFileNameLength - extension.Length)] + extension;
+            ? TextTruncation.Prefix(name, KnowledgeFile.MaxFileNameLength)
+            : TextTruncation.Prefix(name, KnowledgeFile.MaxFileNameLength - extension.Length) + extension;
     }
 }

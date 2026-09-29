@@ -4,8 +4,6 @@ namespace kisatsingen.Services.Attachments;
 // advance and never built from an exception, so no internals reach the page.
 internal static class UploadRejections
 {
-    private const long Megabyte = 1024 * 1024;
-
     public const string Empty = "Filen er tom.";
 
     public const string WrongSignature =
@@ -21,13 +19,13 @@ internal static class UploadRejections
         $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedExtensionsText}.";
 
     public static string TooLarge(long maxBytes) =>
-        $"Filen er større enn grensen på {maxBytes / Megabyte} MB.";
+        $"Filen er større enn grensen på {ByteSize.Format(maxBytes)}.";
 
     public static string TooManyPending(int max) =>
         $"Du har allerede {max} vedlegg som venter. Send meldingen eller fjern noen vedlegg først.";
 
     public static string TooManyPendingBytes(long maxBytes) =>
-        $"Vedleggene som venter er til sammen større enn {maxBytes / Megabyte} MB. Send meldingen eller fjern noen vedlegg først.";
+        $"Vedleggene som venter er til sammen større enn {ByteSize.Format(maxBytes)}. Send meldingen eller fjern noen vedlegg først.";
 
     public static string TooManyInSelection(int max) =>
         $"Du kan velge opptil {max} filer om gangen.";

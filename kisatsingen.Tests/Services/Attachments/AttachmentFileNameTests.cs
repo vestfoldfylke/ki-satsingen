@@ -1,3 +1,4 @@
+using System.Text;
 using kisatsingen.Data.Entities;
 using kisatsingen.Services.Attachments;
 using Xunit;
@@ -22,6 +23,20 @@ public sealed class AttachmentFileNameTests
     public void A_name_that_is_nothing_but_whitespace_gets_a_fallback()
     {
         Assert.Equal("fil", AttachmentFileName.Normalize("   "));
+    }
+
+    // The cut lands inside the first emoji. Postgres writes UTF-8 strictly, so
+    // half an emoji would make saving the file fail.
+    [Fact]
+    public void A_long_name_cut_inside_an_emoji_still_encodes_as_valid_utf8()
+    {
+        var name = new string('a', KnowledgeFile.MaxFileNameLength - 4) + "😀😀😀.md";
+        var strictUtf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        var normalized = AttachmentFileName.Normalize(name);
+
+        Assert.Equal(new string('a', KnowledgeFile.MaxFileNameLength - 4) + ".md", normalized);
+        Assert.True(strictUtf8.GetByteCount(normalized) > 0);
     }
 
     // The extension decides the type, so cutting it off would change the file.

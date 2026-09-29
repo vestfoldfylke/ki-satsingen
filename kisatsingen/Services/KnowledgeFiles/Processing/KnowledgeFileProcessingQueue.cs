@@ -1,7 +1,5 @@
 using System.Threading.Channels;
-using kisatsingen.Constants;
 using kisatsingen.Services.Attachments;
-using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
@@ -10,14 +8,12 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 // turn, a failure would lose the file.
 public sealed class KnowledgeFileProcessingQueue
 {
-    internal static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_KnowledgeFile";
-
     private readonly Channel<ProcessingJob> _channel;
     private readonly OwnerJobLimiter _limiter;
     private readonly TempFileStore _store;
-    private readonly IMetricsService _metrics;
+    private readonly KnowledgeFileProcessingMetrics _metrics;
 
-    public KnowledgeFileProcessingQueue(KnowledgeFileProcessingOptions options, TempFileStore store, IMetricsService metrics)
+    public KnowledgeFileProcessingQueue(KnowledgeFileProcessingOptions options, TempFileStore store, KnowledgeFileProcessingMetrics metrics)
     {
         _channel = Channel.CreateBounded<ProcessingJob>(new BoundedChannelOptions(options.QueueCapacity)
         {
@@ -32,10 +28,10 @@ public sealed class KnowledgeFileProcessingQueue
 
     // Takes ownership of the attachment's temp file: it is deleted whatever
     // happens, whether or not the job ever reached a worker.
-    public async Task<ProcessingResult> ProcessAsync(
+    public async Task<KnowledgeFileProcessingResult> ProcessAsync(
         string ownerId,
         ReadyAttachment attachment,
-        IProgress<ProcessingStage> progress,
+        IProgress<KnowledgeFileProcessingStage> progress,
         CancellationToken ct)
     {
         IDisposable? ownerSlot = null;
@@ -43,11 +39,10 @@ public sealed class KnowledgeFileProcessingQueue
 
         try
         {
-            progress.Report(ProcessingStage.Queued);
+            progress.Report(KnowledgeFileProcessingStage.Queued);
             ownerSlot = await _limiter.AcquireAsync(ownerId, ct);
 
-            var queueWait = _metrics.Histogram($"{MetricPrefix}_QueueWait", "Time a knowledge file waited for a worker");
-            var job = new ProcessingJob(attachment, progress, ownerSlot, queueWait, ct);
+            var job = new ProcessingJob(attachment, progress, ownerSlot, _metrics.StartQueueWait(), ct);
             await _channel.Writer.WriteAsync(job, ct);
             isHandedOver = true;
 
@@ -56,7 +51,7 @@ public sealed class KnowledgeFileProcessingQueue
         }
         catch (ChannelClosedException)
         {
-            return new ProcessingResult.Rejected(ProcessingRejections.ShuttingDown);
+            return new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.ShuttingDown);
         }
         finally
         {

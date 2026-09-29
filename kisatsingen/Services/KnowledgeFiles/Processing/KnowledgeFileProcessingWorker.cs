@@ -1,6 +1,4 @@
-using kisatsingen.Constants;
 using kisatsingen.Services.Attachments;
-using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
@@ -13,7 +11,7 @@ public sealed class KnowledgeFileProcessingWorker(
     KnowledgeFileProcessor processor,
     TempFileStore store,
     KnowledgeFileProcessingOptions options,
-    IMetricsService metrics,
+    KnowledgeFileProcessingMetrics metrics,
     ILogger<KnowledgeFileProcessingWorker> logger) : BackgroundService
 {
     private enum Outcome
@@ -45,7 +43,6 @@ public sealed class KnowledgeFileProcessingWorker(
         {
             await foreach (var job in queue.Reader.ReadAllAsync(stoppingToken))
             {
-                job.QueueWait.ObserveDuration();
                 await RunJobAsync(job, stoppingToken);
             }
         }
@@ -54,16 +51,18 @@ public sealed class KnowledgeFileProcessingWorker(
         }
     }
 
-    // Never throws: one bad file must not take a worker down with it.
+    // Never throws: one bad file must not take a worker down with it. Hence
+    // everything, setup included, inside the try.
     private async Task RunJobAsync(ProcessingJob job, CancellationToken stoppingToken)
     {
-        using var timeout = new CancellationTokenSource(options.JobTimeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(job.Cancellation, stoppingToken, timeout.Token);
-        var duration = metrics.Histogram($"{KnowledgeFileProcessingQueue.MetricPrefix}_Duration", "Time spent converting a knowledge file");
         var outcome = Outcome.Failed;
+        CancellationTokenSource? timeout = null;
+        CancellationTokenSource? linked = null;
 
         try
         {
+            metrics.Observe(job.QueueWait);
+
             // Stopped while it waited: nobody is waiting for the result.
             if (job.Cancellation.IsCancellationRequested)
             {
@@ -72,10 +71,14 @@ public sealed class KnowledgeFileProcessingWorker(
                 return;
             }
 
+            timeout = new CancellationTokenSource(options.JobTimeout);
+            linked = CancellationTokenSource.CreateLinkedTokenSource(job.Cancellation, stoppingToken, timeout.Token);
+            var conversion = metrics.StartConversion();
+
             var result = await processor.ProcessAsync(job.Attachment, job.Progress, linked.Token);
-            outcome = result is ProcessingResult.Processed ? Outcome.Processed : Outcome.Rejected;
+            outcome = result is KnowledgeFileProcessingResult.Processed ? Outcome.Processed : Outcome.Rejected;
             job.Completion.TrySetResult(result);
-            duration.ObserveDuration();
+            metrics.Observe(conversion);
         }
         // The order matters: the caller's own stop is a cancellation, the
         // service's is a refusal the user can retry, and only the timer left
@@ -88,13 +91,13 @@ public sealed class KnowledgeFileProcessingWorker(
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
             outcome = Outcome.ShuttingDown;
-            job.Completion.TrySetResult(new ProcessingResult.Rejected(ProcessingRejections.ShuttingDown));
+            job.Completion.TrySetResult(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.ShuttingDown));
         }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        catch (OperationCanceledException) when (timeout?.IsCancellationRequested == true)
         {
             outcome = Outcome.TimedOut;
             logger.LogWarning("Processing upload {UploadId} ({ContentType}) timed out after {Timeout}.", job.Attachment.UploadId, job.Attachment.Type.ContentType, options.JobTimeout);
-            job.Completion.TrySetResult(new ProcessingResult.Rejected(ProcessingRejections.TimedOut));
+            job.Completion.TrySetResult(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.TimedOut));
         }
         catch (Exception ex)
         {
@@ -104,8 +107,10 @@ public sealed class KnowledgeFileProcessingWorker(
         }
         finally
         {
+            linked?.Dispose();
+            timeout?.Dispose();
             Release(job);
-            CountOutcome(job, outcome);
+            metrics.CountOutcome(job.Attachment.Type.ContentType, outcome.ToString());
         }
     }
 
@@ -115,9 +120,9 @@ public sealed class KnowledgeFileProcessingWorker(
     {
         while (queue.Reader.TryRead(out var job))
         {
-            job.Completion.TrySetResult(new ProcessingResult.Rejected(ProcessingRejections.ShuttingDown));
+            job.Completion.TrySetResult(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.ShuttingDown));
             Release(job);
-            CountOutcome(job, Outcome.ShuttingDown);
+            metrics.CountOutcome(job.Attachment.Type.ContentType, nameof(Outcome.ShuttingDown));
         }
     }
 
@@ -125,23 +130,5 @@ public sealed class KnowledgeFileProcessingWorker(
     {
         store.Delete(job.Attachment.File);
         job.OwnerSlot.Dispose();
-    }
-
-    // Guarded: Prometheus throws on a label mismatch, and that must never
-    // replace a job's own outcome.
-    private void CountOutcome(ProcessingJob job, Outcome outcome)
-    {
-        try
-        {
-            metrics.Count(
-                $"{KnowledgeFileProcessingQueue.MetricPrefix}_Processed",
-                "Knowledge files processed, by content type and outcome",
-                (MetricConstants.MetricsContentTypeLabelName, job.Attachment.Type.ContentType),
-                (MetricConstants.MetricsResultLabelName, outcome.ToString()));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Could not count the {Outcome} outcome for upload {UploadId}.", outcome, job.Attachment.UploadId);
-        }
     }
 }

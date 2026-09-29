@@ -9,22 +9,23 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 // forever.
 internal sealed class ProcessingJob(
     ReadyAttachment attachment,
-    IProgress<ProcessingStage> progress,
+    IProgress<KnowledgeFileProcessingStage> progress,
     IDisposable ownerSlot,
-    MetricTimer queueWait,
+    MetricTimer? queueWait,
     CancellationToken cancellation)
 {
     public ReadyAttachment Attachment { get; } = attachment;
-    public IProgress<ProcessingStage> Progress { get; } = progress;
+    public IProgress<KnowledgeFileProcessingStage> Progress { get; } = progress;
     public IDisposable OwnerSlot { get; } = ownerSlot;
 
-    // Started when the job was queued, observed when a worker takes it.
-    public MetricTimer QueueWait { get; } = queueWait;
+    // Started when the job was queued, observed when a worker takes it. Null
+    // when the metric could not be started, which never stops the job.
+    public MetricTimer? QueueWait { get; } = queueWait;
 
     public CancellationToken Cancellation { get; } = cancellation;
 
     // RunContinuationsAsynchronously, so completing it never runs the caller's
     // continuation (a whole chat turn) on the worker's thread.
-    public TaskCompletionSource<ProcessingResult> Completion { get; } =
+    public TaskCompletionSource<KnowledgeFileProcessingResult> Completion { get; } =
         new(TaskCreationOptions.RunContinuationsAsynchronously);
 }

@@ -4,16 +4,16 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Attachments;
 
-public sealed class TempFileSweeperTests : IDisposable
+public sealed class AttachmentSweeperTests : IDisposable
 {
     private readonly ManualTime _time = new();
     private readonly AttachmentTestEnvironment _environment;
-    private readonly TempFileSweeper _sweeper;
+    private readonly AttachmentSweeper _sweeper;
 
-    public TempFileSweeperTests()
+    public AttachmentSweeperTests()
     {
         _environment = new AttachmentTestEnvironment(time: _time);
-        _sweeper = new TempFileSweeper(_environment.Registry, _environment.Store, _environment.Options, _time, NullLogger<TempFileSweeper>.Instance);
+        _sweeper = new AttachmentSweeper(_environment.Registry, _environment.Store, _environment.Options, _time, NullLogger<AttachmentSweeper>.Instance);
     }
 
     public void Dispose()

@@ -5,13 +5,13 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 // set of owners seen since startup does not accumulate.
 internal sealed class OwnerJobLimiter(int maxJobsPerOwner)
 {
-    private readonly Lock _gate = new();
+    private readonly Lock _ownersLock = new();
     private readonly Dictionary<string, OwnerSlots> _owners = [];
 
     public async Task<IDisposable> AcquireAsync(string ownerId, CancellationToken ct)
     {
         OwnerSlots slots;
-        lock (_gate)
+        lock (_ownersLock)
         {
             if (!_owners.TryGetValue(ownerId, out slots!))
             {
@@ -41,7 +41,7 @@ internal sealed class OwnerJobLimiter(int maxJobsPerOwner)
 
     private void Leave(string ownerId, OwnerSlots slots)
     {
-        lock (_gate)
+        lock (_ownersLock)
         {
             if (--slots.Interested == 0)
             {

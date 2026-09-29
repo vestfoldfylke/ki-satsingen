@@ -36,6 +36,10 @@ public sealed class TempFileStore
     private const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode OwnerOnlyFile = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
+    // What FileStream uses when given none; named because the constructor
+    // that takes FileOptions requires a size.
+    private const int FileStreamDefaultBufferSize = 4096;
+
     private readonly ILogger<TempFileStore> _logger;
 
     public TempFileStore(string directory, ILogger<TempFileStore> logger)
@@ -69,7 +73,23 @@ public sealed class TempFileStore
     }
 
     public FileStream OpenRead(TempFile file) =>
-        new(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+        new(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read, FileStreamDefaultBufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+    // The age sweep goes by modified time, so a file handed over for
+    // processing has its age reset: however long it waited before its message was
+    // sent, the sweep then leaves it a full maximum age to finish in.
+    // Never throws, like Delete: a file that cannot be touched is still usable.
+    public void ResetAge(TempFile file)
+    {
+        try
+        {
+            File.SetLastWriteTimeUtc(file.Path, DateTime.UtcNow);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not reset the age of temp file {Path}; the sweep may delete it before it is processed.", file.Path);
+        }
+    }
 
     // Never throws: a file that cannot be deleted now is caught by the sweep,
     // and a caller cleaning up must not have its own outcome replaced.
