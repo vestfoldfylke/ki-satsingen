@@ -4,6 +4,8 @@ using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.KnowledgeFiles.Conversion;
+using kisatsingen.Services.KnowledgeFiles.Processing;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -184,6 +186,29 @@ builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<PendingAttachmentRegistry>();
 builder.Services.AddHostedService<TempFileSweeper>();
 builder.Services.AddScoped<ChatAttachments>();
+
+// ─── Knowledge-file processing ─────────────────────────
+// Defaults live in KnowledgeFileProcessingOptions; the section overrides them.
+var processingOptions = builder.Configuration.GetSection(KnowledgeFileProcessingOptions.SectionName).Get<KnowledgeFileProcessingOptions>()
+    ?? new KnowledgeFileProcessingOptions();
+processingOptions.Validate();
+
+builder.Services.AddSingleton(processingOptions);
+
+// One converter per content type. Moving a type to a remote converter means
+// swapping its registration here for one that calls that service.
+builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
+builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(processingOptions.MaxImageSidePixels, processingOptions.MaxImagePixels));
+builder.Services.AddSingleton<DocumentConverterRegistry>();
+builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
+builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
+    sp.GetRequiredService<DocumentConverterRegistry>(),
+    sp.GetRequiredService<IDocumentSummarizer>(),
+    sp.GetRequiredService<TempFileStore>(),
+    maxKnowledgeFileTokens,
+    sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
+builder.Services.AddSingleton<KnowledgeFileProcessingQueue>();
+builder.Services.AddHostedService<KnowledgeFileProcessingWorker>();
 
 var app = builder.Build();
 

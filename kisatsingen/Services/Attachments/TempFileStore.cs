@@ -68,6 +68,9 @@ public sealed class TempFileStore
         return (new TempFile(path), new FileStream(path, options));
     }
 
+    public FileStream OpenRead(TempFile file) =>
+        new(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 4096, FileOptions.Asynchronous | FileOptions.SequentialScan);
+
     // Never throws: a file that cannot be deleted now is caught by the sweep,
     // and a caller cleaning up must not have its own outcome replaced.
     public void Delete(TempFile file)
