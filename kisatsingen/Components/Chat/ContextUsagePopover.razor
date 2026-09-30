@@ -20,7 +20,7 @@
 
         <div class="context-usage-meter">
             <label class="ds-label" data-weight="regular" for="@MeterId">
-                Kontekstvindu: @Format(EstimatedContextTokens) av @Format(Model.ContextWindowTokens)
+                Kontekstvindu: @TokenCountFormat.Format(EstimatedContextTokens) av @TokenCountFormat.Format(Model.ContextWindowTokens)
             </label>
             @* Same thresholds as the trigger colour: green, then yellow, then red.
                A meter's low/high are inclusive of the calmer colour, while ClassifyContext
@@ -40,17 +40,17 @@
                 @if (usage.CombinedInputTokens is { } input)
                 {
                     <dt>Sendt til KI</dt>
-                    <dd>@Format(input, usage.IsEstimated)</dd>
+                    <dd>@TokenCountFormat.Format(input, usage.IsEstimated)</dd>
                 }
                 @if (usage.CombinedOutputTokens is { } output)
                 {
                     <dt>Svar fra KI</dt>
-                    <dd>@Format(output, usage.IsEstimated)</dd>
+                    <dd>@TokenCountFormat.Format(output, usage.IsEstimated)</dd>
                 }
                 @if (usage.CombinedTotalTokens is { } total)
                 {
                     <dt>Totalt behandlet</dt>
-                    <dd>@Format(total, usage.IsEstimated)</dd>
+                    <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
                 }
             </dl>
         }

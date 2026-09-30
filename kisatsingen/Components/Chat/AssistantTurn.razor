@@ -62,15 +62,15 @@
                         <dd class="assistant-metadata-usage">
                             @if (usage.CombinedInputTokens is { } input)
                             {
-                                <span>in @FormatTokens(input, usage.IsEstimated)</span>
+                                <span>in @TokenCountFormat.Format(input, usage.IsEstimated)</span>
                             }
                             @if (usage.CombinedOutputTokens is { } output)
                             {
-                                <span>out @FormatTokens(output, usage.IsEstimated)</span>
+                                <span>out @TokenCountFormat.Format(output, usage.IsEstimated)</span>
                             }
                             @if (usage.CombinedTotalTokens is { } total)
                             {
-                                <span>total @FormatTokens(total, usage.IsEstimated)</span>
+                                <span>total @TokenCountFormat.Format(total, usage.IsEstimated)</span>
                             }
                         </dd>
                     }

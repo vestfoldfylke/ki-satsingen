@@ -32,9 +32,6 @@ public partial class AssistantTurn : ComponentBase
         };
     }
 
-    private static string FormatTokens(long tokens, bool isEstimated) =>
-        isEstimated ? $"~{tokens:N0}" : tokens.ToString("N0");
-
     private static string FormatMs(long ms) => ms < 1000
         ? $"{ms} ms"
         : $"{ms / 1000.0:0.##} s";
