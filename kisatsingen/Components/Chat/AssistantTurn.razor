@@ -60,17 +60,17 @@
                     {
                         <dt>Tokens</dt>
                         <dd class="assistant-metadata-usage">
-                            @if (usage.InputTokens is { } input)
+                            @if (usage.CombinedInputTokens is { } input)
                             {
-                                <span>in @input.ToString("N0")</span>
+                                <span>in @FormatTokens(input, usage.IsEstimated)</span>
                             }
-                            @if (usage.OutputTokens is { } output)
+                            @if (usage.CombinedOutputTokens is { } output)
                             {
-                                <span>out @output.ToString("N0")</span>
+                                <span>out @FormatTokens(output, usage.IsEstimated)</span>
                             }
-                            @if (usage.TotalTokens is { } total)
+                            @if (usage.CombinedTotalTokens is { } total)
                             {
-                                <span>total @total.ToString("N0")</span>
+                                <span>total @FormatTokens(total, usage.IsEstimated)</span>
                             }
                         </dd>
                     }

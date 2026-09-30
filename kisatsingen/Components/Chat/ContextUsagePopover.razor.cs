@@ -39,4 +39,6 @@ public sealed partial class ContextUsagePopover : ComponentBase
     private string TriggerLabel => $"Kontekstvindu: {StatusText}. Vis detaljer.";
 
     private static string Format(long tokens) => tokens.ToString("N0");
+
+    private static string Format(long tokens, bool isEstimated) => isEstimated ? $"~{Format(tokens)}" : Format(tokens);
 }

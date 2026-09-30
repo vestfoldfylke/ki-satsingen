@@ -201,7 +201,48 @@ public sealed class TurnBuilderTests
         builder.Apply(Usage(100, 10));
         builder.Apply(Usage(200, 20));
 
-        Assert.Equal(new MessageUsage(300, 30, 330), builder.Finish(TurnStatus.Completed).Metadata?.Usage);
+        Assert.Equal(new MessageUsage(300, 30), builder.Finish(TurnStatus.Completed).Metadata?.Usage);
+    }
+
+    [Fact]
+    public void A_stopped_turn_the_provider_never_reported_on_estimates_its_request_and_what_was_written()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+        builder.Apply(Text("halvferdig"));
+
+        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+
+        var written = ContextTokenEstimator.EstimateGenerated(Assert.Single(builder.Snapshot().Answer));
+        Assert.Equal(new MessageUsage(null, null, 50, written), usage);
+    }
+
+    // The usage chunk arrives before the tool result, so it is the calling round's.
+    [Fact]
+    public void A_stopped_tool_turn_keeps_the_reported_round_and_estimates_only_the_one_in_flight()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+        builder.Apply(Call("call-1"));
+        builder.Apply(Usage(500, 20));
+        builder.Apply(Result("call-1"));
+        builder.Apply(Text("halvferdig"));
+
+        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+
+        var answer = builder.Snapshot().Answer;
+        var resentForRoundTwo = 50 + ContextTokenEstimator.EstimateResent(answer[0]);
+        Assert.Equal(new MessageUsage(500, 20, resentForRoundTwo, ContextTokenEstimator.EstimateGenerated(answer[1])), usage);
+    }
+
+    // A request the provider refused before answering is not billed.
+    [Fact]
+    public void A_stopped_turn_that_received_nothing_estimates_nothing()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+
+        Assert.Null(builder.Finish(TurnStatus.Stopped).Metadata?.Usage);
     }
 
     [Fact]
@@ -220,7 +261,7 @@ public sealed class TurnBuilderTests
         Assert.Equal(TurnStage.Generating, builder.Finish(TurnStatus.Failed, TurnStage.Generating).FailedAt);
     }
 
-    private static TurnBuilder Builder() => new(new Turn
+    private static TurnBuilder Builder(long requestTokens = 0) => new(new Turn
     {
         Id = Guid.NewGuid(),
         Prompt = "hei",
@@ -228,7 +269,7 @@ public sealed class TurnBuilderTests
         ModelKey = FakeChatModelCatalog.DefaultKey,
         ModelDisplayName = "Fast",
         StartedAt = DateTimeOffset.UtcNow
-    });
+    }, requestTokens);
 
     private static ToolSegment SingleTool(TurnBuilder builder) =>
         Assert.IsType<ToolSegment>(Assert.Single(builder.Snapshot().Answer));

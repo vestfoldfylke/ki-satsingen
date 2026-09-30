@@ -95,7 +95,7 @@ internal sealed class TurnRunner
         TurnCancellation cancellation,
         TurnObserver observer)
     {
-        var builder = new TurnBuilder(turn);
+        var builder = new TurnBuilder(turn, ContextTokenEstimator.Estimate(request, turn.SystemPrompt));
         var stage = TurnStage.Authenticating;
 
         try

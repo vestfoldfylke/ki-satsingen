@@ -37,26 +37,30 @@
         @if (Usage is { } usage)
         {
             <dl>
-                @if (usage.InputTokens is { } input)
+                @if (usage.CombinedInputTokens is { } input)
                 {
                     <dt>Sendt til KI</dt>
-                    <dd>@Format(input)</dd>
+                    <dd>@Format(input, usage.IsEstimated)</dd>
                 }
-                @if (usage.OutputTokens is { } output)
+                @if (usage.CombinedOutputTokens is { } output)
                 {
                     <dt>Svar fra KI</dt>
-                    <dd>@Format(output)</dd>
+                    <dd>@Format(output, usage.IsEstimated)</dd>
                 }
-                @if (usage.TotalTokens is { } total)
+                @if (usage.CombinedTotalTokens is { } total)
                 {
                     <dt>Totalt behandlet</dt>
-                    <dd>@Format(total)</dd>
+                    <dd>@Format(total, usage.IsEstimated)</dd>
                 }
             </dl>
         }
 
         <p class="ds-paragraph context-usage-help" data-size="xs">
             Tallene er tokens: små tekstbiter på omtrent et ord eller en del av et ord.
+            @if (Usage?.IsEstimated == true)
+            {
+                <text>Tall merket ~ er delvis anslått, fordi et svar ble avbrutt før KI-tjenesten rapporterte forbruket.</text>
+            }
         </p>
     </div>
 </div>

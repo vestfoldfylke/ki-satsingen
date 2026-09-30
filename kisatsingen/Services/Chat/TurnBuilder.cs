@@ -30,7 +30,15 @@ internal sealed class TurnBuilder
     private string? _finishReason;
     private UsageDetails? _usage;
 
-    public TurnBuilder(Turn started) => _started = started;
+    // A stopped round trip reports nothing, so these are what its cost is estimated from.
+    private readonly long _requestTokens;
+    private readonly HashSet<int> _roundsWithReportedUsage = [];
+
+    public TurnBuilder(Turn started, long requestTokens)
+    {
+        _started = started;
+        _requestTokens = requestTokens;
+    }
 
     // Set by the stream, which owns the clock.
     public long? TimeToFirstTokenMs { get; set; }
@@ -67,8 +75,11 @@ internal sealed class TurnBuilder
 
     public Turn Snapshot() => _started with { Answer = SnapshotAnswer() };
 
-    public Turn Finish(TurnStatus status, TurnStage? failedAt = null) =>
-        (Snapshot() with { Metadata = BuildMetadata() }).EndedAs(status, failedAt);
+    public Turn Finish(TurnStatus status, TurnStage? failedAt = null)
+    {
+        var snapshot = Snapshot();
+        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer) }).EndedAs(status, failedAt);
+    }
 
     private void AppendText(string text, List<TurnChange> changes)
     {
@@ -180,19 +191,59 @@ internal sealed class TurnBuilder
     }
 
     // Summed across round trips: what the turn cost, not how big the context is.
+    // A provider reports a round trip's usage as its last chunk, before any tool
+    // result closes the round, so _round is still the round it belongs to.
     private void AddUsage(UsageDetails details)
     {
         _usage ??= new UsageDetails();
         _usage.Add(details);
+        _roundsWithReportedUsage.Add(_round);
     }
 
-    private TurnMetadata? BuildMetadata() => DurationMs is null
-        ? null
-        : new TurnMetadata(
+    private TurnMetadata? BuildMetadata(IReadOnlyList<TurnSegment> answer)
+    {
+        if (DurationMs is null)
+        {
+            return null;
+        }
+
+        var (estimatedInput, estimatedOutput) = EstimateUsageOfUnreportedRounds(answer);
+
+        return new TurnMetadata(
             _servedModelId,
             _responseId,
             _finishReason,
-            MessageUsage.FromCounts(_usage?.InputTokenCount, _usage?.OutputTokenCount, _usage?.TotalTokenCount),
+            MessageUsage.FromCounts(
+                _usage?.InputTokenCount,
+                _usage?.OutputTokenCount,
+                estimatedInput,
+                estimatedOutput),
             DurationMs,
             TimeToFirstTokenMs);
+    }
+
+    // Only rounds that produced something: one that produced nothing may never have
+    // been accepted, and a refused request is not billed.
+    private (long? Input, long? Output) EstimateUsageOfUnreportedRounds(IReadOnlyList<TurnSegment> answer)
+    {
+        long? input = null;
+        long? output = null;
+
+        foreach (var round in answer.Select(segment => segment.Round).Distinct())
+        {
+            if (_roundsWithReportedUsage.Contains(round))
+            {
+                continue;
+            }
+
+            // Every round trip sends the whole request again, plus what earlier rounds added to it.
+            var earlierRounds = answer.Where(segment => segment.Round < round);
+            input = (input ?? 0) + _requestTokens + earlierRounds.Sum(ContextTokenEstimator.EstimateResent);
+
+            var thisRound = answer.Where(segment => segment.Round == round);
+            output = (output ?? 0) + thisRound.Sum(ContextTokenEstimator.EstimateGenerated);
+        }
+
+        return (input, output);
+    }
 }

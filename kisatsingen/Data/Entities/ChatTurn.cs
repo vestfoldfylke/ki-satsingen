@@ -36,7 +36,8 @@ public sealed class ChatTurn
     public string? FinishReason { get; init; }
     public long? InputTokens { get; init; }
     public long? OutputTokens { get; init; }
-    public long? TotalTokens { get; init; }
+    public long? EstimatedInputTokens { get; init; }
+    public long? EstimatedOutputTokens { get; init; }
     public long? DurationMs { get; init; }
     public long? TimeToFirstTokenMs { get; init; }
 }
