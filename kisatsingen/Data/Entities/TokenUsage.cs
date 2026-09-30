@@ -2,7 +2,7 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Data.Entities;
 
-public sealed class Consumption
+public sealed class TokenUsage
 {
     public const int MaxOwnerIdLength = 128;
     public const int MaxProviderLength = 64;
@@ -14,6 +14,9 @@ public sealed class Consumption
     public DateTimeOffset Timestamp { get; init; }
     public required string Provider { get; init; }
     public required string ModelId { get; init; }
-    public long TokenCount { get; init; }
+    public long? InputTokens { get; init; }
+    public long? OutputTokens { get; init; }
+    public long? EstimatedInputTokens { get; init; }
+    public long? EstimatedOutputTokens { get; init; }
     public required TurnStatus Status { get; init; }
 }

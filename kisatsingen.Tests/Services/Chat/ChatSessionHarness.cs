@@ -27,7 +27,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
-    public FakeConsumptionRepository ConsumptionRepository { get; } = new();
+    public FakeTokenUsageRepository TokenUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -47,7 +47,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance,
-            ConsumptionRepository);
+            TokenUsageRepository);
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.
@@ -193,30 +193,45 @@ internal sealed class FakeChatRepository : IChatRepository
 
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
-// Records every write, so tests assert the row was opened as Running and closed
-// with the outcome the turn ended on.
-internal sealed class FakeConsumptionRepository : IConsumptionRepository
+// Records every insert, so tests assert the turn's ending was written with the
+// usage the model reported and the status it landed on.
+internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
 {
-    public List<ConsumptionInsert> Inserts { get; } = [];
-    public List<ConsumptionUpdate> Updates { get; } = [];
+    public List<TokenUsageInsert> Inserts { get; } = [];
 
-    public Task<Guid?> InsertConsumptionAsync(string ownerId, string provider, string modelId, long tokenCount, TurnStatus status, CancellationToken ct = default)
-    {
-        var id = Guid.NewGuid();
-        Inserts.Add(new ConsumptionInsert(id, ownerId, provider, modelId, tokenCount, status));
-        return Task.FromResult<Guid?>(id);
-    }
+    // Lets a test simulate the repository being down without breaking the send.
+    public Exception? InsertFailure { get; set; }
 
-    public Task UpdateConsumptionAsync(Guid id, string ownerId, long tokenCount, TurnStatus status, CancellationToken ct = default)
+    public Task InsertTokenUsageAsync(
+        string ownerId,
+        string provider,
+        string modelId,
+        long? inputTokens,
+        long? outputTokens,
+        long? estimatedInputTokens,
+        long? estimatedOutputTokens,
+        TurnStatus status,
+        CancellationToken ct = default)
     {
-        Updates.Add(new ConsumptionUpdate(id, ownerId, tokenCount, status));
+        if (InsertFailure is not null)
+        {
+            return Task.FromException(InsertFailure);
+        }
+
+        Inserts.Add(new TokenUsageInsert(ownerId, provider, modelId, inputTokens, outputTokens, estimatedInputTokens, estimatedOutputTokens, status));
         return Task.CompletedTask;
     }
 }
 
-internal sealed record ConsumptionInsert(Guid Id, string OwnerId, string Provider, string ModelId, long TokenCount, TurnStatus Status);
-
-internal sealed record ConsumptionUpdate(Guid Id, string OwnerId, long TokenCount, TurnStatus Status);
+internal sealed record TokenUsageInsert(
+    string OwnerId,
+    string Provider,
+    string ModelId,
+    long? InputTokens,
+    long? OutputTokens,
+    long? EstimatedInputTokens,
+    long? EstimatedOutputTokens,
+    TurnStatus Status);
 
 internal sealed class FakeChatClient : IChatClient
 {

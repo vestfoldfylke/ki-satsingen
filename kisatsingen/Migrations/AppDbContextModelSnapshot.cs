@@ -182,16 +182,28 @@ namespace kisatsingen.Migrations
                     b.ToTable("ChatTurns");
                 });
 
-            modelBuilder.Entity("kisatsingen.Data.Entities.Consumption", b =>
+            modelBuilder.Entity("kisatsingen.Data.Entities.TokenUsage", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<long?>("EstimatedInputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("EstimatedOutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("InputTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("ModelId")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
+
+                    b.Property<long?>("OutputTokens")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("OwnerId")
                         .IsRequired()
@@ -211,14 +223,11 @@ namespace kisatsingen.Migrations
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<long>("TokenCount")
-                        .HasColumnType("bigint");
-
                     b.HasKey("Id");
 
                     b.HasIndex("OwnerId", "Timestamp");
 
-                    b.ToTable("Consumptions");
+                    b.ToTable("TokenUsages");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>

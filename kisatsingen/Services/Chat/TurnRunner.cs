@@ -24,6 +24,7 @@ internal sealed class TurnRunner
     private readonly TurnStreamer _streamer;
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
+    private readonly ITokenUsageRepository _tokenUsageRepository;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -33,7 +34,8 @@ internal sealed class TurnRunner
         IMetricsService metrics,
         TurnStreamer streamer,
         string metricPrefix,
-        ILogger logger)
+        ILogger logger,
+        ITokenUsageRepository tokenUsageRepository)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -43,6 +45,7 @@ internal sealed class TurnRunner
         _streamer = streamer;
         _metricPrefix = metricPrefix;
         _logger = logger;
+        _tokenUsageRepository = tokenUsageRepository;
     }
 
     // Throws only what the page must handle itself: an unauthenticated caller, an
@@ -68,7 +71,7 @@ internal sealed class TurnRunner
             outcome = attempt.Outcome;
             servedModelId = attempt.ServedModelId;
 
-            await FinishAttemptAsync(row, attempt);
+            await FinishAttemptAsync(row, attempt, model);
             return attempt.Turn;
         }
         // Rethrown: with no error boundary it ends the circuit, and the reload is what
@@ -145,7 +148,7 @@ internal sealed class TurnRunner
 
     // Saved before counting: a metrics failure surfaces, and must not also leave the
     // stored turn unfinished.
-    private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt)
+    private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
     {
         LogFailure(row, attempt);
 
@@ -153,6 +156,8 @@ internal sealed class TurnRunner
         {
             await SaveEndedTurnAsync(row, attempt.Turn);
         }
+
+        await InsertTokenUsageAsync(row, attempt, model);
 
         CountFailure(attempt);
     }
@@ -261,6 +266,38 @@ internal sealed class TurnRunner
                 ended.Id,
                 row.ChatId,
                 ended.Status);
+        }
+    }
+
+    private async Task InsertTokenUsageAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
+    {
+        if (attempt.Turn.Metadata?.Usage is not { } usage)
+        {
+            return;
+        }
+
+        try
+        {
+            var ownerId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
+            await _tokenUsageRepository.InsertTokenUsageAsync(
+                ownerId,
+                model.Provider,
+                model.ModelId,
+                usage.InputTokens,
+                usage.OutputTokens,
+                usage.EstimatedInputTokens,
+                usage.EstimatedOutputTokens,
+                attempt.Turn.Status,
+                CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}",
+                attempt.Turn.Id,
+                row.ChatId,
+                attempt.Turn.Status);
         }
     }
 

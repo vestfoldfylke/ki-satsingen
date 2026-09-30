@@ -96,12 +96,12 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     // Every root is named: TRUNCATE CASCADE only reaches tables with a foreign
     // key TO the listed ones, and Assistants is a parent of Chats, not a child.
-    // Consumptions has no foreign keys and would otherwise leak rows between
+    // TokenUsages has no foreign keys and would otherwise leak rows between
     // tests. Add each new root here as tables are added.
     public async Task ResetAsync()
     {
         await using var db = await OwnerFactory.CreateDbContextAsync();
-        await db.Database.ExecuteSqlRawAsync("""TRUNCATE "Chats", "Assistants", "Consumptions" CASCADE""");
+        await db.Database.ExecuteSqlRawAsync("""TRUNCATE "Chats", "Assistants", "TokenUsages" CASCADE""");
     }
 
     public async Task DisposeAsync() => await _container.DisposeAsync();
