@@ -1,38 +1,51 @@
+using System.Linq.Expressions;
 using kisatsingen.Data.Entities;
+using kisatsingen.Services;
+using kisatsingen.Services.KnowledgeFiles.Conversion;
+using kisatsingen.Services.KnowledgeFiles.Documents;
+using kisatsingen.Services.KnowledgeFiles.Processing;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace kisatsingen.Data.Repositories;
 
 public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> factory, int maxEstimatedTokenCount) : IKnowledgeFileRepository
 {
-    // An unbounded range would just be a slower way of loading the whole
-    // document into the context window. Public so the retrieval tool can state
-    // the limit rather than discover it by being refused.
-    public const int MaxChunkSpan = 50;
+    // One definition for both the query projection and the file just saved,
+    // so the two can never disagree on what metadata is. Markdown is left out
+    // on purpose.
+    private static readonly Expression<Func<KnowledgeFile, KnowledgeFileMetadata>> MetadataProjection = f => new KnowledgeFileMetadata(
+        f.Id,
+        f.FileName,
+        f.ContentType,
+        f.SizeBytes,
+        f.Sha256,
+        f.Summary,
+        f.LineCount,
+        f.EstimatedTokenCount,
+        ReadContentOrigin(f.ContentOrigin),
+        f.PageCount,
+        f.Version,
+        f.CreatedAt,
+        f.UpdatedAt);
 
-    public Task<KnowledgeFile> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default)
+    private static readonly Func<KnowledgeFile, KnowledgeFileMetadata> ToMetadata = MetadataProjection.Compile();
+
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default)
         => CreateAsync(ownerId, assistantId, chatId: null, draft, ct);
 
-    public Task<KnowledgeFile> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
         => CreateAsync(ownerId, assistantId: null, chatId, draft, ct);
 
-    // The only place the nullable scope pair exists.
-    private async Task<KnowledgeFile> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, KnowledgeFileDraft draft, CancellationToken ct)
+    // The single write path, and the only place the nullable scope pair exists.
+    // Every stored text passes through here, so this is where the guarantees
+    // the read tools depend on are enforced, whatever converter produced it.
+    private async Task<KnowledgeFileSaveResult> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, KnowledgeFileDraft draft, CancellationToken ct)
     {
-        if (draft.Chunks.Count == 0)
-        {
-            throw new ArgumentException(
-                $"Knowledge file '{draft.FileName}' produced no chunks, so there would be nothing to retrieve from it. " +
-                "The uploaded bytes are not kept, so an empty file cannot be repaired later — reject the upload instead of storing it.",
-                nameof(draft));
-        }
-
         var normalisedFileName = BoundedText.RequireTrimmed(draft.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
         var normalisedContentType = BoundedText.RequireTrimmed(draft.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
         var normalisedSha256 = NormaliseSha256(draft.Sha256);
-        var normalisedSummary = BoundedText.RequireTrimmed(draft.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
-        var normalisedTableOfContents = BoundedText.TrimToNullable(draft.TableOfContents, "Knowledge file table of contents", KnowledgeFile.MaxTableOfContentsLength);
-        var normalisedLanguage = BoundedText.TrimToNullable(draft.Language, "Knowledge file language", KnowledgeFile.MaxLanguageLength);
+        var normalisedSummary = BoundedText.TrimToNullable(draft.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
 
         if (draft.SizeBytes <= 0)
         {
@@ -48,50 +61,36 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 nameof(draft));
         }
 
-        // Guard every chunk individually before summing: a mix of positive and
-        // negative estimates can sum to a plausible total while poisoning the
-        // per-chunk budgeting downstream.
-        for (var i = 0; i < draft.Chunks.Count; i++)
-        {
-            if (draft.Chunks[i].EstimatedTokenCount < 0)
-            {
-                throw new ArgumentException(
-                    $"Knowledge file '{normalisedFileName}' chunk {i} reports {draft.Chunks[i].EstimatedTokenCount} estimated tokens; token counts must be non-negative.",
-                    nameof(draft));
-            }
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        var fileId = Guid.NewGuid();
-
-        var chunks = draft.Chunks
-            .Select((chunk, index) => new KnowledgeFileChunk
-            {
-                Id = Guid.NewGuid(),
-                KnowledgeFileId = fileId,
-                Sequence = index,
-                Heading = chunk.Heading,
-                Content = chunk.Content,
-                EstimatedTokenCount = chunk.EstimatedTokenCount
-            })
-            .ToList();
-
-        // long accumulator: each chunk is >= 0 by the per-chunk guard above, so
-        // the total is >= 0 too; the only thing left to catch is the policy cap.
-        var totalTokens = chunks.Sum(c => (long)c.EstimatedTokenCount);
-        if (totalTokens > maxEstimatedTokenCount)
+        if (!Enum.IsDefined(draft.Origin))
         {
             throw new ArgumentException(
-                $"Knowledge file '{normalisedFileName}' totals {totalTokens} estimated tokens, over the {maxEstimatedTokenCount} this system accepts. Reject the upload or re-chunk it.",
+                $"Knowledge file '{normalisedFileName}' has content origin {(int)draft.Origin}, which is not a defined {nameof(ContentOrigin)}. Add the value to the enum before a converter returns it.",
                 nameof(draft));
         }
 
-        await using var db = await factory.CreateDbContextAsync(ct);
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+        // Before anything is counted, so LineCount matches the stored text.
+        var markdown = draft.Markdown.ReplaceLineEndings("\n");
 
+        if (string.IsNullOrWhiteSpace(markdown))
+        {
+            return new KnowledgeFileSaveResult.Rejected(ConversionRejections.Empty);
+        }
+
+        if (markdown.Contains('\0'))
+        {
+            return new KnowledgeFileSaveResult.Rejected(ConversionRejections.InvalidCharacters);
+        }
+
+        var estimatedTokenCount = TokenEstimate.FromCharacters(markdown.Length);
+        if (estimatedTokenCount > maxEstimatedTokenCount)
+        {
+            return new KnowledgeFileSaveResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokenCount));
+        }
+
+        var now = TruncateToMicroseconds(DateTimeOffset.UtcNow);
         var file = new KnowledgeFile
         {
-            Id = fileId,
+            Id = Guid.NewGuid(),
             OwnerId = ownerId,
             AssistantId = assistantId,
             ChatId = chatId,
@@ -100,29 +99,68 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             SizeBytes = draft.SizeBytes,
             Sha256 = normalisedSha256,
             Summary = normalisedSummary,
-            TableOfContents = normalisedTableOfContents,
-            ChunkCount = chunks.Count,
-            EstimatedTokenCount = (int)totalTokens,
+            Markdown = markdown,
+            LineCount = DocumentLines.Count(markdown),
+            EstimatedTokenCount = (int)estimatedTokenCount,
+            ContentOrigin = draft.Origin.ToString(),
             PageCount = draft.PageCount,
-            Language = normalisedLanguage,
+            Version = KnowledgeFile.FirstVersion,
             CreatedAt = now,
-            Chunks = chunks
+            UpdatedAt = now
         };
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         await TouchScopeAsync(db, ownerId, assistantId, chatId, now, ct);
 
-        // One SaveChanges for the graph: multi-row insert order only matters for a
-        // sequence default, and Sequence is assigned above.
         db.KnowledgeFiles.Add(file);
-        await db.SaveChangesAsync(ct);
+
+        try
+        {
+            await db.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateException ex) when (DuplicateRejection(ex) is { } reason)
+        {
+            // The transaction rolls back on dispose, taking the scope's
+            // UpdatedAt bump with it.
+            return new KnowledgeFileSaveResult.Rejected(reason);
+        }
 
         await transaction.CommitAsync(ct);
 
-        return file;
+        return new KnowledgeFileSaveResult.Saved(ToMetadata(file));
+    }
+
+    // IsDefined as well, because TryParse also accepts any number ("7").
+    private static ContentOrigin? ReadContentOrigin(string stored)
+        => Enum.TryParse<ContentOrigin>(stored, out var origin) && Enum.IsDefined(origin) ? origin : null;
+
+    // timestamptz keeps whole microseconds, so without this the metadata
+    // returned from a save would differ from the same file read back.
+    private static DateTimeOffset TruncateToMicroseconds(DateTimeOffset value)
+        => value.AddTicks(-(value.Ticks % TimeSpan.TicksPerMicrosecond));
+
+    // Only the per-scope hash indexes mean "already attached"; any other
+    // unique violation is a bug and stays an exception.
+    private static string? DuplicateRejection(DbUpdateException ex)
+    {
+        if (ex.InnerException is not PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg)
+        {
+            return null;
+        }
+
+        return pg.ConstraintName switch
+        {
+            AppDbContext.KnowledgeFileChatSha256IndexName => KnowledgeFileSaveRejections.DuplicateInChat,
+            AppDbContext.KnowledgeFileAssistantSha256IndexName => KnowledgeFileSaveRejections.DuplicateInAssistant,
+            _ => null
+        };
     }
 
     // Exactly 64 hex chars, normalised to lowercase so the DB representation is
-    // canonical regardless of which pipeline produced it.
+    // canonical regardless of which pipeline produced it — which the unique
+    // indexes depend on.
     private static string NormaliseSha256(string sha256)
     {
         if (sha256.Length != KnowledgeFile.Sha256HexLength || !IsLowerableHex(sha256))
@@ -181,87 +219,31 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         }
     }
 
-    public async Task<KnowledgeFile?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default)
+    public async Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.KnowledgeFiles
-            .AsNoTracking()
-            .FirstOrDefaultAsync(f => f.Id == knowledgeFileId && f.OwnerId == ownerId, ct);
+            .Where(f => f.Id == knowledgeFileId && f.OwnerId == ownerId)
+            .Select(MetadataProjection)
+            .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileSummary>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await ProjectSummaries(db.KnowledgeFiles.Where(f => f.AssistantId == assistantId && f.OwnerId == ownerId)).ToListAsync(ct);
+        return await ListMetadata(db.KnowledgeFiles.Where(f => f.AssistantId == assistantId && f.OwnerId == ownerId)).ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileSummary>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await ProjectSummaries(db.KnowledgeFiles.Where(f => f.ChatId == chatId && f.OwnerId == ownerId)).ToListAsync(ct);
+        return await ListMetadata(db.KnowledgeFiles.Where(f => f.ChatId == chatId && f.OwnerId == ownerId)).ToListAsync(ct);
     }
 
-    private static IQueryable<KnowledgeFileSummary> ProjectSummaries(IQueryable<KnowledgeFile> files)
+    private static IQueryable<KnowledgeFileMetadata> ListMetadata(IQueryable<KnowledgeFile> files)
         => files
             .OrderBy(f => f.CreatedAt)
-            .Select(f => new KnowledgeFileSummary(
-                f.Id,
-                f.FileName,
-                f.ContentType,
-                f.SizeBytes,
-                f.ChunkCount,
-                f.EstimatedTokenCount,
-                f.CreatedAt));
-
-    public async Task<IReadOnlyList<KnowledgeFileChunk>> GetChunksAsync(string ownerId, Guid knowledgeFileId, int firstSequence, int lastSequence, CancellationToken ct = default)
-    {
-        if (firstSequence < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(firstSequence),
-                firstSequence,
-                $"Chunk sequence must be zero or positive (got {firstSequence}).");
-        }
-
-        if (lastSequence < 0)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(lastSequence),
-                lastSequence,
-                $"Chunk sequence must be zero or positive (got {lastSequence}).");
-        }
-
-        if (lastSequence < firstSequence)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(firstSequence),
-                firstSequence,
-                $"Chunk range end must not precede its start (got {firstSequence}..{lastSequence}). Pass the lower sequence first.");
-        }
-
-        // long, because in int arithmetic a 0..int.MaxValue range wraps negative
-        // and sails past the cap — on a path whose arguments come from a model.
-        var requestedSpan = (long)lastSequence - firstSequence + 1;
-        if (requestedSpan > MaxChunkSpan)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(lastSequence),
-                lastSequence,
-                $"Chunk range {firstSequence}..{lastSequence} spans {requestedSpan} chunks, over the {MaxChunkSpan} allowed in one call. Request a narrower range.");
-        }
-
-        await using var db = await factory.CreateDbContextAsync(ct);
-
-        // Chunks carry no owner, so the filter joins through the file that does.
-        return await db.KnowledgeFileChunks
-            .Where(c => c.KnowledgeFileId == knowledgeFileId
-                && c.KnowledgeFile!.OwnerId == ownerId
-                && c.Sequence >= firstSequence
-                && c.Sequence <= lastSequence)
-            .OrderBy(c => c.Sequence)
-            .AsNoTracking()
-            .ToListAsync(ct);
-    }
+            .Select(MetadataProjection);
 
     public async Task<bool> DeleteFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default)
     {

@@ -16,4 +16,16 @@ public sealed class DocumentLinesTests
     {
         Assert.Equal(["en", "", "tre"], DocumentLines.Split("en\n\ntre"));
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("\n")]
+    [InlineData("en")]
+    [InlineData("en\n")]
+    [InlineData("en\n\n")]
+    [InlineData("en\n\ntre")]
+    public void Count_agrees_with_the_number_of_lines_split_returns(string markdown)
+    {
+        Assert.Equal(DocumentLines.Split(markdown).Length, DocumentLines.Count(markdown));
+    }
 }

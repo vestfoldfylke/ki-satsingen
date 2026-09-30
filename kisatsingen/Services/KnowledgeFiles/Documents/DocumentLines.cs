@@ -13,4 +13,11 @@ public static class DocumentLines
         var lines = markdown.Split('\n');
         return lines.Length > 1 && lines[^1].Length == 0 ? lines[..^1] : lines;
     }
+
+    // Split(markdown).Length, without allocating every line.
+    public static int Count(string markdown)
+    {
+        var newlineCount = markdown.AsSpan().Count('\n');
+        return markdown.EndsWith('\n') ? newlineCount : newlineCount + 1;
+    }
 }

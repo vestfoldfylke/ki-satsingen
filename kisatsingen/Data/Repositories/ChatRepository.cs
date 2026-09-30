@@ -6,11 +6,10 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IChatRepository
 {
-    // Postgres FK-violation SQLSTATE; caught below to translate a benign race
-    // into the same InvalidOperationException the pre-check throws. The
-    // constraint name is matched too so a future FK added to Chats can't be
-    // silently mistranslated as an assistant lookup failure.
-    private const string ForeignKeyViolationSqlState = "23503";
+    // The FK violation is caught below to translate a benign race into the
+    // same InvalidOperationException the pre-check throws. The constraint name
+    // is matched too so a future FK added to Chats can't be silently
+    // mistranslated as an assistant lookup failure.
     private const string ChatAssistantForeignKeyName = "FK_Chats_Assistants_AssistantId";
 
     public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
@@ -69,7 +68,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
     private static bool IsAssistantForeignKeyViolation(DbUpdateException ex)
         => ex.InnerException is PostgresException pg
-            && pg.SqlState == ForeignKeyViolationSqlState
+            && pg.SqlState == PostgresErrorCodes.ForeignKeyViolation
             && pg.ConstraintName == ChatAssistantForeignKeyName;
 
     public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
@@ -120,6 +119,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
                 .SetProperty(t => t.Status, turn.Status)
                 .SetProperty(t => t.FailedAt, turn.FailedAt)
                 .SetProperty(t => t.AnswerJson, turn.AnswerJson)
+                .SetProperty(t => t.AttachmentsJson, turn.AttachmentsJson)
                 .SetProperty(t => t.ServedModelId, turn.ServedModelId)
                 .SetProperty(t => t.ResponseId, turn.ResponseId)
                 .SetProperty(t => t.FinishReason, turn.FinishReason)

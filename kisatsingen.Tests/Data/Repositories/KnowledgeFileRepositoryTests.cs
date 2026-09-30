@@ -1,6 +1,8 @@
 using kisatsingen.Data;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services.KnowledgeFiles.Conversion;
+using kisatsingen.Services.KnowledgeFiles.Processing;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;
@@ -14,10 +16,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     private const string OwnerId = "Whatever";
     private const string OtherOwnerId = "SomebodyElse";
     private const int DefaultTokenCap = 500_000;
-
-    // SQLSTATE rather than message text, so a Postgres upgrade cannot break these.
-    private const string CheckViolation = "23514";
-    private const string UniqueViolation = "23505";
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -35,312 +33,321 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_numbers_chunks_from_the_order_they_arrive_in()
+    public async Task A_file_saved_into_a_chat_reads_back_with_the_metadata_it_was_saved_with()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var file = await Repo.CreateFileForAssistantAsync(
-            OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "first", "second", "third"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var found = await Repo.GetFileAsync(OwnerId, saved.Id);
 
-        await using var db = await Factory.CreateDbContextAsync();
-        var contentsBySequence = await db.KnowledgeFileChunks
-            .Where(c => c.KnowledgeFileId == file.Id)
-            .OrderBy(c => c.Sequence)
-            .Select(c => c.Content)
-            .ToListAsync();
-
-        Assert.Equal(["first", "second", "third"], contentsBySequence);
+        Assert.Equal(saved, found);
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_derives_the_totals_from_the_chunks_it_stored()
+    public async Task A_saved_file_keeps_its_markdown_and_content_origin()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var draft = KnowledgeFileFactory.Draft("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder };
 
-        await Repo.CreateFileForAssistantAsync(
-            OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "aaa", "bb"));
+        var saved = await SaveIntoChatAsync(chat.Id, draft);
 
-        await using var db = await Factory.CreateDbContextAsync();
-        var stored = await db.KnowledgeFiles.SingleAsync();
-
-        Assert.Equal(2, stored.ChunkCount);
-        Assert.Equal(5, stored.EstimatedTokenCount);
+        var stored = await LoadStoredAsync(saved.Id);
+        Assert.Equal(("Bilde: 10 x 10 px.", ContentOrigin.ImagePlaceholder), (stored.Markdown, saved.ContentOrigin));
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_draft_whose_chunks_total_over_the_cap()
+    public async Task A_content_origin_this_build_does_not_know_reads_back_as_unknown_instead_of_failing_the_list()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        // Factory sets EstimatedTokenCount = content.Length. Two 60-char chunks
-        // = 120 tokens, well over a 100-token cap.
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", new string('a', 60), new string('b', 60));
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        await InsertFileDirectlyAsync(assistantId: null, chat.Id, contentOrigin: "FromANewerBuild");
+
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
+
+        Assert.Null(Assert.Single(listed).ContentOrigin);
+    }
+
+    [Fact]
+    public async Task A_draft_with_an_undefined_content_origin_is_refused()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var draft = KnowledgeFileFactory.Draft("notat.md") with { Origin = (ContentOrigin)99 };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => RepoWithTokenCap(100).CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
-
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.KnowledgeFiles.CountAsync());
-        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_no_chunks()
+    public async Task The_line_count_and_token_estimate_are_derived_from_the_markdown()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        // 15 characters, so 5 estimated tokens; the final newline ends the
+        // last line rather than starting a fifth.
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md", "en\nto\ntre\nfire\n"));
+
+        Assert.Equal((4, 5), (saved.LineCount, saved.EstimatedTokenCount));
+    }
+
+    [Fact]
+    public async Task A_new_file_starts_at_version_1()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        Assert.Equal(1, saved.Version);
+    }
+
+    [Fact]
+    public async Task Markdown_with_crlf_and_lone_cr_is_stored_with_lf_only_and_counted_to_match()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.txt", "ett\r\nto\rtre"));
+
+        var stored = await LoadStoredAsync(saved.Id);
+        Assert.Equal(("ett\nto\ntre", 3), (stored.Markdown, stored.LineCount));
+    }
+
+    [Fact]
+    public async Task A_file_without_a_summary_is_stored_without_one()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md") with { Summary = null });
+
+        Assert.Null(saved.Summary);
+    }
+
+    [Fact]
+    public async Task Markdown_over_the_token_cap_is_rejected_and_nothing_is_stored()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        // 33 characters is 11 estimated tokens, one over the cap.
+        var draft = KnowledgeFileFactory.Draft("stor.md", new string('a', 33));
+
+        var result = await RepoWithTokenCap(10).CreateFileForChatAsync(OwnerId, chat.Id, draft);
+
+        Assert.Equal(ConversionRejections.TooManyTokens(10), Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
+        Assert.Equal(0, await CountFilesAsync());
+    }
+
+    [Fact]
+    public async Task Markdown_with_no_text_is_rejected_and_nothing_is_stored()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("tom.md", " \r\n\t\n"));
+
+        Assert.Equal(ConversionRejections.Empty, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
+        Assert.Equal(0, await CountFilesAsync());
+    }
+
+    [Fact]
+    public async Task Markdown_containing_nul_is_rejected_and_nothing_is_stored()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("notat.md", "før\0etter"));
+
+        Assert.Equal(ConversionRejections.InvalidCharacters, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
+        Assert.Equal(0, await CountFilesAsync());
+    }
+
+    [Fact]
+    public async Task A_file_already_saved_in_the_same_chat_is_rejected_as_a_duplicate()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("kopi av notat.md"));
+
+        Assert.Equal(KnowledgeFileSaveRejections.DuplicateInChat, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
+        Assert.Equal(1, await CountFilesAsync());
+    }
+
+    [Fact]
+    public async Task The_same_file_is_accepted_in_a_different_chat()
+    {
+        var first = await ChatRepo.CreateChatAsync(OwnerId, "first", assistantId: null);
+        var second = await ChatRepo.CreateChatAsync(OwnerId, "second", assistantId: null);
+        await SaveIntoChatAsync(first.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        var result = await Repo.CreateFileForChatAsync(OwnerId, second.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        Assert.IsType<KnowledgeFileSaveResult.Saved>(result);
+    }
+
+    [Fact]
+    public async Task A_file_already_saved_in_the_same_assistant_is_rejected_as_a_duplicate()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
+
+        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
+
+        Assert.Equal(KnowledgeFileSaveRejections.DuplicateInAssistant, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
+    }
+
+    [Fact]
+    public async Task A_draft_with_a_blank_file_name_is_refused()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("empty.pdf")));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("   ")));
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_blank_file_name()
+    public async Task A_draft_with_a_malformed_sha256_is_refused()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var draft = KnowledgeFileFactory.Draft("   ", "a");
-
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
-    }
-
-    [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_malformed_sha256()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         // 63 hex chars — right alphabet, wrong length. Also covers non-hex via the length branch.
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = new string('a', 63) };
+        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = new string('a', 63) };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_normalises_uppercase_sha256_to_lowercase()
+    public async Task An_uppercase_sha256_is_stored_in_lowercase()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = new string('A', 64) };
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = new string('A', 64) };
 
-        var stored = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft);
+        var saved = await SaveIntoChatAsync(chat.Id, draft);
 
-        Assert.Equal(new string('a', 64), stored.Sha256);
+        Assert.Equal(new string('a', 64), saved.Sha256);
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_does_not_embed_a_huge_sha256_in_the_error_message()
+    public async Task A_huge_sha256_is_not_embedded_in_the_error_message()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         // 10_000-char blob masquerading as a hash; nothing about the message
         // should carry the full input into logs.
         var giantBlob = new string('z', 10_000);
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { Sha256 = giantBlob };
+        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = giantBlob };
 
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
 
         Assert.DoesNotContain(giantBlob, error.Message);
         Assert.Contains("10000", error.Message);
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_draft_with_a_non_positive_page_count()
+    public async Task A_draft_with_a_non_positive_page_count_is_refused()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with { PageCount = 0 };
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var draft = KnowledgeFileFactory.Draft("notat.md") with { PageCount = 0 };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
     }
 
     [Fact]
-    public async Task CreateFileForAssistantAsync_refuses_a_chunk_with_a_negative_token_count()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var draft = KnowledgeFileFactory.Draft("doc.pdf", "a") with
-        {
-            Chunks = [new KnowledgeFileChunkDraft("Heading", "content", EstimatedTokenCount: -1)]
-        };
-
-        await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, draft));
-    }
-
-    [Fact]
-    public async Task CreateFileForAssistantAsync_throws_when_the_assistant_belongs_to_another_owner()
+    public async Task Saving_into_another_owners_assistant_throws()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a")));
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("notat.md")));
     }
 
     [Fact]
-    public async Task CreateFileForChatAsync_throws_when_the_chat_belongs_to_another_owner()
+    public async Task Saving_into_another_owners_chat_throws_and_leaves_nothing_behind()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("doc.pdf", "a")));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("notat.md")));
+
+        Assert.Equal(0, await CountFilesAsync());
     }
 
     [Fact]
-    public async Task A_failed_create_leaves_no_partial_file_behind()
+    public async Task GetFileAsync_returns_null_for_another_owners_file()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, Guid.NewGuid(), KnowledgeFileFactory.Draft("doc.pdf", "a")));
+        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
+        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"));
 
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.KnowledgeFiles.CountAsync());
-        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+        var found = await Repo.GetFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
+
+        Assert.Null(found);
     }
 
     [Fact]
-    public async Task Deleting_an_assistant_takes_its_files_and_their_chunks_with_it()
+    public async Task Listing_a_chats_files_carries_each_files_sha256_in_the_order_they_were_saved()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var first = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("en.md", "en"));
+        var second = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("to.md", "to"));
+
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
+
+        Assert.Equal([first.Sha256, second.Sha256], listed.Select(f => f.Sha256));
+    }
+
+    [Fact]
+    public async Task Listing_an_assistants_files_returns_only_the_callers_files()
+    {
+        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null, "x");
+        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
+        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.Draft("mine.md"));
+        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.Draft("theirs.md"));
+
+        var listed = await Repo.ListFilesForAssistantAsync(OwnerId, mine.Id);
+
+        Assert.Equal(["mine.md"], listed.Select(f => f.FileName));
+    }
+
+    [Fact]
+    public async Task Deleting_an_assistant_takes_its_files_with_it()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a", "b"));
+        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
 
         await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
 
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.KnowledgeFiles.CountAsync());
-        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+        Assert.Equal(0, await CountFilesAsync());
     }
 
     // Guards the DDL: DeleteChatAsync uses ExecuteDeleteAsync, so an optional FK
     // left at EF's default would emit SET NULL and break the check constraint.
     [Fact]
-    public async Task Deleting_a_chat_takes_its_files_and_their_chunks_with_it()
+    public async Task Deleting_a_chat_takes_its_files_with_it()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("doc.pdf", "a", "b"));
+        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
 
         var deleted = await ChatRepo.DeleteChatAsync(OwnerId, chat.Id);
 
         Assert.True(deleted);
-
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.KnowledgeFiles.CountAsync());
-        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+        Assert.Equal(0, await CountFilesAsync());
     }
 
     [Fact]
-    public async Task DeleteFileAsync_takes_the_chunks_with_it()
+    public async Task DeleteFileAsync_removes_the_file()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a", "b"));
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
 
-        var deleted = await Repo.DeleteFileAsync(OwnerId, file.Id);
+        var deleted = await Repo.DeleteFileAsync(OwnerId, saved.Id);
 
         Assert.True(deleted);
-
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Equal(0, await db.KnowledgeFileChunks.CountAsync());
+        Assert.Equal(0, await CountFilesAsync());
     }
 
     [Fact]
     public async Task DeleteFileAsync_reports_false_for_another_owners_file()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OtherOwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
+        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
+        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"));
 
-        var deleted = await Repo.DeleteFileAsync(OwnerId, file.Id);
+        var deleted = await Repo.DeleteFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
 
         Assert.False(deleted);
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_returns_the_requested_span_in_document_order()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(
-            OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "zero", "one", "two", "three"));
-
-        var chunks = await Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 1, lastSequence: 2);
-
-        Assert.Equal(["one", "two"], chunks.Select(c => c.Content));
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_returns_nothing_for_another_owners_file()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OtherOwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "secret"));
-
-        var chunks = await Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 0, lastSequence: 0);
-
-        Assert.Empty(chunks);
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_refuses_a_span_wider_than_the_limit()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => Repo.GetChunksAsync(OwnerId, file.Id, 0, KnowledgeFileRepository.MaxChunkSpan));
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_refuses_a_span_wide_enough_to_overflow_the_cap_check()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a", "b"));
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 0, lastSequence: int.MaxValue));
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_refuses_a_range_that_ends_before_it_starts()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
-
-        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 5, lastSequence: 2));
-
-        // The out-of-place argument is the start, not the end — when 5 > 2 the
-        // caller passed the wrong number as first.
-        Assert.Equal("firstSequence", error.ParamName);
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_refuses_a_negative_first_sequence()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
-
-        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: -1, lastSequence: 0));
-
-        Assert.Equal("firstSequence", error.ParamName);
-    }
-
-    [Fact]
-    public async Task GetChunksAsync_refuses_a_negative_last_sequence()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
-
-        // firstSequence is valid; the offender is lastSequence, and the error
-        // should name it rather than the innocent start.
-        var error = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-            () => Repo.GetChunksAsync(OwnerId, file.Id, firstSequence: 0, lastSequence: -1));
-
-        Assert.Equal("lastSequence", error.ParamName);
-    }
-
-    [Fact]
-    public async Task ListFilesForAssistantAsync_returns_only_the_callers_files()
-    {
-        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null, "x");
-        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
-        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.Draft("mine.pdf", "a"));
-        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.Draft("theirs.pdf", "a"));
-
-        var summaries = await Repo.ListFilesForAssistantAsync(OwnerId, mine.Id);
-
-        Assert.Equal(["mine.pdf"], summaries.Select(s => s.FileName));
     }
 
     // Reaches past the repository, whose two create methods cannot express these
@@ -351,7 +358,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var error = await Assert.ThrowsAsync<PostgresException>(
             () => InsertFileDirectlyAsync(assistantId: null, chatId: null));
 
-        Assert.Equal(CheckViolation, error.SqlState);
+        Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
     }
 
     [Fact]
@@ -363,39 +370,41 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var error = await Assert.ThrowsAsync<PostgresException>(
             () => InsertFileDirectlyAsync(assistant.Id, chat.Id));
 
-        Assert.Equal(CheckViolation, error.SqlState);
+        Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
     }
 
-    [Fact]
-    public async Task The_database_rejects_two_chunks_claiming_the_same_position()
+    private async Task<KnowledgeFileMetadata> SaveIntoChatAsync(Guid chatId, KnowledgeFileDraft draft)
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        var file = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("doc.pdf", "a"));
-
-        await using var db = await Factory.CreateDbContextAsync();
-        var error = await Assert.ThrowsAsync<PostgresException>(() => db.Database.ExecuteSqlRawAsync(
-            """
-            INSERT INTO "KnowledgeFileChunks"
-                ("Id", "KnowledgeFileId", "Sequence", "Heading", "Content", "EstimatedTokenCount")
-            VALUES ({0}, {1}, 0, NULL, 'duplicate', 1)
-            """,
-            Guid.NewGuid(), file.Id));
-
-        Assert.Equal(UniqueViolation, error.SqlState);
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chatId, draft);
+        return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File;
     }
 
-    private async Task InsertFileDirectlyAsync(Guid? assistantId, Guid? chatId)
+    private async Task<KnowledgeFile> LoadStoredAsync(Guid fileId)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        return await db.KnowledgeFiles.AsNoTracking().SingleAsync(f => f.Id == fileId);
+    }
+
+    private async Task<int> CountFilesAsync()
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        return await db.KnowledgeFiles.CountAsync();
+    }
+
+    private async Task InsertFileDirectlyAsync(Guid? assistantId, Guid? chatId, string contentOrigin = nameof(ContentOrigin.TextFile))
     {
         await using var db = await Factory.CreateDbContextAsync();
         await db.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO "KnowledgeFiles"
-                ("Id", "OwnerId", "AssistantId", "ChatId", "FileName", "ContentType",
-                 "SizeBytes", "Sha256", "Summary", "ChunkCount", "EstimatedTokenCount", "CreatedAt")
-            VALUES (@id, @ownerId, @assistantId, @chatId, 'doc.pdf', 'application/pdf', 1024, 'abc', 'summary', 1, 1, now())
+                ("Id", "OwnerId", "AssistantId", "ChatId", "FileName", "ContentType", "SizeBytes", "Sha256",
+                 "Markdown", "LineCount", "EstimatedTokenCount", "ContentOrigin", "Version", "CreatedAt", "UpdatedAt")
+            VALUES (@id, @ownerId, @assistantId, @chatId, 'notat.md', 'text/markdown', 1024, 'abc',
+                    'tekst', 1, 1, @contentOrigin, 1, now(), now())
             """,
             new NpgsqlParameter("id", Guid.NewGuid()),
             new NpgsqlParameter("ownerId", OwnerId),
+            new NpgsqlParameter("contentOrigin", contentOrigin),
             UuidParameter("assistantId", assistantId),
             UuidParameter("chatId", chatId));
     }
