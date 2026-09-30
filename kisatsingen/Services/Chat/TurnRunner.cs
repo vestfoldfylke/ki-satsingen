@@ -114,21 +114,21 @@ internal sealed class TurnRunner
             await SaveAsync(row, answered, CancellationToken.None);
 
             // Only after the write: a turn is a success once its answer is stored.
-            return new TurnAttempt(answered, TurnOutcome.Success);
+            return new TurnAttempt(answered);
         }
         // The filter is load-bearing: a provider timeout is also an
         // OperationCanceledException, and without it outages would be filed as
         // user stops, invisible to failure alerts.
         catch (OperationCanceledException) when (cancellation.IsCancelled)
         {
-            var (outcome, status) = cancellation switch
+            var status = cancellation switch
             {
-                { IsDisconnect: true } => (TurnOutcome.Disconnected, TurnStatus.Disconnected),
-                { IsLeave: true } => (TurnOutcome.LeftChat, TurnStatus.LeftChat),
-                _ => (TurnOutcome.Stopped, TurnStatus.Stopped)
+                { IsDisconnect: true } => TurnStatus.Disconnected,
+                { IsLeave: true } => TurnStatus.LeftChat,
+                _ => TurnStatus.Stopped
             };
 
-            return new TurnAttempt(builder.Finish(status), outcome);
+            return new TurnAttempt(builder.Finish(status));
         }
         // Swallowed, bugs included: they are logged whole, and taking the circuit
         // down would only cost the user their transcript. Nothing that is control
@@ -139,7 +139,7 @@ internal sealed class TurnRunner
         // way. The latter is kept off the Failure counter, so the two don't reconcile.
         catch (Exception ex) when (ex is not (UserNotAuthenticatedException or OutOfMemoryException))
         {
-            return new TurnAttempt(builder.Finish(TurnStatus.Failed, stage), TurnOutcome.Failed, ex);
+            return new TurnAttempt(builder.Finish(TurnStatus.Failed, stage), ex);
         }
     }
 
