@@ -28,6 +28,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
+    public FakeTokenUsageRepository TokenUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -51,7 +52,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Attachments,
             Metrics,
             new SilentJsRuntime(),
-            NullLogger<ChatSession>.Instance);
+            NullLogger<ChatSession>.Instance,
+            TokenUsageRepository);
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.
@@ -201,6 +203,46 @@ internal sealed class FakeChatRepository : IChatRepository
 }
 
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
+
+// Records every insert, so tests assert the turn's ending was written with the
+// usage the model reported and the status it landed on.
+internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
+{
+    public List<TokenUsageInsert> Inserts { get; } = [];
+
+    // Lets a test simulate the repository being down without breaking the send.
+    public Exception? InsertFailure { get; set; }
+
+    public Task InsertTokenUsageAsync(
+        string ownerId,
+        string provider,
+        string modelId,
+        long? inputTokens,
+        long? outputTokens,
+        long? estimatedInputTokens,
+        long? estimatedOutputTokens,
+        TurnStatus status,
+        CancellationToken ct = default)
+    {
+        if (InsertFailure is not null)
+        {
+            return Task.FromException(InsertFailure);
+        }
+
+        Inserts.Add(new TokenUsageInsert(ownerId, provider, modelId, inputTokens, outputTokens, estimatedInputTokens, estimatedOutputTokens, status));
+        return Task.CompletedTask;
+    }
+}
+
+internal sealed record TokenUsageInsert(
+    string OwnerId,
+    string Provider,
+    string ModelId,
+    long? InputTokens,
+    long? OutputTokens,
+    long? EstimatedInputTokens,
+    long? EstimatedOutputTokens,
+    TurnStatus Status);
 
 internal sealed class FakeChatClient : IChatClient
 {

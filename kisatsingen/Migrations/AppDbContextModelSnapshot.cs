@@ -185,6 +185,54 @@ namespace kisatsingen.Migrations
                     b.ToTable("ChatTurns");
                 });
 
+            modelBuilder.Entity("kisatsingen.Data.Entities.TokenUsage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("EstimatedInputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("EstimatedOutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("InputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<long?>("OutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Timestamp");
+
+                    b.ToTable("TokenUsages");
+                });
+
             modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
                 {
                     b.Property<Guid>("Id")

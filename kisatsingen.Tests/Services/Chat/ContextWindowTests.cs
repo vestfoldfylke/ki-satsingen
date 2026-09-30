@@ -131,7 +131,7 @@ public sealed class ContextTokenEstimatorTests
     [Fact]
     public void An_empty_request_with_no_system_prompt_costs_nothing()
     {
-        Assert.Equal(0, ContextTokenEstimator.Estimate([], systemPrompt: null));
+        Assert.Equal(0, ContextTokenEstimator.Estimate(Array.Empty<AiMessage>(), systemPrompt: null));
     }
 
     [Fact]

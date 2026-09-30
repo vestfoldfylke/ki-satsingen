@@ -26,6 +26,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ChatTurn> ChatTurns => Set<ChatTurn>();
     public DbSet<Assistant> Assistants => Set<Assistant>();
     public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
+    public DbSet<TokenUsage> TokenUsages => Set<TokenUsage>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
     // always go through the low-privilege DefaultConnection registered in DI.
@@ -158,6 +159,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(f => f.ChatId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
+
+        var tokenUsage = modelBuilder.Entity<TokenUsage>();
+        tokenUsage.HasKey(u => u.Id);
+        tokenUsage.Property(u => u.OwnerId).HasMaxLength(TokenUsage.MaxOwnerIdLength).IsRequired();
+        tokenUsage.Property(u => u.Provider).HasMaxLength(TokenUsage.MaxProviderLength).IsRequired();
+        tokenUsage.Property(u => u.ModelId).HasMaxLength(TokenUsage.MaxModelIdLength).IsRequired();
+        tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength).IsRequired();
+        tokenUsage.HasIndex(u => new { u.OwnerId, u.Timestamp });
     }
 
     // The Ignore behaviours keep Seq out of every INSERT and UPDATE, so only the
