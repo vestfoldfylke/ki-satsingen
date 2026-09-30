@@ -180,6 +180,35 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.Equal(("Completed", """[{"kind":"text"}]""", (long?)1200), (stored.Status, stored.AnswerJson, stored.DurationMs));
     }
 
+    // It names its columns, so a new one is dropped silently unless it is listed.
+    [Fact]
+    public async Task UpdateTurnAsync_stores_reported_and_estimated_usage_apart()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var turn = Row("hi");
+        await Repo.InsertTurnAsync(OwnerId, chat.Id, turn);
+
+        await Repo.UpdateTurnAsync(OwnerId, chat.Id, new ChatTurn
+        {
+            Id = turn.Id,
+            Prompt = "hi",
+            SystemPrompt = "be brief",
+            ModelKey = "fast",
+            Status = "Stopped",
+            AnswerJson = "[]",
+            InputTokens = 900,
+            OutputTokens = 100,
+            EstimatedInputTokens = 1200,
+            EstimatedOutputTokens = 40
+        });
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.ChatTurns.SingleAsync();
+        Assert.Equal(
+            ((long?)900, (long?)100, (long?)1200, (long?)40),
+            (stored.InputTokens, stored.OutputTokens, stored.EstimatedInputTokens, stored.EstimatedOutputTokens));
+    }
+
     // The update is the only rewrite a turn gets, and it names its columns, so
     // this pins the repository's contract. The EF configuration that guards other
     // writes is pinned by the test below.

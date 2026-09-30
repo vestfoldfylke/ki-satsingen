@@ -103,9 +103,8 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    // Estimated from the request we would send, not from reported usage: usage sums
-    // every tool round trip and is missing after a stop. Right for cost (see
-    // ConversationUsage), wrong for size.
+    // Estimated from the request we would send, not from usage: usage sums every
+    // tool round trip. Right for cost (see ConversationUsage), wrong for size.
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
@@ -122,7 +121,8 @@ public sealed class ChatSession : IAsyncDisposable
                 : new MessageUsage(
                     usages.Sum(usage => usage.InputTokens ?? 0),
                     usages.Sum(usage => usage.OutputTokens ?? 0),
-                    usages.Sum(usage => usage.TotalTokens ?? 0));
+                    usages.Sum(usage => usage.EstimatedInputTokens ?? 0),
+                    usages.Sum(usage => usage.EstimatedOutputTokens ?? 0));
         }
     }
 

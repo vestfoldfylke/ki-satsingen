@@ -17,3 +17,10 @@ public enum TurnStatus
     // anything to still be answering it.
     Unfinished
 }
+
+internal static class TurnStatusExtensions
+{
+    // Beside the enum, so a status for a new cancellation cause is added here too.
+    public static bool IsCancellation(this TurnStatus status) =>
+        status is TurnStatus.Stopped or TurnStatus.LeftChat or TurnStatus.Disconnected;
+}

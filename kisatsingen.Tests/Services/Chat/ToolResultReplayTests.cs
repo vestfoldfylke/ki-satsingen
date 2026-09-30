@@ -36,7 +36,7 @@ public sealed class ToolResultReplayTests
     // Through the real path: the builder stores it, the request rebuilds it.
     private static FunctionResultContent Replay(object result)
     {
-        var builder = new TurnBuilder(Turn.Start("hei", ModelUnderTest, "be brief"));
+        var builder = new TurnBuilder(Turn.Start("hei", ModelUnderTest, "be brief"), requestTokens: 0);
         builder.Apply(new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", "probe")]));
         builder.Apply(new ChatResponseUpdate(ChatRole.Tool, [new FunctionResultContent("call-1", result)]));
         builder.Apply(new ChatResponseUpdate(ChatRole.Assistant, "svar"));
