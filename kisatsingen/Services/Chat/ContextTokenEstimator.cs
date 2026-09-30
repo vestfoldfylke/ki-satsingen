@@ -37,10 +37,10 @@ internal static class ContextTokenEstimator
         return (characters / TokenLengthInCharacters) + (messageCount * TokensPerMessage);
     }
 
+    // Both below count an unknown segment kind as nothing rather than throwing: they
+    // run while a turn ends, where a throw would lose the turn over an estimate.
+
     // What the model wrote: a tool's result came from us, not from it.
-    //
-    // An unknown segment kind counts as nothing rather than throwing: these run
-    // while a turn ends, where a throw would lose the turn over an estimate.
     public static long EstimateGenerated(TurnSegment segment) => segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,

@@ -236,13 +236,16 @@ public sealed class TurnBuilderTests
     }
 
     // The request was sent before the stop, so it is billed with nothing to show.
-    [Fact]
-    public void A_stop_before_the_first_token_estimates_the_request_that_was_sent()
+    [Theory]
+    [InlineData(TurnStatus.Stopped)]
+    [InlineData(TurnStatus.LeftChat)]
+    [InlineData(TurnStatus.Disconnected)]
+    public void A_cancellation_before_the_first_token_estimates_the_request_that_was_sent(TurnStatus cancelled)
     {
         var builder = Builder(requestTokens: 50);
         builder.DurationMs = 10;
 
-        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+        var usage = builder.Finish(cancelled).Metadata?.Usage;
 
         Assert.Equal(new MessageUsage(null, null, 50, 0), usage);
     }

@@ -78,8 +78,7 @@ internal sealed class TurnBuilder
     public Turn Finish(TurnStatus status, TurnStage? failedAt = null)
     {
         var snapshot = Snapshot();
-        var wasCancelled = status is TurnStatus.Stopped or TurnStatus.LeftChat or TurnStatus.Disconnected;
-        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer, wasCancelled) }).EndedAs(status, failedAt);
+        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer, status.IsCancellation()) }).EndedAs(status, failedAt);
     }
 
     private void AppendText(string text, List<TurnChange> changes)
