@@ -24,6 +24,19 @@ public sealed class ChatSessionMetricsTests
         Assert.False(harness.Session.IsBusy);
     }
 
+    // The metrics failure surfaces, but the stored turn must not also read as unfinished.
+    [Fact]
+    public async Task A_failure_counter_that_throws_still_stores_how_the_turn_ended()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Metrics.ThrowForNameEndingWith = FailureCounter;
+        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new InvalidOperationException("provider exploded"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Session.SendAsync("hei"));
+
+        Assert.Equal(TurnStatus.Failed, harness.StoredTurn.Status);
+    }
+
     [Fact]
     public async Task A_turn_that_answers_counts_one_success()
     {

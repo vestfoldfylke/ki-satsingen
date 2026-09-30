@@ -78,7 +78,8 @@ internal sealed class TurnBuilder
     public Turn Finish(TurnStatus status, TurnStage? failedAt = null)
     {
         var snapshot = Snapshot();
-        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer) }).EndedAs(status, failedAt);
+        var wasCancelled = status is TurnStatus.Stopped or TurnStatus.LeftChat or TurnStatus.Disconnected;
+        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer, wasCancelled) }).EndedAs(status, failedAt);
     }
 
     private void AppendText(string text, List<TurnChange> changes)
@@ -200,14 +201,14 @@ internal sealed class TurnBuilder
         _roundsWithReportedUsage.Add(_round);
     }
 
-    private TurnMetadata? BuildMetadata(IReadOnlyList<TurnSegment> answer)
+    private TurnMetadata? BuildMetadata(IReadOnlyList<TurnSegment> answer, bool wasCancelled)
     {
         if (DurationMs is null)
         {
             return null;
         }
 
-        var (estimatedInput, estimatedOutput) = EstimateUsageOfUnreportedRounds(answer);
+        var (estimatedInput, estimatedOutput) = EstimateUsageOfUnreportedRounds(answer, wasCancelled);
 
         return new TurnMetadata(
             _servedModelId,
@@ -222,14 +223,22 @@ internal sealed class TurnBuilder
             TimeToFirstTokenMs);
     }
 
-    // Only rounds that produced something: one that produced nothing may never have
-    // been accepted, and a refused request is not billed.
-    private (long? Input, long? Output) EstimateUsageOfUnreportedRounds(IReadOnlyList<TurnSegment> answer)
+    private (long? Input, long? Output) EstimateUsageOfUnreportedRounds(IReadOnlyList<TurnSegment> answer, bool wasCancelled)
     {
         long? input = null;
         long? output = null;
 
-        foreach (var round in answer.Select(segment => segment.Round).Distinct())
+        var rounds = answer.Select(segment => segment.Round).ToHashSet();
+
+        // A stop interrupts a request that was sent, so it is billed even if nothing
+        // came back yet: after a tool result that is the next round, still empty.
+        // A failure is left out, since a refused request is not billed.
+        if (wasCancelled)
+        {
+            rounds.Add(_isRoundClosed ? _round + 1 : _round);
+        }
+
+        foreach (var round in rounds)
         {
             if (_roundsWithReportedUsage.Contains(round))
             {

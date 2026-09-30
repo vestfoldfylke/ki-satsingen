@@ -235,14 +235,56 @@ public sealed class TurnBuilderTests
         Assert.Equal(new MessageUsage(500, 20, resentForRoundTwo, ContextTokenEstimator.EstimateGenerated(answer[1])), usage);
     }
 
-    // A request the provider refused before answering is not billed.
+    // The request was sent before the stop, so it is billed with nothing to show.
     [Fact]
-    public void A_stopped_turn_that_received_nothing_estimates_nothing()
+    public void A_stop_before_the_first_token_estimates_the_request_that_was_sent()
     {
         var builder = Builder(requestTokens: 50);
         builder.DurationMs = 10;
 
-        Assert.Null(builder.Finish(TurnStatus.Stopped).Metadata?.Usage);
+        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+
+        Assert.Equal(new MessageUsage(null, null, 50, 0), usage);
+    }
+
+    // A request the provider refused before answering is not billed.
+    [Fact]
+    public void A_failure_before_the_first_token_estimates_nothing()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+
+        Assert.Null(builder.Finish(TurnStatus.Failed, TurnStage.Generating).Metadata?.Usage);
+    }
+
+    // The next request carries the tool's result, often the largest part of the turn.
+    [Fact]
+    public void A_stop_while_the_request_after_a_tool_result_is_in_flight_estimates_that_request()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+        builder.Apply(Call("call-1"));
+        builder.Apply(Usage(500, 20));
+        builder.Apply(Result("call-1", new string('x', 3000)));
+
+        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+
+        var resentWithTheResult = 50 + ContextTokenEstimator.EstimateResent(Assert.Single(builder.Snapshot().Answer));
+        Assert.Equal(new MessageUsage(500, 20, resentWithTheResult, 0), usage);
+    }
+
+    [Fact]
+    public void A_failure_while_the_request_after_a_tool_result_is_in_flight_estimates_nothing_for_it()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+        builder.Apply(Call("call-1"));
+        builder.Apply(Usage(500, 20));
+        builder.Apply(Result("call-1", new string('x', 3000)));
+
+        var usage = builder.Finish(TurnStatus.Failed, TurnStage.Generating).Metadata?.Usage;
+
+        Assert.Equal(new MessageUsage(500, 20), usage);
     }
 
     [Fact]

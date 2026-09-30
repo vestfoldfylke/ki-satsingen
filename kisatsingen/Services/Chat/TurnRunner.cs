@@ -140,28 +140,32 @@ internal sealed class TurnRunner
         // way. The latter is kept off the Failure counter, so the two don't reconcile.
         catch (Exception ex) when (ex is not (UserNotAuthenticatedException or OutOfMemoryException))
         {
-            return new TurnAttempt(builder.Finish(TurnStatus.Failed, stage), TurnOutcome.Failed, (ex, stage));
+            return new TurnAttempt(builder.Finish(TurnStatus.Failed, stage), TurnOutcome.Failed, ex);
         }
     }
 
-    // Every effect of an attempt, each unable to throw: the outcome is decided, and
-    // nothing here may change what the user is shown.
+    // Every effect of an attempt; the outcome is decided, and nothing here changes it.
+    // The ending is saved before anything that may throw, so a metrics failure that
+    // surfaces cannot also leave the stored turn unfinished.
     private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt)
     {
-        if (attempt.Failure is var (error, stage))
+        if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
         {
             _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
-
-            _metrics.Count(
-                $"{_metricPrefix}_Failure",
-                "Failed chat turns, by stage and exception type",
-                (MetricConstants.MetricsStageLabelName, stage.ToString()),
-                (MetricConstants.MetricsExceptionLabelName, error.GetType().Name));
         }
 
         if (attempt.ShouldSaveTurn)
         {
             await SaveEndedTurnAsync(row, attempt.Turn);
+        }
+
+        if (attempt is { Failure: { } counted, Turn.FailedAt: { } countedStage })
+        {
+            _metrics.Count(
+                $"{_metricPrefix}_Failure",
+                "Failed chat turns, by stage and exception type",
+                (MetricConstants.MetricsStageLabelName, countedStage.ToString()),
+                (MetricConstants.MetricsExceptionLabelName, counted.GetType().Name));
         }
     }
 

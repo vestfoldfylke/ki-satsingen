@@ -38,6 +38,9 @@ internal static class ContextTokenEstimator
     }
 
     // What the model wrote: a tool's result came from us, not from it.
+    //
+    // An unknown segment kind counts as nothing rather than throwing: these run
+    // while a turn ends, where a throw would lose the turn over an estimate.
     public static long EstimateGenerated(TurnSegment segment) => segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,
