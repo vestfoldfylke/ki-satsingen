@@ -271,7 +271,9 @@ internal sealed class TurnRunner
 
     private async Task InsertTokenUsageAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
     {
-        if (attempt.Turn.Metadata?.Usage is not { } usage)
+        var usage = attempt.Turn.Metadata?.Usage;
+
+        if (usage is null)
         {
             return;
         }
