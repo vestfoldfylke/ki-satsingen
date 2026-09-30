@@ -9,6 +9,8 @@ internal static class ContextTokenEstimator
     // English runs about four characters per token; Norwegian is denser on both
     // providers (æ, ø, å and split compounds). Deliberately low so the estimate runs
     // high: this drives a warning, and warning early is the recoverable mistake.
+    // Unreported usage is estimated here too and overstated the same way, which is
+    // why it is stored apart from reported usage.
     private const int TokenLengthInCharacters = 3;
 
     // Role and delimiter overhead, so many short messages don't estimate at nothing.
@@ -35,24 +37,25 @@ internal static class ContextTokenEstimator
         return (characters / TokenLengthInCharacters) + (messageCount * TokensPerMessage);
     }
 
-    public static long Estimate(IReadOnlyList<TextSegment> textSegments, string? systemPrompt)
+    // Both below count an unknown segment kind as nothing rather than throwing: they
+    // run while a turn ends, where a throw would lose the turn over an estimate.
+
+    // What the model wrote: a tool's result came from us, not from it.
+    public static long EstimateGenerated(TurnSegment segment) => segment switch
     {
-        long characters = 0;
-        long textSegmentCount = textSegments.Count;
+        TextSegment text => text.Text.Length / TokenLengthInCharacters,
+        ToolSegment tool => CountCall(tool) / TokenLengthInCharacters,
+        _ => 0
+    };
 
-        foreach (var textSegment in textSegments)
-        {
-            characters += CountCharacters(textSegment);
-        }
+    public static long EstimateResent(TurnSegment segment) => TokensPerMessage + segment switch
+    {
+        TextSegment text => text.Text.Length / TokenLengthInCharacters,
+        ToolSegment tool => (CountCall(tool) + (tool.Result?.Length ?? 0)) / TokenLengthInCharacters,
+        _ => 0
+    };
 
-        if (!string.IsNullOrEmpty(systemPrompt))
-        {
-            characters += systemPrompt.Length;
-            textSegmentCount++;
-        }
-
-        return (characters / TokenLengthInCharacters) + (textSegmentCount * TokensPerMessage);
-    }
+    private static long CountCall(ToolSegment tool) => tool.ToolName.Length + tool.Arguments.GetRawText().Length;
 
     private static long CountCharacters(ChatMessage message)
     {
@@ -74,8 +77,6 @@ internal static class ContextTokenEstimator
 
         return characters;
     }
-    
-    private static long CountCharacters(TextSegment textSegment) => textSegment.Text.Length;
 
     // ToString, not JsonSerializer: the values are JsonElement already, and an
     // estimate doesn't justify re-serialising the transcript on every render.

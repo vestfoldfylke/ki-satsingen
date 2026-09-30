@@ -24,7 +24,6 @@ internal sealed class TurnRunner
     private readonly TurnStreamer _streamer;
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
-    private readonly IConsumptionRepository _consumptionRepository;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -34,8 +33,7 @@ internal sealed class TurnRunner
         IMetricsService metrics,
         TurnStreamer streamer,
         string metricPrefix,
-        ILogger logger,
-        IConsumptionRepository consumptionRepository)
+        ILogger logger)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -45,11 +43,10 @@ internal sealed class TurnRunner
         _streamer = streamer;
         _metricPrefix = metricPrefix;
         _logger = logger;
-        _consumptionRepository = consumptionRepository;
     }
 
-    // Throws only what the page must handle itself: an unauthenticated caller and
-    // an allocation failure.
+    // Throws only what the page must handle itself: an unauthenticated caller, an
+    // allocation failure, and a metrics failure, surfaced rather than swallowed.
     public async Task<Turn> RunAsync(
         Turn turn,
         Guid? chatId,
@@ -58,25 +55,51 @@ internal sealed class TurnRunner
         TurnCancellation cancellation,
         TurnObserver observer)
     {
-        var builder = new TurnBuilder(turn);
-        var stage = TurnStage.Authenticating;
         var row = new TurnRow(chatId);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
-        // Starts as Failed so a branch that forgets to set it lands in the alerted bucket.
+        // Starts as Failed so an exception nothing classified lands in the alerted bucket.
         var outcome = TurnOutcome.Failed;
-
-        // Success is labelled with the model the provider served; the rest with the one requested.
         string? servedModelId = null;
 
-        Guid? consumptionId = null;
+        try
+        {
+            var attempt = await ExecuteAsync(row, turn, request, model, cancellation, observer);
+            outcome = attempt.Outcome;
+            servedModelId = attempt.ServedModelId;
 
-        var initialTokenCount = ContextTokenEstimator.Estimate(request, turn.SystemPrompt);
+            await FinishAttemptAsync(row, attempt);
+            return attempt.Turn;
+        }
+        // Rethrown: with no error boundary it ends the circuit, and the reload is what
+        // the sign-in middleware redirects. Practically unreachable mid-chat: a
+        // circuit's sign-in state is fixed when it starts.
+        catch (UserNotAuthenticatedException)
+        {
+            outcome = TurnOutcome.Unauthenticated;
+            throw;
+        }
+        finally
+        {
+            CountSend(outcome, servedModelId ?? model.ModelId, model.Key);
+        }
+    }
+
+    // The catches only name the outcome and never act on it, so none can throw past it.
+    private async Task<TurnAttempt> ExecuteAsync(
+        TurnRow row,
+        Turn turn,
+        IReadOnlyList<ChatMessage> request,
+        ChatModel model,
+        TurnCancellation cancellation,
+        TurnObserver observer)
+    {
+        var builder = new TurnBuilder(turn, ContextTokenEstimator.Estimate(request, turn.SystemPrompt));
+        var stage = TurnStage.Authenticating;
 
         try
         {
             row.OwnerId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            consumptionId = await _consumptionRepository.InsertConsumptionAsync(row.OwnerId, model.Provider, model.ModelId, initialTokenCount, TurnStatus.Running, cancellation.Token);
 
             stage = TurnStage.SavingMessage;
             await InsertAsync(row, turn, observer, cancellation.Token);
@@ -91,94 +114,68 @@ internal sealed class TurnRunner
             await SaveAsync(row, answered, CancellationToken.None);
 
             // Only after the write: a turn is a success once its answer is stored.
-            servedModelId = answered.Metadata?.ServedModelId;
-            outcome = TurnOutcome.Success;
-
-            var tokenCount = answered.Metadata?.Usage?.TotalTokens ?? 0;
-            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, TurnStatus.Completed, cancellation.Token);
-
-            return answered;
+            return new TurnAttempt(answered);
         }
         // The filter is load-bearing: a provider timeout is also an
         // OperationCanceledException, and without it outages would be filed as
         // user stops, invisible to failure alerts.
         catch (OperationCanceledException) when (cancellation.IsCancelled)
         {
-            (outcome, var status) = cancellation switch
+            var status = cancellation switch
             {
-                { IsDisconnect: true } => (TurnOutcome.Disconnected, TurnStatus.Disconnected),
-                { IsLeave: true } => (TurnOutcome.LeftChat, TurnStatus.LeftChat),
-                _ => (TurnOutcome.Stopped, TurnStatus.Stopped)
+                { IsDisconnect: true } => TurnStatus.Disconnected,
+                { IsLeave: true } => TurnStatus.LeftChat,
+                _ => TurnStatus.Stopped
             };
 
-            var stopped = builder.Finish(status);
-            await SaveEndingAsync(row, stopped);
-
-            row.OwnerId ??= await _authenticationService.RequireUserObjectIdentifierAsync();
-            // NOTE: usage here is null... We need to estimate it from what we got so far (what we started with + what we got)
-            var tokenCount = initialTokenCount + ContextTokenEstimator.Estimate([.. stopped.Answer.OfType<TextSegment>()], turn.SystemPrompt);
-            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, status, CancellationToken.None);
-
-            return stopped;
-        }
-        // Rethrown: with no error boundary it ends the circuit, and the reload is what
-        // the sign-in middleware redirects. Practically unreachable mid-chat: a
-        // circuit's sign-in state is fixed when it starts.
-        catch (UserNotAuthenticatedException)
-        {
-            outcome = TurnOutcome.Unauthenticated;
-            throw;
-        }
-        // Rethrown: an allocation failure isn't this turn's fault and a retry fails
-        // the same way. Kept off the Failure counter, so the two don't reconcile here.
-        catch (OutOfMemoryException)
-        {
-            outcome = TurnOutcome.Failed;
-            throw;
+            return new TurnAttempt(builder.Finish(status));
         }
         // Swallowed, bugs included: they are logged whole, and taking the circuit
         // down would only cost the user their transcript. Nothing that is control
         // flow — Blazor's NavigationException above all — may ever be thrown in the try.
-        catch (Exception ex)
+        //
+        // Two pass through: an unauthenticated caller, which RunAsync counts, and an
+        // allocation failure, which isn't this turn's fault and fails a retry the same
+        // way. The latter is kept off the Failure counter, so the two don't reconcile.
+        catch (Exception ex) when (ex is not (UserNotAuthenticatedException or OutOfMemoryException))
         {
-            outcome = TurnOutcome.Failed;
-            RecordFailure(ex, stage, row.ChatId);
-
-            var failed = builder.Finish(TurnStatus.Failed, stage);
-
-            // Not when the save itself failed: retried, the row would hold the whole
-            // answer under a notice saying it was not stored.
-            if (stage != TurnStage.SavingResponse)
-            {
-                await SaveEndingAsync(row, failed);
-            }
-
-            row.OwnerId ??= await _authenticationService.RequireUserObjectIdentifierAsync();
-            // NOTE: usage here is null... We need to estimate it from what we got so far (what we started with + what we got)
-            var tokenCount = initialTokenCount + ContextTokenEstimator.Estimate([.. failed.Answer.OfType<TextSegment>()], turn.SystemPrompt);
-            await UpdateConsumptionAsync(consumptionId, row.OwnerId, tokenCount, TurnStatus.Failed, CancellationToken.None);
-
-            return failed;
-        }
-        finally
-        {
-            // Guarded: Prometheus throws on a label mismatch, and unguarded that would
-            // mask the exception already leaving.
-            try
-            {
-                CountSend(outcome, servedModelId ?? model.ModelId, model.Key);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Could not count the {Outcome} outcome for chat {ChatId}.", outcome, row.ChatId);
-            }
+            return new TurnAttempt(builder.Finish(TurnStatus.Failed, stage), ex);
         }
     }
 
-    private Task UpdateConsumptionAsync(Guid? consumptionId, string ownerId, long tokenCount, TurnStatus status, CancellationToken ct) =>
-        consumptionId is { } id
-            ? _consumptionRepository.UpdateConsumptionAsync(id, ownerId, tokenCount, status, ct)
-            : Task.CompletedTask;
+    // Saved before counting: a metrics failure surfaces, and must not also leave the
+    // stored turn unfinished.
+    private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt)
+    {
+        LogFailure(row, attempt);
+
+        if (attempt.ShouldSaveTurn)
+        {
+            await SaveEndedTurnAsync(row, attempt.Turn);
+        }
+
+        CountFailure(attempt);
+    }
+
+    private void LogFailure(TurnRow row, TurnAttempt attempt)
+    {
+        if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
+        {
+            _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
+        }
+    }
+
+    private void CountFailure(TurnAttempt attempt)
+    {
+        if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
+        {
+            _metrics.Count(
+                $"{_metricPrefix}_Failure",
+                "Failed chat turns, by stage and exception type",
+                (MetricConstants.MetricsStageLabelName, stage.ToString()),
+                (MetricConstants.MetricsExceptionLabelName, error.GetType().Name));
+        }
+    }
 
     private async Task InsertAsync(TurnRow row, Turn turn, TurnObserver observer, CancellationToken ct)
     {
@@ -245,7 +242,7 @@ internal sealed class TurnRunner
     // CancellationToken.None: after a stop the turn's own is cancelled and would
     // abort the write that records it. Swallows failures so a lost stored copy
     // cannot replace the outcome the user is shown.
-    private async Task SaveEndingAsync(TurnRow row, Turn ended)
+    private async Task SaveEndedTurnAsync(TurnRow row, Turn ended)
     {
         if (!row.IsInserted)
         {
@@ -265,17 +262,6 @@ internal sealed class TurnRunner
                 row.ChatId,
                 ended.Status);
         }
-    }
-
-    private void RecordFailure(Exception ex, TurnStage stage, Guid? chatId)
-    {
-        _logger.LogError(ex, "Chat turn failed during {Stage} for chat {ChatId}", stage, chatId);
-
-        _metrics.Count(
-            $"{_metricPrefix}_Failure",
-            "Failed chat turns, by stage and exception type",
-            (MetricConstants.MetricsStageLabelName, stage.ToString()),
-            (MetricConstants.MetricsExceptionLabelName, ex.GetType().Name));
     }
 
     // One place builds the labels because Prometheus fixes a metric's label names

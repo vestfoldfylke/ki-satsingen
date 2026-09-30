@@ -46,8 +46,42 @@ public sealed class FunctionInvocationOrderingTests
         Assert.IsType<InvalidOperationException>(Assert.Single(results).Exception);
     }
 
-    private static IChatClient BuildClient() =>
-        new ScriptedClient().AsBuilder().UseFunctionInvocation().Build();
+    // TurnBuilder credits usage to the round still open when it arrives, so a
+    // round's usage must reach us before the tool result that closes the round.
+    [Fact]
+    public async Task A_rounds_usage_reaches_the_caller_before_the_tool_result_that_closes_it()
+    {
+        var log = new List<string>();
+        using var client = BuildClient(new ScriptedClient(reportsUsage: true));
+
+        await foreach (var update in client.GetStreamingResponseAsync([new AiMessage(ChatRole.User, "hei")], Options(log)))
+        {
+            Record(log, update);
+        }
+
+        Assert.Equal(["saw text", "saw call", "saw usage", "tool ran", "saw result", "saw text", "saw usage"], log);
+    }
+
+    // TurnBuilder takes the first result as the round's end, so a stop after it
+    // counts the next request as sent: only true if no tool is still running.
+    [Fact]
+    public async Task A_rounds_tool_results_reach_the_caller_only_once_every_tool_has_run()
+    {
+        var log = new List<string>();
+        using var client = BuildClient(new ScriptedClient(callCount: 2));
+
+        await foreach (var update in client.GetStreamingResponseAsync([new AiMessage(ChatRole.User, "hei")], Options(log)))
+        {
+            Record(log, update);
+        }
+
+        Assert.Equal(["saw text", "saw call", "saw call", "tool ran", "tool ran", "saw result", "saw result", "saw text"], log);
+    }
+
+    private static IChatClient BuildClient() => BuildClient(new ScriptedClient());
+
+    private static IChatClient BuildClient(ScriptedClient scripted) =>
+        scripted.AsBuilder().UseFunctionInvocation().Build();
 
     private static ChatOptions Options(List<string> log) => new()
     {
@@ -69,12 +103,16 @@ public sealed class FunctionInvocationOrderingTests
                 case FunctionResultContent:
                     log.Add("saw result");
                     break;
+                case UsageContent:
+                    log.Add("saw usage");
+                    break;
             }
         }
     }
 
     // Round one talks and calls the tool; round two, which sees the result, answers.
-    private sealed class ScriptedClient : IChatClient
+    // Usage, when reported, closes each round the way OpenAI streams it.
+    private sealed class ScriptedClient(int callCount = 1, bool reportsUsage = false) : IChatClient
     {
         public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
             IEnumerable<AiMessage> messages,
@@ -87,11 +125,21 @@ public sealed class FunctionInvocationOrderingTests
             if (hasResult)
             {
                 yield return new ChatResponseUpdate(ChatRole.Assistant, "Ferdig");
-                yield break;
+            }
+            else
+            {
+                yield return new ChatResponseUpdate(ChatRole.Assistant, "Sjekker");
+
+                for (var call = 1; call <= callCount; call++)
+                {
+                    yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent($"call-{call}", ToolName)]);
+                }
             }
 
-            yield return new ChatResponseUpdate(ChatRole.Assistant, "Sjekker");
-            yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", ToolName)]);
+            if (reportsUsage)
+            {
+                yield return new ChatResponseUpdate(ChatRole.Assistant, [new UsageContent(new UsageDetails { InputTokenCount = 10, OutputTokenCount = 1 })]);
+            }
         }
 
         public Task<ChatResponse> GetResponseAsync(

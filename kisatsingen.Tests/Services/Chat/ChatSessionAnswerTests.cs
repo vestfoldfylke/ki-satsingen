@@ -41,7 +41,31 @@ public sealed class ChatSessionAnswerTests
         harness.Session.Cancel();
         await sending;
 
-        Assert.Equal(new MessageUsage(900, 100, 1000), harness.StoredTurn.Metadata?.Usage);
+        Assert.Equal(new MessageUsage(900, 100), harness.StoredTurn.Metadata?.Usage);
+    }
+
+    [Fact]
+    public async Task The_conversation_usage_counts_what_was_estimated_and_says_so()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await StopAfterAnswering(harness, "halvferdig svar");
+
+        var stored = harness.StoredTurn.Metadata?.Usage;
+        var conversation = harness.Session.ConversationUsage;
+        Assert.Equal((true, stored?.CombinedTotalTokens), (conversation?.IsEstimated, conversation?.CombinedTotalTokens));
+    }
+
+    // The provider bills the request it was sent even though it never reported it.
+    [Fact]
+    public async Task A_stopped_turn_the_provider_never_reported_on_stores_an_estimate_of_the_request_it_was_sent()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await StopAfterAnswering(harness, "halvferdig svar");
+
+        var sent = ContextTokenEstimator.Estimate(harness.Client.LastMessages, harness.Client.LastOptions?.Instructions);
+        Assert.Equal(sent, harness.StoredTurn.Metadata?.Usage?.EstimatedInputTokens);
     }
 
     [Fact]

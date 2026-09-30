@@ -12,16 +12,29 @@ public sealed class ChatSessionMetricsTests
     private const string SendCounter = RecordingMetricsService.SendCounter;
     private const string FailureCounter = RecordingMetricsService.FailureCounter;
 
-    // The count shares a finally with the teardown that unlocks the composer.
+    // Surfaced rather than swallowed, but the composer must still unlock.
     [Fact]
     public async Task A_metrics_failure_does_not_leave_the_session_busy()
     {
         await using var harness = new ChatSessionHarness();
         harness.Metrics.ThrowForNameEndingWith = SendCounter;
 
-        await harness.Session.SendAsync("hei");
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Session.SendAsync("hei"));
 
         Assert.False(harness.Session.IsBusy);
+    }
+
+    // The metrics failure surfaces, but the stored turn must not also read as unfinished.
+    [Fact]
+    public async Task A_failure_counter_that_throws_still_stores_how_the_turn_ended()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Metrics.ThrowForNameEndingWith = FailureCounter;
+        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new TimeoutException("provider gave up"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Session.SendAsync("hei"));
+
+        Assert.Equal(TurnStatus.Failed, harness.StoredTurn.Status);
     }
 
     [Fact]
