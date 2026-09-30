@@ -13,7 +13,6 @@ public sealed class MessageUsageTests
         Assert.Equal(((long?)2100, (long?)140), (usage.CombinedInputTokens, usage.CombinedOutputTokens));
     }
 
-    // Derived, so the total can never disagree with the two counts shown beside it.
     [Fact]
     public void The_total_is_the_combined_input_plus_the_combined_output()
     {
@@ -22,27 +21,26 @@ public sealed class MessageUsageTests
         Assert.Equal(usage.CombinedInputTokens + usage.CombinedOutputTokens, usage.CombinedTotalTokens);
     }
 
-    [Fact]
-    public void Usage_with_nothing_estimated_is_not_marked_as_estimated()
+    // Zeros as well as nulls: summed conversation usage carries zeros.
+    [Theory]
+    [InlineData(null, null, false)]
+    [InlineData(0L, 0L, false)]
+    [InlineData(50L, 0L, true)]
+    public void Usage_is_marked_as_estimated_only_when_an_estimate_adds_something(
+        long? estimatedInput,
+        long? estimatedOutput,
+        bool isEstimated)
     {
-        var usage = new MessageUsage(900, 100);
+        var usage = new MessageUsage(900, 100, estimatedInput, estimatedOutput);
 
-        Assert.False(usage.IsEstimated);
+        Assert.Equal(isEstimated, usage.IsEstimated);
     }
 
-    // Summed conversation usage carries zeros rather than nulls.
-    [Fact]
-    public void An_estimate_of_zero_is_not_marked_as_estimated()
-    {
-        var usage = new MessageUsage(900, 100, 0, 0);
-
-        Assert.False(usage.IsEstimated);
-    }
-
+    // A provider may report input without output; that must not read as 0 output.
     [Fact]
     public void A_count_neither_reported_nor_estimated_stays_absent()
     {
-        var usage = new MessageUsage(null, null, 50, null);
+        var usage = new MessageUsage(900, null);
 
         Assert.Null(usage.CombinedOutputTokens);
     }

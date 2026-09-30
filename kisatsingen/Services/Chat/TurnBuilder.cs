@@ -191,8 +191,8 @@ internal sealed class TurnBuilder
     }
 
     // Summed across round trips: what the turn cost, not how big the context is.
-    // A provider reports a round trip's usage as its last chunk, before any tool
-    // result closes the round, so _round is still the round it belongs to.
+    // Usage is a round trip's last chunk, before the tool result that closes the round
+    // (pinned by FunctionInvocationOrderingTests), so _round is still its round.
     private void AddUsage(UsageDetails details)
     {
         _usage ??= new UsageDetails();
@@ -224,33 +224,29 @@ internal sealed class TurnBuilder
 
     private (long? Input, long? Output) EstimateUsageOfUnreportedRounds(IReadOnlyList<TurnSegment> answer, bool wasCancelled)
     {
-        long? input = null;
-        long? output = null;
+        var unreportedRounds = answer.Select(segment => segment.Round).ToHashSet();
 
-        var rounds = answer.Select(segment => segment.Round).ToHashSet();
-
-        // A stop interrupts a request that was sent, so it is billed even if nothing
-        // came back yet: after a tool result that is the next round, still empty.
-        // A failure is left out, since a refused request is not billed.
+        // A stop interrupts a request that was sent and is billed even if nothing came
+        // back; after a tool result that is the next, still empty, round. Not so on a
+        // failure: a refused request is not billed.
         if (wasCancelled)
         {
-            rounds.Add(_isRoundClosed ? _round + 1 : _round);
+            unreportedRounds.Add(_isRoundClosed ? _round + 1 : _round);
         }
 
-        foreach (var round in rounds)
+        unreportedRounds.ExceptWith(_roundsWithReportedUsage);
+
+        if (unreportedRounds.Count == 0)
         {
-            if (_roundsWithReportedUsage.Contains(round))
-            {
-                continue;
-            }
-
-            // Every round trip sends the whole request again, plus what earlier rounds added to it.
-            var earlierRounds = answer.Where(segment => segment.Round < round);
-            input = (input ?? 0) + _requestTokens + earlierRounds.Sum(ContextTokenEstimator.EstimateResent);
-
-            var thisRound = answer.Where(segment => segment.Round == round);
-            output = (output ?? 0) + thisRound.Sum(ContextTokenEstimator.EstimateGenerated);
+            return (null, null);
         }
+
+        // Every round trip sends the whole request again, plus what earlier rounds added to it.
+        var input = unreportedRounds.Sum(round =>
+            _requestTokens + answer.Where(segment => segment.Round < round).Sum(ContextTokenEstimator.EstimateResent));
+
+        var output = unreportedRounds.Sum(round =>
+            answer.Where(segment => segment.Round == round).Sum(ContextTokenEstimator.EstimateGenerated));
 
         return (input, output);
     }

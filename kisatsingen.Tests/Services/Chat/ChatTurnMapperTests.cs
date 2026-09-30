@@ -46,19 +46,9 @@ public sealed class ChatTurnMapperTests
     }
 
     [Fact]
-    public void What_the_provider_reported_survives_the_round_trip()
+    public void What_the_provider_reported_and_what_was_estimated_survive_the_round_trip_apart()
     {
-        var metadata = new TurnMetadata("gpt-dated", "resp-1", "stop", new MessageUsage(1, 2), 400, 50);
-
-        var restored = RoundTrip(TurnWith() with { Metadata = metadata });
-
-        Assert.Equal(metadata, restored.Metadata);
-    }
-
-    [Fact]
-    public void Estimated_usage_survives_the_round_trip_apart_from_what_was_reported()
-    {
-        var metadata = new TurnMetadata("gpt-dated", "resp-1", null, new MessageUsage(900, 100, 1200, 40), 400, 50);
+        var metadata = new TurnMetadata("gpt-dated", "resp-1", "stop", new MessageUsage(900, 100, 1200, 40), 400, 50);
 
         var restored = RoundTrip(TurnWith() with { Metadata = metadata });
 

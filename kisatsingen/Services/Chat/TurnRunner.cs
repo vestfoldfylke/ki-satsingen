@@ -85,8 +85,7 @@ internal sealed class TurnRunner
         }
     }
 
-    // Decides how the attempt went and does nothing else about it: the catches only
-    // name the outcome, so none of them can throw past it.
+    // The catches only name the outcome and never act on it, so none can throw past it.
     private async Task<TurnAttempt> ExecuteAsync(
         TurnRow row,
         Turn turn,
@@ -144,9 +143,8 @@ internal sealed class TurnRunner
         }
     }
 
-    // Every effect of an attempt; the outcome is decided, and nothing here changes it.
-    // The ending is saved before anything that may throw, so a metrics failure that
-    // surfaces cannot also leave the stored turn unfinished.
+    // Saved before counting: a metrics failure surfaces, and must not also leave the
+    // stored turn unfinished.
     private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt)
     {
         LogFailure(row, attempt);

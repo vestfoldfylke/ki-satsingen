@@ -9,8 +9,8 @@ internal static class ContextTokenEstimator
     // English runs about four characters per token; Norwegian is denser on both
     // providers (æ, ø, å and split compounds). Deliberately low so the estimate runs
     // high: this drives a warning, and warning early is the recoverable mistake.
-    // Usage the provider never reported is estimated here too, and overstated the
-    // same way; it is kept apart from reported usage so that stays visible.
+    // Unreported usage is estimated here too and overstated the same way, which is
+    // why it is stored apart from reported usage.
     private const int TokenLengthInCharacters = 3;
 
     // Role and delimiter overhead, so many short messages don't estimate at nothing.
@@ -48,7 +48,6 @@ internal static class ContextTokenEstimator
         _ => 0
     };
 
-    // What the next round trip sends back, the tool's result included.
     public static long EstimateResent(TurnSegment segment) => TokensPerMessage + segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,

@@ -30,7 +30,7 @@ public sealed class ChatSessionMetricsTests
     {
         await using var harness = new ChatSessionHarness();
         harness.Metrics.ThrowForNameEndingWith = FailureCounter;
-        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new InvalidOperationException("provider exploded"));
+        harness.Client.OnStream = _ => ModelStream.FailingAfter("Hei", new TimeoutException("provider gave up"));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => harness.Session.SendAsync("hei"));
 
