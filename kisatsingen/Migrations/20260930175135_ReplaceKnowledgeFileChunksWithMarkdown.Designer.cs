@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260930125048_ReplaceKnowledgeFileChunksWithMarkdown")]
+    [Migration("20260930175135_ReplaceKnowledgeFileChunksWithMarkdown")]
     partial class ReplaceKnowledgeFileChunksWithMarkdown
     {
         /// <inheritdoc />
@@ -269,6 +269,54 @@ namespace kisatsingen.Migrations
                         {
                             t.HasCheckConstraint("ck_knowledge_files_single_scope", "num_nonnulls(\"AssistantId\", \"ChatId\") = 1");
                         });
+                });
+
+            modelBuilder.Entity("kisatsingen.Data.Entities.TokenUsage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("EstimatedInputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("EstimatedOutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<long?>("InputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ModelId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<long?>("OutputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTimeOffset>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId", "Timestamp");
+
+                    b.ToTable("TokenUsages");
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
