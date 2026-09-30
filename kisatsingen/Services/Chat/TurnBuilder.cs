@@ -30,7 +30,15 @@ internal sealed class TurnBuilder
     private string? _finishReason;
     private UsageDetails? _usage;
 
-    public TurnBuilder(Turn started) => _started = started;
+    // A stopped round trip reports nothing, so these are what its cost is estimated from.
+    private readonly long _requestTokens;
+    private readonly HashSet<int> _roundsWithReportedUsage = [];
+
+    public TurnBuilder(Turn started, long requestTokens)
+    {
+        _started = started;
+        _requestTokens = requestTokens;
+    }
 
     // Set by the stream, which owns the clock.
     public long? TimeToFirstTokenMs { get; set; }
@@ -67,8 +75,11 @@ internal sealed class TurnBuilder
 
     public Turn Snapshot() => _started with { Answer = SnapshotAnswer() };
 
-    public Turn Finish(TurnStatus status, TurnStage? failedAt = null) =>
-        (Snapshot() with { Metadata = BuildMetadata() }).EndedAs(status, failedAt);
+    public Turn Finish(TurnStatus status, TurnStage? failedAt = null)
+    {
+        var snapshot = Snapshot();
+        return (snapshot with { Metadata = BuildMetadata(snapshot.Answer, status.IsCancellation()) }).EndedAs(status, failedAt);
+    }
 
     private void AppendText(string text, List<TurnChange> changes)
     {
@@ -180,19 +191,63 @@ internal sealed class TurnBuilder
     }
 
     // Summed across round trips: what the turn cost, not how big the context is.
+    // Usage is a round trip's last chunk, before the tool result that closes the round
+    // (pinned by FunctionInvocationOrderingTests), so _round is still its round.
     private void AddUsage(UsageDetails details)
     {
         _usage ??= new UsageDetails();
         _usage.Add(details);
+        _roundsWithReportedUsage.Add(_round);
     }
 
-    private TurnMetadata? BuildMetadata() => DurationMs is null
-        ? null
-        : new TurnMetadata(
+    private TurnMetadata? BuildMetadata(IReadOnlyList<TurnSegment> answer, bool wasCancelled)
+    {
+        if (DurationMs is null)
+        {
+            return null;
+        }
+
+        var (estimatedInput, estimatedOutput) = EstimateUsageOfUnreportedRounds(answer, wasCancelled);
+
+        return new TurnMetadata(
             _servedModelId,
             _responseId,
             _finishReason,
-            MessageUsage.FromCounts(_usage?.InputTokenCount, _usage?.OutputTokenCount, _usage?.TotalTokenCount),
+            MessageUsage.FromCounts(
+                _usage?.InputTokenCount,
+                _usage?.OutputTokenCount,
+                estimatedInput,
+                estimatedOutput),
             DurationMs,
             TimeToFirstTokenMs);
+    }
+
+    private (long? Input, long? Output) EstimateUsageOfUnreportedRounds(IReadOnlyList<TurnSegment> answer, bool wasCancelled)
+    {
+        var unreportedRounds = answer.Select(segment => segment.Round).ToHashSet();
+
+        // A stop interrupts a request that was sent and is billed even if nothing came
+        // back; after a tool result that is the next, still empty, round. Not so on a
+        // failure: a refused request is not billed.
+        if (wasCancelled)
+        {
+            unreportedRounds.Add(_isRoundClosed ? _round + 1 : _round);
+        }
+
+        unreportedRounds.ExceptWith(_roundsWithReportedUsage);
+
+        if (unreportedRounds.Count == 0)
+        {
+            return (null, null);
+        }
+
+        // Every round trip sends the whole request again, plus what earlier rounds added to it.
+        var input = unreportedRounds.Sum(round =>
+            _requestTokens + answer.Where(segment => segment.Round < round).Sum(ContextTokenEstimator.EstimateResent));
+
+        var output = unreportedRounds.Sum(round =>
+            answer.Where(segment => segment.Round == round).Sum(ContextTokenEstimator.EstimateGenerated));
+
+        return (input, output);
+    }
 }

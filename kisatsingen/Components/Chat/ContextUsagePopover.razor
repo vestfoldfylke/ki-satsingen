@@ -20,7 +20,7 @@
 
         <div class="context-usage-meter">
             <label class="ds-label" data-weight="regular" for="@MeterId">
-                Kontekstvindu: @Format(EstimatedContextTokens) av @Format(Model.ContextWindowTokens)
+                Kontekstvindu: @TokenCountFormat.Format(EstimatedContextTokens) av @TokenCountFormat.Format(Model.ContextWindowTokens)
             </label>
             @* Same thresholds as the trigger colour: green, then yellow, then red.
                A meter's low/high are inclusive of the calmer colour, while ClassifyContext
@@ -37,26 +37,30 @@
         @if (Usage is { } usage)
         {
             <dl>
-                @if (usage.InputTokens is { } input)
+                @if (usage.CombinedInputTokens is { } input)
                 {
                     <dt>Sendt til KI</dt>
-                    <dd>@Format(input)</dd>
+                    <dd>@TokenCountFormat.Format(input, usage.IsEstimated)</dd>
                 }
-                @if (usage.OutputTokens is { } output)
+                @if (usage.CombinedOutputTokens is { } output)
                 {
                     <dt>Svar fra KI</dt>
-                    <dd>@Format(output)</dd>
+                    <dd>@TokenCountFormat.Format(output, usage.IsEstimated)</dd>
                 }
-                @if (usage.TotalTokens is { } total)
+                @if (usage.CombinedTotalTokens is { } total)
                 {
                     <dt>Totalt behandlet</dt>
-                    <dd>@Format(total)</dd>
+                    <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
                 }
             </dl>
         }
 
         <p class="ds-paragraph context-usage-help" data-size="xs">
             Tallene er tokens: små tekstbiter på omtrent et ord eller en del av et ord.
+            @if (Usage?.IsEstimated == true)
+            {
+                <text>Tall merket ~ er delvis anslått der KI-tjenesten ikke rapporterte forbruket.</text>
+            }
         </p>
     </div>
 </div>

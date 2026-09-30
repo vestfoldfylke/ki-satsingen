@@ -32,7 +32,8 @@ internal static class ChatTurnMapper
         FinishReason = turn.Metadata?.FinishReason,
         InputTokens = turn.Metadata?.Usage?.InputTokens,
         OutputTokens = turn.Metadata?.Usage?.OutputTokens,
-        TotalTokens = turn.Metadata?.Usage?.TotalTokens,
+        EstimatedInputTokens = turn.Metadata?.Usage?.EstimatedInputTokens,
+        EstimatedOutputTokens = turn.Metadata?.Usage?.EstimatedOutputTokens,
         DurationMs = turn.Metadata?.DurationMs,
         TimeToFirstTokenMs = turn.Metadata?.TimeToFirstTokenMs
     };
@@ -113,7 +114,11 @@ internal static class ChatTurnMapper
             stored.ServedModelId,
             stored.ResponseId,
             stored.FinishReason,
-            MessageUsage.FromCounts(stored.InputTokens, stored.OutputTokens, stored.TotalTokens),
+            MessageUsage.FromCounts(
+                stored.InputTokens,
+                stored.OutputTokens,
+                stored.EstimatedInputTokens,
+                stored.EstimatedOutputTokens),
             stored.DurationMs,
             stored.TimeToFirstTokenMs);
 }
