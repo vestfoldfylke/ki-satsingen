@@ -11,13 +11,14 @@
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "EntraConfiguration": {
+  "EntraAuthConfiguration": {
     "Instance": "https://login.microsoftonline.com",
     "TenantId": "<tenant-id>",
     "ClientId": "<client-id>",
     "ClientSecret": "<client-secret>",
     "CallbackPath": "/signin-oidc",
     "Audience": "<application-id-uri-from-appreg>",
+    "SignedOutCallbackPath": "/signout-callback-oidc",
     "AppRoleAdministrator": "Administrator",
     "AppRoleUser": "User",
     "AppRoleMetrics": "Metrics",

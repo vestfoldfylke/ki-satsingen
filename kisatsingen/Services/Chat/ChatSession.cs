@@ -52,7 +52,8 @@ public sealed class ChatSession : IAsyncDisposable
         ChatManager chatManager,
         IMetricsService metrics,
         IJSRuntime js,
-        ILogger<ChatSession> logger)
+        ILogger<ChatSession> logger,
+        ITokenUsageRepository tokenUsageRepository)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -62,7 +63,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, tokenUsageRepository);
     }
 
     public Guid? ChatId => _currentChatId;
