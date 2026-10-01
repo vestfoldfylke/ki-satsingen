@@ -130,6 +130,57 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
+    public async Task A_stop_before_the_attachments_are_taken_leaves_them_in_the_composer()
+    {
+        await using var harness = new ChatSessionHarness();
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+        harness.Repository.BeforeCreateChat = () =>
+        {
+            harness.Session.Cancel();
+            return Task.CompletedTask;
+        };
+
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
+        var pending = Assert.Single(harness.Attachments.Pending);
+        Assert.Equal(AttachmentStatus.Ready, pending.Status);
+    }
+
+    // Once taken, the turn owns the temp files; a file it never handed to
+    // processing would stay on disk until the age sweep.
+    [Fact]
+    public async Task No_temp_file_is_left_on_disk_after_a_turn_stopped_during_processing()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.Hold("treg.md");
+        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
+
+        var send = harness.Session.SendAsync("Hva står i filene?");
+        await harness.TextConverter.WaitUntilStartedAsync("treg.md");
+        harness.Session.Cancel();
+        await send;
+
+        await Eventually.TrueAsync(() => harness.AttachmentEnvironment.FilesOnDisk.Count == 0, "A temp file was left on disk after the turn ended.");
+    }
+
+    [Fact]
+    public async Task The_attachments_show_as_processing_while_they_are_processed()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.Hold("notat.md");
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+
+        var send = harness.Session.SendAsync("Hva står i notatet?");
+        await harness.TextConverter.WaitUntilStartedAsync("notat.md");
+        var shownWhileProcessing = harness.VisibleTurn.Attachments;
+        harness.TextConverter.Release("notat.md");
+        await send;
+
+        Assert.Equal([TurnAttachment.Processing("notat.md")], shownWhileProcessing);
+    }
+
+    [Fact]
     public async Task Attachments_stay_in_the_composer_when_the_message_could_not_be_saved()
     {
         await using var harness = new ChatSessionHarness();
@@ -200,6 +251,21 @@ public sealed class ChatSessionAttachmentTests
         await harness.Session.SendAsync("Hva står i notatet?");
 
         Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
+    }
+
+    // Scoping inside the tools is tested in FileToolsTests; this is the wiring:
+    // tools bound to another owner or chat would list nothing.
+    [Fact]
+    public async Task The_file_tools_the_model_gets_read_this_turns_owner_and_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+        await harness.Session.SendAsync("Hva står i notatet?");
+        var listFiles = harness.Client.LastOptions!.Tools!.OfType<AIFunction>().Single(tool => tool.Name == "list_files");
+
+        var result = await listFiles.InvokeAsync(new AIFunctionArguments());
+
+        Assert.Contains("\"name\":\"notat.md\"", Assert.IsType<string>(result));
     }
 
     [Fact]

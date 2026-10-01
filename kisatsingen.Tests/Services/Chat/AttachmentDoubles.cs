@@ -60,7 +60,7 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 // FailSavingOf throws, the way a lost connection would.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
-    private sealed record StoredFile(Guid ChatId, KnowledgeFileMetadata File, string Markdown);
+    private sealed record StoredFile(string OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
 
     private readonly List<StoredFile> _files = [];
 
@@ -110,7 +110,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 
         lock (_files)
         {
-            _files.Add(new StoredFile(chatId, file, draft.Markdown));
+            _files.Add(new StoredFile(ownerId, chatId, file, draft.Markdown));
         }
 
         return Task.FromResult<KnowledgeFileSaveResult>(new KnowledgeFileSaveResult.Saved(file));
@@ -120,7 +120,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     {
         lock (_files)
         {
-            return Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>([.. _files.Where(file => file.ChatId == chatId).Select(file => file.File)]);
+            return Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>([.. _files.Where(file => file.OwnerId == ownerId && file.ChatId == chatId).Select(file => file.File)]);
         }
     }
 
@@ -128,7 +128,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     {
         lock (_files)
         {
-            var stored = _files.FirstOrDefault(file => file.ChatId == chatId && file.File.Id == knowledgeFileId);
+            var stored = _files.FirstOrDefault(file => file.OwnerId == ownerId && file.ChatId == chatId && file.File.Id == knowledgeFileId);
             return Task.FromResult(stored is null ? null : new KnowledgeFileText(stored.File, stored.Markdown));
         }
     }
