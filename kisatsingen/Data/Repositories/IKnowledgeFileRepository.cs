@@ -14,6 +14,10 @@ public interface IKnowledgeFileRepository
 
     Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default);
 
+    // The only read that loads Markdown. Null unless the file is the owner's
+    // and in that chat, so a file id alone never reaches another scope.
+    Task<KnowledgeFileText?> GetChatFileTextAsync(string ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default);
+
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default);
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default);
 
