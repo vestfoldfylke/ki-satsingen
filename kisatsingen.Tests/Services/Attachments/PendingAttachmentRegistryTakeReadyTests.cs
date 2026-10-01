@@ -25,13 +25,28 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
         return file;
     }
 
+    private IReadOnlySet<Guid> AllInScope() => Registry.List(Owner, _scopeKey).Select(attachment => attachment.UploadId).ToHashSet();
+
+    [Fact]
+    public void An_attachment_not_among_the_requested_upload_ids_is_not_taken()
+    {
+        AttachReady(fileName: "sendt.md");
+        var requested = AllInScope();
+        AttachReady(fileName: "senere.md");
+
+        var taken = Registry.TakeReady(Owner, _scopeKey, requested);
+
+        Assert.Equal(["sendt.md"], taken.Select(attachment => attachment.FileName));
+        Assert.Equal(["senere.md"], Registry.List(Owner, _scopeKey).Select(attachment => attachment.FileName));
+    }
+
     [Fact]
     public void Taking_ready_hands_over_every_ready_attachment_with_its_type()
     {
         AttachReady(fileName: "a.md");
         AttachReady(fileName: "b.png");
 
-        var taken = Registry.TakeReady(Owner, _scopeKey);
+        var taken = Registry.TakeReady(Owner, _scopeKey, AllInScope());
 
         Assert.Equal([("a.md", "text/markdown"), ("b.png", "image/png")], taken.Select(attachment => (attachment.FileName, attachment.Type.ContentType)));
     }
@@ -41,7 +56,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     {
         AttachReady();
 
-        Registry.TakeReady(Owner, _scopeKey);
+        Registry.TakeReady(Owner, _scopeKey, AllInScope());
 
         Assert.Empty(Registry.List(Owner, _scopeKey));
     }
@@ -51,7 +66,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     public void A_taken_temp_file_survives_the_composer_being_cleared()
     {
         var file = AttachReady();
-        Registry.TakeReady(Owner, _scopeKey);
+        Registry.TakeReady(Owner, _scopeKey, AllInScope());
 
         Registry.RemoveAll(Owner, _scopeKey);
 
@@ -65,7 +80,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     {
         var file = AttachReady();
         File.SetLastWriteTimeUtc(file.Path, DateTime.UtcNow.AddDays(-2));
-        Registry.TakeReady(Owner, _scopeKey);
+        Registry.TakeReady(Owner, _scopeKey, AllInScope());
 
         _environment.Store.DeleteOlderThan(DateTimeOffset.UtcNow.AddDays(-1));
 
@@ -78,7 +93,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
         Registry.Reserve(Owner, _scopeKey, "program.exe", 10);
         Registry.Reserve(Owner, _scopeKey, "venter.md", 10);
 
-        var taken = Registry.TakeReady(Owner, _scopeKey);
+        var taken = Registry.TakeReady(Owner, _scopeKey, AllInScope());
 
         Assert.Empty(taken);
         Assert.Equal(2, Registry.List(Owner, _scopeKey).Count);
@@ -89,7 +104,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     {
         AttachReady();
 
-        var taken = Registry.TakeReady(OtherOwner, _scopeKey);
+        var taken = Registry.TakeReady(OtherOwner, _scopeKey, AllInScope());
 
         Assert.Empty(taken);
     }

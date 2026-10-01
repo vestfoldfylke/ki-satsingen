@@ -1,3 +1,4 @@
+using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
@@ -6,6 +7,7 @@ using kisatsingen.Services.Chat;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -211,6 +213,16 @@ builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
 builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
 builder.Services.AddSingleton<KnowledgeFileProcessingQueue>();
 builder.Services.AddHostedService<KnowledgeFileProcessingWorker>();
+
+// ─── File tools ────────────────────────────────────────
+// Defaults live in FileToolOptions; the section overrides them.
+var fileToolOptions = builder.Configuration.GetSection(FileToolOptions.SectionName).Get<FileToolOptions>()
+    ?? new FileToolOptions();
+fileToolOptions.Validate();
+
+builder.Services.AddSingleton(fileToolOptions);
+builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
+builder.Services.AddScoped<FileToolFactory>();
 
 var app = builder.Build();
 

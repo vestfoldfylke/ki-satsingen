@@ -192,20 +192,21 @@ public sealed class PendingAttachmentRegistry
         }
     }
 
-    // Hands every ready attachment in the scope over to processing. They leave
-    // the registry without their temp files being deleted: the caller now owns
-    // them (see ReadyAttachment). Refused and unfinished ones stay.
-    public IReadOnlyList<ReadyAttachment> TakeReady(string ownerId, Guid scopeKey)
+    // Hands the ready attachments among uploadIds over to processing; the
+    // caller names them, so one that becomes ready later is not taken. They
+    // leave the registry without their temp files being deleted: the caller
+    // now owns them (see ReadyAttachment). Refused and unfinished ones stay.
+    public IReadOnlyList<ReadyAttachment> TakeReady(string ownerId, Guid scopeKey, IReadOnlySet<Guid> uploadIds)
     {
         List<ReadyAttachment> taken = [];
         lock (_entriesLock)
         {
-            var inScope = _entries.Values
-                .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey)
+            var requested = _entries.Values
+                .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey && uploadIds.Contains(entry.UploadId))
                 .OrderBy(entry => entry.CreatedAt)
                 .ToList();
 
-            foreach (var entry in inScope)
+            foreach (var entry in requested)
             {
                 if (entry.ToReady() is { } handedOver)
                 {

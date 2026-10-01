@@ -1,5 +1,6 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using StoredTurn = kisatsingen.Data.Entities.ChatTurn;
 
 namespace kisatsingen.Services.Chat;
@@ -17,6 +18,12 @@ internal static class ChatTurnMapper
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    // Nulls left out, so an attachment stores only the fields it has.
+    private static readonly JsonSerializerOptions AttachmentsJson = new(AnswerJson)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
     public static StoredTurn ToEntity(Turn turn) => new()
     {
         Id = turn.Id,
@@ -27,6 +34,7 @@ internal static class ChatTurnMapper
         Status = turn.Status.ToString(),
         FailedAt = turn.FailedAt?.ToString(),
         AnswerJson = JsonSerializer.Serialize(turn.Answer, AnswerJson),
+        AttachmentsJson = WriteAttachments(turn.Attachments),
         ServedModelId = turn.Metadata?.ServedModelId,
         ResponseId = turn.Metadata?.ResponseId,
         FinishReason = turn.Metadata?.FinishReason,
@@ -68,6 +76,7 @@ internal static class ChatTurnMapper
             ModelDisplayName = modelKey is { } key ? resolveModelName(key) : null,
             StartedAt = stored.StartedAt,
             Answer = answer ?? [],
+            Attachments = ReadAttachments(stored, logger),
             IsAnswerUnreadable = answer is null,
             Status = ReadStatus(stored, logger),
             FailedAt = Enum.TryParse<TurnStage>(stored.FailedAt, out var stage) ? stage : null,
@@ -91,6 +100,43 @@ internal static class ChatTurnMapper
                 "The stored answer for turn {TurnId} could not be read and is shown as unreadable. It was most likely written by a newer build with a segment kind this one does not know; redeploying that build restores it.",
                 stored.Id);
             return null;
+        }
+    }
+
+    // One still being processed is not stored: it never got a result.
+    private static string? WriteAttachments(IReadOnlyList<TurnAttachment> attachments)
+    {
+        var toStore = attachments.Where(attachment => !attachment.IsProcessing).ToList();
+        if (toStore.Count == 0)
+        {
+            return null;
+        }
+
+        return JsonSerializer.Serialize(toStore, AttachmentsJson);
+    }
+
+    // Empty rather than throwing, for the same reason as the answer. The prompt
+    // is then replayed without its attachment line. A null entry is valid JSON
+    // but would break every later request built from this chat, so it is dropped.
+    private static IReadOnlyList<TurnAttachment> ReadAttachments(StoredTurn stored, ILogger logger)
+    {
+        if (stored.AttachmentsJson is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            var attachments = JsonSerializer.Deserialize<List<TurnAttachment?>>(stored.AttachmentsJson, AttachmentsJson) ?? [];
+            return [.. attachments.OfType<TurnAttachment>()];
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(
+                ex,
+                "The stored attachments for turn {TurnId} could not be read, so its prompt is replayed without its attachment line.",
+                stored.Id);
+            return [];
         }
     }
 

@@ -24,6 +24,9 @@ public sealed record Turn
 
     public IReadOnlyList<TurnSegment> Answer { get; init; } = [];
 
+    // The files sent with the prompt, rendered into the attachment line.
+    public IReadOnlyList<TurnAttachment> Attachments { get; init; } = [];
+
     // Answer is then empty rather than garbled, so the model is not sent it.
     public bool IsAnswerUnreadable { get; init; }
 
@@ -41,12 +44,14 @@ public sealed record Turn
         StartedAt = DateTimeOffset.UtcNow
     };
 
-    // A tool still running when its turn ends never will finish.
+    // A tool still running when its turn ends never will finish, and a file
+    // still being processed never got a result, so it is left out of the line.
     public Turn EndedAs(TurnStatus status, TurnStage? failedAt = null) => this with
     {
         Status = status,
         FailedAt = status == TurnStatus.Failed ? failedAt : null,
-        Answer = [.. Answer.Select(InterruptIfRunning)]
+        Answer = [.. Answer.Select(InterruptIfRunning)],
+        Attachments = [.. Attachments.Where(attachment => !attachment.IsProcessing)]
     };
 
     private static TurnSegment InterruptIfRunning(TurnSegment segment) =>

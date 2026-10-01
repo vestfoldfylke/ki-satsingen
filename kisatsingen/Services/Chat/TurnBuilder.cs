@@ -31,13 +31,15 @@ internal sealed class TurnBuilder
     private UsageDetails? _usage;
 
     // A stopped round trip reports nothing, so these are what its cost is estimated from.
-    private readonly long _requestTokens;
+    // Set when the request is built, which is after the attachments settle.
+    private long _requestTokens;
     private readonly HashSet<int> _roundsWithReportedUsage = [];
 
-    public TurnBuilder(Turn started, long requestTokens)
+    private IReadOnlyList<TurnAttachment> _attachments = [];
+
+    public TurnBuilder(Turn started)
     {
         _started = started;
-        _requestTokens = requestTokens;
     }
 
     // Set by the stream, which owns the clock.
@@ -45,6 +47,10 @@ internal sealed class TurnBuilder
     public long? DurationMs { get; set; }
 
     public Guid? OpenTextSegmentId => _openTextIndex < 0 ? null : _segments[_openTextIndex].Id;
+
+    public void SetAttachments(IReadOnlyList<TurnAttachment> attachments) => _attachments = attachments;
+
+    public void SetRequestTokens(long requestTokens) => _requestTokens = requestTokens;
 
     public IReadOnlyList<TurnChange> Apply(ChatResponseUpdate update)
     {
@@ -73,7 +79,7 @@ internal sealed class TurnBuilder
         return changes;
     }
 
-    public Turn Snapshot() => _started with { Answer = SnapshotAnswer() };
+    public Turn Snapshot() => _started with { Answer = SnapshotAnswer(), Attachments = _attachments };
 
     public Turn Finish(TurnStatus status, TurnStage? failedAt = null)
     {

@@ -5,7 +5,7 @@ namespace kisatsingen.AIFunctions.FileTools;
 
 // Owner and chat are fixed when the tools are made, so nothing the model sends
 // can widen what they reach: a file outside the chat is simply not found.
-internal sealed class FileToolFactory(IKnowledgeFileReader reader, FileToolOptions options)
+public sealed class FileToolFactory(IKnowledgeFileReader reader, FileToolOptions options)
 {
     public IReadOnlyList<AITool> CreateForChat(string ownerId, Guid chatId) =>
     [

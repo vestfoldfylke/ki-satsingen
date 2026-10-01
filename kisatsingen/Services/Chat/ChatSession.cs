@@ -1,5 +1,7 @@
+using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Constants;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services.KnowledgeFiles.Processing;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 
@@ -18,6 +20,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly ChatClientChannel _channel;
     private readonly TurnRunner _runner;
     private readonly ChatAttachments _attachments;
+    private readonly IKnowledgeFileRepository _knowledgeFiles;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<Turn> _turns = [];
@@ -28,6 +31,8 @@ public sealed class ChatSession : IAsyncDisposable
     // Identity only; ChatManager owns the chat's metadata.
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
+
+    private bool _hadKnowledgeFilesWhenLoaded;
 
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
@@ -55,18 +60,23 @@ public sealed class ChatSession : IAsyncDisposable
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger,
-        ITokenUsageRepository tokenUsageRepository)
+        ITokenUsageRepository tokenUsageRepository,
+        IKnowledgeFileRepository knowledgeFiles,
+        KnowledgeFileProcessingQueue processingQueue,
+        FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
         _selectedModel = catalog.Default;
         _repo = repo;
         _attachments = attachments;
+        _knowledgeFiles = knowledgeFiles;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, tokenUsageRepository);
+        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFiles, logger);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, tokenUsageRepository, attachmentStep, fileTools);
     }
 
     public Guid? ChatId => _currentChatId;
@@ -148,6 +158,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var chat = await _repo.GetChatAsync(userObjectId, id, ct);
+            var knowledgeFiles = chat is null ? [] : await _knowledgeFiles.ListFilesForChatAsync(userObjectId, id, ct);
 
             // A later navigation that finished first must not be overwritten.
             if (viewVersion != _viewVersion)
@@ -159,6 +170,7 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
+                _hadKnowledgeFilesWhenLoaded = knowledgeFiles.Count > 0;
                 var loadedAt = DateTimeOffset.UtcNow;
                 _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
 
@@ -218,6 +230,7 @@ public sealed class ChatSession : IAsyncDisposable
         _liveTurnId = null;
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
+        _hadKnowledgeFilesWhenLoaded = false;
         _selectedModel = _catalog.Default;
 
         // Attached to the chat being left, not the one being opened.
@@ -251,6 +264,7 @@ public sealed class ChatSession : IAsyncDisposable
         // A turn that started on one model and prompt must finish on them.
         var model = _selectedModel;
         var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt);
+        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, _attachments.AttachReadyToMessage(), ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -262,7 +276,7 @@ public sealed class ChatSession : IAsyncDisposable
                 chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
                 snapshot => ShowSnapshot(viewVersion, snapshot));
 
-            var ended = await _runner.RunAsync(turn, _currentChatId, TranscriptRequest.Build(_turns), model, cancellation, observer);
+            var ended = await _runner.RunAsync(input, cancellation, observer);
             Replace(viewVersion, ended);
         }
         finally
@@ -290,6 +304,12 @@ public sealed class ChatSession : IAsyncDisposable
             }
         }
     }
+
+    // The turns shown count too, so files saved since the chat was loaded are
+    // known without asking the database again. A file deleted since still
+    // counts; the tools then simply find none.
+    private bool ChatHasKnowledgeFiles() =>
+        _hadKnowledgeFilesWhenLoaded || _turns.Any(turn => turn.Attachments.Any(attachment => attachment.FileId is not null));
 
     private void OnChatPersisted(int viewVersion, Guid chatId, bool isNewChat)
     {

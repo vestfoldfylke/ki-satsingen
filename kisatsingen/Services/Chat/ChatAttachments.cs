@@ -138,6 +138,28 @@ public sealed class ChatAttachments : IDisposable
         }
     }
 
+    // On send: the attachments ready now are this message's, and one that
+    // finishes uploading later stays for the next. A rejected one is not
+    // attached and has already said why, so it is cleared from the composer.
+    internal MessageAttachments AttachReadyToMessage()
+    {
+        var readyUploadIds = Pending
+            .Where(attachment => attachment.Status == AttachmentStatus.Ready)
+            .Select(attachment => attachment.UploadId)
+            .ToHashSet();
+
+        ClearRejected();
+        return new MessageAttachments(_registry, _ownerId, ComposerKey, readyUploadIds);
+    }
+
+    private void ClearRejected()
+    {
+        foreach (var attachment in Pending.Where(attachment => attachment.Status == AttachmentStatus.Rejected))
+        {
+            Remove(attachment.UploadId);
+        }
+    }
+
     // For a view switch: what was attached here is not the next chat's.
     public void Reset()
     {
