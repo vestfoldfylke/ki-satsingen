@@ -53,7 +53,7 @@ internal sealed class TurnAttachmentStep(
 
         // All handed to the queue at once: its workers and the per-user limit
         // decide how many run together.
-        var jobs = attachmentsToProcess.Select(toProcess => ProcessAsync(ownerId, toProcess.Attachment, toProcess.Index, ct)).ToList();
+        var jobs = attachmentsToProcess.Select(toProcess => ProcessAsync(ownerId, chatId, toProcess.Attachment, toProcess.Index, ct)).ToList();
 
         // One at a time, in the order they finish, so saving and updating the
         // turn never run in parallel.
@@ -129,8 +129,9 @@ internal sealed class TurnAttachmentStep(
     }
 
     // A stop comes back as a null result rather than an exception, so the loop
-    // still settles the files that finished before it.
-    private async Task<JobOutcome> ProcessAsync(string ownerId, ReadyAttachment attachment, int index, CancellationToken ct)
+    // still settles the files that finished before it. A failed job is that
+    // file's reason, like a failed save.
+    private async Task<JobOutcome> ProcessAsync(string ownerId, Guid chatId, ReadyAttachment attachment, int index, CancellationToken ct)
     {
         try
         {
@@ -140,6 +141,14 @@ internal sealed class TurnAttachmentStep(
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             return new JobOutcome(index, Result: null);
+        }
+        // A warning: the worker has already logged a failed job as an error.
+        // Logged here too, since a failure before the job reaches a worker has
+        // no other log.
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not process attachment {FileName} in chat {ChatId}. It is sent as unavailable.", attachment.FileName, chatId);
+            return new JobOutcome(index, new KnowledgeFileProcessingResult.Rejected(AttachmentTexts.NotProcessedReason));
         }
     }
 

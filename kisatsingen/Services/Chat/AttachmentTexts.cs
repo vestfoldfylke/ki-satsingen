@@ -9,6 +9,8 @@ internal static class AttachmentTexts
     public const string ReadBeforeAnswering =
         "Les en vedlagt fil med get_outline eller read_file før du svarer om innholdet.";
 
+    public const string NotProcessedReason = "Filen kunne ikke behandles. Legg den ved på nytt.";
+
     public const string NotSavedReason = "Filen kunne ikke lagres. Legg den ved på nytt.";
 
     public const string InterruptedReason = "Behandlingen ble avbrutt. Legg den ved på nytt.";

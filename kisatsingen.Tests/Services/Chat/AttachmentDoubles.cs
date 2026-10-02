@@ -7,7 +7,9 @@ namespace kisatsingen.Tests.Services.Chat;
 
 // The real text converter, except that a file named in Hold waits until it is
 // released, so a test can make files finish in an order of its choosing or
-// stop the turn while one is still being processed.
+// stop the turn while one is still being processed. A file in
+// FileNamesThatFailToConvert throws, the way a converter bug or a lost temp
+// file would.
 internal sealed class HoldingTextConverter : IDocumentConverter
 {
     private sealed record Gate(TaskCompletionSource Started, TaskCompletionSource Released);
@@ -16,6 +18,8 @@ internal sealed class HoldingTextConverter : IDocumentConverter
     private readonly Dictionary<string, Gate> _gates = new(StringComparer.Ordinal);
 
     public IReadOnlyList<string> ContentTypes => _inner.ContentTypes;
+
+    public HashSet<string> FileNamesThatFailToConvert { get; } = new(StringComparer.Ordinal);
 
     public void Hold(string fileName)
     {
@@ -34,6 +38,11 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
+        if (FileNamesThatFailToConvert.Contains(request.FileName))
+        {
+            throw new InvalidOperationException($"Scripted conversion failure for {request.FileName}.");
+        }
+
         var gate = FindGate(request.FileName);
         if (gate is not null)
         {
@@ -59,9 +68,9 @@ internal sealed class HoldingTextConverter : IDocumentConverter
     }
 }
 
-// Saves into memory, assigning ids the way the database would. A file named in
-// FailSavingOf throws, and so does listing when FailListing is set, the way a
-// lost connection would. HoldListing makes listings wait, as a slow query
+// Saves into memory, assigning ids the way the database would. A file in
+// FileNamesThatFailToSave throws, and so does listing when FailListing is set,
+// the way a lost connection would. HoldListing makes listings wait, as a slow query
 // does, until released or cancelled: every chat's, or only the one named.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
@@ -74,7 +83,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     private TaskCompletionSource? _listingReleased;
     private Guid? _heldChatId;
 
-    public HashSet<string> FailSavingOf { get; } = new(StringComparer.Ordinal);
+    public HashSet<string> FileNamesThatFailToSave { get; } = new(StringComparer.Ordinal);
 
     public bool FailListing { get; set; }
 
@@ -139,7 +148,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 
     public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
     {
-        if (FailSavingOf.Contains(draft.FileName))
+        if (FileNamesThatFailToSave.Contains(draft.FileName))
         {
             return Task.FromException<KnowledgeFileSaveResult>(new InvalidOperationException($"Scripted save failure for {draft.FileName}."));
         }

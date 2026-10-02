@@ -81,10 +81,25 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
+    public async Task A_file_whose_processing_fails_is_named_as_unavailable_while_the_others_are_saved()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.FileNamesThatFailToConvert.Add("ødelagt.md");
+        await AttachAsync(harness, ("ødelagt.md", MarkdownBytes("Ødelagt")), ("lagret.md", MarkdownBytes("Lagret")));
+
+        await harness.Session.SendAsync("Hva står i filene?");
+
+        var message = LastUserMessage(harness);
+        Assert.Contains(AttachmentTexts.UnavailableEntry("ødelagt.md", AttachmentTexts.NotProcessedReason), message);
+        Assert.Contains(AttachmentTexts.AvailableEntry("lagret.md", SavedFileId(harness, "lagret.md")), message);
+        Assert.Equal(TurnStatus.Completed, harness.VisibleTurn.Status);
+    }
+
+    [Fact]
     public async Task A_file_whose_save_fails_is_named_as_unavailable_while_the_others_are_saved()
     {
         await using var harness = new ChatSessionHarness();
-        harness.KnowledgeFiles.FailSavingOf.Add("tapt.md");
+        harness.KnowledgeFiles.FileNamesThatFailToSave.Add("tapt.md");
         await AttachAsync(harness, ("tapt.md", MarkdownBytes("Tapt")), ("lagret.md", MarkdownBytes("Lagret")));
 
         await harness.Session.SendAsync("Hva står i filene?");
