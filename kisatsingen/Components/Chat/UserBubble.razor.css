@@ -4,6 +4,10 @@
     padding: 0.75rem 1rem;
     border-radius: 1rem;
     background: #e0eaff;
-    white-space: pre-wrap;
     word-wrap: break-word;
+}
+
+/* On the prompt only, so the attachment list's markup whitespace collapses. */
+.user-bubble-prompt {
+    white-space: pre-wrap;
 }

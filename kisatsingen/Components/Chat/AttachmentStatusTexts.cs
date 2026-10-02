@@ -1,10 +1,11 @@
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
-// Shared by the composer and the files panel, so an attachment reads the same
-// in both.
-internal static class AttachmentText
+// Shared by the composer, the files panel and the user's bubble, so an
+// attachment reads the same in each.
+internal static class AttachmentStatusTexts
 {
     public static string DescribeStatus(PendingAttachment attachment) => attachment.Status switch
     {
@@ -17,6 +18,17 @@ internal static class AttachmentText
 
     public static bool IsRejected(PendingAttachment attachment) =>
         attachment.Status == AttachmentStatus.Rejected;
+
+    // Null when available: the file's name alone says it is there.
+    public static string? DescribeStatus(TurnAttachment attachment) => attachment switch
+    {
+        { IsProcessing: true } => "Behandles",
+        { UnavailableReason: { } reason } => reason,
+        _ => null
+    };
+
+    public static bool IsUnavailable(TurnAttachment attachment) =>
+        attachment.UnavailableReason is not null;
 
     // From the declared size, which is only a display estimate here.
     private static int Percent(PendingAttachment attachment) =>

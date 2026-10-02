@@ -113,7 +113,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task A_stop_during_processing_keeps_the_file_already_saved_and_leaves_out_the_unfinished_one()
+    public async Task A_stop_during_processing_keeps_the_file_already_saved_and_marks_the_unfinished_one_interrupted()
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Hold("treg.md");
@@ -126,8 +126,12 @@ public sealed class ChatSessionAttachmentTests
         await send;
 
         Assert.Equal(TurnStatus.Stopped, harness.StoredTurn.Status);
-        var kept = Assert.Single(harness.StoredTurn.Attachments);
-        Assert.Equal(new TurnAttachment("rask.md", SavedFileId(harness, "rask.md")), kept);
+        Assert.Equal(
+            [
+                new TurnAttachment("treg.md", UnavailableReason: AttachmentTexts.InterruptedReason),
+                new TurnAttachment("rask.md", SavedFileId(harness, "rask.md"))
+            ],
+            harness.StoredTurn.Attachments);
     }
 
     [Fact]

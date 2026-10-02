@@ -1,5 +1,26 @@
-<div class="user-bubble">@Text</div>
+@using kisatsingen.Services.Chat
+
+<div class="user-bubble">
+    <div class="user-bubble-prompt">@Prompt</div>
+    @if (Attachments.Count > 0)
+    {
+        <ul aria-label="Vedlegg">
+            @foreach (var attachment in Attachments)
+            {
+                <li>
+                    @attachment.FileName
+                    @if (AttachmentStatusTexts.DescribeStatus(attachment) is { } status)
+                    {
+                        <span data-color="@(AttachmentStatusTexts.IsUnavailable(attachment) ? "danger" : null)">@status</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+</div>
 
 @code {
-    [Parameter, EditorRequired] public required string Text { get; set; }
+    [Parameter, EditorRequired] public required string Prompt { get; set; }
+
+    [Parameter] public IReadOnlyList<TurnAttachment> Attachments { get; set; } = [];
 }

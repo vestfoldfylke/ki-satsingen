@@ -6,7 +6,7 @@
 {
     <ModelBoundaryNotice ModelDisplayName="@model" />
 }
-<UserBubble Text="@View.Turn.Prompt" />
+<UserBubble Prompt="@View.Turn.Prompt" Attachments="View.Turn.Attachments" />
 @if (View.IsLive || View.Turn.Answer.Count > 0)
 {
     <AssistantTurn Turn="View.Turn" IsLive="View.IsLive" />

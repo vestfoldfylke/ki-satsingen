@@ -9,7 +9,7 @@
 
 <div class="chat-layout">
     <ChatHeader Title="@Title"
-                FileCount="Attachments.Pending.Count"
+                FileCount="Session.KnowledgeFiles.Count + Attachments.Pending.Count"
                 IsFilesPanelOpen="_isFilesPanelOpen"
                 OnToggleFiles="ToggleFilesPanel" />
 
@@ -90,7 +90,8 @@
 
         @if (_isFilesPanelOpen)
         {
-            <ChatFilesPanel Pending="Attachments.Pending"
+            <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
+                            Pending="Attachments.Pending"
                             OnRemove="Attachments.Remove"
                             OnClose="ToggleFilesPanel" />
         }

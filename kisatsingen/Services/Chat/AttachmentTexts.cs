@@ -11,6 +11,8 @@ internal static class AttachmentTexts
 
     public const string NotSavedReason = "Filen kunne ikke lagres. Legg den ved på nytt.";
 
+    public const string InterruptedReason = "Behandlingen ble avbrutt. Legg den ved på nytt.";
+
     // fileId is the tools' argument name, so the model copies it straight into a call.
     public static string AvailableEntry(string fileName, Guid fileId) => $"- {fileName} (fileId: {fileId})";
 

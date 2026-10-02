@@ -45,17 +45,25 @@ public sealed record Turn
     };
 
     // A tool still running when its turn ends never will finish, and a file
-    // still being processed never got a result, so it is left out of the line.
+    // still being processed never will be. Both are marked interrupted, so the
+    // bubble and the attachment line say what happened instead of dropping it.
     public Turn EndedAs(TurnStatus status, TurnStage? failedAt = null) => this with
     {
         Status = status,
         FailedAt = status == TurnStatus.Failed ? failedAt : null,
         Answer = [.. Answer.Select(InterruptIfRunning)],
-        Attachments = [.. Attachments.Where(attachment => !attachment.IsProcessing)]
+        Attachments = [.. Attachments.Select(InterruptIfProcessing)]
     };
 
     private static TurnSegment InterruptIfRunning(TurnSegment segment) =>
         segment is ToolSegment { Status: ToolStatus.Running } tool
             ? tool with { Status = ToolStatus.Interrupted }
             : segment;
+
+    // Its temp file is never kept, though a stopped worker may still be
+    // deleting it, so attaching it again is the only way on.
+    private static TurnAttachment InterruptIfProcessing(TurnAttachment attachment) =>
+        attachment.IsProcessing
+            ? attachment.Unavailable(AttachmentTexts.InterruptedReason)
+            : attachment;
 }

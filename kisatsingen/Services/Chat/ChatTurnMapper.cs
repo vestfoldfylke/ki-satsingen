@@ -103,7 +103,8 @@ internal static class ChatTurnMapper
         }
     }
 
-    // One still being processed is not stored: it never got a result.
+    // A guard: an ended turn has none still being processed (Turn.EndedAs
+    // marks them interrupted), and one without a result must never be stored.
     private static string? WriteAttachments(IReadOnlyList<TurnAttachment> attachments)
     {
         var toStore = attachments.Where(attachment => !attachment.IsProcessing).ToList();

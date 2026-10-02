@@ -59,9 +59,10 @@ public sealed partial class ChatComposer : ComponentBase
     [Parameter]
     public EventCallback<Guid> OnRemoveAttachment { get; set; }
 
-    // Also while uploading: a new selection makes the files of the one still
-    // uploading unreadable.
-    private bool IsPickerDisabled => IsBusy || IsUploading;
+    // A new selection makes the files of the one still uploading unreadable. A
+    // running turn does not hold the picker: the files a message takes are
+    // decided at send, so one attached now goes with the next message.
+    private bool IsPickerDisabled => IsUploading;
 
     private sealed record ComposerNotice(string Color, string Text);
 

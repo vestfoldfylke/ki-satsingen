@@ -12,8 +12,8 @@
         {
             <li @key="attachment.UploadId" class="composer-attachment">
                 <span class="composer-attachment-name">@attachment.FileName</span>
-                <span class="composer-attachment-status" data-color="@(AttachmentText.IsRejected(attachment) ? "danger" : null)">
-                    @AttachmentText.DescribeStatus(attachment)
+                <span class="composer-attachment-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
+                    @AttachmentStatusTexts.DescribeStatus(attachment)
                 </span>
                 <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
                         aria-label="@($"Fjern {attachment.FileName}")"
