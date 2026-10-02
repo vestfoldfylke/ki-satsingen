@@ -1,5 +1,6 @@
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Constants;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Processing;
@@ -21,7 +22,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly ChatClientChannel _channel;
     private readonly TurnRunner _runner;
     private readonly ChatAttachments _attachments;
-    private readonly IKnowledgeFileRepository _knowledgeFiles;
+    private readonly IKnowledgeFileRepository _knowledgeFileRepository;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<Turn> _turns = [];
@@ -33,7 +34,10 @@ public sealed class ChatSession : IAsyncDisposable
     private Guid? _currentChatId;
     private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
-    private bool _hadKnowledgeFilesWhenLoaded;
+    // Can lag the database between reloads. Safe, since the files panel only
+    // shows it, ChatHasKnowledgeFiles also counts the turns' available
+    // attachments, and duplicates are checked against the database.
+    private IReadOnlyList<KnowledgeFileMetadata> _knowledgeFiles = [];
 
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
@@ -62,7 +66,7 @@ public sealed class ChatSession : IAsyncDisposable
         IJSRuntime js,
         ILogger<ChatSession> logger,
         ITokenUsageRepository tokenUsageRepository,
-        IKnowledgeFileRepository knowledgeFiles,
+        IKnowledgeFileRepository knowledgeFileRepository,
         KnowledgeFileProcessingQueue processingQueue,
         TempFileStore tempFiles,
         FileToolFactory fileTools)
@@ -72,16 +76,17 @@ public sealed class ChatSession : IAsyncDisposable
         _selectedModel = catalog.Default;
         _repo = repo;
         _attachments = attachments;
-        _knowledgeFiles = knowledgeFiles;
+        _knowledgeFileRepository = knowledgeFileRepository;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFiles, tempFiles, logger);
+        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFileRepository, tempFiles, logger);
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, tokenUsageRepository, attachmentStep, fileTools);
     }
 
     public Guid? ChatId => _currentChatId;
+    public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
     public bool HasVisibleMessages => _turns.Count > 0;
     public bool HasLiveTurn => _liveTurnId is not null;
@@ -160,7 +165,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
             var chat = await _repo.GetChatAsync(userObjectId, id, ct);
-            var knowledgeFiles = chat is null ? [] : await _knowledgeFiles.ListFilesForChatAsync(userObjectId, id, ct);
+            var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, id, ct);
 
             // A later navigation that finished first must not be overwritten.
             if (viewVersion != _viewVersion)
@@ -172,7 +177,7 @@ public sealed class ChatSession : IAsyncDisposable
             {
                 _currentChatId = chat.Id;
                 _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
-                _hadKnowledgeFilesWhenLoaded = knowledgeFiles.Count > 0;
+                _knowledgeFiles = knowledgeFiles;
                 var loadedAt = DateTimeOffset.UtcNow;
                 _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
 
@@ -232,7 +237,7 @@ public sealed class ChatSession : IAsyncDisposable
         _liveTurnId = null;
         _currentChatId = null;
         _effectiveSystemPrompt = DefaultSystemPrompt;
-        _hadKnowledgeFilesWhenLoaded = false;
+        _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 
         // Attached to the chat being left, not the one being opened.
@@ -272,13 +277,14 @@ public sealed class ChatSession : IAsyncDisposable
         _liveTurnId = turn.Id;
         Notify();
 
+        Turn ended;
         try
         {
             var observer = new TurnObserver(
                 chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
                 snapshot => ShowSnapshot(viewVersion, snapshot));
 
-            var ended = await _runner.RunAsync(input, cancellation, observer);
+            ended = await _runner.RunAsync(input, cancellation, observer);
             Replace(viewVersion, ended);
         }
         finally
@@ -305,13 +311,53 @@ public sealed class ChatSession : IAsyncDisposable
                 completion.SetResult();
             }
         }
+
+        // After the completion, so a navigation waiting on the turn is not
+        // held up by the query. A disconnected circuit has nobody to show it to.
+        if (ended.Status != TurnStatus.Disconnected && HasAvailableAttachment(ended))
+        {
+            await ReloadKnowledgeFilesAsync(viewVersion);
+        }
     }
 
-    // The turns shown count too, so files saved since the chat was loaded are
-    // known without asking the database again. A file deleted since still
+    // The turn has already ended, so a failure here must not surface as one:
+    // the list stays as it was, and ChatHasKnowledgeFiles still sees the
+    // turn's files. Checked against the view before and after the query, so a
+    // chat the user has left never writes into the one now shown.
+    private async Task ReloadKnowledgeFilesAsync(int viewVersion)
+    {
+        if (!OwnsView(viewVersion) || _currentChatId is not Guid chatId)
+        {
+            return;
+        }
+
+        IReadOnlyList<KnowledgeFileMetadata> knowledgeFiles;
+        try
+        {
+            var ownerId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            knowledgeFiles = await _knowledgeFileRepository.ListFilesForChatAsync(ownerId, chatId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not reload the knowledge files of chat {ChatId}. The files panel shows the list from before this turn until the next reload.", chatId);
+            return;
+        }
+
+        if (OwnsView(viewVersion))
+        {
+            _knowledgeFiles = knowledgeFiles;
+            Notify();
+        }
+    }
+
+    // The turns shown count too, so a file saved by a turn is known before the
+    // list is reloaded, or when the reload failed. A file deleted since still
     // counts; the tools then simply find none.
     private bool ChatHasKnowledgeFiles() =>
-        _hadKnowledgeFilesWhenLoaded || _turns.Any(turn => turn.Attachments.Any(attachment => attachment.FileId is not null));
+        _knowledgeFiles.Count > 0 || _turns.Any(HasAvailableAttachment);
+
+    private static bool HasAvailableAttachment(Turn turn) =>
+        turn.Attachments.Any(attachment => attachment.FileId is not null);
 
     private void OnChatPersisted(int viewVersion, Guid chatId, bool isNewChat)
     {

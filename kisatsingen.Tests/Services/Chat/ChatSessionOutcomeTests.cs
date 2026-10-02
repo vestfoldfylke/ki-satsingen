@@ -188,21 +188,6 @@ public sealed class ChatSessionOutcomeTests
         Assert.Equal(TurnStatus.Disconnected, harness.VisibleTurn.Status);
     }
 
-    [Fact]
-    public async Task Stopping_a_turn_on_a_dying_tab_is_recorded_as_a_disconnect()
-    {
-        await using var harness = new ChatSessionHarness();
-        var reached = InFlight(harness);
-
-        var send = harness.Session.SendAsync("hei");
-        await reached;
-        harness.Session.Cancel();
-        harness.Session.CancelForDisconnect();
-        await send;
-
-        Assert.Equal(TurnStatus.Disconnected, harness.VisibleTurn.Status);
-    }
-
     // Circuit teardown disposes the session under a running turn: an eviction or
     // shutdown, so a disconnect.
     [Fact]

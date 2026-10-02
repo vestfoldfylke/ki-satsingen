@@ -61,8 +61,8 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 
 // Saves into memory, assigning ids the way the database would. A file named in
 // FailSavingOf throws, and so does listing when FailListing is set, the way a
-// lost connection would. HoldListing makes the next listing wait, as a slow
-// query does, until released or cancelled.
+// lost connection would. HoldListing makes listings wait, as a slow query
+// does, until released or cancelled: every chat's, or only the one named.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
     private sealed record StoredFile(string OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
@@ -72,15 +72,17 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     private readonly List<StoredFile> _files = [];
     private TaskCompletionSource? _listingStarted;
     private TaskCompletionSource? _listingReleased;
+    private Guid? _heldChatId;
 
     public HashSet<string> FailSavingOf { get; } = new(StringComparer.Ordinal);
 
     public bool FailListing { get; set; }
 
-    public void HoldListing()
+    public void HoldListing(Guid? onlyForChat = null)
     {
         _listingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _listingReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _heldChatId = onlyForChat;
     }
 
     // Fails the test rather than hanging it when the listing never starts.
@@ -173,7 +175,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
             throw new InvalidOperationException("Scripted listing failure.");
         }
 
-        if (_listingReleased is { } released)
+        if (_listingReleased is { } released && (_heldChatId is null || _heldChatId == chatId))
         {
             _listingStarted!.TrySetResult();
 
