@@ -1,3 +1,4 @@
+using kisatsingen.Data.Entities;
 using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Data.Repositories;
@@ -14,4 +15,8 @@ public interface ITokenUsageRepository
         long? estimatedOutputTokens,
         TurnStatus status,
         CancellationToken ct = default);
+    
+    Task<IReadOnlyList<TokenUsage>> GetMyTokenUsageAsync(string ownerId, CancellationToken ct = default);
+    
+    Task<IReadOnlyList<TokenUsage>> GetOrganizationUsageAsync(CancellationToken ct = default);
 }

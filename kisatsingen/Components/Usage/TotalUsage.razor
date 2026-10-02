@@ -1,0 +1,23 @@
+@using System.Globalization
+
+<div class="usage-cards">
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Input tokens</h3>
+        <span>@TotalInputTokenUsage.ToString("N0", CultureInfo.InvariantCulture)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Output tokens</h3>
+        <span>@TotalOutputTokenUsage.ToString("N0", CultureInfo.InvariantCulture)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Estimated input tokens</h3>
+        <span>@TotalEstimatedInputTokenUsage.ToString("N0", CultureInfo.InvariantCulture)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Estimated output tokens</h3>
+        <span>@TotalEstimatedOutputTokenUsage.ToString("N0", CultureInfo.InvariantCulture)</span>
+    </div>
+</div>

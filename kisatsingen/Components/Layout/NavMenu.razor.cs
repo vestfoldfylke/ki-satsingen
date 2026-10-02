@@ -1,5 +1,5 @@
-using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
@@ -8,6 +8,8 @@ namespace kisatsingen.Components.Layout;
 public partial class NavMenu : ComponentBase, IDisposable
 {
     private const string NewChatPath = "new";
+    private const string MyUsagePath = "usage";
+    private const string AdministrationUsagePath = "administration/usage";
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -53,6 +55,23 @@ public partial class NavMenu : ComponentBase, IDisposable
         if (Navigation.ToBaseRelativePath(Navigation.Uri) != NewChatPath)
         {
             Navigation.NavigateTo($"/{NewChatPath}");
+        }
+    }
+    
+    [Authorize(Policy = "IsAdministrator")]
+    private void ShowAdministrationUsageAsync()
+    {
+        if (Navigation.ToBaseRelativePath(Navigation.Uri) != AdministrationUsagePath)
+        {
+            Navigation.NavigateTo($"/{AdministrationUsagePath}");
+        }
+    }
+
+    private void ShowMyUsageAsync()
+    {
+        if (Navigation.ToBaseRelativePath(Navigation.Uri) != MyUsagePath)
+        {
+            Navigation.NavigateTo($"/{MyUsagePath}");
         }
     }
 

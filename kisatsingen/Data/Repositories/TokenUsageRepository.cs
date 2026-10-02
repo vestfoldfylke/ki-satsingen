@@ -1,5 +1,7 @@
 using kisatsingen.Data.Entities;
+using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace kisatsingen.Data.Repositories;
@@ -34,5 +36,20 @@ public sealed class TokenUsageRepository(IDbContextFactory<AppDbContext> factory
         });
 
         await db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<TokenUsage>> GetMyTokenUsageAsync(string ownerId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        return [.. db.TokenUsages.Where(tokenUsage => tokenUsage.OwnerId == ownerId).AsNoTracking()];
+    }
+
+    [Authorize(Policy = "IsAdministrator")]
+    public async Task<IReadOnlyList<TokenUsage>> GetOrganizationUsageAsync(CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        return [.. db.TokenUsages.AsNoTracking()];
     }
 }
