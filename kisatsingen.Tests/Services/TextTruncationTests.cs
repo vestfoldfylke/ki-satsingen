@@ -31,4 +31,22 @@ public sealed class TextTruncationTests
 
         Assert.Equal("ab", prefix);
     }
+
+    // Woman, joiner, laptop make one emoji of five chars: a cut inside it
+    // would leave a woman and a dangling joiner.
+    [Fact]
+    public void A_cut_inside_a_joined_emoji_drops_the_whole_emoji()
+    {
+        var prefix = TextTruncation.Prefix($"ab👩{HardToSeeCharacters.ZeroWidthJoiner}💻cd", 5);
+
+        Assert.Equal("ab", prefix);
+    }
+
+    [Fact]
+    public void A_cut_between_a_letter_and_its_combining_accent_drops_both()
+    {
+        var prefix = TextTruncation.Prefix($"abe{HardToSeeCharacters.CombiningAcuteAccent}cd", 3);
+
+        Assert.Equal("ab", prefix);
+    }
 }

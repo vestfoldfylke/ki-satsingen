@@ -20,6 +20,9 @@ internal static class TextDecoder
 
     private const int Windows1252CodePage = 1252;
 
+    // By number, not as a literal: a raw one is invisible in source.
+    private const char ByteOrderMark = (char)0xFEFF;
+
     // Strict: .NET has no validity check for UTF-16 bytes, and a lenient
     // decode would turn bad bytes into replacement characters that reach a
     // model as if they were text.
@@ -106,7 +109,7 @@ internal static class TextDecoder
             return new TextDecodeResult.Rejected(ConversionRejections.Binary);
         }
 
-        var normalized = text.TrimStart('﻿').ReplaceLineEndings("\n");
+        var normalized = text.TrimStart(ByteOrderMark).ReplaceLineEndings("\n");
         return string.IsNullOrWhiteSpace(normalized)
             ? new TextDecodeResult.Rejected(ConversionRejections.Empty)
             : new TextDecodeResult.Decoded(normalized);

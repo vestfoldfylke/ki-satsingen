@@ -1,16 +1,19 @@
+using System.Globalization;
+
 namespace kisatsingen.Services;
 
 // Cutting by char can split a surrogate pair (most emoji), leaving half of it
 // behind. That half is not valid UTF-16, and Postgres, JSON and the browser all
 // refuse or mangle it, so every cut of user or document text goes through here.
 //
-// Only validity is guaranteed. An emoji built from several characters (a
-// family, a skin tone) can still be cut into smaller valid ones, which is fine
-// for titles and excerpts and not worth text-element handling.
+// It cuts between text elements (what a reader sees as one character), so an
+// emoji built from several (a family, a skin tone) or a letter with a
+// combining accent is kept whole or dropped whole, never split into pieces.
 internal static class TextTruncation
 {
-    // At most maxLength chars, one shorter when the cut would fall inside a
-    // surrogate pair.
+    // At most maxLength chars, fewer when the cut would fall inside a text
+    // element. Walks only up to the cut, so a long text costs no more than a
+    // short one.
     public static string Prefix(string text, int maxLength)
     {
         if (text.Length <= maxLength)
@@ -18,14 +21,18 @@ internal static class TextTruncation
             return text;
         }
 
-        if (maxLength <= 0)
+        var cut = 0;
+        while (cut < maxLength)
         {
-            return string.Empty;
+            var next = cut + StringInfo.GetNextTextElementLength(text, cut);
+            if (next > maxLength)
+            {
+                break;
+            }
+
+            cut = next;
         }
 
-        // Only the high half can be the last char kept with its partner cut
-        // off; a low half at the cut means the pair is already complete.
-        var cut = char.IsHighSurrogate(text[maxLength - 1]) ? maxLength - 1 : maxLength;
         return text[..cut];
     }
 }
