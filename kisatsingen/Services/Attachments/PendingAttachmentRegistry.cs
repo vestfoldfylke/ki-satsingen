@@ -119,7 +119,10 @@ public sealed class PendingAttachmentRegistry
         {
             if (_entries.TryGetValue(uploadId, out var entry))
             {
-                if (_limits.FindCompletionRefusal(_entries.Values, entry.OwnerId, uploadId, stored.SizeBytes) is { } refusal)
+                var refusal = PendingDuplicates.IsAlreadyPending(_entries.Values, entry.OwnerId, entry.ScopeKey, stored.Sha256)
+                    ? UploadRejections.AlreadyPending
+                    : _limits.FindCompletionRefusal(_entries.Values, entry.OwnerId, uploadId, stored.SizeBytes);
+                if (refusal is not null)
                 {
                     evicted = RejectLocked(entry, refusal);
                 }

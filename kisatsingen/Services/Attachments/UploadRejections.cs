@@ -12,6 +12,8 @@ internal static class UploadRejections
     public const string Interrupted =
         "Opplastingen ble avbrutt. Prøv igjen.";
 
+    public const string AlreadyPending = "Denne filen er allerede valgt.";
+
     public const string ConcurrentUploads =
         "Du laster allerede opp filer i en annen fane. Vent til de er ferdige, og prøv igjen.";
 

@@ -21,11 +21,20 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     private UploadReservation Reserve(PendingAttachmentRegistry registry, string owner = Owner, Guid? scopeKey = null, long size = Kilobyte) =>
         registry.Reserve(owner, scopeKey ?? _scopeKey, "notat.md", size) ?? throw new InvalidOperationException("Reservation refused.");
 
-    private static UploadOutcome.Stored StoreFile(AttachmentTestEnvironment environment, long size)
+    // Unique content unless a test names it, so only a test about duplicates
+    // has any.
+    private static UploadOutcome.Stored StoreFile(AttachmentTestEnvironment environment, long size, string? sha256 = null)
     {
         var (file, stream) = environment.Store.Create();
         stream.Dispose();
-        return new UploadOutcome.Stored(file, size, new string('a', 64));
+        return new UploadOutcome.Stored(file, size, sha256 ?? UploadHashes.Unique());
+    }
+
+    private void CompleteUpload(AttachmentTestEnvironment environment, Guid? scopeKey, string sha256, long size = Kilobyte)
+    {
+        var reservation = Reserve(environment.Registry, scopeKey: scopeKey, size: size);
+        environment.Registry.TryStartUpload(reservation.UploadId);
+        environment.Registry.Complete(reservation.UploadId, StoreFile(environment, size, sha256));
     }
 
     [Fact]
@@ -222,5 +231,60 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         environment.Registry.RemoveOlderThan(time.GetUtcNow() - TimeSpan.FromHours(1));
 
         Assert.Equal([recent.UploadId], environment.Registry.List(Owner, _scopeKey).Select(listed => listed.UploadId));
+    }
+
+    [Fact]
+    public void The_same_content_completed_twice_in_one_scope_is_refused_the_second_time_and_its_temp_file_deleted()
+    {
+        var sha256 = UploadHashes.Unique();
+        CompleteUpload(_environment, _scopeKey, sha256);
+        var second = Reserve(Registry);
+        Registry.TryStartUpload(second.UploadId);
+        var stored = StoreFile(_environment, Kilobyte, sha256);
+
+        Registry.Complete(second.UploadId, stored);
+
+        var listed = Registry.List(Owner, _scopeKey).Single(attachment => attachment.UploadId == second.UploadId);
+        Assert.Equal((AttachmentStatus.Rejected, UploadRejections.AlreadyPending), (listed.Status, listed.RejectionReason));
+        Assert.False(File.Exists(stored.File.Path));
+    }
+
+    [Fact]
+    public void The_same_content_in_two_scopes_is_kept_in_both()
+    {
+        var sha256 = UploadHashes.Unique();
+        var otherScope = Guid.NewGuid();
+        CompleteUpload(_environment, _scopeKey, sha256);
+
+        CompleteUpload(_environment, otherScope, sha256);
+
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(Registry.List(Owner, otherScope)).Status);
+    }
+
+    [Fact]
+    public void Content_whose_earlier_copy_was_removed_is_kept()
+    {
+        var sha256 = UploadHashes.Unique();
+        CompleteUpload(_environment, _scopeKey, sha256);
+        Registry.Remove(Owner, Assert.Single(Registry.List(Owner, _scopeKey)).UploadId);
+
+        CompleteUpload(_environment, _scopeKey, sha256);
+
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(Registry.List(Owner, _scopeKey)).Status);
+    }
+
+    // The more specific reason wins: the user can act on "already chosen".
+    [Fact]
+    public void A_duplicate_that_is_also_over_the_pending_bytes_limit_is_refused_as_a_duplicate()
+    {
+        using var environment = WithOptions(new AttachmentOptions { MaxFileBytes = 10 * Kilobyte, MaxPendingBytesPerUser = 15 * Kilobyte });
+        var sha256 = UploadHashes.Unique();
+        CompleteUpload(environment, _scopeKey, sha256, size: 10 * Kilobyte);
+        var second = Reserve(environment.Registry, size: 1);
+        environment.Registry.TryStartUpload(second.UploadId);
+
+        environment.Registry.Complete(second.UploadId, StoreFile(environment, 10 * Kilobyte, sha256));
+
+        Assert.Equal(UploadRejections.AlreadyPending, environment.Registry.List(Owner, _scopeKey).Single(attachment => attachment.UploadId == second.UploadId).RejectionReason);
     }
 }

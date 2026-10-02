@@ -109,3 +109,10 @@ internal static class UploadBytes
     public static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
     public static readonly byte[] Text = "Hei, dette er en notatfil.\n"u8.ToArray();
 }
+
+internal static class UploadHashes
+{
+    // Shaped like a SHA-256 hex string and different every call, for a file
+    // that must not count as a duplicate of any other. Not a hash of anything.
+    public static string Unique() => $"{Guid.NewGuid():N}{Guid.NewGuid():N}";
+}

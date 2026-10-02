@@ -6,10 +6,16 @@ using kisatsingen.Services.KnowledgeFiles.Processing;
 
 namespace kisatsingen.Services.Chat;
 
-// Processes a turn's files and saves them into its chat. Every file settles on
-// its own, saved, or unavailable with a reason, so one bad file never fails
-// the others or the turn; only a stop ends the step early.
-internal sealed class TurnAttachmentStep(KnowledgeFileProcessingQueue queue, IKnowledgeFileRepository knowledgeFiles, ILogger logger)
+// Makes a turn's files available in its chat. A file whose content is already
+// saved there is available as that file; the rest are processed and saved.
+// Every file settles on its own, available or unavailable with a reason, so
+// one bad file never fails the others or the turn; only a stop ends the step
+// early.
+internal sealed class TurnAttachmentStep(
+    KnowledgeFileProcessingQueue queue,
+    IKnowledgeFileRepository knowledgeFiles,
+    TempFileStore tempFiles,
+    ILogger logger)
 {
     private sealed record JobOutcome(int Index, KnowledgeFileProcessingResult? Result)
     {
@@ -26,12 +32,28 @@ internal sealed class TurnAttachmentStep(KnowledgeFileProcessingQueue queue, IKn
         Action<IReadOnlyList<TurnAttachment>> onChanged,
         CancellationToken ct)
     {
+        // Shown before the lookup, so the bubble lists the files at once.
         var turnAttachments = readyAttachments.Select(attachment => TurnAttachment.Processing(attachment.FileName)).ToArray();
+        onChanged([.. turnAttachments]);
+
+        IReadOnlyDictionary<string, Guid> savedFileIdsBySha256;
+        try
+        {
+            savedFileIdsBySha256 = await FindSavedFileIdsBySha256Async(ownerId, chatId, ct);
+        }
+        // No job exists yet to delete the temp files the turn has taken.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            DeleteTempFiles(readyAttachments);
+            throw;
+        }
+
+        var attachmentsToProcess = SettleAlreadySaved(readyAttachments, turnAttachments, savedFileIdsBySha256);
         onChanged([.. turnAttachments]);
 
         // All handed to the queue at once: its workers and the per-user limit
         // decide how many run together.
-        var jobs = readyAttachments.Select((attachment, index) => ProcessAsync(ownerId, attachment, index, ct)).ToList();
+        var jobs = attachmentsToProcess.Select(toProcess => ProcessAsync(ownerId, toProcess.Attachment, toProcess.Index, ct)).ToList();
 
         // One at a time, in the order they finish, so saving and updating the
         // turn never run in parallel.
@@ -50,6 +72,60 @@ internal sealed class TurnAttachmentStep(KnowledgeFileProcessingQueue queue, IKn
         // After the loop, so every file that finished before the stop is saved.
         ct.ThrowIfCancellationRequested();
         return turnAttachments;
+    }
+
+    // A failed lookup only loses the reuse: the files are processed as new,
+    // and the unique index refuses a twin's save. A stop is not a failure, so
+    // it propagates.
+    private async Task<IReadOnlyDictionary<string, Guid>> FindSavedFileIdsBySha256Async(string ownerId, Guid chatId, CancellationToken ct)
+    {
+        try
+        {
+            var savedFiles = await knowledgeFiles.ListFilesForChatAsync(ownerId, chatId, ct);
+
+            // The unique index allows one file per content, but a broken row
+            // must not read as a failed lookup: the first one wins.
+            return savedFiles.DistinctBy(file => file.Sha256).ToDictionary(file => file.Sha256, file => file.Id);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Could not look up the saved files of chat {ChatId}. Its attachments are processed as new.", chatId);
+            return new Dictionary<string, Guid>();
+        }
+    }
+
+    private void DeleteTempFiles(IEnumerable<ReadyAttachment> readyAttachments)
+    {
+        foreach (var attachment in readyAttachments)
+        {
+            tempFiles.Delete(attachment.File);
+        }
+    }
+
+    // Settles every attachment already saved in the chat as available, and
+    // returns the rest, with their place in the turn, for processing. No job
+    // will run for a settled one, so its temp file is deleted here.
+    private List<(int Index, ReadyAttachment Attachment)> SettleAlreadySaved(
+        IReadOnlyList<ReadyAttachment> readyAttachments,
+        TurnAttachment[] turnAttachments,
+        IReadOnlyDictionary<string, Guid> savedFileIdsBySha256)
+    {
+        var attachmentsToProcess = new List<(int Index, ReadyAttachment Attachment)>();
+        for (var index = 0; index < readyAttachments.Count; index++)
+        {
+            var attachment = readyAttachments[index];
+            if (savedFileIdsBySha256.TryGetValue(attachment.Sha256, out var savedFileId))
+            {
+                turnAttachments[index] = turnAttachments[index].Available(savedFileId);
+                tempFiles.Delete(attachment.File);
+            }
+            else
+            {
+                attachmentsToProcess.Add((index, attachment));
+            }
+        }
+
+        return attachmentsToProcess;
     }
 
     // A stop comes back as a null result rather than an exception, so the loop
@@ -103,7 +179,7 @@ internal sealed class TurnAttachmentStep(KnowledgeFileProcessingQueue queue, IKn
         switch (saveResult)
         {
             case KnowledgeFileSaveResult.Saved saved:
-                return attachment.SavedAs(saved.File.Id);
+                return attachment.Available(saved.File.Id);
             case KnowledgeFileSaveResult.Rejected rejected:
                 return attachment.Unavailable(rejected.Reason);
             default:
@@ -111,7 +187,9 @@ internal sealed class TurnAttachmentStep(KnowledgeFileProcessingQueue queue, IKn
         }
     }
 
-    // Progress is for the chips on the user's bubble, which step 4b adds.
+    // The bubble shows only processing, available or unavailable: every
+    // current format processes in milliseconds, so finer stages would flash
+    // past unseen. Report them once a converter is slow enough to show them.
     private sealed class NoProgress : IProgress<KnowledgeFileProcessingStage>
     {
         public static readonly NoProgress Instance = new();

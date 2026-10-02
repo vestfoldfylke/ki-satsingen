@@ -21,7 +21,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
         Registry.TryStartUpload(reservation.UploadId);
         var (file, stream) = _environment.Store.Create();
         stream.Dispose();
-        Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, new string('a', 64)));
+        Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, UploadHashes.Unique()));
         return file;
     }
 

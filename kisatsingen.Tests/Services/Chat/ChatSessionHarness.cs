@@ -70,6 +70,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             TokenUsageRepository,
             KnowledgeFiles,
             queue,
+            AttachmentEnvironment.Store,
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()));
     }
 

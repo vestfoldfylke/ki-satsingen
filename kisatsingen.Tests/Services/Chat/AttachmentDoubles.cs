@@ -38,7 +38,10 @@ internal sealed class HoldingTextConverter : IDocumentConverter
         if (gate is not null)
         {
             gate.Started.TrySetResult();
-            await gate.Released.Task.WaitAsync(ct);
+
+            // Bounded, so a test that never releases fails in seconds rather
+            // than at the queue's processing timeout.
+            await gate.Released.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         }
 
         return await _inner.ConvertAsync(request, ct);
@@ -57,14 +60,61 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 }
 
 // Saves into memory, assigning ids the way the database would. A file named in
-// FailSavingOf throws, the way a lost connection would.
+// FailSavingOf throws, and so does listing when FailListing is set, the way a
+// lost connection would. HoldListing makes the next listing wait, as a slow
+// query does, until released or cancelled.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
     private sealed record StoredFile(string OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
 
+    private static readonly TimeSpan HeldListingTimeout = TimeSpan.FromSeconds(5);
+
     private readonly List<StoredFile> _files = [];
+    private TaskCompletionSource? _listingStarted;
+    private TaskCompletionSource? _listingReleased;
 
     public HashSet<string> FailSavingOf { get; } = new(StringComparer.Ordinal);
+
+    public bool FailListing { get; set; }
+
+    public void HoldListing()
+    {
+        _listingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _listingReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+    }
+
+    // Fails the test rather than hanging it when the listing never starts.
+    public Task WaitUntilListingStartedAsync() =>
+        (_listingStarted ?? throw new InvalidOperationException("Call HoldListing first.")).Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+    public void ReleaseListing() => _listingReleased?.TrySetResult();
+
+    // A file saved outside this session: in an earlier one, or from another tab.
+    public KnowledgeFileMetadata SaveElsewhere(string ownerId, Guid chatId, string fileName, byte[] content)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var file = new KnowledgeFileMetadata(
+            Guid.NewGuid(),
+            fileName,
+            "text/markdown",
+            content.Length,
+            Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(content)),
+            Summary: null,
+            LineCount: 1,
+            EstimatedTokenCount: 1,
+            ContentOrigin.TextFile,
+            PageCount: null,
+            Version: 1,
+            now,
+            now);
+
+        lock (_files)
+        {
+            _files.Add(new StoredFile(ownerId, chatId, file, System.Text.Encoding.UTF8.GetString(content)));
+        }
+
+        return file;
+    }
 
     public IReadOnlyList<KnowledgeFileMetadata> Saved
     {
@@ -116,11 +166,25 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         return Task.FromResult<KnowledgeFileSaveResult>(new KnowledgeFileSaveResult.Saved(file));
     }
 
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
+        if (FailListing)
+        {
+            throw new InvalidOperationException("Scripted listing failure.");
+        }
+
+        if (_listingReleased is { } released)
+        {
+            _listingStarted!.TrySetResult();
+
+            // Bounded, so code that ignores the stop fails the test rather
+            // than hanging it.
+            await released.Task.WaitAsync(HeldListingTimeout, ct);
+        }
+
         lock (_files)
         {
-            return Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>([.. _files.Where(file => file.OwnerId == ownerId && file.ChatId == chatId).Select(file => file.File)]);
+            return [.. _files.Where(file => file.OwnerId == ownerId && file.ChatId == chatId).Select(file => file.File)];
         }
     }
 
