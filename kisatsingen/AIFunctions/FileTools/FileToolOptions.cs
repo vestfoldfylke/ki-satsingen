@@ -29,6 +29,12 @@ public sealed class FileToolOptions
                 $"Every '{SectionName}' setting must be positive. Check the '{SectionName}' section in configuration.");
         }
 
+        if (DefaultOutlineDepth > GetOutlineTool.MaxDepth)
+        {
+            throw new InvalidOperationException(
+                $"'{SectionName}:DefaultOutlineDepth' ({DefaultOutlineDepth}) is deeper than Markdown's {GetOutlineTool.MaxDepth} heading levels. Set it between 1 and {GetOutlineTool.MaxDepth}.");
+        }
+
         if (TokenEstimate.FromCharacters(MaxLineCharacters) >= MaxReadTokens)
         {
             throw new InvalidOperationException(

@@ -5,6 +5,7 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
 using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
 using Microsoft.AspNetCore.Components.Forms;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
 using Xunit;
 using ChatEntity = kisatsingen.Data.Entities.Chat;
@@ -266,6 +267,22 @@ public sealed class ChatSessionAttachmentTests
         var result = await listFiles.InvokeAsync(new AIFunctionArguments());
 
         Assert.Contains("\"name\":\"notat.md\"", Assert.IsType<string>(result));
+    }
+
+    // The path the model takes: copy the id from the line, read the file. The
+    // id is found by its shape, so the line's wording can change freely.
+    [Fact]
+    public async Task The_file_id_in_the_attachment_line_opens_the_attached_text_through_this_turns_read_file()
+    {
+        await using var harness = new ChatSessionHarness();
+        await AttachAsync(harness, ("notat.md", System.Text.Encoding.UTF8.GetBytes("# Notat\n\nMøtet er flyttet til torsdag.\n")));
+        await harness.Session.SendAsync("Hva står i notatet?");
+        var fileId = Regex.Match(LastUserMessage(harness), "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").Value;
+        var readFile = harness.Client.LastOptions!.Tools!.OfType<AIFunction>().Single(tool => tool.Name == "read_file");
+
+        var result = await readFile.InvokeAsync(new AIFunctionArguments { ["fileId"] = fileId, ["start"] = 1, ["end"] = 3 });
+
+        Assert.Contains("Møtet er flyttet til torsdag.", Assert.IsType<string>(result));
     }
 
     [Fact]
