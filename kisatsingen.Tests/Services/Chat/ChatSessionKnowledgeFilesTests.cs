@@ -1,5 +1,6 @@
 using kisatsingen.Tests.Data.Repositories;
 using kisatsingen.Tests.Services.Attachments;
+using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.AI;
 using Xunit;
@@ -8,13 +9,18 @@ using ChatEntity = kisatsingen.Data.Entities.Chat;
 namespace kisatsingen.Tests.Services.Chat;
 
 // The chat's knowledge files as the session knows them: loaded with the chat,
-// and reloaded after a turn with an available attachment.
+// and added to as a turn makes each file available.
 public sealed class ChatSessionKnowledgeFilesTests
 {
     private static readonly byte[] NoteBytes = System.Text.Encoding.UTF8.GetBytes("# Notat\n\nInnhold.\n");
 
     private static Task AttachAsync(ChatSessionHarness harness, string fileName) =>
-        harness.Attachments.UploadAsync(new InputFileChangeEventArgs([new FakeBrowserFile(fileName, NoteBytes)]));
+        AttachAsync(harness, (fileName, NoteBytes));
+
+    private static Task AttachAsync(ChatSessionHarness harness, params (string Name, byte[] Content)[] files) =>
+        harness.Attachments.UploadAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
+
+    private static byte[] MarkdownBytes(string text) => System.Text.Encoding.UTF8.GetBytes($"# {text}\n\nInnhold.\n");
 
     private static ChatEntity StoreChat(ChatSessionHarness harness) => harness.Repository.Store(new ChatEntity
     {
@@ -27,17 +33,6 @@ public sealed class ChatSessionKnowledgeFilesTests
 
     private static IEnumerable<string> KnowledgeFileNames(ChatSessionHarness harness) =>
         harness.Session.KnowledgeFiles.Select(file => file.FileName);
-
-    // The turn has saved its file and is still answering when it returns.
-    private static async Task<(Task Sending, Guid ChatId)> StartTurnWithSavedFileAsync(ChatSessionHarness harness)
-    {
-        await AttachAsync(harness, "notat.md");
-        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        harness.Client.OnStream = ct => ModelStream.AnsweringThenStalling("halvferdig svar", reached, ct);
-        var sending = harness.Session.SendAsync("Hva står i notatet?");
-        await reached.Task;
-        return (sending, harness.Session.ChatId!.Value);
-    }
 
     [Fact]
     public async Task Opening_a_chat_lists_its_knowledge_files()
@@ -76,27 +71,56 @@ public sealed class ChatSessionKnowledgeFilesTests
     }
 
     [Fact]
-    public async Task A_failed_reload_keeps_the_list_from_before_the_turn()
+    public async Task A_saved_file_is_listed_while_the_turn_is_still_answering()
     {
         await using var harness = new ChatSessionHarness();
-        var chat = StoreChat(harness);
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("gammel.md", "# Gammel\n"));
-        await harness.Session.LoadAsync(chat.Id);
-        harness.KnowledgeFiles.FailListing = true;
+        await AttachAsync(harness, "notat.md");
+        var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Client.OnStream = ct => ModelStream.AnsweringThenStalling("halvferdig svar", reached, ct);
+
+        var sending = harness.Session.SendAsync("Hva står i notatet?");
+        await reached.Task;
+
+        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        harness.Session.Cancel();
+        await sending;
+    }
+
+    // The second turn reuses the file the first one saved, and reports it again.
+    [Fact]
+    public async Task A_file_attached_again_in_a_later_turn_is_listed_once()
+    {
+        await using var harness = new ChatSessionHarness();
+        await AttachAsync(harness, "notat.md");
+        await harness.Session.SendAsync("Hva står i notatet?");
+        await AttachAsync(harness, "notat-kopi.md");
+
+        await harness.Session.SendAsync("Se på notatet igjen.");
+
+        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+    }
+
+    // The turn reuses the copy another tab saved, so nothing new is saved for
+    // the list to learn of.
+    [Fact]
+    public async Task A_file_another_tab_saved_is_listed_once_a_turn_reuses_it()
+    {
+        await using var harness = new ChatSessionHarness();
+        await harness.Session.SendAsync("Hei");
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(["gammel.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["fra-annen-fane.md"], KnowledgeFileNames(harness));
     }
 
-    // The list never learnt of the file, so only the turn that saved it tells
-    // the next one that the chat has files.
     [Fact]
-    public async Task After_a_failed_reload_the_next_turn_still_gets_the_file_tools()
+    public async Task After_a_turn_reused_a_file_another_tab_saved_the_next_turn_gets_the_file_tools()
     {
         await using var harness = new ChatSessionHarness();
-        harness.KnowledgeFiles.FailListing = true;
+        await harness.Session.SendAsync("Hei");
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
         await harness.Session.SendAsync("Hva står i notatet?");
 
@@ -105,41 +129,39 @@ public sealed class ChatSessionKnowledgeFilesTests
         Assert.Contains("read_file", harness.Client.LastOptions!.Tools!.Select(tool => tool.Name));
     }
 
-    // The left chat's listing is held, so a reload that ran anyway would
-    // answer after the next chat is shown, as a real query would.
     [Fact]
-    public async Task A_turn_ended_by_leaving_the_chat_does_not_reload_into_the_chat_opened_next()
+    public async Task A_stop_during_processing_keeps_the_file_already_saved_in_the_list()
     {
         await using var harness = new ChatSessionHarness();
-        var destination = StoreChat(harness);
-        var (sending, leftChatId) = await StartTurnWithSavedFileAsync(harness);
-        harness.KnowledgeFiles.HoldListing(onlyForChat: leftChatId);
+        harness.TextConverter.Hold("treg.md");
+        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
 
-        await harness.Session.LoadAsync(destination.Id);
-        harness.KnowledgeFiles.ReleaseListing();
+        var sending = harness.Session.SendAsync("Hva står i filene?");
+        await harness.TextConverter.WaitUntilStartedAsync("treg.md");
+        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
+        harness.Session.Cancel();
         await sending;
 
-        Assert.Equal(destination.Id, harness.Session.ChatId);
-        Assert.Empty(harness.Session.KnowledgeFiles);
+        Assert.Equal(["rask.md"], KnowledgeFileNames(harness));
     }
 
+    // Reset is what deleting the open chat does: it moves the view on without
+    // stopping the turn, so the file is saved after the view stopped being the
+    // turn's.
     [Fact]
-    public async Task A_reload_that_answers_after_the_user_opened_another_chat_is_discarded()
+    public async Task A_file_saved_after_the_view_moved_on_stays_out_of_the_list()
     {
         await using var harness = new ChatSessionHarness();
-        var destination = StoreChat(harness);
-        var (sending, leftChatId) = await StartTurnWithSavedFileAsync(harness);
-        harness.KnowledgeFiles.HoldListing(onlyForChat: leftChatId);
-        // A stop ends the turn while the user is still in its chat, so the
-        // reload starts; the user leaves only while it is in flight.
-        harness.Session.Cancel();
-        await harness.KnowledgeFiles.WaitUntilListingStartedAsync();
+        harness.TextConverter.Hold("notat.md");
+        await AttachAsync(harness, "notat.md");
+        var sending = harness.Session.SendAsync("Hva står i notatet?");
+        await harness.TextConverter.WaitUntilStartedAsync("notat.md");
 
-        await harness.Session.LoadAsync(destination.Id);
-        harness.KnowledgeFiles.ReleaseListing();
+        harness.Session.Reset();
+        harness.TextConverter.Release("notat.md");
         await sending;
 
-        Assert.Equal(destination.Id, harness.Session.ChatId);
+        Assert.Single(harness.KnowledgeFiles.Saved);
         Assert.Empty(harness.Session.KnowledgeFiles);
     }
 }

@@ -316,6 +316,39 @@ public sealed class ChatSessionAttachmentTests
         Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
     }
 
+    // The stored turn still names a file, but the chat has none left to read.
+    [Fact]
+    public async Task A_reopened_chat_whose_files_were_all_deleted_gets_no_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = harness.Repository.Store(new ChatEntity
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Title = "filene er slettet",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+            Turns =
+            [
+                new kisatsingen.Data.Entities.ChatTurn
+                {
+                    Id = Guid.NewGuid(),
+                    Prompt = "Hva står i notatet?",
+                    SystemPrompt = "be brief",
+                    ModelKey = FakeChatModelCatalog.DefaultKey.Value,
+                    Status = nameof(TurnStatus.Completed),
+                    AnswerJson = "[]",
+                    AttachmentsJson = $$"""[{"fileName":"notat.md","fileId":"{{Guid.NewGuid()}}"}]"""
+                }
+            ]
+        });
+        await harness.Session.LoadAsync(chat.Id);
+
+        await harness.Session.SendAsync("Og så?");
+
+        Assert.Empty(ToolNames(harness).Intersect(FileToolNames));
+    }
+
     [Fact]
     public async Task A_chat_that_already_has_files_gets_the_file_tools_without_a_new_attachment()
     {

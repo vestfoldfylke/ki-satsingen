@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Processing;
@@ -10,7 +11,8 @@ namespace kisatsingen.Services.Chat;
 // saved there is available as that file; the rest are processed and saved.
 // Every file settles on its own, available or unavailable with a reason, so
 // one bad file never fails the others or the turn; only a stop ends the step
-// early.
+// early. Each file is reported the moment it becomes available, not with the
+// result, so a stop or a later failure of the turn cannot lose it.
 internal sealed class TurnAttachmentStep(
     KnowledgeFileProcessingQueue queue,
     IKnowledgeFileRepository knowledgeFiles,
@@ -23,23 +25,24 @@ internal sealed class TurnAttachmentStep(
         public bool WasStopped => Result is null;
     }
 
-    // onChanged is called on the turn's own flow after every change, so the
-    // caller can show it; never from a worker thread.
+    // Both callbacks are called on the turn's own flow, so the caller can show
+    // what they report; never from a worker thread.
     public async Task<IReadOnlyList<TurnAttachment>> RunAsync(
         string ownerId,
         Guid chatId,
         IReadOnlyList<ReadyAttachment> readyAttachments,
         Action<IReadOnlyList<TurnAttachment>> onChanged,
+        Action<KnowledgeFileMetadata> onKnowledgeFileAvailable,
         CancellationToken ct)
     {
         // Shown before the lookup, so the bubble lists the files at once.
         var turnAttachments = readyAttachments.Select(attachment => TurnAttachment.Processing(attachment.FileName)).ToArray();
         onChanged([.. turnAttachments]);
 
-        IReadOnlyDictionary<string, Guid> savedFileIdsBySha256;
+        IReadOnlyDictionary<string, KnowledgeFileMetadata> savedFilesBySha256;
         try
         {
-            savedFileIdsBySha256 = await FindSavedFileIdsBySha256Async(ownerId, chatId, ct);
+            savedFilesBySha256 = await FindSavedFilesBySha256Async(ownerId, chatId, ct);
         }
         // No job exists yet to delete the temp files the turn has taken.
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
@@ -48,7 +51,7 @@ internal sealed class TurnAttachmentStep(
             throw;
         }
 
-        var attachmentsToProcess = SettleAlreadySaved(readyAttachments, turnAttachments, savedFileIdsBySha256);
+        var attachmentsToProcess = SettleAlreadySaved(readyAttachments, turnAttachments, savedFilesBySha256, onKnowledgeFileAvailable);
         onChanged([.. turnAttachments]);
 
         // All handed to the queue at once: its workers and the per-user limit
@@ -65,7 +68,7 @@ internal sealed class TurnAttachmentStep(
                 continue;
             }
 
-            turnAttachments[outcome.Index] = await SettleAsync(ownerId, chatId, turnAttachments[outcome.Index], outcome.Result);
+            turnAttachments[outcome.Index] = await SettleAsync(ownerId, chatId, turnAttachments[outcome.Index], outcome.Result, onKnowledgeFileAvailable);
             onChanged([.. turnAttachments]);
         }
 
@@ -77,7 +80,7 @@ internal sealed class TurnAttachmentStep(
     // A failed lookup only loses the reuse: the files are processed as new,
     // and the unique index refuses a twin's save. A stop is not a failure, so
     // it propagates.
-    private async Task<IReadOnlyDictionary<string, Guid>> FindSavedFileIdsBySha256Async(string ownerId, Guid chatId, CancellationToken ct)
+    private async Task<IReadOnlyDictionary<string, KnowledgeFileMetadata>> FindSavedFilesBySha256Async(string ownerId, Guid chatId, CancellationToken ct)
     {
         try
         {
@@ -85,12 +88,12 @@ internal sealed class TurnAttachmentStep(
 
             // The unique index allows one file per content, but a broken row
             // must not read as a failed lookup: the first one wins.
-            return savedFiles.DistinctBy(file => file.Sha256).ToDictionary(file => file.Sha256, file => file.Id);
+            return savedFiles.DistinctBy(file => file.Sha256).ToDictionary(file => file.Sha256);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Could not look up the saved files of chat {ChatId}. Its attachments are processed as new.", chatId);
-            return new Dictionary<string, Guid>();
+            return new Dictionary<string, KnowledgeFileMetadata>();
         }
     }
 
@@ -108,15 +111,17 @@ internal sealed class TurnAttachmentStep(
     private List<(int Index, ReadyAttachment Attachment)> SettleAlreadySaved(
         IReadOnlyList<ReadyAttachment> readyAttachments,
         TurnAttachment[] turnAttachments,
-        IReadOnlyDictionary<string, Guid> savedFileIdsBySha256)
+        IReadOnlyDictionary<string, KnowledgeFileMetadata> savedFilesBySha256,
+        Action<KnowledgeFileMetadata> onKnowledgeFileAvailable)
     {
         var attachmentsToProcess = new List<(int Index, ReadyAttachment Attachment)>();
         for (var index = 0; index < readyAttachments.Count; index++)
         {
             var attachment = readyAttachments[index];
-            if (savedFileIdsBySha256.TryGetValue(attachment.Sha256, out var savedFileId))
+            if (savedFilesBySha256.TryGetValue(attachment.Sha256, out var savedFile))
             {
-                turnAttachments[index] = turnAttachments[index].Available(savedFileId);
+                turnAttachments[index] = turnAttachments[index].Available(savedFile.Id);
+                onKnowledgeFileAvailable(savedFile);
                 tempFiles.Delete(attachment.File);
             }
             else
@@ -156,12 +161,13 @@ internal sealed class TurnAttachmentStep(
         string ownerId,
         Guid chatId,
         TurnAttachment attachment,
-        KnowledgeFileProcessingResult result)
+        KnowledgeFileProcessingResult result,
+        Action<KnowledgeFileMetadata> onKnowledgeFileAvailable)
     {
         switch (result)
         {
             case KnowledgeFileProcessingResult.Processed processed:
-                return await SaveAsync(ownerId, chatId, attachment, processed.Draft);
+                return await SaveAsync(ownerId, chatId, attachment, processed.Draft, onKnowledgeFileAvailable);
             case KnowledgeFileProcessingResult.Rejected rejected:
                 return attachment.Unavailable(rejected.Reason);
             default:
@@ -172,7 +178,12 @@ internal sealed class TurnAttachmentStep(
     // CancellationToken.None: a processed file is saved even if stop comes
     // now. A failed save is that file's reason, not the turn's failure; only
     // the save is caught, so a bug below still fails the turn.
-    private async Task<TurnAttachment> SaveAsync(string ownerId, Guid chatId, TurnAttachment attachment, KnowledgeFileDraft draft)
+    private async Task<TurnAttachment> SaveAsync(
+        string ownerId,
+        Guid chatId,
+        TurnAttachment attachment,
+        KnowledgeFileDraft draft,
+        Action<KnowledgeFileMetadata> onKnowledgeFileAvailable)
     {
         KnowledgeFileSaveResult saveResult;
         try
@@ -188,6 +199,7 @@ internal sealed class TurnAttachmentStep(
         switch (saveResult)
         {
             case KnowledgeFileSaveResult.Saved saved:
+                onKnowledgeFileAvailable(saved.File);
                 return attachment.Available(saved.File.Id);
             case KnowledgeFileSaveResult.Rejected rejected:
                 return attachment.Unavailable(rejected.Reason);

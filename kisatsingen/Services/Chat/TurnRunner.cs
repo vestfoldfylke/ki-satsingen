@@ -1,5 +1,6 @@
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Constants;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
 using Microsoft.Extensions.AI;
@@ -8,7 +9,10 @@ using Vestfold.Extensions.Metrics.Services;
 namespace kisatsingen.Services.Chat;
 
 // ChatPersisted fires mid-turn so a new chat's id can reach the URL before the answer ends.
-internal sealed record TurnObserver(Action<Guid> ChatPersisted, Action<Turn> Changed);
+internal sealed record TurnObserver(
+    Action<Guid> ChatPersisted,
+    Action<Turn> Changed,
+    Action<KnowledgeFileMetadata> KnowledgeFileAvailable);
 
 // Knows nothing of the view; ChatSession decides what a snapshot means for the page.
 //
@@ -259,6 +263,7 @@ internal sealed class TurnRunner
                 builder.SetAttachments(attachments);
                 observer.Changed(builder.Snapshot());
             },
+            observer.KnowledgeFileAvailable,
             ct);
     }
 
