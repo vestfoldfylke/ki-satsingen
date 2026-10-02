@@ -19,14 +19,6 @@
     font-size: .85rem;
 }
 
-    .nav-item:first-of-type {
-        padding-top: 2rem;
-    }
-
-    .nav-item:last-of-type {
-        padding-bottom: 2rem;
-    }
-
 .nav-scrollable {
     display: none;
     padding: .2rem .4rem .4rem .4rem;
@@ -48,6 +40,8 @@
 
 .nav-primary {
     flex-shrink: 0;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 
 .chat-sidebar {
