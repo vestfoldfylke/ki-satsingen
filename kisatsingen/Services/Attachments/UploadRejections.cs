@@ -18,7 +18,7 @@ internal static class UploadRejections
         "Du laster allerede opp filer i en annen fane. Vent til de er ferdige, og prøv igjen.";
 
     public static string UnsupportedType =>
-        $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedExtensionsText}.";
+        $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.";
 
     public static string TooLarge(long maxBytes) =>
         $"Filen er større enn grensen på {ByteSize.Format(maxBytes)}.";

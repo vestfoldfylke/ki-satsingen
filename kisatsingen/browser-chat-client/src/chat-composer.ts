@@ -92,6 +92,10 @@ export function setComposerUploading(uploading: boolean): void {
     updateSendButtonDisabled();
 }
 
+export function hidePopover(popover: HTMLElement): void {
+    popover.hidePopover();
+}
+
 // Reads and clears the textarea in one call. Read-then-clear as two separate
 // interop round trips would leave a window where a second rapid send reads
 // the same not-yet-cleared value; C# owns the actual re-entrancy guard

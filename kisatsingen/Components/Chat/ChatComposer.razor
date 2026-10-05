@@ -1,5 +1,3 @@
-@using kisatsingen.Services.Attachments
-
 <div class="chat-composer-container">
     @* Keeps the always-present live region out of the container's flex gap,
        which would otherwise add empty space above the composer. *@
@@ -28,19 +26,8 @@
 
             <div class="chat-composer-actions">
                 <div class="composer-actions-left">
-                    @* A label rather than a button, so the browser opens the picker
-                       itself with no script. The input is visually hidden rather
-                       than display:none, so the keyboard can still reach it. *@
-                    <label class="ds-button composer-attach" data-variant="tertiary" data-color="primary" data-icon="true"
-                           aria-disabled="@(IsPickerDisabled ? "true" : null)">
-                        <span class="material-symbols-outlined" aria-hidden="true">add</span>
-                        <InputFile class="visually-hidden"
-                                   OnChange="OnFilesSelected"
-                                   multiple
-                                   accept="@AttachmentContentTypes.AcceptAttribute"
-                                   aria-label="Legg ved fil"
-                                   disabled="@IsPickerDisabled" />
-                    </label>
+                    <ComposerAddMenu IsFilePickerDisabled="IsPickerDisabled"
+                                     OnFilesSelected="OnFilesSelected" />
 
                     @if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
                     {
