@@ -21,7 +21,7 @@ public partial class Usage : ComponentBase, IDisposable
 
     private const int TopUserCount = 5;
 
-    private UsageRange Range { get; set; } = UsageRange.All;
+    private UsageRange Range { get; set; } = UsageRange.Last7Days;
     private bool IsLoading { get; set; }
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;

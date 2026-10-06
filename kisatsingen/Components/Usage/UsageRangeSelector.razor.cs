@@ -13,22 +13,10 @@ public partial class UsageRangeSelector : ComponentBase
     ];
 
     [Parameter]
-    public UsageRange Current { get; set; }
+    public UsageRange Current { get; set; } = UsageRange.Last7Days;
 
     [Parameter]
     public EventCallback<UsageRange> CurrentChanged { get; set; }
 
-    [Parameter]
-    public bool Disabled { get; set; }
-
-    private Task OnChange(UsageRange range)
-    {
-        if (range == Current)
-        {
-            return Task.CompletedTask;
-        }
-
-        Current = range;
-        return CurrentChanged.InvokeAsync(range);
-    }
+    private Task SelectionChanged() => CurrentChanged.InvokeAsync(Current);
 }

@@ -3,7 +3,9 @@
 @using kisatsingen.Components.Usage.Charts
 
 <div class="usage-page">
-    <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" Disabled="IsLoading" />
+    <div class="usage-range-selector">
+        <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" />
+    </div>
 
     @if (LoadError is not null)
     {

@@ -16,6 +16,12 @@
     display: none;
 }
 
+.usage-range-selector {
+    display: flex;
+    justify-content: end;
+    padding-bottom: 1rem;
+}
+
 .usage-table-scroll {
     width: 100%;
     overflow-x: auto;

@@ -18,7 +18,7 @@ public partial class MyUsage : ComponentBase, IDisposable
     [Inject]
     public required ILogger<MyUsage> Logger { get; set; }
 
-    private UsageRange Range { get; set; } = UsageRange.All;
+    private UsageRange Range { get; set; } = UsageRange.Last7Days;
     private bool IsLoading { get; set; }
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;

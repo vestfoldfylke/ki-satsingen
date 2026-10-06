@@ -1,15 +1,13 @@
-<div class="usage-range" role="group" aria-label="Tidsrom">
+<select class="ds-input" @bind="Current" @bind:after="SelectionChanged">
+    <option value="" disabled="disabled">Velg tidsrom</option>
     @foreach (var range in Ranges)
     {
-        var isActive = range == Current;
-        <button type="button"
-                class="ds-button"
-                data-variant="@(isActive ? "primary" : "secondary")"
-                data-size="sm"
-                aria-pressed="@(isActive ? "true" : "false")"
-                disabled="@Disabled"
-                @onclick="() => OnChange(range)">
-            @range.Label()
-        </button>
+        if (range == Current)
+        {
+            <option value="@range" selected="selected">@range.Label()</option>
+            continue;
+        }
+
+        <option value="@range">@range.Label()</option>
     }
-</div>
+</select>
