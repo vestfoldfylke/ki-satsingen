@@ -1,9 +1,32 @@
 @page "/Usage"
 @using kisatsingen.Components.Usage
+@using kisatsingen.Components.Usage.Charts
 
-<h3>My token usage</h3>
-<TotalUsage
-    TotalInputTokenUsage="TotalInputTokenUsage"
-    TotalOutputTokenUsage="TotalOutputTokenUsage"
-    TotalEstimatedInputTokenUsage="TotalEstimatedInputTokenUsage"
-    TotalEstimatedOutputTokenUsage="TotalEstimatedOutputTokenUsage" />
+<div class="usage-page">
+    <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" Disabled="IsLoading" />
+
+    @if (LoadError is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@LoadError</p>
+            <button type="button" class="ds-button" data-variant="secondary" data-size="sm" @onclick="ReloadAsync">
+                Prøv på nytt
+            </button>
+        </div>
+    }
+
+    <h1 class="ds-heading" data-size="md">Totalt forbruk</h1>
+    <TotalUsage
+        TotalInputTokenUsage="Totals.TotalInputTokens"
+        TotalOutputTokenUsage="Totals.TotalOutputTokens"
+        TotalEstimatedInputTokenUsage="Totals.TotalEstimatedInputTokens"
+        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
+
+    <div class="usage-chart-row">
+        <ProviderUsageChart Breakdown="ProviderBreakdown" />
+        <ModelUsageChart Breakdown="ModelBreakdown" />
+        <TurnStatusChart Breakdown="StatusBreakdown" />
+    </div>
+
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" />
+</div>

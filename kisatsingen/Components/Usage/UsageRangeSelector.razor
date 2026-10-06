@@ -1,0 +1,15 @@
+<div class="usage-range" role="group" aria-label="Tidsrom">
+    @foreach (var range in Ranges)
+    {
+        var isActive = range == Current;
+        <button type="button"
+                class="ds-button"
+                data-variant="@(isActive ? "primary" : "secondary")"
+                data-size="sm"
+                aria-pressed="@(isActive ? "true" : "false")"
+                disabled="@Disabled"
+                @onclick="() => OnChange(range)">
+            @range.Label()
+        </button>
+    }
+</div>

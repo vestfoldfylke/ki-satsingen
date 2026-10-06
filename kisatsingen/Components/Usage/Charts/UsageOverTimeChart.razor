@@ -1,0 +1,38 @@
+@using kisatsingen.Data.Entities
+
+<div class="usage-chart">
+    <h3 class="ds-heading" data-size="xs">Forbruk over tid</h3>
+    @if (Series.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <ApexChart TItem="UsageTimeBucket" Options="_options">
+            <ApexPointSeries TItem="UsageTimeBucket"
+                             Items="Series"
+                             Name="Input tokens"
+                             SeriesType="SeriesType.Area"
+                             XValue="e => e.Bucket.UtcDateTime"
+                             YAggregate="e => e.Sum(x => x.InputTokens)" />
+            <ApexPointSeries TItem="UsageTimeBucket"
+                             Items="Series"
+                             Name="Output tokens"
+                             SeriesType="SeriesType.Area"
+                             XValue="e => e.Bucket.UtcDateTime"
+                             YAggregate="e => e.Sum(x => x.OutputTokens)" />
+            <ApexPointSeries TItem="UsageTimeBucket"
+                             Items="Series"
+                             Name="Estimert input"
+                             SeriesType="SeriesType.Area"
+                             XValue="e => e.Bucket.UtcDateTime"
+                             YAggregate="e => e.Sum(x => x.EstimatedInputTokens)" />
+            <ApexPointSeries TItem="UsageTimeBucket"
+                             Items="Series"
+                             Name="Estimert output"
+                             SeriesType="SeriesType.Area"
+                             XValue="e => e.Bucket.UtcDateTime"
+                             YAggregate="e => e.Sum(x => x.EstimatedOutputTokens)" />
+        </ApexChart>
+    }
+</div>

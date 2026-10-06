@@ -1,0 +1,19 @@
+@using kisatsingen.Data.Entities
+
+<div class="usage-chart">
+    @if (TopUsers.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <ApexChart TItem="UsageByKey<string>" Options="_options">
+            <ApexPointSeries TItem="UsageByKey<string>"
+                             Items="TopUsers"
+                             Name="Antall turer"
+                             SeriesType="SeriesType.Bar"
+                             XValue="e => e.Key"
+                             YAggregate="e => e.Sum(x => x.TurnCount)" />
+        </ApexChart>
+    }
+</div>

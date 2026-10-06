@@ -1,3 +1,4 @@
+using kisatsingen.Components.Usage;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
@@ -7,7 +8,7 @@ using Microsoft.AspNetCore.Components;
 namespace kisatsingen.Components.Pages;
 
 [Authorize(Policy = "IsAdministrator")]
-public partial class Usage : ComponentBase
+public partial class Usage : ComponentBase, IDisposable
 {
     [Inject]
     public required IChatModelCatalog ChatModelCatalog { get; init; }
@@ -15,66 +16,100 @@ public partial class Usage : ComponentBase
     [Inject]
     public required ITokenUsageRepository TokenUsageRepository { get; init; }
 
+    [Inject]
+    public required ILogger<Usage> Logger { get; init; }
+
     private const int TopUserCount = 5;
 
-    private IReadOnlyList<TokenUsage> OrganizationTokenUsage { get; set; } = [];
-    /// <summary>
-    ///  Used for TopUserCount queries
-    /// </summary>
-    private IReadOnlyList<TokenUsage> TokenUsagePerUser { get; set; } = [];
+    private UsageRange Range { get; set; } = UsageRange.All;
+    private bool IsLoading { get; set; }
+    private string? LoadError { get; set; }
+    private CancellationTokenSource? _reloadCts;
+
+    private TokenUsageSummary Totals { get; set; } = new(0, 0, 0, 0, 0);
+    private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
+    private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
+    private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
+    private IReadOnlyList<UsageByKey<string>> ModelBreakdown { get; set; } = [];
+    private IReadOnlyList<UsageByKey<string>> TopUsersByTurns { get; set; } = [];
+    private IReadOnlyList<UsageByKey<string>> UsagePerUser { get; set; } = [];
 
     private IReadOnlyList<ChatModel> ChatModels => ChatModelCatalog.Models;
 
-    private long TotalInputTokenUsage => OrganizationTokenUsage.Sum(tokenUsage => tokenUsage.InputTokens ?? 0);
-    private long TotalOutputTokenUsage => OrganizationTokenUsage.Sum(tokenUsage => tokenUsage.OutputTokens ?? 0);
-    private long TotalEstimatedInputTokenUsage => OrganizationTokenUsage.Sum(tokenUsage => tokenUsage.EstimatedInputTokens ?? 0);
-    private long TotalEstimatedOutputTokenUsage => OrganizationTokenUsage.Sum(tokenUsage => tokenUsage.EstimatedOutputTokens ?? 0);
+    private IEnumerable<UsageByKey<string>> TopTokenUsageByInputTokens =>
+        UsagePerUser.OrderByDescending(u => u.InputTokens).Take(TopUserCount);
 
-    private IEnumerable<TokenUsage> TopTokenUsageByInputTokens => TokenUsagePerUser.OrderByDescending(tokenUsage => tokenUsage.InputTokens).Take(TopUserCount);
-    private IEnumerable<TokenUsage> TopTokenUsageByOutputTokens => TokenUsagePerUser.OrderByDescending(tokenUsage => tokenUsage.OutputTokens).Take(TopUserCount);
-    private IEnumerable<TokenUsage> TopTokenUsageByEstimatedInputTokens => TokenUsagePerUser.OrderByDescending(tokenUsage => tokenUsage.EstimatedInputTokens).Take(TopUserCount);
-    private IEnumerable<TokenUsage> TopTokenUsageByEstimatedOutputTokens => TokenUsagePerUser.OrderByDescending(tokenUsage => tokenUsage.EstimatedOutputTokens).Take(TopUserCount);
+    private IEnumerable<UsageByKey<string>> TopTokenUsageByOutputTokens =>
+        UsagePerUser.OrderByDescending(u => u.OutputTokens).Take(TopUserCount);
 
-    private TokenUsageSummary TokenUsageSummaryByModelId(string modelId)
+    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedInputTokens =>
+        UsagePerUser.OrderByDescending(u => u.EstimatedInputTokens).Take(TopUserCount);
+
+    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedOutputTokens =>
+        UsagePerUser.OrderByDescending(u => u.EstimatedOutputTokens).Take(TopUserCount);
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private Task OnRangeChanged(UsageRange range)
     {
-        var modelUsage = OrganizationTokenUsage
-            .Where(tokenUsage => tokenUsage.ModelId == modelId)
-            .ToList();
-
-        return new TokenUsageSummary(
-            modelUsage.Sum(tu => tu.InputTokens ?? 0),
-            modelUsage.Sum(tu => tu.OutputTokens ?? 0),
-            modelUsage.Sum(tu => tu.EstimatedInputTokens ?? 0),
-            modelUsage.Sum(tu => tu.EstimatedOutputTokens ?? 0),
-            modelUsage.Count);
+        Range = range;
+        return ReloadAsync();
     }
 
-    protected override async Task OnInitializedAsync()
+    private async Task ReloadAsync()
     {
-        OrganizationTokenUsage = await TokenUsageRepository.GetOrganizationUsageAsync();
+        _reloadCts?.Cancel();
+        _reloadCts = new CancellationTokenSource();
+        var ct = _reloadCts.Token;
 
-        var ownerIds = OrganizationTokenUsage.Select(tokenUsage => tokenUsage.OwnerId).Distinct().ToArray();
+        IsLoading = true;
+        LoadError = null;
 
-        IList<TokenUsage> userTokenUsage = [];
-
-        foreach (var ownerId in ownerIds)
+        try
         {
-            var ownerTokenUsage = OrganizationTokenUsage.Where(tokenUsage => tokenUsage.OwnerId == ownerId).ToList();
-            userTokenUsage.Add(new TokenUsage
-            {
-                OwnerId = ownerId,
-                ModelId = "",
-                Provider = "",
-                Status = TurnStatus.Completed,
-                InputTokens = ownerTokenUsage.Sum(tokenUsage => tokenUsage.InputTokens),
-                OutputTokens = ownerTokenUsage.Sum(tokenUsage => tokenUsage.OutputTokens),
-                EstimatedInputTokens = ownerTokenUsage.Sum(tokenUsage => tokenUsage.EstimatedInputTokens),
-                EstimatedOutputTokens = ownerTokenUsage.Sum(tokenUsage => tokenUsage.EstimatedOutputTokens),
-                Id = Guid.Empty,
-                Timestamp =  DateTime.UtcNow
-            });
-        }
+            var since = Range.Since();
+            var bucket = Range.Bucket();
 
-        TokenUsagePerUser = [.. userTokenUsage];
+            var totalsTask = TokenUsageRepository.GetTotalsAsync(since, ct);
+            var timeSeriesTask = TokenUsageRepository.GetTimeSeriesAsync(since, bucket, ct);
+            var statusTask = TokenUsageRepository.GetUsageByStatusAsync(since, ct);
+            var providerTask = TokenUsageRepository.GetUsageByProviderAsync(since, ct);
+            var modelTask = TokenUsageRepository.GetUsageByModelAsync(since, ct);
+            var topUsersTask = TokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
+            var perUserTask = TokenUsageRepository.GetUsagePerUserAsync(since, ct);
+
+            await Task.WhenAll(
+                totalsTask, timeSeriesTask, statusTask, providerTask,
+                modelTask, topUsersTask, perUserTask);
+
+            Totals = await totalsTask;
+            TimeSeries = await timeSeriesTask;
+            StatusBreakdown = await statusTask;
+            ProviderBreakdown = await providerTask;
+            ModelBreakdown = await modelTask;
+            TopUsersByTurns = await topUsersTask;
+            UsagePerUser = await perUserTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer reload took over.
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to reload organization token usage for range {Range}", Range);
+            LoadError = "Kunne ikke laste forbruk.";
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        _reloadCts?.Cancel();
+        _reloadCts?.Dispose();
     }
 }

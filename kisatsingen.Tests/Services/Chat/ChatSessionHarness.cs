@@ -221,6 +221,52 @@ internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
         Inserts.Add(new TokenUsageInsert(ownerId, provider, modelId, inputTokens, outputTokens, estimatedInputTokens, estimatedOutputTokens, status));
         return Task.CompletedTask;
     }
+
+    // Chat-session tests only exercise the insert path. The query methods are
+    // stubbed to empty/default so the fake still satisfies the interface.
+    // public Task<IReadOnlyList<TokenUsage>> GetMyTokenUsageAsync(string ownerId, CancellationToken ct = default) =>
+    //     Task.FromResult<IReadOnlyList<TokenUsage>>([]);
+    //
+    // public Task<IReadOnlyList<TokenUsage>> GetOrganizationUsageAsync(CancellationToken ct = default) =>
+    //     Task.FromResult<IReadOnlyList<TokenUsage>>([]);
+
+    // Admin (no owner) overloads.
+    public Task<TokenUsageSummary> GetTotalsAsync(DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
+
+    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(DateTimeOffset? since, int topN, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    // Owner-scoped overloads.
+    public Task<TokenUsageSummary> GetTotalsAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
+
+    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(string ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 }
 
 internal sealed record TokenUsageInsert(

@@ -1,92 +1,89 @@
 @page "/Administration/Usage"
 @using System.Globalization
 @using kisatsingen.Components.Usage
+@using kisatsingen.Components.Usage.Charts
 @using kisatsingen.Data.Entities
 
-<h3>Total token usage</h3>
-<TotalUsage
-    TotalInputTokenUsage="TotalInputTokenUsage"
-    TotalOutputTokenUsage="TotalOutputTokenUsage"
-    TotalEstimatedInputTokenUsage="TotalEstimatedInputTokenUsage"
-    TotalEstimatedOutputTokenUsage="TotalEstimatedOutputTokenUsage" />
+<div class="usage-page">
+    <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" Disabled="IsLoading" />
 
-<h3>Top @TopUserCount users by</h3>
-<ds-tabs class="ds-tabs">
-    <ds-tablist>
-        <ds-tab aria-controls="input-tokens" aria-selected="true" role="tab">Input tokens</ds-tab>
-        <ds-tab aria-controls="output-tokens" role="tab">Output tokens</ds-tab>
-        <ds-tab aria-controls="estimated-input-tokens" role="tab">Estimated input tokens</ds-tab>
-        <ds-tab aria-controls="estimated-output-tokens" role="tab">Estimated output tokens</ds-tab>
-    </ds-tablist>
-    <ds-tabpanel id="input-tokens">
-        @TopTokenUsage(TopTokenUsageByInputTokens)
-    </ds-tabpanel>
-    <ds-tabpanel id="output-tokens">
-        @TopTokenUsage(TopTokenUsageByOutputTokens)
-    </ds-tabpanel>
-    <ds-tabpanel id="estimated-input-tokens">
-        @TopTokenUsage(TopTokenUsageByEstimatedInputTokens)
-    </ds-tabpanel>
-    <ds-tabpanel id="estimated-output-tokens">
-        @TopTokenUsage(TopTokenUsageByEstimatedOutputTokens)
-    </ds-tabpanel>
-</ds-tabs>
-
-<h3>Usage by Model</h3>
-<table class="ds-table">
-    <thead>
-    <tr>
-        <th>DisplayName</th>
-        <th>Provider</th>
-        <th>ModelId</th>
-        <th>Input tokens</th>
-        <th>Output tokens</th>
-        <th>Estimated input tokens</th>
-        <th>Estimated output tokens</th>
-        <th>Turns</th>
-    </tr>
-    </thead>
-    <tbody>
-    @foreach (var chatModel in ChatModels)
+    @if (LoadError is not null)
     {
-        var tokenUsageSummary = TokenUsageSummaryByModelId(chatModel.ModelId);
-        <tr>
-            <td>@chatModel.DisplayName</td>
-            <td>@chatModel.Provider</td>
-            <td>@chatModel.ModelId</td>
-            <td>@(tokenUsageSummary.TotalInputTokens.ToString("N0", CultureInfo.InvariantCulture))</td>
-            <td>@(tokenUsageSummary.TotalOutputTokens.ToString("N0", CultureInfo.InvariantCulture))</td>
-            <td>@(tokenUsageSummary.TotalEstimatedInputTokens.ToString("N0", CultureInfo.InvariantCulture))</td>
-            <td>@(tokenUsageSummary.TotalEstimatedOutputTokens.ToString("N0", CultureInfo.InvariantCulture))</td>
-            <td>@tokenUsageSummary.TurnCount</td>
-        </tr>
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@LoadError</p>
+            <button type="button" class="ds-button" data-variant="secondary" data-size="sm" @onclick="ReloadAsync">
+                Prøv på nytt
+            </button>
+        </div>
     }
-    </tbody>
-</table>
+
+    <h1 class="ds-heading" data-size="md">Totalt forbruk</h1>
+    <TotalUsage
+        TotalInputTokenUsage="Totals.TotalInputTokens"
+        TotalOutputTokenUsage="Totals.TotalOutputTokens"
+        TotalEstimatedInputTokenUsage="Totals.TotalEstimatedInputTokens"
+        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
+
+    <div class="usage-chart-row">
+        <ProviderUsageChart Breakdown="ProviderBreakdown" />
+        <ModelUsageChart Breakdown="ModelBreakdown" />
+        <TurnStatusChart Breakdown="StatusBreakdown" />
+    </div>
+
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" />
+
+    <h3>Top @TopUserCount users by</h3>
+    <ds-tabs class="ds-tabs">
+        <ds-tablist>
+            <ds-tab aria-controls="top-users-by-turns" aria-selected="true" role="tab">Turns</ds-tab>
+            <ds-tab aria-controls="top-users-by-input-tokens" role="tab">Input tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-output-tokens" role="tab">Output tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-estimated-input-tokens" role="tab">Estimated input tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-estimated-output-tokens" role="tab">Estimated output tokens</ds-tab>
+        </ds-tablist>
+        <ds-tabpanel id="top-users-by-turns">
+            <TopUsersByTurnsChart TopUsers="TopUsersByTurns" />
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-input-tokens">
+            @TopTokenUsage(TopTokenUsageByInputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-output-tokens">
+            @TopTokenUsage(TopTokenUsageByOutputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-estimated-input-tokens">
+            @TopTokenUsage(TopTokenUsageByEstimatedInputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-estimated-output-tokens">
+            @TopTokenUsage(TopTokenUsageByEstimatedOutputTokens)
+        </ds-tabpanel>
+    </ds-tabs>
+</div>
 
 @code {
-    private RenderFragment<IEnumerable<TokenUsage>> TopTokenUsage => topTokenUsage =>
-        @<table class="ds-table">
-            <thead>
-                <tr>
-                    <th>OwnerId</th>
-                    <th>Input tokens</th>
-                    <th>Output tokens</th>
-                    <th>Estimated input tokens</th>
-                    <th>Estimated output tokens</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var topUserTokenUsage in topTokenUsage)
-                {
+    private RenderFragment<IEnumerable<UsageByKey<string>>> TopTokenUsage => topTokenUsage =>
+        @<div class="usage-table-scroll">
+            <table class="ds-table">
+                <thead>
                     <tr>
-                        <td>@topUserTokenUsage.OwnerId</td>
-                        <td>@(topUserTokenUsage.InputTokens?.ToString("N0", CultureInfo.InvariantCulture) ?? null)</td>
-                        <td>@(topUserTokenUsage.OutputTokens?.ToString("N0", CultureInfo.InvariantCulture) ?? null)</td>
-                        <td>@(topUserTokenUsage.EstimatedInputTokens?.ToString("N0", CultureInfo.InvariantCulture) ?? null)</td>
-                        <td>@(topUserTokenUsage.EstimatedOutputTokens?.ToString("N0", CultureInfo.InvariantCulture) ?? null)</td>
+                        <th>OwnerId</th>
+                        <th>Input tokens</th>
+                        <th>Output tokens</th>
+                        <th>Estimated input tokens</th>
+                        <th>Estimated output tokens</th>
                     </tr>
-                }
-            </tbody>
-        </table>;
+                </thead>
+                <tbody>
+                    @foreach (var row in topTokenUsage)
+                    {
+                        <tr>
+                            <td>@row.Key</td>
+                            <td>@row.InputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@row.OutputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@row.EstimatedInputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@row.EstimatedOutputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>;
 }

@@ -1,0 +1,40 @@
+/* See Usage.razor.css for why the vertical scrollbar is hidden. */
+.usage-page {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2rem;
+    padding-bottom: 2rem;
+    scrollbar-width: none;
+}
+
+.usage-page::-webkit-scrollbar {
+    display: none;
+}
+
+.usage-chart-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+@media (max-width: 2000px) {
+    .usage-chart-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 900px) {
+    .usage-chart-row {
+        grid-template-columns: 1fr;
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: auto;
+    }
+}

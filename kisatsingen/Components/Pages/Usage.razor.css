@@ -1,0 +1,49 @@
+/* html { overflow-y: clip } blocks a page-level scrollbar on purpose, so the
+   page scrolls inside this wrapper. The wrapper's own vertical scrollbar is
+   hidden visually (wheel/trackpad still work) because it was overlapping the
+   horizontal scrollbars of the wide tables below. Wide children opt into
+   horizontal scroll via .usage-table-scroll. */
+.usage-page {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 2rem;
+    padding-bottom: 2rem;
+    scrollbar-width: none;
+}
+
+.usage-page::-webkit-scrollbar {
+    display: none;
+}
+
+.usage-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.usage-chart-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+@media (max-width: 2000px) {
+    .usage-chart-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 900px) {
+    .usage-chart-row {
+        grid-template-columns: 1fr;
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: auto;
+    }
+}

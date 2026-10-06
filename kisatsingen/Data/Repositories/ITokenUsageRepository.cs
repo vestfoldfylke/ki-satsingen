@@ -15,8 +15,62 @@ public interface ITokenUsageRepository
         long? estimatedOutputTokens,
         TurnStatus status,
         CancellationToken ct = default);
-    
-    Task<IReadOnlyList<TokenUsage>> GetMyTokenUsageAsync(string ownerId, CancellationToken ct = default);
-    
-    Task<IReadOnlyList<TokenUsage>> GetOrganizationUsageAsync(CancellationToken ct = default);
+
+    // AdminUsage
+    Task<TokenUsageSummary> GetTotalsAsync(
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
+        DateTimeOffset? since,
+        UsageBucket bucket,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(
+        DateTimeOffset? since,
+        int topN,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    // MyUsage
+    Task<TokenUsageSummary> GetTotalsAsync(
+        string ownerId,
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
+        string ownerId,
+        DateTimeOffset? since,
+        UsageBucket bucket,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
+        string ownerId,
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
+        string ownerId,
+        DateTimeOffset? since,
+        CancellationToken ct = default);
+
+    Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
+        string ownerId,
+        DateTimeOffset? since,
+        CancellationToken ct = default);
 }

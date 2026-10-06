@@ -1,0 +1,21 @@
+@using kisatsingen.Data.Entities
+@using kisatsingen.Services.Chat
+
+<div class="usage-chart">
+    <h3 class="ds-heading" data-size="xs">Status på turer</h3>
+    @if (Breakdown.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <ApexChart TItem="UsageByKey<TurnStatus>" Options="_options">
+            <ApexPointSeries TItem="UsageByKey<TurnStatus>"
+                             Items="Breakdown"
+                             Name="Antall turer"
+                             SeriesType="SeriesType.Donut"
+                             XValue="e => e.Key.ToString()"
+                             YAggregate="e => e.Sum(x => x.TurnCount)" />
+        </ApexChart>
+    }
+</div>
