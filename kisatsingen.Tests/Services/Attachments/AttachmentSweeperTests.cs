@@ -13,7 +13,7 @@ public sealed class AttachmentSweeperTests : IDisposable
     public AttachmentSweeperTests()
     {
         _environment = new AttachmentTestEnvironment(time: _time);
-        _sweeper = new AttachmentSweeper(_environment.Registry, _environment.Store, _environment.Options, _time, NullLogger<AttachmentSweeper>.Instance);
+        _sweeper = new AttachmentSweeper(_environment.Registry, _environment.Options, _time, NullLogger<AttachmentSweeper>.Instance);
     }
 
     public void Dispose()
@@ -30,19 +30,6 @@ public sealed class AttachmentSweeperTests : IDisposable
         var (file, stream) = _environment.Store.Create();
         stream.Dispose();
         _environment.Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, new string('a', 64)));
-        _time.Advance(_environment.Options.TempFileMaxAge + TimeSpan.FromMinutes(1));
-
-        _sweeper.Sweep();
-
-        Assert.Empty(_environment.FilesOnDisk);
-    }
-
-    // A crash between creating a file and registering it leaves one nothing tracks.
-    [Fact]
-    public void A_temp_file_nothing_tracks_is_deleted_once_it_is_older_than_the_maximum_age()
-    {
-        var (_, stream) = _environment.Store.Create();
-        stream.Dispose();
         _time.Advance(_environment.Options.TempFileMaxAge + TimeSpan.FromMinutes(1));
 
         _sweeper.Sweep();

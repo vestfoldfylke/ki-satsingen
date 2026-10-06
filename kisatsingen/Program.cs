@@ -182,8 +182,8 @@ attachmentOptions.Validate();
 
 builder.Services.AddSingleton(attachmentOptions);
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton(sp => new TempFileStore(
-    Path.Combine(Path.GetTempPath(), TempFileStore.DefaultFolderName),
+builder.Services.AddSingleton(sp => TempFileStore.StartFresh(
+    Path.GetTempPath(),
     sp.GetRequiredService<ILogger<TempFileStore>>()));
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<PendingAttachmentRegistry>();
@@ -232,13 +232,9 @@ var app = builder.Build();
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
 
 // ─── One-time startup: attachment temp files ───────────
-// Before the server accepts a request, so no upload can race it. Whatever is
-// left belongs to a process that no longer exists.
-var orphanedTempFiles = app.Services.GetRequiredService<TempFileStore>().DeleteAll();
-if (orphanedTempFiles > 0)
-{
-    app.Logger.LogInformation("Deleted {Count} attachment temp files left by a previous run.", orphanedTempFiles);
-}
+// Resolved eagerly so StartFresh wipes the folder before the server accepts a
+// request, and no upload can race it.
+_ = app.Services.GetRequiredService<TempFileStore>();
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

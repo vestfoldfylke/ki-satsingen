@@ -1,10 +1,9 @@
 namespace kisatsingen.Services.Attachments;
 
-// The last cleanup path: attachments nobody sent or removed, and temp files
-// nothing tracks (a crash between creating a file and registering it).
+// The last cleanup path for attachments nobody sent or removed. Temp files
+// nothing tracks are left to the next startup, which wipes the folder.
 public sealed class AttachmentSweeper(
     PendingAttachmentRegistry registry,
-    TempFileStore store,
     AttachmentOptions options,
     TimeProvider time,
     ILogger<AttachmentSweeper> logger) : BackgroundService
@@ -25,19 +24,16 @@ public sealed class AttachmentSweeper(
         }
     }
 
-    // Registry first, so the files it tracked are gone before the store looks
-    // for files nothing tracks.
     internal void Sweep()
     {
         try
         {
             var cutoff = time.GetUtcNow() - options.TempFileMaxAge;
             var abandoned = registry.RemoveOlderThan(cutoff);
-            var orphaned = store.DeleteOlderThan(cutoff);
 
-            if (abandoned > 0 || orphaned > 0)
+            if (abandoned > 0)
             {
-                logger.LogInformation("Swept {Abandoned} abandoned attachments and {Orphaned} untracked temp files older than {MaxAge}.", abandoned, orphaned, options.TempFileMaxAge);
+                logger.LogInformation("Swept {Abandoned} abandoned attachments older than {MaxAge}.", abandoned, options.TempFileMaxAge);
             }
         }
         // One failed sweep must not end every later one.

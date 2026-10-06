@@ -6,6 +6,8 @@ namespace kisatsingen.Tests.Services.Attachments;
 
 public sealed class TempFileStoreTests : IDisposable
 {
+    private const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+
     private readonly AttachmentTestEnvironment _environment = new();
 
     public void Dispose() => _environment.Dispose();
@@ -17,6 +19,10 @@ public sealed class TempFileStoreTests : IDisposable
         return file;
     }
 
+    // What the app does on its next start.
+    private TempFileStore StartAgain() =>
+        TempFileStore.StartFresh(_environment.ParentFolder, NullLogger<TempFileStore>.Instance);
+
     [Fact]
     public void A_created_file_lives_in_the_stores_folder_under_a_name_of_its_own()
     {
@@ -27,72 +33,140 @@ public sealed class TempFileStoreTests : IDisposable
         Assert.NotEqual(first.Path, second.Path);
     }
 
-    // Returns early on Windows, which has no Unix file modes; xunit 2 has no
-    // runtime skip.
     [Fact]
     public void A_created_file_is_readable_and_writable_by_its_owner_only()
     {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
         var file = CreateFile();
 
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file.Path));
     }
 
     [Fact]
-    public void Deleting_everything_removes_every_file_the_store_created()
+    public void The_folder_is_usable_by_its_owner_only()
     {
-        CreateFile();
-        CreateFile();
-
-        var deleted = _environment.Store.DeleteAll();
-
-        Assert.Equal(2, deleted);
-        Assert.Empty(_environment.FilesOnDisk);
-    }
-
-    // Cleanup must never reach a file that is not ours, wherever it came from.
-    [Fact]
-    public void Deleting_everything_leaves_files_the_store_did_not_create()
-    {
-        var foreign = Path.Combine(_environment.Directory, "not-ours.txt");
-        File.WriteAllText(foreign, "keep me");
-        CreateFile();
-
-        _environment.Store.DeleteAll();
-
-        Assert.Equal([foreign], _environment.FilesOnDisk);
+        Assert.Equal(OwnerOnlyFolder, File.GetUnixFileMode(_environment.Directory));
     }
 
     [Fact]
-    public void Deleting_by_age_keeps_files_newer_than_the_cutoff()
+    public void Starting_fresh_wipes_everything_an_earlier_run_left_in_the_folder()
     {
-        var old = CreateFile();
-        File.SetLastWriteTimeUtc(old.Path, DateTime.UtcNow.AddDays(-2));
-        var recent = CreateFile();
+        CreateFile();
+        File.WriteAllText(Path.Combine(_environment.Directory, "not-made-by-the-store.txt"), "left behind");
+        Directory.CreateDirectory(Path.Combine(_environment.Directory, "a-folder"));
 
-        _environment.Store.DeleteOlderThan(DateTimeOffset.UtcNow.AddDays(-1));
+        var restarted = StartAgain();
 
-        Assert.Equal([recent.Path], _environment.FilesOnDisk);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(restarted.Directory));
     }
 
-    // Uploads would otherwise land wherever the link points. Returns early on
-    // Windows, where creating a directory link needs extra rights.
     [Fact]
-    public void A_folder_that_is_a_link_is_refused()
+    public void Starting_fresh_leaves_everything_else_in_the_parent_folder_alone()
     {
-        if (OperatingSystem.IsWindows())
+        var neighbour = Path.Combine(_environment.ParentFolder, "someone-elses.txt");
+        File.WriteAllText(neighbour, "keep me");
+
+        StartAgain();
+
+        Assert.True(File.Exists(neighbour));
+    }
+
+    [Fact]
+    public void Starting_fresh_makes_a_widened_folder_owner_only_again()
+    {
+        File.SetUnixFileMode(_environment.Directory, OwnerOnlyFolder | UnixFileMode.GroupRead | UnixFileMode.OtherRead);
+
+        var restarted = StartAgain();
+
+        Assert.Equal(OwnerOnlyFolder, File.GetUnixFileMode(restarted.Directory));
+    }
+
+    // Uploads must never land wherever a planted link points, and wiping must
+    // never reach into its target.
+    [Fact]
+    public void Starting_fresh_replaces_a_link_in_the_folders_place_and_leaves_its_target_alone()
+    {
+        var target = Directory.CreateDirectory(Path.Combine(_environment.ParentFolder, "target")).FullName;
+        var targetFile = Path.Combine(target, "precious.txt");
+        File.WriteAllText(targetFile, "keep me");
+        Directory.Delete(_environment.Directory, recursive: true);
+        Directory.CreateSymbolicLink(_environment.Directory, target);
+
+        var restarted = StartAgain();
+
+        Assert.Null(new DirectoryInfo(restarted.Directory).LinkTarget);
+        Assert.True(File.Exists(targetFile));
+    }
+
+    // A read-only subfolder makes the wipe fail for a normal user. Run as root,
+    // the wipe succeeds and this test fails.
+    [Fact]
+    public void Starting_fresh_stops_with_an_error_when_the_folder_cannot_be_wiped()
+    {
+        var locked = Directory.CreateDirectory(Path.Combine(_environment.Directory, "locked")).FullName;
+        File.WriteAllText(Path.Combine(locked, "stuck.txt"), "cannot be deleted");
+        File.SetUnixFileMode(locked, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+        try
         {
-            return;
+            Assert.Throws<InvalidOperationException>(StartAgain);
         }
+        finally
+        {
+            File.SetUnixFileMode(locked, OwnerOnlyFolder);
+        }
+    }
 
-        var target = Directory.CreateDirectory(Path.Combine(_environment.Directory, "target")).FullName;
-        var link = Path.Combine(_environment.Directory, "link");
-        Directory.CreateSymbolicLink(link, target);
+    // Like a folder left by the app running as another user: it cannot even
+    // be listed, and must still get the advice rather than a bare error.
+    [Fact]
+    public void Starting_fresh_stops_with_an_error_when_the_folder_cannot_be_read()
+    {
+        File.SetUnixFileMode(_environment.Directory, UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
-        Assert.Throws<InvalidOperationException>(() => new TempFileStore(link, NullLogger<TempFileStore>.Instance));
+        try
+        {
+            Assert.Throws<InvalidOperationException>(StartAgain);
+        }
+        finally
+        {
+            File.SetUnixFileMode(_environment.Directory, OwnerOnlyFolder);
+        }
+    }
+
+    // Stands in for a folder planted between the wipe and the create, a
+    // moment a test cannot hit reliably.
+    [Fact]
+    public void A_folder_that_is_not_owner_only_is_refused()
+    {
+        File.SetUnixFileMode(_environment.Directory, OwnerOnlyFolder | UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+
+        Assert.Throws<InvalidOperationException>(() => TempFileStore.EnsureOwnerOnly(_environment.Directory));
+    }
+
+    // Stands in for an owner-only folder of another user, which a test cannot
+    // create without root.
+    [Fact]
+    public void A_folder_that_cannot_be_written_to_is_refused()
+    {
+        File.SetUnixFileMode(_environment.Directory, UnixFileMode.UserRead | UnixFileMode.UserExecute);
+
+        try
+        {
+            Assert.Throws<InvalidOperationException>(() => TempFileStore.EnsureWritable(_environment.Directory));
+        }
+        finally
+        {
+            File.SetUnixFileMode(_environment.Directory, OwnerOnlyFolder);
+        }
+    }
+
+    [Fact]
+    public void A_link_in_the_folders_place_is_refused()
+    {
+        var target = Directory.CreateDirectory(Path.Combine(_environment.ParentFolder, "target")).FullName;
+        Directory.Delete(_environment.Directory, recursive: true);
+        Directory.CreateSymbolicLink(_environment.Directory, target);
+
+        Assert.Throws<InvalidOperationException>(() => TempFileStore.EnsureOwnerOnly(_environment.Directory));
     }
 }

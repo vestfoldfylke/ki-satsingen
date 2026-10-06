@@ -219,16 +219,6 @@ public sealed class PendingAttachmentRegistry
             }
         }
 
-        // Outside the lock, like all file I/O here. Without it, a file that
-        // waited nearly a day before being sent could be swept mid-processing.
-        // Between leaving the registry and having its age reset, a file just short of
-        // the maximum age is exposed for microseconds to a sweep that runs at
-        // that exact moment; accepted rather than doing file I/O under the lock.
-        foreach (var attachment in taken)
-        {
-            _store.ResetAge(attachment.File);
-        }
-
         if (taken.Count > 0)
         {
             Changed?.Invoke(scopeKey);

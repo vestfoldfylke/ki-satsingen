@@ -5,20 +5,23 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace kisatsingen.Tests.Services.Attachments;
 
-// The real upload stack over a folder of its own, deleted afterwards, so tests
-// can assert on the files actually left on disk.
+// The real upload stack over a parent folder of its own, deleted afterwards,
+// so tests can assert on the files actually left on disk and never touch the
+// app's folder.
 internal sealed class AttachmentTestEnvironment : IDisposable
 {
     public AttachmentTestEnvironment(AttachmentOptions? options = null, TimeProvider? time = null)
     {
         Options = options ?? new AttachmentOptions();
-        Directory = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
-        Store = new TempFileStore(Directory, NullLogger<TempFileStore>.Instance);
+        ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
+        System.IO.Directory.CreateDirectory(ParentFolder);
+        Store = TempFileStore.StartFresh(ParentFolder, NullLogger<TempFileStore>.Instance);
         Registry = new PendingAttachmentRegistry(Store, Options, time ?? TimeProvider.System);
         Uploader = new AttachmentUploader(Store);
     }
 
-    public string Directory { get; }
+    public string ParentFolder { get; }
+    public string Directory => Store.Directory;
     public AttachmentOptions Options { get; }
     public TempFileStore Store { get; }
     public PendingAttachmentRegistry Registry { get; }
@@ -31,9 +34,9 @@ internal sealed class AttachmentTestEnvironment : IDisposable
 
     public void Dispose()
     {
-        if (System.IO.Directory.Exists(Directory))
+        if (System.IO.Directory.Exists(ParentFolder))
         {
-            System.IO.Directory.Delete(Directory, recursive: true);
+            System.IO.Directory.Delete(ParentFolder, recursive: true);
         }
     }
 }

@@ -1,5 +1,3 @@
-using System.Runtime.Versioning;
-
 namespace kisatsingen.Services.Attachments;
 
 // A file this store created. Not constructible outside it, so Delete can only
@@ -11,27 +9,17 @@ public sealed class TempFile
     public string Path { get; }
 }
 
-// Uploaded bytes between upload and processing, in one folder nothing else
-// writes to. Names are random, so a client-supplied name never reaches the
-// file system; and files are owner-only, so another local account cannot read
-// what users uploaded.
+// Uploaded bytes between upload and processing, in one folder that is wiped
+// and recreated at every start. Names are random, so a client-supplied name
+// never reaches the file system; and the folder and files are owner-only, so
+// another local account cannot read what users uploaded.
 //
-// The folder is fixed rather than configurable: the default is local to the
-// instance and outside /home, so outside App Service's shared storage and
-// backups, and a configured one could point anywhere.
+// The folder is fixed rather than configurable, so it cannot be misconfigured,
+// and it lives in the temp folder: local to the instance and outside /home, so
+// outside App Service's shared storage and backups.
 public sealed class TempFileStore
 {
-    public const string DefaultFolderName = "kisatsingen-attachments";
-
-    // Every file the store creates carries it, and cleanup deletes nothing
-    // else, so a file that is not ours survives even if it lands in the folder.
-    private const string FilePrefix = "att-";
-
-    private static readonly EnumerationOptions OwnFilesOnly = new()
-    {
-        MatchCasing = MatchCasing.CaseSensitive,
-        RecurseSubdirectories = false
-    };
+    private const string FolderName = "kisatsingen-attachments";
 
     private const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode OwnerOnlyFile = UnixFileMode.UserRead | UnixFileMode.UserWrite;
@@ -42,130 +30,136 @@ public sealed class TempFileStore
 
     private readonly ILogger<TempFileStore> _logger;
 
-    public TempFileStore(string directory, ILogger<TempFileStore> logger)
+    private TempFileStore(string directory, ILogger<TempFileStore> logger)
     {
-        _logger = logger;
         Directory = directory;
-        EnsureDirectory(directory);
+        _logger = logger;
     }
 
     public string Directory { get; }
+
+    // Wipes whatever an earlier run left, then creates the folder anew, so it
+    // is this process's own and owner-only. A link planted in the folder's
+    // place is unlinked, never followed into its target.
+    //
+    // Assumes one app process per temp folder, and no hostile user sharing it.
+    // Both hold because every App Service container has its own /tmp, and on
+    // macOS the temp folder is per user. A second process sharing it would
+    // silently wipe the first one's pending uploads. On a Linux /tmp shared
+    // with a hostile user, the recursive wipe could be raced into deleting the
+    // running user's own files.
+    public static TempFileStore StartFresh(string parentFolder, ILogger<TempFileStore> logger)
+    {
+        var directory = Path.Combine(parentFolder, FolderName);
+
+        var leftovers = Wipe(directory);
+        System.IO.Directory.CreateDirectory(directory, OwnerOnlyFolder);
+        EnsureOwnerOnly(directory);
+        EnsureWritable(directory);
+
+        logger.LogInformation("Started the attachment temp folder {Directory}, wiping {Leftovers} entries left by an earlier run.", directory, leftovers);
+        return new TempFileStore(directory, logger);
+    }
 
     // CreateNew, so a name that somehow already exists fails instead of being
     // overwritten.
     public (TempFile File, FileStream Stream) Create()
     {
-        var path = System.IO.Path.Combine(Directory, FilePrefix + System.IO.Path.GetRandomFileName());
-        var options = new FileStreamOptions
+        var path = Path.Combine(Directory, Path.GetRandomFileName());
+        var stream = new FileStream(path, new FileStreamOptions
         {
             Mode = FileMode.CreateNew,
             Access = FileAccess.Write,
             Share = FileShare.None,
-            Options = FileOptions.Asynchronous
-        };
+            Options = FileOptions.Asynchronous,
+            UnixCreateMode = OwnerOnlyFile
+        });
 
-        if (!OperatingSystem.IsWindows())
-        {
-            options.UnixCreateMode = OwnerOnlyFile;
-        }
-
-        return (new TempFile(path), new FileStream(path, options));
+        _logger.LogDebug("Created temp file {FileName}.", Path.GetFileName(path));
+        return (new TempFile(path), stream);
     }
 
     public FileStream OpenRead(TempFile file) =>
         new(file.Path, FileMode.Open, FileAccess.Read, FileShare.Read, FileStreamDefaultBufferSize, FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-    // The age sweep goes by modified time, so a file handed over for
-    // processing has its age reset: however long it waited before its message was
-    // sent, the sweep then leaves it a full maximum age to finish in.
-    // Never throws, like Delete: a file that cannot be touched is still usable.
-    public void ResetAge(TempFile file)
-    {
-        try
-        {
-            File.SetLastWriteTimeUtc(file.Path, DateTime.UtcNow);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _logger.LogWarning(ex, "Could not reset the age of temp file {Path}; the sweep may delete it before it is processed.", file.Path);
-        }
-    }
-
-    // Never throws: a file that cannot be deleted now is caught by the sweep,
-    // and a caller cleaning up must not have its own outcome replaced.
+    // Never throws: a file that cannot be deleted now is wiped at the next
+    // start, and a caller cleaning up must not have its own outcome replaced.
     public void Delete(TempFile file)
     {
+        var fileName = Path.GetFileName(file.Path);
         try
         {
             File.Delete(file.Path);
+            _logger.LogDebug("Deleted temp file {FileName}.", fileName);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            _logger.LogWarning(ex, "Could not delete temp file {Path}. The hourly sweep will retry.", file.Path);
+            _logger.LogWarning(ex, "Could not delete temp file {FileName}. It is wiped at the next start.", fileName);
         }
     }
 
-    // On startup: whatever of ours is here belongs to a process that no longer
-    // exists.
-    public int DeleteAll() => DeleteWhere(_ => true);
-
-    // Only the files nothing tracks any more; tracked ones are removed through
-    // the registry, which also forgets them.
-    public int DeleteOlderThan(DateTimeOffset cutoff) =>
-        DeleteWhere(path => File.GetLastWriteTimeUtc(path) < cutoff.UtcDateTime);
-
-    private int DeleteWhere(Func<string, bool> shouldDelete)
+    // A link is not counted: its target's entries are not ours, and the wipe
+    // only removes the link.
+    private static int CountLeftovers(string directory)
     {
-        var deleted = 0;
-        foreach (var path in System.IO.Directory.EnumerateFiles(Directory, FilePrefix + "*", OwnFilesOnly))
-        {
-            if (!shouldDelete(path))
-            {
-                continue;
-            }
-
-            Delete(new TempFile(path));
-            deleted++;
-        }
-
-        return deleted;
+        var info = new DirectoryInfo(directory);
+        return info.Exists && info.LinkTarget is null ? info.EnumerateFileSystemInfos().Count() : 0;
     }
 
-    // A symlink in place of the folder would send uploads wherever it points.
-    private static void EnsureDirectory(string directory)
-    {
-        var info = OperatingSystem.IsWindows()
-            ? System.IO.Directory.CreateDirectory(directory)
-            : System.IO.Directory.CreateDirectory(directory, OwnerOnlyFolder);
-
-        if (info.LinkTarget is not null)
-        {
-            throw new InvalidOperationException(
-                $"The attachment temp folder '{directory}' is a link to '{info.LinkTarget}'. Delete the link before starting the app; it will be recreated as a real folder.");
-        }
-
-        // CreateDirectory leaves an existing folder's mode alone.
-        if (!OperatingSystem.IsWindows())
-        {
-            RestrictToOwner(directory);
-        }
-    }
-
-    // Only the folder's owner may change its mode, so this is where a folder
-    // left by another user surfaces, for instance after the app starts running
-    // as a different one.
-    [UnsupportedOSPlatform("windows")]
-    private static void RestrictToOwner(string directory)
+    // Starting on top of old files would break the promise that no upload
+    // outlives a restart, so a failed wipe stops startup. Counting is inside
+    // the try too: an unreadable folder must get the same advice.
+    private static int Wipe(string directory)
     {
         try
         {
-            File.SetUnixFileMode(directory, OwnerOnlyFolder);
+            var leftovers = CountLeftovers(directory);
+            System.IO.Directory.Delete(directory, recursive: true);
+            return leftovers;
         }
-        catch (UnauthorizedAccessException ex)
+        catch (DirectoryNotFoundException)
+        {
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             throw new InvalidOperationException(
-                $"The attachment temp folder '{directory}' belongs to another user, so this process cannot restrict or use it. " +
-                "It only ever holds temporary uploads: delete the folder and restart the app, and it will be recreated for the current user.",
+                $"Could not wipe the attachment temp folder '{directory}' at startup: {ex.Message} " +
+                "It only ever holds temporary uploads: delete it by hand and restart the app, and it will be recreated empty.",
+                ex);
+        }
+    }
+
+    // CreateDirectory succeeds without applying the mode when the path already
+    // exists, so a folder or link planted between the wipe and the create
+    // would otherwise be used as is.
+    internal static void EnsureOwnerOnly(string directory)
+    {
+        var created = new DirectoryInfo(directory);
+        if (created.LinkTarget is not null || created.UnixFileMode != OwnerOnlyFolder)
+        {
+            throw new InvalidOperationException(
+                $"The attachment temp folder '{directory}' was replaced while the app started, or is not owner-only. " +
+                "It only ever holds temporary uploads: delete it by hand and restart the app, and it will be recreated empty.");
+        }
+    }
+
+    // An owner-only folder planted by another user passes EnsureOwnerOnly but
+    // cannot be written to. It leaks nothing, but every upload would fail, so
+    // a probe file finds it at startup instead.
+    internal static void EnsureWritable(string directory)
+    {
+        var probe = Path.Combine(directory, Path.GetRandomFileName());
+        try
+        {
+            File.Create(probe).Dispose();
+            File.Delete(probe);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException(
+                $"The attachment temp folder '{directory}' cannot be written to: {ex.Message} " +
+                "It may belong to another user. Delete it by hand and restart the app, and it will be recreated for this one.",
                 ex);
         }
     }

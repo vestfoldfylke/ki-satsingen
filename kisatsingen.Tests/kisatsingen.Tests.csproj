@@ -8,6 +8,13 @@
         <IsTestProject>true</IsTestProject>
     </PropertyGroup>
 
+    <!-- Like the app: Linux only, so tests use Unix file modes directly. -->
+    <ItemGroup>
+        <AssemblyAttribute Include="System.Runtime.Versioning.UnsupportedOSPlatformAttribute">
+            <_Parameter1>windows</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <ItemGroup>
         <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" />
         <!-- MigrateAsync, ExecuteSqlRawAsync and SqlQuery all come from Relational.
