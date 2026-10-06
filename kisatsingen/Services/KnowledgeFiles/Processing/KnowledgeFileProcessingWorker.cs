@@ -37,6 +37,16 @@ public sealed class KnowledgeFileProcessingWorker(
         }
     }
 
+    // A stop that lands before the thread pool gets to ExecuteAsync skips it
+    // entirely, finally block included, and the queue would stay open with
+    // nobody reading it.
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken);
+        queue.Close();
+        DrainUnstarted();
+    }
+
     private async Task RunAsync(CancellationToken stoppingToken)
     {
         try
