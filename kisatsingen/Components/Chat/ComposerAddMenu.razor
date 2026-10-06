@@ -1,0 +1,50 @@
+@using kisatsingen.Services.Attachments
+
+<div>
+    <button class="ds-button"
+            type="button"
+            data-variant="tertiary"
+            data-color="primary"
+            data-icon="true"
+            popovertarget="@PopoverId"
+            aria-label="Legg til">
+        <span class="material-symbols-outlined" aria-hidden="true">add</span>
+    </button>
+
+    @* Not role="menu": a file input can't be a menu item, and a menu
+       promises arrow-key navigation that nothing here provides. *@
+    <div @ref="_popover" id="@PopoverId" class="ds-dropdown composer-add-menu" popover="auto" data-placement="top-start">
+        <p id="@AlertId" class="ds-alert ds-paragraph composer-add-menu-alert" data-size="xs">
+            Ikke last opp personopplysninger eller taushetsbelagt informasjon, som elevsaker, helseopplysninger eller personalsaker.
+        </p>
+        <ul>
+            <li>
+                @* A label rather than a button, so the browser opens the picker
+                   itself with no script. The input is visually hidden rather
+                   than display:none, so the keyboard can still reach it. *@
+                <label class="ds-button composer-add-menu-file"
+                       data-variant="tertiary"
+                       data-color="neutral"
+                       aria-disabled="@(IsFilePickerDisabled ? "true" : null)">
+                    <span class="composer-add-menu-file-heading">
+                        <span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
+                        <span id="@FilePickerNameId" class="ds-paragraph" data-size="sm">Legg ved filer</span>
+                    </span>
+                    <span id="@FileKindsId" class="ds-paragraph" data-size="xs">@FileKindsText</span>
+                    <span id="@FileLimitsId" class="ds-paragraph" data-size="xs">@FileLimitsText</span>
+                    @* Named by the heading alone: the wrapping label would name it
+                       with the lines below too, which aria-describedby already reads.
+                       The alert is included because tabbing straight to the
+                       input skips over it. *@
+                    <InputFile class="visually-hidden"
+                               OnChange="OnFilesChosen"
+                               multiple
+                               accept="@AttachmentContentTypes.AcceptAttribute"
+                               aria-labelledby="@FilePickerNameId"
+                               aria-describedby="@($"{AlertId} {FileKindsId} {FileLimitsId}")"
+                               disabled="@IsFilePickerDisabled" />
+                </label>
+            </li>
+        </ul>
+    </div>
+</div>

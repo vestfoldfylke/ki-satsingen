@@ -1,0 +1,73 @@
+@using kisatsingen.Data.Entities
+@using kisatsingen.Services
+@using kisatsingen.Services.Attachments
+
+@* The chat's knowledge files, then the ones not sent yet. Items are list
+   entries rather than links: when parsed content can be viewed, each
+   knowledge file becomes the button that opens it. *@
+<aside id="chat-files-panel" class="chat-files-panel" aria-label="Filer i samtalen">
+    <div class="chat-files-panel-header">
+        <h2 class="ds-heading" data-size="xs">Filer</h2>
+        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true" aria-label="Lukk filpanelet" @onclick="OnClose">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+    </div>
+
+    @if (KnowledgeFiles.Count == 0 && Pending.Count == 0)
+    {
+        <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
+    }
+
+    @if (KnowledgeFiles.Count > 0)
+    {
+        <h3 class="ds-heading" data-size="2xs">I samtalen</h3>
+        <ul class="chat-files-list">
+            @foreach (var file in KnowledgeFiles)
+            {
+                <li @key="file.Id" class="chat-files-item">
+                    <span class="chat-files-item-name">@file.FileName</span>
+                    <span class="chat-files-item-meta">@ByteSize.Format(file.SizeBytes)</span>
+                    @if (KnowledgeFileTexts.OriginNote(file.ContentOrigin) is { } note)
+                    {
+                        <span class="chat-files-item-status">@note</span>
+                    }
+                </li>
+            }
+        </ul>
+    }
+
+    @if (Pending.Count > 0)
+    {
+        <h3 class="ds-heading" data-size="2xs">Ikke sendt ennå</h3>
+        <ul class="chat-files-list">
+            @foreach (var attachment in Pending)
+            {
+                <li @key="attachment.UploadId" class="chat-files-item">
+                    <span class="chat-files-item-name">@attachment.FileName</span>
+                    <span class="chat-files-item-meta">@ByteSize.Format(attachment.DeclaredSizeBytes)</span>
+                    <span class="chat-files-item-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
+                        @AttachmentStatusTexts.DescribeStatus(attachment)
+                    </span>
+                    <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
+                            @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
+                        Fjern
+                    </button>
+                </li>
+            }
+        </ul>
+    }
+</aside>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<PendingAttachment> Pending { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<Guid> OnRemove { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+}

@@ -6,7 +6,8 @@ public interface IAssistantRepository
 {
     Task<Assistant> CreateAssistantAsync(string ownerId, string name, string? description, string instructions, CancellationToken ct = default);
 
-    // Includes knowledge file metadata, never their chunks.
+    // Without its files: each holds a document's whole text, so they are listed
+    // through IKnowledgeFileRepository, which never loads it.
     Task<Assistant?> GetAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default);
 
     Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(string ownerId, CancellationToken ct = default);

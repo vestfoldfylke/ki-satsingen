@@ -1,0 +1,29 @@
+/* A dropdown is as wide as its widest line, so the alert would otherwise
+   stretch it to the edge of the viewport before wrapping. */
+.composer-add-menu {
+    max-width: 20rem;
+}
+
+.composer-add-menu-alert {
+    margin-bottom: 0.5rem;
+}
+
+.composer-add-menu-file {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    text-align: left;
+    width: 100%;
+}
+
+.composer-add-menu-file-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* The file input inside is invisible, so its focus shows on the label. */
+.composer-add-menu-file:focus-within {
+    outline: var(--dsc-focus-outline);
+    outline-offset: var(--ds-border-width-focus);
+}

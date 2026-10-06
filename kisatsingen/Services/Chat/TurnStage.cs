@@ -9,6 +9,7 @@ public enum TurnStage
 {
     Authenticating,
     SavingMessage,
+    ProcessingAttachments,
     Generating,
     SavingResponse
 }
@@ -21,6 +22,7 @@ internal static class TurnStageNotice
     {
         TurnStage.Authenticating => "Innlogging kunne ikke bekreftes",
         TurnStage.SavingMessage => "Meldingen ble ikke lagret",
+        TurnStage.ProcessingAttachments => "Vedleggene kunne ikke behandles",
         TurnStage.Generating => "Svaret kunne ikke fullføres",
         TurnStage.SavingResponse => "Svaret ble vist, men ikke lagret",
         _ => "Noe gikk galt under generering"

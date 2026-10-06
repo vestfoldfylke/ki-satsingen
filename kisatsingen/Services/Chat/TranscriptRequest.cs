@@ -30,7 +30,7 @@ internal static class TranscriptRequest
                 continue;
             }
 
-            request.Add(new ChatMessage(ChatRole.User, turn.Prompt));
+            request.Add(new ChatMessage(ChatRole.User, UserMessage(turn)));
             AppendAnswer(request, turn.Answer);
         }
 
@@ -70,6 +70,17 @@ internal static class TranscriptRequest
                 request.Add(new ChatMessage(ChatRole.Tool, results));
             }
         }
+    }
+
+    private static string UserMessage(Turn turn)
+    {
+        var attachmentLine = AttachmentLine.Render(turn.Attachments);
+        if (attachmentLine is null)
+        {
+            return turn.Prompt;
+        }
+
+        return $"{turn.Prompt}\n\n{attachmentLine}";
     }
 
     // A turn stopped, rather than failed, before its row was written carries no

@@ -1,13 +1,18 @@
+using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Constants;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services.Attachments;
 using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
-using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace kisatsingen.Services.Chat;
 
 // ChatPersisted fires mid-turn so a new chat's id can reach the URL before the answer ends.
-internal sealed record TurnObserver(Action<Guid> ChatPersisted, Action<Turn> Changed);
+internal sealed record TurnObserver(
+    Action<Guid> ChatPersisted,
+    Action<Turn> Changed,
+    Action<KnowledgeFileMetadata> KnowledgeFileAvailable);
 
 // Knows nothing of the view; ChatSession decides what a snapshot means for the page.
 //
@@ -25,6 +30,8 @@ internal sealed class TurnRunner
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
     private readonly ITokenUsageRepository _tokenUsageRepository;
+    private readonly TurnAttachmentStep _attachmentStep;
+    private readonly FileToolFactory _fileTools;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -35,7 +42,9 @@ internal sealed class TurnRunner
         TurnStreamer streamer,
         string metricPrefix,
         ILogger logger,
-        ITokenUsageRepository tokenUsageRepository)
+        ITokenUsageRepository tokenUsageRepository,
+        TurnAttachmentStep attachmentStep,
+        FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -46,19 +55,16 @@ internal sealed class TurnRunner
         _metricPrefix = metricPrefix;
         _logger = logger;
         _tokenUsageRepository = tokenUsageRepository;
+        _attachmentStep = attachmentStep;
+        _fileTools = fileTools;
     }
 
     // Throws only what the page must handle itself: an unauthenticated caller, an
     // allocation failure, and a metrics failure, surfaced rather than swallowed.
-    public async Task<Turn> RunAsync(
-        Turn turn,
-        Guid? chatId,
-        IReadOnlyList<ChatMessage> request,
-        ChatModel model,
-        TurnCancellation cancellation,
-        TurnObserver observer)
+    public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
-        var row = new TurnRow(chatId);
+        var model = input.Model;
+        var row = new TurnRow(input.ExistingChatId);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
         // Starts as Failed so an exception nothing classified lands in the alerted bucket.
@@ -67,7 +73,7 @@ internal sealed class TurnRunner
 
         try
         {
-            var attempt = await ExecuteAsync(row, turn, request, model, cancellation, observer);
+            var attempt = await ExecuteAsync(row, input, cancellation, observer);
             outcome = attempt.Outcome;
             servedModelId = attempt.ServedModelId;
 
@@ -91,30 +97,35 @@ internal sealed class TurnRunner
     // The catches only name the outcome and never act on it, so none can throw past it.
     private async Task<TurnAttempt> ExecuteAsync(
         TurnRow row,
-        Turn turn,
-        IReadOnlyList<ChatMessage> request,
-        ChatModel model,
+        TurnInput input,
         TurnCancellation cancellation,
         TurnObserver observer)
     {
-        var builder = new TurnBuilder(turn, ContextTokenEstimator.Estimate(request, turn.SystemPrompt));
+        var turn = input.Turn;
+        var builder = new TurnBuilder(turn);
         var stage = TurnStage.Authenticating;
 
         try
         {
-            row.OwnerId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            var ownerId = await _authenticationService.RequireUserObjectIdentifierAsync();
+            row.OwnerId = ownerId;
 
             stage = TurnStage.SavingMessage;
-            await InsertAsync(row, turn, observer, cancellation.Token);
+            var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
+
+            stage = TurnStage.ProcessingAttachments;
+            var takenAttachments = TakeMessageAttachments(input.MessageAttachments, cancellation.Token);
+            var turnAttachments = await ProcessAttachmentsAsync(inserted, takenAttachments, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            await StreamAsync(turn, builder, request, model, observer, cancellation.Token);
+            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || turnAttachments.Any(attachment => attachment.FileId is not null);
+            await StreamAsync(inserted, input, builder, chatHasKnowledgeFiles, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
             // chat during this one write must not store it as stopped.
             stage = TurnStage.SavingResponse;
             var answered = builder.Finish(TurnStatus.Completed);
-            await SaveAsync(row, answered, CancellationToken.None);
+            await SaveAsync(inserted, answered, CancellationToken.None);
 
             // Only after the write: a turn is a success once its answer is stored.
             return new TurnAttempt(answered);
@@ -166,7 +177,7 @@ internal sealed class TurnRunner
     {
         if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
         {
-            _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
+            _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.KnownChatId);
         }
     }
 
@@ -182,17 +193,19 @@ internal sealed class TurnRunner
         }
     }
 
-    private async Task InsertAsync(TurnRow row, Turn turn, TurnObserver observer, CancellationToken ct)
+    // Sets row.Inserted before announcing the chat, so a listener that throws
+    // cannot leave a written turn that the ending path never updates.
+    private async Task<InsertedTurn> InsertAsync(TurnRow row, string ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
 
-        var isNewChat = row.ChatId is null;
-        var chatId = await _chatManager.EnsurePersistedAsync(row.ChatId, turn.Prompt, ct);
+        var isNewChat = row.ExistingChatId is null;
+        var chatId = await _chatManager.EnsurePersistedAsync(row.ExistingChatId, turn.Prompt, ct);
 
         try
         {
-            await _repo.InsertTurnAsync(row.OwnerId!, chatId, ChatTurnMapper.ToEntity(turn), ct);
+            await _repo.InsertTurnAsync(ownerId, chatId, ChatTurnMapper.ToEntity(turn), ct);
         }
         // A new chat whose first question did not save would open empty, so it goes.
         // Announced only after this, so neither the URL nor the view ever held it.
@@ -202,9 +215,10 @@ internal sealed class TurnRunner
             throw;
         }
 
-        row.ChatId = chatId;
-        row.IsInserted = true;
+        var inserted = new InsertedTurn(ownerId, chatId);
+        row.Inserted = inserted;
         observer.ChatPersisted(chatId);
+        return inserted;
     }
 
     // Swallows failures: the turn's own failure is the one to report.
@@ -220,28 +234,73 @@ internal sealed class TurnRunner
         }
     }
 
-    private Task StreamAsync(
-        Turn turn,
+    // From here the turn owns their temp files.
+    private static IReadOnlyList<ReadyAttachment> TakeMessageAttachments(MessageAttachments messageAttachments, CancellationToken ct)
+    {
+        // Stopped before they were taken: they stay in the composer.
+        ct.ThrowIfCancellationRequested();
+        return messageAttachments.TakeReady();
+    }
+
+    private async Task<IReadOnlyList<TurnAttachment>> ProcessAttachmentsAsync(
+        InsertedTurn inserted,
+        IReadOnlyList<ReadyAttachment> takenAttachments,
         TurnBuilder builder,
-        IReadOnlyList<ChatMessage> request,
-        ChatModel model,
         TurnObserver observer,
         CancellationToken ct)
     {
-        var runtime = _catalog.Resolve(model.Key);
+        if (takenAttachments.Count == 0)
+        {
+            return [];
+        }
+
+        return await _attachmentStep.RunAsync(
+            inserted.OwnerId,
+            inserted.ChatId,
+            takenAttachments,
+            attachments =>
+            {
+                builder.SetAttachments(attachments);
+                observer.Changed(builder.Snapshot());
+            },
+            observer.KnowledgeFileAvailable,
+            ct);
+    }
+
+    // Built here, after the attachments settle, since the attachment line
+    // needs each saved file's id.
+    private Task StreamAsync(
+        InsertedTurn inserted,
+        TurnInput input,
+        TurnBuilder builder,
+        bool chatHasKnowledgeFiles,
+        TurnObserver observer,
+        CancellationToken ct)
+    {
+        var turn = input.Turn;
+        var messages = TranscriptRequest.Build([.. input.EarlierTurns, builder.Snapshot()]);
+        builder.SetRequestTokens(ContextTokenEstimator.Estimate(messages, turn.SystemPrompt));
+
+        var runtime = _catalog.Resolve(input.Model.Key);
 
         // The snapshot the turn is stored with, so the record can't drift from what was sent.
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
 
-        return _streamer.StreamAsync(runtime.Client, request, options, builder, () => observer.Changed(builder.Snapshot()), ct);
+        // Only for a chat with files: one without pays nothing for their
+        // definitions, and the model is not tempted to call list_files.
+        if (chatHasKnowledgeFiles)
+        {
+            options.Tools = [.. options.Tools ?? [], .. _fileTools.CreateForChat(inserted.OwnerId, inserted.ChatId)];
+        }
+
+        return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);
     }
 
-    private async Task SaveAsync(TurnRow row, Turn ended, CancellationToken ct)
+    private async Task SaveAsync(InsertedTurn inserted, Turn ended, CancellationToken ct)
     {
-        var chatId = row.ChatId!.Value;
-        await _repo.UpdateTurnAsync(row.OwnerId!, chatId, ChatTurnMapper.ToEntity(ended), ct);
-        _chatManager.MarkTouched(chatId, DateTimeOffset.UtcNow);
+        await _repo.UpdateTurnAsync(inserted.OwnerId, inserted.ChatId, ChatTurnMapper.ToEntity(ended), ct);
+        _chatManager.MarkTouched(inserted.ChatId, DateTimeOffset.UtcNow);
     }
 
     // CancellationToken.None: after a stop the turn's own is cancelled and would
@@ -249,14 +308,15 @@ internal sealed class TurnRunner
     // cannot replace the outcome the user is shown.
     private async Task SaveEndedTurnAsync(TurnRow row, Turn ended)
     {
-        if (!row.IsInserted)
+        var inserted = row.Inserted;
+        if (inserted is null)
         {
             return;
         }
 
         try
         {
-            await SaveAsync(row, ended, CancellationToken.None);
+            await SaveAsync(inserted, ended, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -264,7 +324,7 @@ internal sealed class TurnRunner
                 ex,
                 "Could not save how turn {TurnId} in chat {ChatId} ended ({Status}). It reads back as unfinished.",
                 ended.Id,
-                row.ChatId,
+                inserted.ChatId,
                 ended.Status);
         }
     }
@@ -298,7 +358,7 @@ internal sealed class TurnRunner
                 ex,
                 "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}",
                 attempt.Turn.Id,
-                row.ChatId,
+                row.KnownChatId,
                 attempt.Turn.Status);
         }
     }
@@ -313,13 +373,22 @@ internal sealed class TurnRunner
             (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),
             (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
-    private sealed class TurnRow(Guid? chatId)
+    // What is known of the turn's row so far; a turn that ends early may never
+    // learn the rest.
+    private sealed class TurnRow(Guid? existingChatId)
     {
+        public Guid? ExistingChatId { get; } = existingChatId;
+
+        // Null until sign-in is confirmed.
         public string? OwnerId { get; set; }
 
-        // Null until a new chat's first question creates its row.
-        public Guid? ChatId { get; set; } = chatId;
+        // Null until the turn's row is written.
+        public InsertedTurn? Inserted { get; set; }
 
-        public bool IsInserted { get; set; }
+        // For logs: the chat the turn is in, as far as it is known yet.
+        public Guid? KnownChatId => Inserted?.ChatId ?? ExistingChatId;
     }
+
+    // Where the turn's row is, once it is written.
+    private sealed record InsertedTurn(string OwnerId, Guid ChatId);
 }

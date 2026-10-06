@@ -1,0 +1,31 @@
+<header class="chat-header">
+    @if (Title is { } title)
+    {
+        <h1 class="ds-heading chat-header-title" data-size="xs">@title</h1>
+    }
+
+    <button type="button"
+            class="ds-button chat-header-files"
+            data-variant="@(IsFilesPanelOpen ? "secondary" : "tertiary")"
+            aria-controls="chat-files-panel"
+            aria-expanded="@(IsFilesPanelOpen ? "true" : "false")"
+            @onclick="OnToggleFiles">
+        <span class="material-symbols-outlined" aria-hidden="true">folder</span>
+        Filer@(FileCount > 0 ? $" ({FileCount})" : null)
+    </button>
+</header>
+
+@code {
+    // Null for a chat that has no title yet, which shows nothing.
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public int FileCount { get; set; }
+
+    [Parameter]
+    public bool IsFilesPanelOpen { get; set; }
+
+    [Parameter]
+    public EventCallback OnToggleFiles { get; set; }
+}

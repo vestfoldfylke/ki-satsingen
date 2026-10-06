@@ -30,6 +30,13 @@ public sealed class ChatTurn
     // TurnSegment JSON: our schema, not Microsoft.Extensions.AI's.
     public required string AnswerJson { get; init; }
 
+    // The turn's attachments as they were when it was sent: the snapshot the
+    // attachment line is rendered from, so the history never changes when a
+    // file is later edited or deleted. Our schema, with every field beyond
+    // name, file id and reason optional so new ones need no migration. Null
+    // when the turn had none.
+    public string? AttachmentsJson { get; init; }
+
     // What the provider says it served — a dated build, not what was asked for.
     public string? ServedModelId { get; init; }
     public string? ResponseId { get; init; }

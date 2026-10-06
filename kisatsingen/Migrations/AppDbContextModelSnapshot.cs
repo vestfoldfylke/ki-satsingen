@@ -112,6 +112,9 @@ namespace kisatsingen.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("AttachmentsJson")
+                        .HasColumnType("text");
+
                     b.Property<Guid>("ChatId")
                         .HasColumnType("uuid");
 
@@ -182,6 +185,89 @@ namespace kisatsingen.Migrations
                     b.ToTable("ChatTurns");
                 });
 
+            modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AssistantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChatId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentOrigin")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("EstimatedTokenCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<int>("LineCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Markdown")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("OwnerId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int?>("PageCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Summary")
+                        .HasColumnType("text");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AssistantId", "Sha256")
+                        .IsUnique()
+                        .HasDatabaseName("IX_KnowledgeFiles_AssistantId_Sha256")
+                        .HasFilter("\"AssistantId\" IS NOT NULL");
+
+                    b.HasIndex("ChatId", "Sha256")
+                        .IsUnique()
+                        .HasDatabaseName("IX_KnowledgeFiles_ChatId_Sha256")
+                        .HasFilter("\"ChatId\" IS NOT NULL");
+
+                    b.ToTable("KnowledgeFiles", t =>
+                        {
+                            t.HasCheckConstraint("ck_knowledge_files_single_scope", "num_nonnulls(\"AssistantId\", \"ChatId\") = 1");
+                        });
+                });
+
             modelBuilder.Entity("kisatsingen.Data.Entities.TokenUsage", b =>
                 {
                     b.Property<Guid>("Id")
@@ -230,109 +316,6 @@ namespace kisatsingen.Migrations
                     b.ToTable("TokenUsages");
                 });
 
-            modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("AssistantId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("ChatId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("ChunkCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int>("EstimatedTokenCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(260)
-                        .HasColumnType("character varying(260)");
-
-                    b.Property<string>("Language")
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)");
-
-                    b.Property<string>("OwnerId")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<int?>("PageCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Sha256")
-                        .IsRequired()
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("Summary")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("TableOfContents")
-                        .HasColumnType("text");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssistantId");
-
-                    b.HasIndex("ChatId");
-
-                    b.HasIndex("OwnerId");
-
-                    b.ToTable("KnowledgeFiles", t =>
-                        {
-                            t.HasCheckConstraint("ck_knowledge_files_single_scope", "num_nonnulls(\"AssistantId\", \"ChatId\") = 1");
-                        });
-                });
-
-            modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFileChunk", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int>("EstimatedTokenCount")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Heading")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<Guid>("KnowledgeFileId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("Sequence")
-                        .HasColumnType("integer");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("KnowledgeFileId", "Sequence")
-                        .IsUnique();
-
-                    b.ToTable("KnowledgeFileChunks");
-                });
-
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
                     b.HasOne("kisatsingen.Data.Entities.Assistant", null)
@@ -353,7 +336,7 @@ namespace kisatsingen.Migrations
             modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
                 {
                     b.HasOne("kisatsingen.Data.Entities.Assistant", null)
-                        .WithMany("KnowledgeFiles")
+                        .WithMany()
                         .HasForeignKey("AssistantId")
                         .OnDelete(DeleteBehavior.Cascade);
 
@@ -363,30 +346,9 @@ namespace kisatsingen.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
-            modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFileChunk", b =>
-                {
-                    b.HasOne("kisatsingen.Data.Entities.KnowledgeFile", "KnowledgeFile")
-                        .WithMany("Chunks")
-                        .HasForeignKey("KnowledgeFileId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("KnowledgeFile");
-                });
-
-            modelBuilder.Entity("kisatsingen.Data.Entities.Assistant", b =>
-                {
-                    b.Navigation("KnowledgeFiles");
-                });
-
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>
                 {
                     b.Navigation("Turns");
-                });
-
-            modelBuilder.Entity("kisatsingen.Data.Entities.KnowledgeFile", b =>
-                {
-                    b.Navigation("Chunks");
                 });
 #pragma warning restore 612, 618
         }

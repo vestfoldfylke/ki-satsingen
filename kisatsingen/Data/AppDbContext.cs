@@ -18,11 +18,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
 
+    // Named so the save path can tell a duplicate from any other unique violation.
+    public const string KnowledgeFileChatSha256IndexName = "IX_KnowledgeFiles_ChatId_Sha256";
+    public const string KnowledgeFileAssistantSha256IndexName = "IX_KnowledgeFiles_AssistantId_Sha256";
+
     public DbSet<Chat> Chats => Set<Chat>();
     public DbSet<ChatTurn> ChatTurns => Set<ChatTurn>();
     public DbSet<Assistant> Assistants => Set<Assistant>();
     public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
-    public DbSet<KnowledgeFileChunk> KnowledgeFileChunks => Set<KnowledgeFileChunk>();
     public DbSet<TokenUsage> TokenUsages => Set<TokenUsage>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
@@ -88,6 +91,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         // model output and tool results are text we do not control. A turn that
         // cannot be saved over one stray byte is not worth the querying.
         turn.Property(t => t.AnswerJson).HasColumnType("text").IsRequired();
+        turn.Property(t => t.AttachmentsJson).HasColumnType("text");
 
         turn.HasIndex(t => new { t.ChatId, t.Seq });
         ConfigureSeq(turn.Property(t => t.Seq));
@@ -119,12 +123,22 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         knowledgeFile.Property(f => f.FileName).HasMaxLength(KnowledgeFile.MaxFileNameLength).IsRequired();
         knowledgeFile.Property(f => f.ContentType).HasMaxLength(KnowledgeFile.MaxContentTypeLength).IsRequired();
         knowledgeFile.Property(f => f.Sha256).HasMaxLength(KnowledgeFile.Sha256HexLength).IsRequired();
-        knowledgeFile.Property(f => f.Language).HasMaxLength(KnowledgeFile.MaxLanguageLength);
-        knowledgeFile.Property(f => f.Summary).HasColumnType("text").IsRequired();
-        knowledgeFile.Property(f => f.TableOfContents).HasColumnType("text");
-        knowledgeFile.HasIndex(f => f.AssistantId);
-        knowledgeFile.HasIndex(f => f.ChatId);
-        knowledgeFile.HasIndex(f => f.OwnerId);
+        knowledgeFile.Property(f => f.Summary).HasColumnType("text");
+        knowledgeFile.Property(f => f.Markdown).HasColumnType("text").IsRequired();
+        knowledgeFile.Property(f => f.ContentOrigin).HasMaxLength(KnowledgeFile.MaxContentOriginLength).IsRequired();
+
+        // Partial, so each only covers rows in its own scope. They also serve
+        // every lookup by scope, which is why there is no plain index on
+        // ChatId or AssistantId. OwnerId has none either: every query narrows
+        // by id or scope first.
+        knowledgeFile.HasIndex(f => new { f.ChatId, f.Sha256 })
+            .IsUnique()
+            .HasFilter("\"ChatId\" IS NOT NULL")
+            .HasDatabaseName(KnowledgeFileChatSha256IndexName);
+        knowledgeFile.HasIndex(f => new { f.AssistantId, f.Sha256 })
+            .IsUnique()
+            .HasFilter("\"AssistantId\" IS NOT NULL")
+            .HasDatabaseName(KnowledgeFileAssistantSha256IndexName);
 
         knowledgeFile.ToTable(t => t.HasCheckConstraint(
             KnowledgeFileScopeConstraintName,
@@ -135,7 +149,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         // the check constraint. The delete paths that never load an entity —
         // DeleteChatAsync, DeleteAssistantAsync — depend entirely on this DDL.
         knowledgeFile.HasOne<Assistant>()
-            .WithMany(a => a.KnowledgeFiles)
+            .WithMany()
             .HasForeignKey(f => f.AssistantId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
@@ -144,20 +158,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(f => f.ChatId)
             .IsRequired(false)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        var chunk = modelBuilder.Entity<KnowledgeFileChunk>();
-        chunk.HasKey(c => c.Id);
-        chunk.Property(c => c.Heading).HasMaxLength(500);
-        chunk.Property(c => c.Content).HasColumnType("text").IsRequired();
-
-        // Rules out two chunks in one position; density is the repository's
-        // doing, and holds only while it stays the single write path.
-        chunk.HasIndex(c => new { c.KnowledgeFileId, c.Sequence }).IsUnique();
-
-        chunk.HasOne(c => c.KnowledgeFile)
-            .WithMany(f => f.Chunks)
-            .HasForeignKey(c => c.KnowledgeFileId)
             .OnDelete(DeleteBehavior.Cascade);
 
         var tokenUsage = modelBuilder.Entity<TokenUsage>();

@@ -136,6 +136,57 @@ public sealed class ChatTurnMapperTests
         Assert.Equal(TurnStatus.Stopped, restored.Status);
     }
 
+    [Fact]
+    public void Saved_and_unavailable_attachments_survive_the_round_trip()
+    {
+        TurnAttachment[] attachments = [new("notat.md", FileId: Guid.NewGuid()), new("bilde.png", UnavailableReason: "Bildet kunne ikke leses.")];
+
+        var restored = RoundTrip(TurnWith() with { Attachments = attachments });
+
+        Assert.Equal(attachments, restored.Attachments);
+    }
+
+    // The stored format is name and file id or reason, nothing derived.
+    [Fact]
+    public void A_saved_attachment_is_stored_as_its_name_and_file_id_only()
+    {
+        var fileId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        var stored = ChatTurnMapper.ToEntity(TurnWith() with { Attachments = [new("notat.md", fileId)] });
+
+        Assert.Equal("""[{"fileName":"notat.md","fileId":"11111111-1111-1111-1111-111111111111"}]""", stored.AttachmentsJson);
+    }
+
+    [Fact]
+    public void A_turn_without_attachments_stores_none()
+    {
+        var stored = ChatTurnMapper.ToEntity(TurnWith());
+
+        Assert.Null(stored.AttachmentsJson);
+    }
+
+    // The prompt is then replayed without its attachment line, rather than the
+    // chat failing to open.
+    [Fact]
+    public void Unreadable_attachments_read_back_as_none()
+    {
+        var stored = Copy(ChatTurnMapper.ToEntity(TurnWith()), attachmentsJson: "not json");
+
+        var restored = ChatTurnMapper.FromEntity(stored, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
+
+        Assert.Empty(restored.Attachments);
+    }
+
+    [Fact]
+    public void A_null_entry_in_the_stored_attachments_is_dropped()
+    {
+        var stored = Copy(ChatTurnMapper.ToEntity(TurnWith()), attachmentsJson: """[null,{"fileName":"notat.md","fileId":"11111111-1111-1111-1111-111111111111"}]""");
+
+        var restored = ChatTurnMapper.FromEntity(stored, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
+
+        Assert.Equal(["notat.md"], restored.Attachments.Select(attachment => attachment.FileName));
+    }
+
     private static Turn RoundTrip(Turn turn) =>
         ChatTurnMapper.FromEntity(ChatTurnMapper.ToEntity(turn), DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
@@ -145,14 +196,16 @@ public sealed class ChatTurnMapperTests
     private static kisatsingen.Data.Entities.ChatTurn Copy(
         kisatsingen.Data.Entities.ChatTurn stored,
         string? answerJson = null,
-        string? status = null) => new()
+        string? status = null,
+        string? attachmentsJson = null) => new()
     {
         Id = stored.Id,
         Prompt = stored.Prompt,
         SystemPrompt = stored.SystemPrompt,
         ModelKey = stored.ModelKey,
         Status = status ?? stored.Status,
-        AnswerJson = answerJson ?? stored.AnswerJson
+        AnswerJson = answerJson ?? stored.AnswerJson,
+        AttachmentsJson = attachmentsJson ?? stored.AttachmentsJson
     };
 
     private static Turn TurnWith(params TurnSegment[] answer) => new()

@@ -146,7 +146,7 @@ public sealed class ChatManager
 
         return trimmed.Length <= MaxDerivedTitleLength
             ? trimmed
-            : trimmed[..MaxDerivedTitleLength].TrimEnd() + "…";
+            : TextTruncation.Prefix(trimmed, MaxDerivedTitleLength).TrimEnd() + "…";
     }
 
     private void RaiseChanged() => ChatListChanged?.Invoke();

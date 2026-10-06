@@ -1,8 +1,13 @@
+using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Attachments;
+using kisatsingen.Services.KnowledgeFiles.Conversion;
+using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
@@ -169,12 +174,71 @@ builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
 
+// ─── Attachments ───────────────────────────────────────
+// Defaults live in AttachmentOptions; the section overrides them.
+var attachmentOptions = builder.Configuration.GetSection(AttachmentOptions.SectionName).Get<AttachmentOptions>()
+    ?? new AttachmentOptions();
+attachmentOptions.Validate();
+
+builder.Services.AddSingleton(attachmentOptions);
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton(sp => new TempFileStore(
+    Path.Combine(Path.GetTempPath(), TempFileStore.DefaultFolderName),
+    sp.GetRequiredService<ILogger<TempFileStore>>()));
+builder.Services.AddSingleton<AttachmentUploader>();
+builder.Services.AddSingleton<PendingAttachmentRegistry>();
+builder.Services.AddHostedService<AttachmentSweeper>();
+builder.Services.AddScoped<ChatAttachments>();
+
+// ─── Knowledge-file processing ─────────────────────────
+// Defaults live in KnowledgeFileProcessingOptions; the section overrides them.
+var processingOptions = builder.Configuration.GetSection(KnowledgeFileProcessingOptions.SectionName).Get<KnowledgeFileProcessingOptions>()
+    ?? new KnowledgeFileProcessingOptions();
+processingOptions.Validate();
+
+builder.Services.AddSingleton(processingOptions);
+
+// One converter per content type. Moving a type to a remote converter means
+// swapping its registration here for one that calls that service.
+builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
+builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(processingOptions.MaxImageSidePixels, processingOptions.MaxImagePixels));
+builder.Services.AddSingleton<DocumentConverterRegistry>();
+builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
+builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
+    sp.GetRequiredService<DocumentConverterRegistry>(),
+    sp.GetRequiredService<IDocumentSummarizer>(),
+    sp.GetRequiredService<TempFileStore>(),
+    maxKnowledgeFileTokens,
+    sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
+builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
+builder.Services.AddSingleton<KnowledgeFileProcessingQueue>();
+builder.Services.AddHostedService<KnowledgeFileProcessingWorker>();
+
+// ─── File tools ────────────────────────────────────────
+// Defaults live in FileToolOptions; the section overrides them.
+var fileToolOptions = builder.Configuration.GetSection(FileToolOptions.SectionName).Get<FileToolOptions>()
+    ?? new FileToolOptions();
+fileToolOptions.Validate();
+
+builder.Services.AddSingleton(fileToolOptions);
+builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
+builder.Services.AddScoped<FileToolFactory>();
+
 var app = builder.Build();
 
 // ─── One-time startup: chat models ─────────────────────
 // Resolved eagerly because building the catalogue validates it: a bad catalogue
 // must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
+
+// ─── One-time startup: attachment temp files ───────────
+// Before the server accepts a request, so no upload can race it. Whatever is
+// left belongs to a process that no longer exists.
+var orphanedTempFiles = app.Services.GetRequiredService<TempFileStore>().DeleteAll();
+if (orphanedTempFiles > 0)
+{
+    app.Logger.LogInformation("Deleted {Count} attachment temp files left by a previous run.", orphanedTempFiles);
+}
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())
