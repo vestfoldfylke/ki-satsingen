@@ -7,7 +7,7 @@ namespace kisatsingen.Tests.AIFunctions.FileTools;
 
 // One file, readable only through the owner and chat it was given, so the
 // contract tests need no database.
-internal sealed class StubFileReader(string ownerId, Guid chatId, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
+internal sealed class FakeKnowledgeFileReader(string ownerId, Guid chatId, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
 {
     private static readonly DateTimeOffset SavedAt = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 

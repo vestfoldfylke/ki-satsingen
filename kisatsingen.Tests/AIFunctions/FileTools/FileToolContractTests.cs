@@ -20,7 +20,7 @@ public sealed class FileToolContractTests
     private const string Markdown = "# Notat\n\nHei.\n";
 
     private static IReadOnlyList<AIFunction> Tools(ContentOrigin? origin = ContentOrigin.TextFile, FileToolOptions? options = null) =>
-        [.. new FileToolFactory(new StubFileReader(OwnerId, ChatId, FileId, Markdown, origin), options ?? new FileToolOptions())
+        [.. new FileToolFactory(new FakeKnowledgeFileReader(OwnerId, ChatId, FileId, Markdown, origin), options ?? new FileToolOptions())
             .CreateForChat(OwnerId, ChatId)
             .Cast<AIFunction>()];
 
@@ -249,7 +249,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task A_capped_outline_names_every_argument_of_the_next_call_including_the_defaults()
     {
-        var reader = new StubFileReader(OwnerId, ChatId, FileId, "# A\n# B\n# C");
+        var reader = new FakeKnowledgeFileReader(OwnerId, ChatId, FileId, "# A\n# B\n# C");
         var tool = new FileToolFactory(reader, new FileToolOptions { MaxOutlineEntries = 1 }).CreateForChat(OwnerId, ChatId).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
@@ -260,7 +260,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task A_cut_read_names_the_next_start_and_the_end_clamped_to_the_file()
     {
-        var reader = new StubFileReader(OwnerId, ChatId, FileId, "en\nto\ntre");
+        var reader = new FakeKnowledgeFileReader(OwnerId, ChatId, FileId, "en\nto\ntre");
         var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 1 }).CreateForChat(OwnerId, ChatId).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("start", 1), ("end", 50)));
@@ -281,7 +281,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task An_outline_without_a_depth_shows_the_configured_default_depth()
     {
-        var reader = new StubFileReader(OwnerId, ChatId, FileId, "# A\n## B\n");
+        var reader = new FakeKnowledgeFileReader(OwnerId, ChatId, FileId, "# A\n## B\n");
         var tool = new FileToolFactory(reader, new FileToolOptions { DefaultOutlineDepth = 1 }).CreateForChat(OwnerId, ChatId).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
 
         var result = Assert.IsType<string>(await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()))));
