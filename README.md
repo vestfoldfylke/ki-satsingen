@@ -1,5 +1,8 @@
 # ki-satsingen
 
+## Docs
+- [Knowledge files in chat](docs/knowledge-files.md): how attached files become knowledge files the model can read
+
 ## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json
