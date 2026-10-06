@@ -14,7 +14,7 @@ public abstract record UploadOutcome
 // Copies an upload to a temp file in one pass: hashing, counting against the
 // size limit and checking the type's signature as the bytes go by. Never holds
 // more than one buffer of the file in memory.
-public sealed class AttachmentUploader(TempFileStore store)
+public sealed class AttachmentUploader(AttachmentStorage storage)
 {
     // The default bufferSize documented for Stream.CopyToAsync. A tuning value,
     // not a correctness one: any positive size copies correctly, so change it
@@ -28,7 +28,7 @@ public sealed class AttachmentUploader(TempFileStore store)
         IProgress<long> progress,
         CancellationToken ct)
     {
-        var (file, destination) = store.Create();
+        var (file, destination) = storage.Create();
         UploadOutcome? outcome = null;
 
         try
@@ -41,7 +41,7 @@ public sealed class AttachmentUploader(TempFileStore store)
             // Rejected, cancelled or failed: nothing may outlive the attempt.
             if (outcome is not UploadOutcome.Stored)
             {
-                store.Delete(file);
+                storage.Delete(file);
             }
         }
     }

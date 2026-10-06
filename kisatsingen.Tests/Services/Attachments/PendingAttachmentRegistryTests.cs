@@ -25,7 +25,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     // has any.
     private static UploadOutcome.Stored StoreFile(AttachmentTestEnvironment environment, long size, string? sha256 = null)
     {
-        var (file, stream) = environment.Store.Create();
+        var (file, stream) = environment.Storage.Create();
         stream.Dispose();
         return new UploadOutcome.Stored(file, size, sha256 ?? UploadHashes.Unique());
     }

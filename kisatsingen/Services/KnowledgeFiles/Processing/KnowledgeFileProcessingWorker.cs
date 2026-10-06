@@ -9,7 +9,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 public sealed class KnowledgeFileProcessingWorker(
     KnowledgeFileProcessingQueue queue,
     KnowledgeFileProcessor processor,
-    TempFileStore store,
+    AttachmentStorage storage,
     KnowledgeFileProcessingOptions options,
     KnowledgeFileProcessingMetrics metrics,
     ILogger<KnowledgeFileProcessingWorker> logger) : BackgroundService
@@ -138,7 +138,7 @@ public sealed class KnowledgeFileProcessingWorker(
 
     private void Release(ProcessingJob job)
     {
-        store.Delete(job.Attachment.File);
+        storage.Delete(job.Attachment.File);
         job.OwnerSlot.Dispose();
     }
 }

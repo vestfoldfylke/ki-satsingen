@@ -14,13 +14,13 @@ public sealed class PendingAttachmentRegistry
 {
     private readonly Lock _entriesLock = new();
     private readonly Dictionary<Guid, PendingAttachmentEntry> _entries = [];
-    private readonly TempFileStore _store;
+    private readonly AttachmentStorage _storage;
     private readonly PendingAttachmentLimits _limits;
     private readonly TimeProvider _time;
 
-    public PendingAttachmentRegistry(TempFileStore store, AttachmentOptions options, TimeProvider time)
+    public PendingAttachmentRegistry(AttachmentStorage storage, AttachmentOptions options, TimeProvider time)
     {
-        _store = store;
+        _storage = storage;
         _limits = new PendingAttachmentLimits(options);
         _time = time;
     }
@@ -138,7 +138,7 @@ public sealed class PendingAttachmentRegistry
 
         if (!isKept)
         {
-            _store.Delete(stored.File);
+            _storage.Delete(stored.File);
         }
 
         Discard(evicted);
@@ -283,7 +283,7 @@ public sealed class PendingAttachmentRegistry
             entry.Cancellation.Cancel();
             if (entry.File is not null)
             {
-                _store.Delete(entry.File);
+                _storage.Delete(entry.File);
             }
         }
     }

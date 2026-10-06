@@ -39,12 +39,12 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
         var processor = new KnowledgeFileProcessor(
             new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, new ThrowingConverter()]),
             new OpeningExcerptSummarizer(),
-            _environment.Store,
+            _environment.Storage,
             maxEstimatedTokens: 1_000_000,
             NullLogger<KnowledgeFileProcessor>.Instance);
 
-        _queue = new KnowledgeFileProcessingQueue(options, _environment.Store, metrics);
-        _worker = new KnowledgeFileProcessingWorker(_queue, processor, _environment.Store, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
+        _queue = new KnowledgeFileProcessingQueue(options, _environment.Storage, metrics);
+        _worker = new KnowledgeFileProcessingWorker(_queue, processor, _environment.Storage, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
         await _worker.StartAsync(CancellationToken.None);
     }
 

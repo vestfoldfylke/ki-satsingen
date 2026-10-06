@@ -1,12 +1,12 @@
 namespace kisatsingen.Services.Attachments;
 
 // Defaults in code, overridable per environment under this section name. The
-// temp folder is deliberately not among them: see TempFileStore.
+// temp folder is deliberately not among them: see AttachmentStorage.
 public sealed class AttachmentOptions
 {
     public const string SectionName = "Attachments";
 
-    // High on purpose until uploads over SignalR are measured in the cloud.
+    // Measured in the cloud: 50 MiB works over SignalR, though slowly.
     public long MaxFileBytes { get; init; } = 50 * ByteSize.Megabyte;
 
     // GetMultipleFiles throws above its limit, so a selection is checked
@@ -22,7 +22,8 @@ public sealed class AttachmentOptions
     // Uploads share the circuit's SignalR connection with rendering.
     public int MaxConcurrentUploadsPerUser { get; init; } = 2;
 
-    // Catches whatever the other cleanup paths miss.
+    // How long an unsent attachment may stay pending before the sweep removes
+    // it. Temp files nothing tracks are left to the wipe at the next start.
     public TimeSpan TempFileMaxAge { get; init; } = TimeSpan.FromHours(24);
 
     public TimeSpan TempFileSweepInterval { get; init; } = TimeSpan.FromHours(1);

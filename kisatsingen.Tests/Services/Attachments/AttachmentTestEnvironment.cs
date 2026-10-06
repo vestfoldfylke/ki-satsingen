@@ -14,29 +14,29 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     {
         Options = options ?? new AttachmentOptions();
         ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
-        System.IO.Directory.CreateDirectory(ParentFolder);
-        Store = TempFileStore.StartFresh(ParentFolder, NullLogger<TempFileStore>.Instance);
-        Registry = new PendingAttachmentRegistry(Store, Options, time ?? TimeProvider.System);
-        Uploader = new AttachmentUploader(Store);
+        Directory.CreateDirectory(ParentFolder);
+        Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
+        Registry = new PendingAttachmentRegistry(Storage, Options, time ?? TimeProvider.System);
+        Uploader = new AttachmentUploader(Storage);
     }
 
     public string ParentFolder { get; }
-    public string Directory => Store.Directory;
+    public string Folder => Storage.Folder;
     public AttachmentOptions Options { get; }
-    public TempFileStore Store { get; }
+    public AttachmentStorage Storage { get; }
     public PendingAttachmentRegistry Registry { get; }
     public AttachmentUploader Uploader { get; }
 
-    public IReadOnlyList<string> FilesOnDisk => System.IO.Directory.GetFiles(Directory);
+    public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
     public ChatAttachments CreateChatAttachments(IAuthenticationService authentication) =>
         new(authentication, Registry, Uploader, Options, NullLogger<ChatAttachments>.Instance);
 
     public void Dispose()
     {
-        if (System.IO.Directory.Exists(ParentFolder))
+        if (Directory.Exists(ParentFolder))
         {
-            System.IO.Directory.Delete(ParentFolder, recursive: true);
+            Directory.Delete(ParentFolder, recursive: true);
         }
     }
 }

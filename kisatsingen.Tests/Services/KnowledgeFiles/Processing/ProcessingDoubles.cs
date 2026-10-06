@@ -53,10 +53,10 @@ internal sealed class ThrowingConverter : IDocumentConverter
 
 internal static class ReadyAttachments
 {
-    // A real temp file in the environment's store, so tests can see it deleted.
+    // A real temp file in the environment's storage, so tests can see it deleted.
     public static ReadyAttachment From(AttachmentTestEnvironment environment, byte[] content, AttachmentType type, string fileName = "fil.md")
     {
-        var (file, stream) = environment.Store.Create();
+        var (file, stream) = environment.Storage.Create();
         using (stream)
         {
             stream.Write(content);

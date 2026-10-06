@@ -69,7 +69,7 @@ public sealed class ChatSession : IAsyncDisposable
         ITokenUsageRepository tokenUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
         KnowledgeFileProcessingQueue processingQueue,
-        TempFileStore tempFiles,
+        AttachmentStorage storage,
         FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
@@ -82,7 +82,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFileRepository, tempFiles, logger);
+        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFileRepository, storage, logger);
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, tokenUsageRepository, attachmentStep, fileTools);
     }
 

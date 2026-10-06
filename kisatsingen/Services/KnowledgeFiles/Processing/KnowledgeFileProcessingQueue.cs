@@ -10,17 +10,17 @@ public sealed class KnowledgeFileProcessingQueue
 {
     private readonly Channel<ProcessingJob> _channel;
     private readonly OwnerJobLimiter _limiter;
-    private readonly TempFileStore _store;
+    private readonly AttachmentStorage _storage;
     private readonly KnowledgeFileProcessingMetrics _metrics;
 
-    public KnowledgeFileProcessingQueue(KnowledgeFileProcessingOptions options, TempFileStore store, KnowledgeFileProcessingMetrics metrics)
+    public KnowledgeFileProcessingQueue(KnowledgeFileProcessingOptions options, AttachmentStorage storage, KnowledgeFileProcessingMetrics metrics)
     {
         _channel = Channel.CreateBounded<ProcessingJob>(new BoundedChannelOptions(options.QueueCapacity)
         {
             FullMode = BoundedChannelFullMode.Wait
         });
         _limiter = new OwnerJobLimiter(options.MaxActiveJobsPerUser);
-        _store = store;
+        _storage = storage;
         _metrics = metrics;
     }
 
@@ -59,7 +59,7 @@ public sealed class KnowledgeFileProcessingQueue
             if (!isHandedOver)
             {
                 ownerSlot?.Dispose();
-                _store.Delete(attachment.File);
+                _storage.Delete(attachment.File);
             }
         }
     }

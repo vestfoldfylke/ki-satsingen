@@ -9,7 +9,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 public sealed class KnowledgeFileProcessor(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,
-    TempFileStore store,
+    AttachmentStorage storage,
     int maxEstimatedTokens,
     ILogger<KnowledgeFileProcessor> logger)
 {
@@ -55,7 +55,7 @@ public sealed class KnowledgeFileProcessor(
 
     private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, string contentType, CancellationToken ct)
     {
-        await using var content = store.OpenRead(attachment.File);
+        await using var content = storage.OpenRead(attachment.File);
         return await converter.ConvertAsync(new ConversionRequest(attachment.FileName, contentType, content, maxEstimatedTokens), ct);
     }
 

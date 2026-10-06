@@ -182,9 +182,9 @@ attachmentOptions.Validate();
 
 builder.Services.AddSingleton(attachmentOptions);
 builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton(sp => TempFileStore.StartFresh(
+builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
     Path.GetTempPath(),
-    sp.GetRequiredService<ILogger<TempFileStore>>()));
+    sp.GetRequiredService<ILogger<AttachmentStorage>>()));
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<PendingAttachmentRegistry>();
 builder.Services.AddHostedService<AttachmentSweeper>();
@@ -207,7 +207,7 @@ builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
     sp.GetRequiredService<DocumentConverterRegistry>(),
     sp.GetRequiredService<IDocumentSummarizer>(),
-    sp.GetRequiredService<TempFileStore>(),
+    sp.GetRequiredService<AttachmentStorage>(),
     maxKnowledgeFileTokens,
     sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
 builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
@@ -234,7 +234,7 @@ _ = app.Services.GetRequiredService<IChatModelCatalog>();
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a
 // request, and no upload can race it.
-_ = app.Services.GetRequiredService<TempFileStore>();
+_ = app.Services.GetRequiredService<AttachmentStorage>();
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

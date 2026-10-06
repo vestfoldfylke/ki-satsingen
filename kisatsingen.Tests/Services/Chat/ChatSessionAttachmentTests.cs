@@ -168,7 +168,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     // Once taken, the turn owns the temp files; a file it never handed to
-    // processing would stay on disk until the age sweep.
+    // processing would stay on disk until the next start.
     [Fact]
     public async Task No_temp_file_is_left_on_disk_after_a_turn_stopped_during_processing()
     {
