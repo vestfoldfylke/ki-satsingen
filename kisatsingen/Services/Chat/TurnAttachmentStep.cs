@@ -118,16 +118,15 @@ internal sealed class TurnAttachmentStep(
         for (var index = 0; index < readyAttachments.Count; index++)
         {
             var attachment = readyAttachments[index];
-            if (savedFilesBySha256.TryGetValue(attachment.Sha256, out var savedFile))
-            {
-                turnAttachments[index] = turnAttachments[index].Available(savedFile.Id);
-                onKnowledgeFileAvailable(savedFile);
-                tempFiles.Delete(attachment.File);
-            }
-            else
+            if (!savedFilesBySha256.TryGetValue(attachment.Sha256, out var savedFile))
             {
                 attachmentsToProcess.Add((index, attachment));
+                continue;
             }
+
+            turnAttachments[index] = turnAttachments[index].Available(savedFile.Id);
+            onKnowledgeFileAvailable(savedFile);
+            tempFiles.Delete(attachment.File);
         }
 
         return attachmentsToProcess;
