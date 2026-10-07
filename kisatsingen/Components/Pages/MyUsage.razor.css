@@ -1,14 +1,8 @@
-/* See Usage.razor.css for why the vertical scrollbar is hidden. */
 .usage-page {
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 0.5rem 1rem;
-    scrollbar-width: none;
-}
-
-.usage-page::-webkit-scrollbar {
-    display: none;
 }
 
 .usage-range-selector {
