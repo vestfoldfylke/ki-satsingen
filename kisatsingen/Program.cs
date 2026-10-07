@@ -1,4 +1,3 @@
-using ApexCharts;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components;
 using kisatsingen.Data;
@@ -20,6 +19,7 @@ using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Npgsql;
 using Prometheus;
+using Radzen;
 using Vestfold.Extensions.Logging;
 using Vestfold.Extensions.Metrics;
 
@@ -171,7 +171,12 @@ builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
 builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddScoped<ITokenUsageRepository, TokenUsageRepository>();
-builder.Services.AddApexCharts();
+
+// Radzen Charts depend on scoped UI services (TooltipService et al.) injected
+// via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical
+// one-liner that registers all of them.
+builder.Services.AddRadzenComponents();
+
 builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();

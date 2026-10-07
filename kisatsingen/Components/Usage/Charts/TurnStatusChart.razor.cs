@@ -1,4 +1,3 @@
-using ApexCharts;
 using kisatsingen.Data.Entities;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
@@ -10,10 +9,14 @@ public partial class TurnStatusChart : ComponentBase
     [Parameter]
     public IReadOnlyList<UsageByKey<TurnStatus>> Breakdown { get; set; } = [];
 
-    private readonly ApexChartOptions<UsageByKey<TurnStatus>> _options = new()
+    private IReadOnlyList<StatusPoint> _points = [];
+
+    protected override void OnParametersSet()
     {
-        Chart = new Chart { Height = 320 },
-        Legend = new Legend { Position = LegendPosition.Bottom },
-        DataLabels = new DataLabels { Enabled = true }
-    };
+        _points = Breakdown
+            .Select(row => new StatusPoint(row.Key.ToString(), row.TurnCount))
+            .ToList();
+    }
+
+    private sealed record StatusPoint(string Status, int TurnCount);
 }

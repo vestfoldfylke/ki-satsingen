@@ -14,6 +14,9 @@
     <!-- Chat client (Markdown streaming + syntax highlighting) -->
     <link rel="stylesheet" href="chat-client/chat-client.css"/>
 
+    <!-- Radzen charts (SVG-based; load the base stylesheet so chart defaults resolve) -->
+    <link rel="stylesheet" href="_content/Radzen.Blazor/css/default-base.css"/>
+
     <!-- Standard Blazor -->
     <link rel="stylesheet" href="@Assets["app.css"]"/>
 
@@ -34,8 +37,8 @@
 <!-- Standard Blazor -->
 <script src="@Assets["_framework/blazor.web.js"]"></script>
 
-<!-- ApexCharts (Blazor-ApexCharts interop + apexcharts.js, both served same-origin) -->
-<script src="_content/Blazor-ApexCharts/js/blazor-apexcharts.js"></script>
+<!-- Radzen interop (tooltips, resize observer, popups) — served same-origin -->
+<script src="_content/Radzen.Blazor/Radzen.Blazor.js"></script>
 
 <!-- Designsystemet -->
 <script type="module" src="designsystemet/designsystemet.mjs"></script>

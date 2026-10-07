@@ -1,4 +1,3 @@
-using ApexCharts;
 using kisatsingen.Data.Entities;
 using Microsoft.AspNetCore.Components;
 
@@ -12,41 +11,32 @@ public partial class UsageOverTimeChart : ComponentBase
     [Parameter]
     public UsageBucket Bucket { get; set; } = UsageBucket.Day;
 
-    private ApexChartOptions<UsageTimeBucket> _options = null!;
+    private IReadOnlyList<TimePoint> _points = [];
+    private string _dateFormat = "{0:dd. MMM}";
 
     protected override void OnParametersSet()
     {
-        _options = new ApexChartOptions<UsageTimeBucket>
+        _points = Series
+            .Select(row => new TimePoint(
+                row.Bucket.LocalDateTime,
+                row.InputTokens,
+                row.OutputTokens,
+                row.EstimatedInputTokens,
+                row.EstimatedOutputTokens))
+            .ToList();
+
+        _dateFormat = Bucket switch
         {
-            Chart = new Chart
-            {
-                Height = 320,
-                Stacked = false,
-                Toolbar = new Toolbar { Show = false },
-                Zoom = new Zoom { Enabled = false }
-            },
-            Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 },
-            DataLabels = new DataLabels { Enabled = false },
-            Fill = new Fill { Opacity = [0.35, 0.35, 0.15, 0.15] },
-            // No JS-string Formatter anywhere in the options tree: Blazor-ApexCharts
-            // uses eval() to turn such strings into functions, which the app's CSP
-            // (script-src 'self') correctly blocks. Axis numbers render unformatted
-            // as a result — localisation would need an interop that avoids eval.
-            Xaxis = new XAxis
-            {
-                Type = XAxisType.Datetime,
-                Labels = new XAxisLabels
-                {
-                    DatetimeUTC = false,
-                    Format = Bucket switch
-                    {
-                        UsageBucket.Hour => "HH:mm",
-                        UsageBucket.Month => "MMM yyyy",
-                        _ => "dd. MMM"
-                    }
-                }
-            },
-            Legend = new Legend { Position = LegendPosition.Bottom }
+            UsageBucket.Hour => "{0:HH:mm}",
+            UsageBucket.Month => "{0:MMM yyyy}",
+            _ => "{0:dd. MMM}"
         };
     }
+
+    private sealed record TimePoint(
+        DateTime Bucket,
+        long InputTokens,
+        long OutputTokens,
+        long EstimatedInputTokens,
+        long EstimatedOutputTokens);
 }
