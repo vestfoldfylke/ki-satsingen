@@ -27,12 +27,12 @@
         TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
 
     <div class="usage-chart-row">
-        <ProviderUsageChart Breakdown="ProviderBreakdown" />
-        <ModelUsageChart Breakdown="ModelBreakdown" />
-        <TurnStatusChart Breakdown="StatusBreakdown" />
+        <ProviderUsageChart Breakdown="ProviderBreakdown" @key="(nameof(ProviderBreakdown), ProviderBreakdown)" />
+        <ModelUsageChart Breakdown="ModelBreakdown" @key="(nameof(ModelBreakdown), ModelBreakdown)" />
+        <TurnStatusChart Breakdown="StatusBreakdown" @key="(nameof(StatusBreakdown), StatusBreakdown)" />
     </div>
 
-    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" />
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" @key="(nameof(TimeSeries), TimeSeries)" />
 
     <h3>Top @TopUserCount users by</h3>
     <ds-tabs class="ds-tabs">
@@ -44,7 +44,7 @@
             <ds-tab aria-controls="top-users-by-estimated-output-tokens" role="tab">Estimated output tokens</ds-tab>
         </ds-tablist>
         <ds-tabpanel id="top-users-by-turns">
-            <TopUsersByTurnsChart TopUsers="TopUsersByTurns" />
+            <TopUsersByTurnsChart TopUsers="TopUsersByTurns" @key="(nameof(TopUsersByTurns), TopUsersByTurns)" />
         </ds-tabpanel>
         <ds-tabpanel id="top-users-by-input-tokens">
             @TopTokenUsage(TopTokenUsageByInputTokens)

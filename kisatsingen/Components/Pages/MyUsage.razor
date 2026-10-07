@@ -25,10 +25,10 @@
         TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
 
     <div class="usage-chart-row">
-        <ProviderUsageChart Breakdown="ProviderBreakdown" />
-        <ModelUsageChart Breakdown="ModelBreakdown" />
-        <TurnStatusChart Breakdown="StatusBreakdown" />
+        <ProviderUsageChart Breakdown="ProviderBreakdown" @key="(nameof(ProviderBreakdown), ProviderBreakdown)" />
+        <ModelUsageChart Breakdown="ModelBreakdown" @key="(nameof(ModelBreakdown), ModelBreakdown)" />
+        <TurnStatusChart Breakdown="StatusBreakdown" @key="(nameof(StatusBreakdown), StatusBreakdown)" />
     </div>
 
-    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" />
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" @key="(nameof(TimeSeries), TimeSeries)" />
 </div>
