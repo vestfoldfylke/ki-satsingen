@@ -1,4 +1,5 @@
 @page "/Administration/Usage"
+@attribute [Authorize(Policy = "IsAdministrator")]
 @using System.Globalization
 @using kisatsingen.Components.Usage
 @using kisatsingen.Components.Usage.Charts

@@ -2,12 +2,10 @@ using kisatsingen.Components.Usage;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 
 namespace kisatsingen.Components.Pages;
 
-[Authorize(Policy = "IsAdministrator")]
 public partial class Usage : ComponentBase, IDisposable
 {
     [Inject]
