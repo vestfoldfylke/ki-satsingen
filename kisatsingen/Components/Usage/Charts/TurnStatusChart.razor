@@ -9,8 +9,9 @@
     }
     else
     {
-        <RadzenChart Style="height: 320px;" MouseMoveThrottle="150">
-            <RadzenDonutSeries Data="@_points"
+        <RadzenChart Animate="true" Style="height: 320px;" MouseMoveThrottle="150">
+            <RadzenDonutSeries FillMode="FillMode.Gradient"
+                               Data="@_points"
                                CategoryProperty="@nameof(StatusPoint.Status)"
                                ValueProperty="@nameof(StatusPoint.TurnCount)"
                                Title="Antall turer" />

@@ -7,8 +7,9 @@
     }
     else
     {
-        <RadzenChart Style="height: 320px;" MouseMoveThrottle="150">
-            <RadzenBarSeries Data="@_points"
+        <RadzenChart Animate="true" Style="height: 320px;" MouseMoveThrottle="150">
+            <RadzenBarSeries FillMode="FillMode.Gradient"
+                             Data="@_points"
                              CategoryProperty="@nameof(UserTurnPoint.OwnerId)"
                              ValueProperty="@nameof(UserTurnPoint.TurnCount)"
                              Title="Antall turer">

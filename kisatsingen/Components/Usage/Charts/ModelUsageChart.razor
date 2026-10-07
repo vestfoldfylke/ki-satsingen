@@ -8,20 +8,24 @@
     }
     else
     {
-        <RadzenChart Style="height: 380px;" MouseMoveThrottle="150">
-            <RadzenColumnSeries Data="@_points"
+        <RadzenChart Animate="true" Style="height: 380px;" MouseMoveThrottle="150">
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.InputTokens)"
                                 Title="Input tokens" />
-            <RadzenColumnSeries Data="@_points"
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.OutputTokens)"
                                 Title="Output tokens" />
-            <RadzenColumnSeries Data="@_points"
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.EstimatedInputTokens)"
                                 Title="Estimert input tokens" />
-            <RadzenColumnSeries Data="@_points"
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.EstimatedOutputTokens)"
                                 Title="Estimert output tokens" />
