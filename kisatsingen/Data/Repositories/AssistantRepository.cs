@@ -34,11 +34,7 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
     public async Task<Assistant?> GetAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-
-        // File metadata only. Chunks go through IKnowledgeFileRepository — an
-        // assistant's files hold every chunk of every document attached to it.
         return await db.Assistants
-            .Include(a => a.KnowledgeFiles.OrderBy(f => f.CreatedAt))
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == assistantId && a.OwnerId == ownerId, ct);
     }

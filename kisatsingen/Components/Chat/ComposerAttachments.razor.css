@@ -1,0 +1,14 @@
+.composer-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.composer-attachment {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}

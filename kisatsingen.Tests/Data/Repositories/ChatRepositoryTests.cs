@@ -180,6 +180,20 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Assert.Equal(("Completed", """[{"kind":"text"}]""", (long?)1200), (stored.Status, stored.AnswerJson, stored.DurationMs));
     }
 
+    [Fact]
+    public async Task A_turns_attachments_round_trip_through_insert_and_update()
+    {
+        const string attachmentsJson = """[{"name":"budsjett.md","fileId":"3f2c"},{"name":"notat.txt","reason":"kunne ikke leses"}]""";
+        var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var turn = Row("hi", attachmentsJson: attachmentsJson);
+        await Repo.InsertTurnAsync(OwnerId, chat.Id, turn);
+
+        await Repo.UpdateTurnAsync(OwnerId, chat.Id, Row("hi", id: turn.Id, status: "Completed", attachmentsJson: attachmentsJson));
+
+        var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
+        Assert.Equal(attachmentsJson, Assert.Single(reloaded!.Turns).AttachmentsJson);
+    }
+
     // It names its columns, so a new one is dropped silently unless it is listed.
     [Fact]
     public async Task UpdateTurnAsync_stores_reported_and_estimated_usage_apart()
@@ -390,7 +404,8 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         Guid? id = null,
         string status = "Running",
         string answerJson = "[]",
-        long? durationMs = null) => new()
+        long? durationMs = null,
+        string? attachmentsJson = null) => new()
     {
         Id = id ?? Guid.NewGuid(),
         StartedAt = startedAt == default ? DateTimeOffset.UtcNow : startedAt,
@@ -399,6 +414,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         ModelKey = "fast",
         Status = status,
         AnswerJson = answerJson,
+        AttachmentsJson = attachmentsJson,
         DurationMs = durationMs
     };
 }

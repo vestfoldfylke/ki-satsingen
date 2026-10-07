@@ -289,15 +289,20 @@ public sealed class TurnBuilderTests
         Assert.Equal(TurnStage.Generating, builder.Finish(TurnStatus.Failed, TurnStage.Generating).FailedAt);
     }
 
-    private static TurnBuilder Builder(long requestTokens = 0) => new(new Turn
+    private static TurnBuilder Builder(long requestTokens = 0)
     {
-        Id = Guid.NewGuid(),
-        Prompt = "hei",
-        SystemPrompt = "be brief",
-        ModelKey = FakeChatModelCatalog.DefaultKey,
-        ModelDisplayName = "Fast",
-        StartedAt = DateTimeOffset.UtcNow
-    }, requestTokens);
+        var builder = new TurnBuilder(new Turn
+        {
+            Id = Guid.NewGuid(),
+            Prompt = "hei",
+            SystemPrompt = "be brief",
+            ModelKey = FakeChatModelCatalog.DefaultKey,
+            ModelDisplayName = "Fast",
+            StartedAt = DateTimeOffset.UtcNow
+        });
+        builder.SetRequestTokens(requestTokens);
+        return builder;
+    }
 
     private static ToolSegment SingleTool(TurnBuilder builder) =>
         Assert.IsType<ToolSegment>(Assert.Single(builder.Snapshot().Answer));

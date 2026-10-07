@@ -14,6 +14,10 @@
         </div>
 
         <div class="chat-composer">
+            <ComposerAttachments Attachments="Attachments"
+                                 Notice="@AttachmentNotice"
+                                 OnRemove="OnRemoveAttachment" />
+
             <textarea @ref="_textarea"
                       id="chat-textarea"
                       class="ds-input chat-textarea"
@@ -22,9 +26,8 @@
 
             <div class="chat-composer-actions">
                 <div class="composer-actions-left">
-                    <button class="ds-button" type="button" data-variant="tertiary" data-color="primary" data-icon="true" aria-label="Legg ved fil" disabled="@IsBusy">
-                        <span class="material-symbols-outlined">add</span>
-                    </button>
+                    <ComposerAddMenu IsFilePickerDisabled="IsPickerDisabled"
+                                     OnFilesSelected="OnFilesSelected" />
 
                     @if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
                     {

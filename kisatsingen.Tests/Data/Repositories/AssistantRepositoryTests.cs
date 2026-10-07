@@ -157,18 +157,4 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id));
     }
-
-    [Fact]
-    public async Task GetAssistantAsync_includes_file_metadata_but_not_chunk_content()
-    {
-        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
-        var files = new KnowledgeFileRepository(Factory, maxEstimatedTokenCount: 500_000);
-        await files.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.pdf", "a", "b"));
-
-        var found = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
-
-        var file = Assert.Single(found!.KnowledgeFiles);
-        Assert.Equal("rundskriv.pdf", file.FileName);
-        Assert.Empty(file.Chunks);
-    }
 }

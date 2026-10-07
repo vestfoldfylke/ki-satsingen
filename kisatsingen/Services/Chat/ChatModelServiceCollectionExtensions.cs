@@ -186,7 +186,8 @@ internal static class ChatModelServiceCollectionExtensions
             .GetChatClient(modelId)
             .AsIChatClient()
             .AsBuilder()
-            .UseFunctionInvocation()
+            .UseFunctionInvocation(configure: client =>
+                client.FunctionInvoker = new ToolInvoker(serviceProvider.GetRequiredService<ILogger<ToolInvoker>>()).InvokeAsync)
             .Build(serviceProvider);
     }
 }

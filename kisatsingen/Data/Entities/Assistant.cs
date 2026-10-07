@@ -20,6 +20,4 @@ public sealed class Assistant
 
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
-
-    public List<KnowledgeFile> KnowledgeFiles { get; init; } = [];
 }

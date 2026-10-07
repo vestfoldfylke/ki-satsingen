@@ -24,6 +24,9 @@ public sealed record Turn
 
     public IReadOnlyList<TurnSegment> Answer { get; init; } = [];
 
+    // The files sent with the prompt, rendered into the attachment line.
+    public IReadOnlyList<TurnAttachment> Attachments { get; init; } = [];
+
     // Answer is then empty rather than garbled, so the model is not sent it.
     public bool IsAnswerUnreadable { get; init; }
 
@@ -41,16 +44,26 @@ public sealed record Turn
         StartedAt = DateTimeOffset.UtcNow
     };
 
-    // A tool still running when its turn ends never will finish.
+    // A tool still running when its turn ends never will finish, and a file
+    // still being processed never will be. Both are marked interrupted, so the
+    // bubble and the attachment line say what happened instead of dropping it.
     public Turn EndedAs(TurnStatus status, TurnStage? failedAt = null) => this with
     {
         Status = status,
         FailedAt = status == TurnStatus.Failed ? failedAt : null,
-        Answer = [.. Answer.Select(InterruptIfRunning)]
+        Answer = [.. Answer.Select(InterruptIfRunning)],
+        Attachments = [.. Attachments.Select(InterruptIfProcessing)]
     };
 
     private static TurnSegment InterruptIfRunning(TurnSegment segment) =>
         segment is ToolSegment { Status: ToolStatus.Running } tool
             ? tool with { Status = ToolStatus.Interrupted }
             : segment;
+
+    // Its temp file is never kept, though a stopped worker may still be
+    // deleting it, so attaching it again is the only way on.
+    private static TurnAttachment InterruptIfProcessing(TurnAttachment attachment) =>
+        attachment.IsProcessing
+            ? attachment.Unavailable(AttachmentTexts.InterruptedReason)
+            : attachment;
 }

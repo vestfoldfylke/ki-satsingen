@@ -2,8 +2,8 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.Services.Chat;
 
-// A heuristic, not a tokenizer: GPT and Mistral use different vocabularies, so a
-// real tokenizer would be exact for one and confidently wrong for the other.
+// What a request would cost in the context window: its text through
+// TokenEstimate, plus what a conversation adds on top of text.
 internal static class ContextTokenEstimator
 {
     // English runs about four characters per token; Norwegian is denser on both
@@ -34,7 +34,7 @@ internal static class ContextTokenEstimator
             messageCount++;
         }
 
-        return (characters / TokenLengthInCharacters) + (messageCount * TokensPerMessage);
+        return TokenEstimate.FromCharacters(characters) + (messageCount * TokensPerMessage);
     }
 
     // Both below count an unknown segment kind as nothing rather than throwing: they

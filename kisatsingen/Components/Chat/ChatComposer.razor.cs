@@ -1,5 +1,7 @@
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Attachments;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Chat;
@@ -8,6 +10,7 @@ public sealed partial class ChatComposer : ComponentBase
 {
     private ElementReference _textarea;
     private bool? _previousIsBusy;
+    private bool? _previousIsUploading;
 
     [Inject]
     public required IJSRuntime JS { get; set; }
@@ -40,6 +43,26 @@ public sealed partial class ChatComposer : ComponentBase
 
     [Parameter]
     public MessageUsage? ConversationUsage { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<PendingAttachment> Attachments { get; set; } = [];
+
+    [Parameter]
+    public string? AttachmentNotice { get; set; }
+
+    [Parameter]
+    public bool IsUploading { get; set; }
+
+    [Parameter]
+    public EventCallback<InputFileChangeEventArgs> OnFilesSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnRemoveAttachment { get; set; }
+
+    // A new selection makes the files of the one still uploading unreadable. A
+    // running turn does not hold the picker: the files a message takes are
+    // decided at send, so one attached now goes with the next message.
+    private bool IsPickerDisabled => IsUploading;
 
     private sealed record ComposerNotice(string Color, string Text);
 
@@ -85,6 +108,12 @@ public sealed partial class ChatComposer : ComponentBase
                 {
                     await _textarea.FocusAsync();
                 }
+            }
+
+            if (firstRender || IsUploading != _previousIsUploading)
+            {
+                _previousIsUploading = IsUploading;
+                await JS.InvokeVoidAsync("chatClient.setComposerUploading", IsUploading);
             }
         }
         catch (Exception ex)

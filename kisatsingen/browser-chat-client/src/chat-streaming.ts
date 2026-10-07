@@ -20,7 +20,7 @@ import hljs from 'highlight.js/lib/core';
 import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
-import { initComposer, setComposerBusy, takeComposerValue } from './chat-composer.js';
+import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -212,7 +212,9 @@ declare global {
             initChatLog: typeof initChatLog;
             initComposer: typeof initComposer;
             setComposerBusy: typeof setComposerBusy;
+            setComposerUploading: typeof setComposerUploading;
             takeComposerValue: typeof takeComposerValue;
+            hidePopover: typeof hidePopover;
         };
     }
 }
@@ -225,5 +227,7 @@ window.chatClient = {
     initChatLog,
     initComposer,
     setComposerBusy,
+    setComposerUploading,
     takeComposerValue,
+    hidePopover,
 };
