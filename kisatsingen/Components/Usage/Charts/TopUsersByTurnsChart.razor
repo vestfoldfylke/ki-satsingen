@@ -9,6 +9,8 @@
     {
         <RadzenChart Animate="true" Style="height: 320px;" MouseMoveThrottle="150">
             <RadzenBarSeries FillMode="FillMode.Gradient"
+                             GradientEndOpacity="0.85"
+                             GradientStartOpacity="0.4"
                              Data="@_points"
                              CategoryProperty="@nameof(UserTurnPoint.OwnerId)"
                              ValueProperty="@nameof(UserTurnPoint.TurnCount)"

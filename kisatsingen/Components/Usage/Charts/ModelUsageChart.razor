@@ -10,21 +10,29 @@
     {
         <RadzenChart Animate="true" Style="height: 380px;" MouseMoveThrottle="150">
             <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
                                 Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.InputTokens)"
                                 Title="Input tokens" />
             <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
                                 Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.OutputTokens)"
                                 Title="Output tokens" />
             <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
                                 Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.EstimatedInputTokens)"
                                 Title="Estimert input tokens" />
             <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
                                 Data="@_points"
                                 CategoryProperty="@nameof(ModelPoint.Model)"
                                 ValueProperty="@nameof(ModelPoint.EstimatedOutputTokens)"
