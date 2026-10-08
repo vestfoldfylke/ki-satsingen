@@ -32,7 +32,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
-    public FakeTokenUsageRepository TokenUsageRepository { get; } = new();
+    public FakeUserTokenUsageRepository UserTokenUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -67,7 +67,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance,
-            TokenUsageRepository,
+            UserTokenUsageRepository,
             KnowledgeFiles,
             queue,
             AttachmentEnvironment.Store,
@@ -244,7 +244,7 @@ internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
 // Records every insert, so tests assert the turn's ending was written with the
 // usage the model reported and the status it landed on.
-internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
+internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 {
     public List<TokenUsageInsert> Inserts { get; } = [];
 
@@ -271,37 +271,8 @@ internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
         return Task.CompletedTask;
     }
 
-    // Chat-session tests only exercise the insert path. The query methods are
-    // stubbed to empty/default so the fake still satisfies the interface.
-    // public Task<IReadOnlyList<TokenUsage>> GetMyTokenUsageAsync(string ownerId, CancellationToken ct = default) =>
-    //     Task.FromResult<IReadOnlyList<TokenUsage>>([]);
-    //
-    // public Task<IReadOnlyList<TokenUsage>> GetOrganizationUsageAsync(CancellationToken ct = default) =>
-    //     Task.FromResult<IReadOnlyList<TokenUsage>>([]);
-
-    // Admin (no owner) overloads.
-    public Task<TokenUsageSummary> GetTotalsAsync(DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
-
-    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
-
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
-
-    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
-
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
-
-    public Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(DateTimeOffset? since, int topN, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
-
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
-
-    // Owner-scoped overloads.
+    // Chat-session tests only exercise the insert path; the owner-scoped query
+    // methods are stubbed so the fake still satisfies the interface.
     public Task<TokenUsageSummary> GetTotalsAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
 

@@ -8,14 +8,14 @@ using Xunit;
 namespace kisatsingen.Tests.Data.Repositories;
 
 [Collection(PostgresCollection.Name)]
-public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private const string OwnerId = "Whatever";
     private const string OtherOwnerId = "SomebodyElse";
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
-    private TokenUsageRepository Repo => new(Factory);
+    private UserTokenUsageRepository Repo => new(Factory);
 
     public Task InitializeAsync() => fixture.ResetAsync();
 
@@ -288,7 +288,10 @@ public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncL
         Assert.InRange(stored.Timestamp, before, after);
     }
 
-    private async Task InsertAtAsync(
+    // Seeds a row straight through the DbContext at a given timestamp — the
+    // query tests below need rows backdated past the `since` cutoff, which the
+    // repo's InsertTokenUsageAsync (always Now) can't produce.
+    private async Task SeedRowAsync(
         string ownerId,
         DateTimeOffset timestamp,
         string provider = "openai",
@@ -319,9 +322,9 @@ public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncL
     [Fact]
     public async Task Sums_totals_across_all_rows_for_the_owner()
     {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7, estimatedInputTokens: 1, estimatedOutputTokens: 2);
-        await InsertAtAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
+        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4);
+        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7, estimatedInputTokens: 1, estimatedOutputTokens: 2);
+        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
 
         var totals = await Repo.GetTotalsAsync(OwnerId, since: null);
 
@@ -333,23 +336,11 @@ public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncL
     }
 
     [Fact]
-    public async Task Totals_treat_null_token_counts_as_zero_and_still_count_the_turn()
-    {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: null, outputTokens: null, status: TurnStatus.Failed);
-
-        var totals = await Repo.GetTotalsAsync(since: null);
-
-        Assert.Equal(0, totals.TotalInputTokens);
-        Assert.Equal(0, totals.TotalOutputTokens);
-        Assert.Equal(1, totals.TurnCount);
-    }
-
-    [Fact]
     public async Task Totals_exclude_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await InsertAtAsync(OwnerId, now.AddDays(-10), inputTokens: 100, outputTokens: 100);
-        await InsertAtAsync(OwnerId, now.AddDays(-1), inputTokens: 7, outputTokens: 11);
+        await SeedRowAsync(OwnerId, now.AddDays(-10), inputTokens: 100, outputTokens: 100);
+        await SeedRowAsync(OwnerId, now.AddDays(-1), inputTokens: 7, outputTokens: 11);
 
         var totals = await Repo.GetTotalsAsync(OwnerId, since: now.AddDays(-7));
 
@@ -365,11 +356,11 @@ public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncL
     {
         // Oslo is UTC+1 in January. These two UTC times both land on 2026-01-15
         // in Oslo (23:00 and 23:30 local), so they must share one Day bucket.
-        await InsertAtAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 0, 0, TimeSpan.Zero), inputTokens: 10);
-        await InsertAtAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 5);
+        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 0, 0, TimeSpan.Zero), inputTokens: 10);
+        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 5);
 
         // Oslo 00:30 on 2026-01-16 — a different local day.
-        await InsertAtAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 23, 30, 0, TimeSpan.Zero), inputTokens: 2);
+        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 23, 30, 0, TimeSpan.Zero), inputTokens: 2);
 
         var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
 
@@ -378,93 +369,5 @@ public sealed class TokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncL
         Assert.Equal(2, series[0].TurnCount);
         Assert.Equal(2, series[1].InputTokens);
         Assert.Equal(1, series[1].TurnCount);
-    }
-
-    [Fact]
-    public async Task Groups_usage_by_provider_with_summed_tokens_and_turn_count()
-    {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 10, outputTokens: 20);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 5, outputTokens: 7);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, provider: "anthropic", inputTokens: 3, outputTokens: 4);
-
-        var rows = (await Repo.GetUsageByProviderAsync(since: null))
-            .ToDictionary(r => r.Key);
-
-        Assert.Equal(2, rows.Count);
-        Assert.Equal(15, rows["openai"].InputTokens);
-        Assert.Equal(27, rows["openai"].OutputTokens);
-        Assert.Equal(2, rows["openai"].TurnCount);
-        Assert.Equal(3, rows["anthropic"].InputTokens);
-        Assert.Equal(1, rows["anthropic"].TurnCount);
-    }
-
-    [Fact]
-    public async Task Groups_usage_by_status_and_parses_back_to_enum()
-    {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Failed);
-
-        var rows = (await Repo.GetUsageByStatusAsync(since: null))
-            .ToDictionary(r => r.Key);
-
-        Assert.Equal(2, rows[TurnStatus.Completed].TurnCount);
-        Assert.Equal(1, rows[TurnStatus.Failed].TurnCount);
-    }
-
-    [Fact]
-    public async Task Per_user_aggregation_sums_each_owner_only_once()
-    {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7);
-        await InsertAtAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
-
-        var perUser = (await Repo.GetUsagePerUserAsync(since: null))
-            .ToDictionary(r => r.Key);
-
-        Assert.Equal(2, perUser.Count);
-        Assert.Equal(15, perUser[OwnerId].InputTokens);
-        Assert.Equal(27, perUser[OwnerId].OutputTokens);
-        Assert.Equal(2, perUser[OwnerId].TurnCount);
-        Assert.Equal(100, perUser[OtherOwnerId].InputTokens);
-    }
-
-    [Fact]
-    public async Task Top_users_by_turns_ranks_by_count_desc_and_limits_to_top_n()
-    {
-        var now = DateTimeOffset.UtcNow;
-        for (var i = 0; i < 3; i++)
-        {
-            await InsertAtAsync("alice", now);
-        }
-        for (var i = 0; i < 5; i++)
-        {
-            await InsertAtAsync("bob", now);
-        }
-        await InsertAtAsync("carol", now);
-
-        var top = await Repo.GetTopUsersByTurnsAsync(since: null, topN: 2);
-
-        Assert.Equal(2, top.Count);
-        Assert.Equal("bob", top[0].Key);
-        Assert.Equal(5, top[0].TurnCount);
-        Assert.Equal("alice", top[1].Key);
-        Assert.Equal(3, top[1].TurnCount);
-    }
-
-    [Fact]
-    public async Task Per_model_aggregation_sums_each_model_only_once()
-    {
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 10, outputTokens: 20);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 5, outputTokens: 7);
-        await InsertAtAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "claude-5", inputTokens: 1, outputTokens: 2);
-
-        var perModel = (await Repo.GetUsageByModelAsync(since: null))
-            .ToDictionary(r => r.Key);
-
-        Assert.Equal(15, perModel["gpt-5-mini"].InputTokens);
-        Assert.Equal(2, perModel["gpt-5-mini"].TurnCount);
-        Assert.Equal(1, perModel["claude-5"].InputTokens);
-        Assert.Equal(1, perModel["claude-5"].TurnCount);
     }
 }

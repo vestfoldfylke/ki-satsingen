@@ -13,7 +13,7 @@ public partial class MyUsage : ComponentBase, IDisposable
     public required IAuthenticationService AuthenticationService { private get; set; }
 
     [Inject]
-    public required ITokenUsageRepository TokenUsageRepository { get; set; }
+    public required IUserTokenUsageRepository UserTokenUsageRepository { get; set; }
 
     [Inject]
     public required ILogger<MyUsage> Logger { get; set; }
@@ -67,11 +67,11 @@ public partial class MyUsage : ComponentBase, IDisposable
             var since = Range.Since();
             var bucket = Range.Bucket();
 
-            var totalsTask = TokenUsageRepository.GetTotalsAsync(_ownerId, since, ct);
-            var timeSeriesTask = TokenUsageRepository.GetTimeSeriesAsync(_ownerId, since, bucket, ct);
-            var statusTask = TokenUsageRepository.GetUsageByStatusAsync(_ownerId, since, ct);
-            var providerTask = TokenUsageRepository.GetUsageByProviderAsync(_ownerId, since, ct);
-            var modelTask = TokenUsageRepository.GetUsageByModelAsync(_ownerId, since, ct);
+            var totalsTask = UserTokenUsageRepository.GetTotalsAsync(_ownerId, since, ct);
+            var timeSeriesTask = UserTokenUsageRepository.GetTimeSeriesAsync(_ownerId, since, bucket, ct);
+            var statusTask = UserTokenUsageRepository.GetUsageByStatusAsync(_ownerId, since, ct);
+            var providerTask = UserTokenUsageRepository.GetUsageByProviderAsync(_ownerId, since, ct);
+            var modelTask = UserTokenUsageRepository.GetUsageByModelAsync(_ownerId, since, ct);
 
             await Task.WhenAll(totalsTask, timeSeriesTask, statusTask, providerTask, modelTask);
 

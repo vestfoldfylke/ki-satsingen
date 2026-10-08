@@ -170,7 +170,8 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
 builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
-builder.Services.AddScoped<ITokenUsageRepository, TokenUsageRepository>();
+builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
+builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
 
 // Radzen Charts depend on scoped UI services (TooltipService et al.) injected
 // via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical

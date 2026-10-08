@@ -12,7 +12,7 @@ public partial class Usage : ComponentBase, IDisposable
     public required IChatModelCatalog ChatModelCatalog { get; init; }
 
     [Inject]
-    public required ITokenUsageRepository TokenUsageRepository { get; init; }
+    public required IOrganizationTokenUsageRepository OrganizationTokenUsageRepository { get; init; }
 
     [Inject]
     public required ILogger<Usage> Logger { get; init; }
@@ -68,13 +68,13 @@ public partial class Usage : ComponentBase, IDisposable
             var since = Range.Since();
             var bucket = Range.Bucket();
 
-            var totalsTask = TokenUsageRepository.GetTotalsAsync(since, ct);
-            var timeSeriesTask = TokenUsageRepository.GetTimeSeriesAsync(since, bucket, ct);
-            var statusTask = TokenUsageRepository.GetUsageByStatusAsync(since, ct);
-            var providerTask = TokenUsageRepository.GetUsageByProviderAsync(since, ct);
-            var modelTask = TokenUsageRepository.GetUsageByModelAsync(since, ct);
-            var topUsersTask = TokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
-            var perUserTask = TokenUsageRepository.GetUsagePerUserAsync(since, ct);
+            var totalsTask = OrganizationTokenUsageRepository.GetTotalsAsync(since, ct);
+            var timeSeriesTask = OrganizationTokenUsageRepository.GetTimeSeriesAsync(since, bucket, ct);
+            var statusTask = OrganizationTokenUsageRepository.GetUsageByStatusAsync(since, ct);
+            var providerTask = OrganizationTokenUsageRepository.GetUsageByProviderAsync(since, ct);
+            var modelTask = OrganizationTokenUsageRepository.GetUsageByModelAsync(since, ct);
+            var topUsersTask = OrganizationTokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
+            var perUserTask = OrganizationTokenUsageRepository.GetUsagePerUserAsync(since, ct);
 
             await Task.WhenAll(
                 totalsTask, timeSeriesTask, statusTask, providerTask,

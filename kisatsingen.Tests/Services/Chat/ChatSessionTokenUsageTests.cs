@@ -17,7 +17,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(120, insert.InputTokens);
         Assert.Equal(45, insert.OutputTokens);
         Assert.Null(insert.EstimatedInputTokens);
@@ -34,7 +34,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(expected.Provider, insert.Provider);
         Assert.Equal(expected.ModelId, insert.ModelId);
     }
@@ -47,7 +47,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(ChatSessionHarness.OwnerUnderTest, insert.OwnerId);
     }
 
@@ -64,7 +64,7 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Stopped, insert.Status);
         Assert.Null(insert.InputTokens);
         Assert.Null(insert.OutputTokens);
@@ -86,7 +86,7 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(200, insert.InputTokens);
         Assert.Equal(50, insert.OutputTokens);
         Assert.Null(insert.EstimatedInputTokens);
@@ -101,7 +101,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Failed, insert.Status);
     }
 
@@ -117,7 +117,7 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.CancelForDisconnect();
         await send;
 
-        var insert = Assert.Single(harness.TokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Disconnected, insert.Status);
     }
 
@@ -130,7 +130,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Empty(harness.TokenUsageRepository.Inserts);
+        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
     }
 
     // Unauthenticated: rethrown, so the composer's finally never reaches the store.
@@ -142,7 +142,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
 
-        Assert.Empty(harness.TokenUsageRepository.Inserts);
+        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
     }
 
     // The store is a side channel: its outage cannot take the turn with it.
@@ -150,7 +150,7 @@ public sealed class ChatSessionTokenUsageTests
     public async Task A_store_failure_does_not_escape_the_send()
     {
         await using var harness = new ChatSessionHarness();
-        harness.TokenUsageRepository.InsertFailure = new InvalidOperationException("usage store away");
+        harness.UserTokenUsageRepository.InsertFailure = new InvalidOperationException("usage store away");
 
         var failure = await Record.ExceptionAsync(() => harness.Session.SendAsync("hei"));
 
@@ -167,7 +167,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.TokenUsageRepository.Inserts);
+        Assert.Single(harness.UserTokenUsageRepository.Inserts);
     }
 
     [Fact]
@@ -179,6 +179,6 @@ public sealed class ChatSessionTokenUsageTests
         await harness.Session.SendAsync("hei");
         await harness.Session.SendAsync("igjen");
 
-        Assert.Equal(2, harness.TokenUsageRepository.Inserts.Count);
+        Assert.Equal(2, harness.UserTokenUsageRepository.Inserts.Count);
     }
 }
