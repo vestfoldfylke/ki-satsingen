@@ -96,7 +96,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
-    public async Task Per_user_aggregation_sums_each_owner_only_once()
+    public async Task Per_user_aggregation_sums_tokens_and_turns_for_each_owner()
     {
         await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
         await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7);
@@ -136,7 +136,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
-    public async Task Per_model_aggregation_sums_each_model_only_once()
+    public async Task Per_model_aggregation_sums_tokens_and_turns_for_each_model()
     {
         await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 10, outputTokens: 20);
         await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 5, outputTokens: 7);

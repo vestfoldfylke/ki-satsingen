@@ -365,9 +365,138 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
 
         Assert.Equal(2, series.Count);
+        Assert.Equal(new DateTimeOffset(2026, 1, 14, 23, 0, 0, TimeSpan.Zero), series[0].Bucket);
         Assert.Equal(15, series[0].InputTokens);
         Assert.Equal(2, series[0].TurnCount);
+        Assert.Equal(new DateTimeOffset(2026, 1, 15, 23, 0, 0, TimeSpan.Zero), series[1].Bucket);
         Assert.Equal(2, series[1].InputTokens);
         Assert.Equal(1, series[1].TurnCount);
+    }
+
+    // DST sanity: in July Oslo is UTC+2, so midnight-local sits one hour earlier
+    // in UTC than it does in January. The same code path must handle both offsets.
+    [Fact]
+    public async Task Time_series_bucket_boundary_tracks_summer_time_offset()
+    {
+        // Oslo 22:00 on 2026-07-15 (both still on the same local day).
+        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 7, 15, 20, 0, 0, TimeSpan.Zero), inputTokens: 10);
+
+        // Oslo 00:30 on 2026-07-16 — crosses local midnight.
+        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 7, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 3);
+
+        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
+
+        Assert.Equal(2, series.Count);
+        Assert.Equal(new DateTimeOffset(2026, 7, 14, 22, 0, 0, TimeSpan.Zero), series[0].Bucket);
+        Assert.Equal(new DateTimeOffset(2026, 7, 15, 22, 0, 0, TimeSpan.Zero), series[1].Bucket);
+    }
+
+    [Fact]
+    public async Task Time_series_excludes_rows_for_other_owners()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now, inputTokens: 7);
+        await SeedRowAsync(OtherOwnerId, now, inputTokens: 1000);
+
+        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
+
+        Assert.Single(series);
+        Assert.Equal(7, series[0].InputTokens);
+        Assert.Equal(1, series[0].TurnCount);
+    }
+
+    [Fact]
+    public async Task Time_series_excludes_rows_older_than_the_since_cutoff()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now.AddDays(-10), inputTokens: 100);
+        await SeedRowAsync(OwnerId, now.AddDays(-1), inputTokens: 7);
+
+        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: now.AddDays(-7), UsageBucket.Day);
+
+        Assert.Single(series);
+        Assert.Equal(7, series[0].InputTokens);
+    }
+
+    [Fact]
+    public async Task Usage_by_provider_excludes_rows_for_other_owners()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now, provider: "openai", inputTokens: 7);
+        await SeedRowAsync(OtherOwnerId, now, provider: "anthropic", inputTokens: 1000);
+
+        var rows = await Repo.GetUsageByProviderAsync(OwnerId, since: null);
+
+        var only = Assert.Single(rows);
+        Assert.Equal("openai", only.Key);
+        Assert.Equal(7, only.InputTokens);
+    }
+
+    [Fact]
+    public async Task Usage_by_provider_excludes_rows_older_than_the_since_cutoff()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now.AddDays(-10), provider: "openai", inputTokens: 100);
+        await SeedRowAsync(OwnerId, now.AddDays(-1), provider: "openai", inputTokens: 7);
+
+        var rows = await Repo.GetUsageByProviderAsync(OwnerId, since: now.AddDays(-7));
+
+        var only = Assert.Single(rows);
+        Assert.Equal(7, only.InputTokens);
+        Assert.Equal(1, only.TurnCount);
+    }
+
+    [Fact]
+    public async Task Usage_by_status_excludes_rows_for_other_owners()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now, status: TurnStatus.Completed);
+        await SeedRowAsync(OtherOwnerId, now, status: TurnStatus.Failed);
+
+        var rows = await Repo.GetUsageByStatusAsync(OwnerId, since: null);
+
+        var only = Assert.Single(rows);
+        Assert.Equal(TurnStatus.Completed, only.Key);
+    }
+
+    [Fact]
+    public async Task Usage_by_status_excludes_rows_older_than_the_since_cutoff()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now.AddDays(-10), status: TurnStatus.Completed);
+        await SeedRowAsync(OwnerId, now.AddDays(-1), status: TurnStatus.Failed);
+
+        var rows = await Repo.GetUsageByStatusAsync(OwnerId, since: now.AddDays(-7));
+
+        var only = Assert.Single(rows);
+        Assert.Equal(TurnStatus.Failed, only.Key);
+    }
+
+    [Fact]
+    public async Task Usage_by_model_excludes_rows_for_other_owners()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now, modelId: "gpt-5-mini", inputTokens: 7);
+        await SeedRowAsync(OtherOwnerId, now, modelId: "claude-5", inputTokens: 1000);
+
+        var rows = await Repo.GetUsageByModelAsync(OwnerId, since: null);
+
+        var only = Assert.Single(rows);
+        Assert.Equal("gpt-5-mini", only.Key);
+        Assert.Equal(7, only.InputTokens);
+    }
+
+    [Fact]
+    public async Task Usage_by_model_excludes_rows_older_than_the_since_cutoff()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(OwnerId, now.AddDays(-10), modelId: "gpt-5-mini", inputTokens: 100);
+        await SeedRowAsync(OwnerId, now.AddDays(-1), modelId: "gpt-5-mini", inputTokens: 7);
+
+        var rows = await Repo.GetUsageByModelAsync(OwnerId, since: now.AddDays(-7));
+
+        var only = Assert.Single(rows);
+        Assert.Equal(7, only.InputTokens);
+        Assert.Equal(1, only.TurnCount);
     }
 }
