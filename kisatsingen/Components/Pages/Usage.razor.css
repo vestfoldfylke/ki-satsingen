@@ -1,0 +1,48 @@
+.usage-page {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0.5rem 1rem;
+}
+
+.usage-range-selector {
+    display: flex;
+    justify-content: end;
+    padding-bottom: 1rem;
+}
+
+.usage-page > h1 {
+    padding-bottom: 1rem;
+}
+
+.usage-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.usage-chart-row {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+@media (max-width: 2000px) {
+    .usage-chart-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 1540px) {
+    .usage-chart-row {
+        grid-template-columns: 1fr;
+    }
+
+    .usage-chart-row > :last-child {
+        grid-column: auto;
+    }
+}

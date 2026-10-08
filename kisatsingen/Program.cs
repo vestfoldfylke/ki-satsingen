@@ -19,6 +19,7 @@ using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Npgsql;
 using Prometheus;
+using Radzen;
 using Vestfold.Extensions.Logging;
 using Vestfold.Extensions.Metrics;
 
@@ -169,7 +170,14 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
 builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
-builder.Services.AddScoped<ITokenUsageRepository, TokenUsageRepository>();
+builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
+builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
+
+// Radzen Charts depend on scoped UI services (TooltipService et al.) injected
+// via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical
+// one-liner that registers all of them.
+builder.Services.AddRadzenComponents();
+
 builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();

@@ -12,7 +12,27 @@
                     New
                 </button>
             </div>
+            <div class="nav-item">
+                <NavLink class="ds-link" href="usage">
+                    <span class="material-symbols-outlined">data_usage</span>
+                    Mitt forbruk
+                </NavLink>
+            </div>
         </nav>
+
+        <AuthorizeView Policy="IsAdministrator">
+            <Authorized>
+                <nav class="nav-primary">
+                    <h4 class="ds-heading" data-size="xs">Administration</h4>
+                    <div class="nav-item">
+                        <NavLink class="ds-link" href="administration/usage">
+                            <span class="material-symbols-outlined">data_usage</span>
+                            Totalt forbruk
+                        </NavLink>
+                    </div>
+                </nav>
+            </Authorized>
+        </AuthorizeView>
 
         <aside class="chat-sidebar" aria-label="Chat list">
             <div class="chat-sidebar-header">

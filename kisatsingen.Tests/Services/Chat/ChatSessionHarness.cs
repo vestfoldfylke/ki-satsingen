@@ -32,7 +32,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
-    public FakeTokenUsageRepository TokenUsageRepository { get; } = new();
+    public FakeUserTokenUsageRepository UserTokenUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -67,7 +67,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance,
-            TokenUsageRepository,
+            UserTokenUsageRepository,
             KnowledgeFiles,
             queue,
             AttachmentEnvironment.Store,
@@ -244,7 +244,7 @@ internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
 // Records every insert, so tests assert the turn's ending was written with the
 // usage the model reported and the status it landed on.
-internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
+internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 {
     public List<TokenUsageInsert> Inserts { get; } = [];
 
@@ -270,6 +270,23 @@ internal sealed class FakeTokenUsageRepository : ITokenUsageRepository
         Inserts.Add(new TokenUsageInsert(ownerId, provider, modelId, inputTokens, outputTokens, estimatedInputTokens, estimatedOutputTokens, status));
         return Task.CompletedTask;
     }
+
+    // Chat-session tests only exercise the insert path; the owner-scoped query
+    // methods are stubbed so the fake still satisfies the interface.
+    public Task<TokenUsageSummary> GetTotalsAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
+
+    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(string ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
+
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 }
 
 internal sealed record TokenUsageInsert(

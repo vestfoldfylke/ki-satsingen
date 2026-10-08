@@ -1,0 +1,92 @@
+@page "/Administration/Usage"
+@using kisatsingen.Components.Chat
+@using kisatsingen.Components.Usage
+@using kisatsingen.Components.Usage.Charts
+@using kisatsingen.Data.Entities
+@attribute [Authorize(Policy = "IsAdministrator")]
+
+<div class="usage-page">
+    <div class="usage-range-selector">
+        <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" />
+    </div>
+
+    @if (LoadError is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@LoadError</p>
+            <button type="button" class="ds-button" data-variant="secondary" data-size="sm" @onclick="ReloadAsync">
+                Prøv på nytt
+            </button>
+        </div>
+    }
+
+    <h1 class="ds-heading" data-size="md">Totalt forbruk</h1>
+    <TotalUsage
+        TotalInputTokenUsage="Totals.TotalInputTokens"
+        TotalOutputTokenUsage="Totals.TotalOutputTokens"
+        TotalEstimatedInputTokenUsage="Totals.TotalEstimatedInputTokens"
+        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
+
+    <div class="usage-chart-row">
+        <ProviderUsageChart Breakdown="ProviderBreakdown" @key="(nameof(ProviderBreakdown), ProviderBreakdown)" />
+        <ModelUsageChart Breakdown="ModelBreakdown" @key="(nameof(ModelBreakdown), ModelBreakdown)" />
+        <TurnStatusChart Breakdown="StatusBreakdown" @key="(nameof(StatusBreakdown), StatusBreakdown)" />
+    </div>
+
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" @key="(nameof(TimeSeries), TimeSeries)" />
+
+    <h3>Top @TopUserCount users by</h3>
+    <ds-tabs class="ds-tabs">
+        <ds-tablist>
+            <ds-tab aria-controls="top-users-by-turns" aria-selected="true" role="tab">Turns</ds-tab>
+            <ds-tab aria-controls="top-users-by-input-tokens" role="tab">Input tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-output-tokens" role="tab">Output tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-estimated-input-tokens" role="tab">Estimated input tokens</ds-tab>
+            <ds-tab aria-controls="top-users-by-estimated-output-tokens" role="tab">Estimated output tokens</ds-tab>
+        </ds-tablist>
+        <ds-tabpanel id="top-users-by-turns">
+            <TopUsersByTurnsChart TopUsers="TopUsersByTurns" @key="(nameof(TopUsersByTurns), TopUsersByTurns)" />
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-input-tokens">
+            @TopTokenUsage(TopTokenUsageByInputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-output-tokens">
+            @TopTokenUsage(TopTokenUsageByOutputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-estimated-input-tokens">
+            @TopTokenUsage(TopTokenUsageByEstimatedInputTokens)
+        </ds-tabpanel>
+        <ds-tabpanel id="top-users-by-estimated-output-tokens">
+            @TopTokenUsage(TopTokenUsageByEstimatedOutputTokens)
+        </ds-tabpanel>
+    </ds-tabs>
+</div>
+
+@code {
+    private RenderFragment<IEnumerable<UsageByKey<string>>> TopTokenUsage => topTokenUsage =>
+        @<div class="usage-table-scroll">
+            <table class="ds-table">
+                <thead>
+                    <tr>
+                        <th>OwnerId</th>
+                        <th>Input tokens</th>
+                        <th>Output tokens</th>
+                        <th>Estimated input tokens</th>
+                        <th>Estimated output tokens</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in topTokenUsage)
+                    {
+                        <tr>
+                            <td>@row.Key</td>
+                            <td>@TokenCountFormat.Format(row.InputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.OutputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.EstimatedInputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.EstimatedOutputTokens)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>;
+}
