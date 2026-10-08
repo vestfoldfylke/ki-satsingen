@@ -12,14 +12,24 @@ public enum UsageRange
 
 public static class UsageRangeExtensions
 {
-    public static DateTimeOffset? Since(this UsageRange range) => range switch
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
+    public static DateTimeOffset? Since(this UsageRange range)
     {
-        UsageRange.Last7Days => DateTimeOffset.UtcNow.AddDays(-7),
-        UsageRange.Last30Days => DateTimeOffset.UtcNow.AddDays(-30),
-        UsageRange.Last90Days => DateTimeOffset.UtcNow.AddDays(-90),
-        UsageRange.All => null,
-        _ => null
-    };
+        var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Oslo).Date;
+
+        DateTime? start = range switch
+        {
+            UsageRange.Last7Days => today.AddDays(-6),
+            UsageRange.Last30Days => today.AddDays(-29),
+            UsageRange.Last90Days => today.AddDays(-89),
+            _ => null
+        };
+
+        return start is not null
+            ? (DateTimeOffset)new DateTimeOffset(start.Value).UtcDateTime
+            : null;
+    }
 
     public static UsageBucket Bucket(this UsageRange range) => range switch
     {
