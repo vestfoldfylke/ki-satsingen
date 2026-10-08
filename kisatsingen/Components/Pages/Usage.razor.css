@@ -11,6 +11,10 @@
     padding-bottom: 1rem;
 }
 
+.usage-page > h1 {
+    padding-bottom: 1rem;
+}
+
 .usage-table-scroll {
     width: 100%;
     overflow-x: auto;
