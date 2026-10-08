@@ -48,10 +48,17 @@ public partial class Usage : ComponentBase, IDisposable
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    private Task OnRangeChanged(UsageRange range)
+    private async Task OnRangeChanged(UsageRange range)
     {
+        var previousRange = Range;
+
         Range = range;
-        return ReloadAsync();
+        await ReloadAsync();
+
+        if (!string.IsNullOrWhiteSpace(LoadError))
+        {
+            Range = previousRange;
+        }
     }
 
     private async Task ReloadAsync()
