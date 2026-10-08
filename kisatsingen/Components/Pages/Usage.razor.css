@@ -33,7 +33,7 @@
     }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1540px) {
     .usage-chart-row {
         grid-template-columns: 1fr;
     }
