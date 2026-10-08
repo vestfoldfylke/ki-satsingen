@@ -1,5 +1,5 @@
 @page "/Administration/Usage"
-@using System.Globalization
+@using kisatsingen.Components.Chat
 @using kisatsingen.Components.Usage
 @using kisatsingen.Components.Usage.Charts
 @using kisatsingen.Data.Entities
@@ -80,10 +80,10 @@
                     {
                         <tr>
                             <td>@row.Key</td>
-                            <td>@row.InputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
-                            <td>@row.OutputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
-                            <td>@row.EstimatedInputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
-                            <td>@row.EstimatedOutputTokens.ToString("N0", CultureInfo.InvariantCulture)</td>
+                            <td>@TokenCountFormat.Format(row.InputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.OutputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.EstimatedInputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.EstimatedOutputTokens)</td>
                         </tr>
                     }
                 </tbody>
