@@ -62,7 +62,12 @@ public partial class MyUsage : ComponentBase, IDisposable
             return;
         }
 
-        _reloadCts?.Cancel();
+        if (_reloadCts is not null)
+        {
+            await _reloadCts.CancelAsync();
+            _reloadCts.Dispose();
+        }
+
         _reloadCts = new CancellationTokenSource();
         var ct = _reloadCts.Token;
 

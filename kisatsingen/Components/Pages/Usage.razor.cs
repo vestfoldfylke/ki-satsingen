@@ -63,7 +63,12 @@ public partial class Usage : ComponentBase, IDisposable
 
     private async Task ReloadAsync()
     {
-        _reloadCts?.Cancel();
+        if (_reloadCts is not null)
+        {
+            await _reloadCts.CancelAsync();
+            _reloadCts.Dispose();
+        }
+
         _reloadCts = new CancellationTokenSource();
         var ct = _reloadCts.Token;
 
