@@ -20,7 +20,6 @@ public partial class Usage : ComponentBase, IDisposable
     private const int TopUserCount = 5;
 
     private UsageRange Range { get; set; } = UsageRange.Last7Days;
-    private bool IsLoading { get; set; }
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;
 
@@ -72,7 +71,6 @@ public partial class Usage : ComponentBase, IDisposable
         _reloadCts = new CancellationTokenSource();
         var ct = _reloadCts.Token;
 
-        IsLoading = true;
         LoadError = null;
 
         try
@@ -108,10 +106,6 @@ public partial class Usage : ComponentBase, IDisposable
         {
             Logger.LogError(ex, "Failed to reload organization token usage for range {Range}", Range);
             LoadError = "Kunne ikke laste forbruk.";
-        }
-        finally
-        {
-            IsLoading = false;
         }
     }
 

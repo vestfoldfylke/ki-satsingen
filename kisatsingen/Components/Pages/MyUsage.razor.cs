@@ -19,7 +19,6 @@ public partial class MyUsage : ComponentBase, IDisposable
     public required ILogger<MyUsage> Logger { get; set; }
 
     private UsageRange Range { get; set; } = UsageRange.Last7Days;
-    private bool IsLoading { get; set; }
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;
 
@@ -71,7 +70,6 @@ public partial class MyUsage : ComponentBase, IDisposable
         _reloadCts = new CancellationTokenSource();
         var ct = _reloadCts.Token;
 
-        IsLoading = true;
         LoadError = null;
 
         try
@@ -101,10 +99,6 @@ public partial class MyUsage : ComponentBase, IDisposable
         {
             Logger.LogError(ex, "Failed to reload personal token usage for range {Range}", Range);
             LoadError = "Kunne ikke laste forbruk.";
-        }
-        finally
-        {
-            IsLoading = false;
         }
     }
 
