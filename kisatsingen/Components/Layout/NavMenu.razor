@@ -13,10 +13,10 @@
                 </button>
             </div>
             <div class="nav-item">
-                <button type="button" class="ds-link" @onclick="ShowMyUsageAsync">
+                <NavLink class="ds-link" href="usage">
                     <span class="material-symbols-outlined">data_usage</span>
                     Mitt forbruk
-                </button>
+                </NavLink>
             </div>
         </nav>
 
@@ -25,10 +25,10 @@
                 <nav class="nav-primary">
                     <h4 class="ds-heading" data-size="xs">Administration</h4>
                     <div class="nav-item">
-                        <button type="button" class="ds-link" @onclick="ShowAdministrationUsageAsync">
+                        <NavLink class="ds-link" href="administration/usage">
                             <span class="material-symbols-outlined">data_usage</span>
                             Forbruk
-                        </button>
+                        </NavLink>
                     </div>
                 </nav>
             </Authorized>

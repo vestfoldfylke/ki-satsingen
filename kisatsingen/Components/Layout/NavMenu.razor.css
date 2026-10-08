@@ -15,7 +15,8 @@
     }
 }
 
-.nav-item > button > span {
+.nav-item > button > span,
+.nav-item > a > span {
     font-size: .85rem;
 }
 
