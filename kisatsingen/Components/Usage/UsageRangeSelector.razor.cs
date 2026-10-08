@@ -17,6 +17,4 @@ public partial class UsageRangeSelector : ComponentBase
 
     [Parameter]
     public EventCallback<UsageRange> CurrentChanged { get; set; }
-
-    private Task SelectionChanged() => CurrentChanged.InvokeAsync(Current);
 }

@@ -1,12 +1,9 @@
-<select class="ds-input" @bind="Current" @bind:after="SelectionChanged" aria-label="Velg tidsrom">
+<select class="ds-input"
+        @bind:get="Current"
+        @bind:set="CurrentChanged.InvokeAsync"
+        aria-label="Velg tidsrom">
     @foreach (var range in Ranges)
     {
-        if (range == Current)
-        {
-            <option value="@range" selected="selected">@range.Label()</option>
-            continue;
-        }
-
         <option value="@range">@range.Label()</option>
     }
 </select>
