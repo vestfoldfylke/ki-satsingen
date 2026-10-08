@@ -1,5 +1,4 @@
-<select class="ds-input" @bind="Current" @bind:after="SelectionChanged">
-    <option value="" disabled="disabled">Velg tidsrom</option>
+<select class="ds-input" @bind="Current" @bind:after="SelectionChanged" aria-label="Velg tidsrom">
     @foreach (var range in Ranges)
     {
         if (range == Current)
