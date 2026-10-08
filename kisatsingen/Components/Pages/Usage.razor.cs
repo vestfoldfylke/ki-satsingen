@@ -31,7 +31,6 @@ public partial class Usage : ComponentBase, IDisposable
     private IReadOnlyList<UsageByKey<string>> TopUsersByTurns { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> UsagePerUser { get; set; } = [];
 
-    private IReadOnlyList<ChatModel> ChatModels => ChatModelCatalog.Models;
 
     private IEnumerable<UsageByKey<string>> TopTokenUsageByInputTokens =>
         UsagePerUser.OrderByDescending(u => u.InputTokens).Take(TopUserCount);
