@@ -31,7 +31,7 @@ public sealed class AttachmentQuotaTests : IDisposable
             stream.SetLength(size);
         }
 
-        return new UploadOutcome.Stored(file, size, UploadHashes.Unique());
+        return new UploadOutcome.Stored(file, size, Sha256: "not read by the quota");
     }
 
     private TempFile CreateReadyFile(string owner, long size)
@@ -97,6 +97,22 @@ public sealed class AttachmentQuotaTests : IDisposable
         var check = Quota.MarkReadyIfFits(Owner, second);
 
         Assert.Equal(new QuotaCheck.Rejected(UploadRejections.TooManyPendingBytes(15 * Kilobyte)), check);
+    }
+
+    // Two tabs of one owner, finishing one after the other at the last free
+    // place.
+    [Fact]
+    public void Of_two_uploads_finishing_at_the_file_limit_the_second_is_refused()
+    {
+        CreateReadyFile(Owner, Kilobyte);
+        var first = CreateUploadingFile(Owner, Kilobyte);
+        var second = CreateUploadingFile(Owner, Kilobyte);
+
+        var firstCheck = Quota.MarkReadyIfFits(Owner, first);
+        var secondCheck = Quota.MarkReadyIfFits(Owner, second);
+
+        Assert.IsType<QuotaCheck.Fits>(firstCheck);
+        Assert.Equal(new QuotaCheck.Rejected(UploadRejections.TooManyPending(2)), secondCheck);
     }
 
     [Fact]

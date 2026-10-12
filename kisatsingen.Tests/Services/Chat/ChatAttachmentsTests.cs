@@ -220,6 +220,17 @@ public sealed class ChatAttachmentsTests : IDisposable
         Assert.Equal(["notat.md"], _attachments.Pending.Select(attachment => attachment.FileName));
     }
 
+    [Fact]
+    public async Task A_file_taken_at_send_survives_the_composer_being_reset()
+    {
+        await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
+        var taken = Assert.Single(_attachments.AttachReadyToMessage().TakeReady());
+
+        _attachments.Reset();
+
+        Assert.True(File.Exists(taken.File.Path));
+    }
+
     // From send the turn owns the file; it is still on disk until the turn
     // releases it, so it still counts.
     [Fact]

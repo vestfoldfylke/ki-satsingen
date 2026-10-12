@@ -32,7 +32,6 @@ public sealed class AttachmentUploaderTests : IDisposable
         Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(UploadBytes.Text)), stored.Sha256);
     }
 
-    // The declared size is the client's claim; the bytes are counted regardless.
     [Fact]
     public async Task A_file_over_the_limit_is_rejected_and_leaves_nothing_on_disk()
     {
