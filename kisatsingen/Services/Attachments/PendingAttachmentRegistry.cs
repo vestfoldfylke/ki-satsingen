@@ -5,8 +5,8 @@ namespace kisatsingen.Services.Attachments;
 // two tabs never see each other's files. Every lookup also takes the owner, so
 // a key alone reaches nothing.
 //
-// The per-user limits are checked here, before any bytes are read, and again
-// against the real size once they have been.
+// Whether a file is acceptable at all (its type, its declared size) is decided
+// here; whether there is room for it is AttachmentQuota's.
 //
 // Per instance: a restart loses pending files (their temp files are deleted at
 // startup), and with scale-out a circuit only sees its own instance's files.
@@ -14,14 +14,19 @@ public sealed class PendingAttachmentRegistry
 {
     private readonly Lock _entriesLock = new();
     private readonly Dictionary<Guid, PendingAttachmentEntry> _entries = [];
+    // Enough to explain one whole selection's refusals.
+    private const int MaxRejectedPerScope = 10;
+
     private readonly AttachmentStorage _storage;
-    private readonly PendingAttachmentLimits _limits;
+    private readonly AttachmentQuota _quota;
+    private readonly AttachmentOptions _options;
     private readonly TimeProvider _time;
 
-    public PendingAttachmentRegistry(AttachmentStorage storage, AttachmentOptions options, TimeProvider time)
+    public PendingAttachmentRegistry(AttachmentStorage storage, AttachmentQuota quota, AttachmentOptions options, TimeProvider time)
     {
         _storage = storage;
-        _limits = new PendingAttachmentLimits(options);
+        _quota = quota;
+        _options = options;
         _time = time;
     }
 
@@ -36,11 +41,12 @@ public sealed class PendingAttachmentRegistry
         lock (_entriesLock)
         {
             var type = AttachmentContentTypes.FromFileName(fileName);
-            var refusal = type is null
-                ? UploadRejections.UnsupportedType
-                : _limits.FindReservationRefusal(_entries.Values, ownerId, declaredSizeBytes);
+            var refusal = FindUnacceptableReason(type, declaredSizeBytes);
 
-            var entry = new PendingAttachmentEntry(Guid.NewGuid(), ownerId, scopeKey, fileName, type, declaredSizeBytes, _time.GetUtcNow());
+            // One per picked file; a selection of several files has no ID of
+            // its own.
+            var uploadId = Guid.NewGuid();
+            var entry = new PendingAttachmentEntry(uploadId, ownerId, scopeKey, fileName, type, declaredSizeBytes, _time.GetUtcNow());
             _entries.Add(entry.UploadId, entry);
 
             if (refusal is not null)
@@ -59,8 +65,9 @@ public sealed class PendingAttachmentRegistry
         return reservation;
     }
 
-    // Checked per file as it starts rather than at reservation, because the
-    // other uploads that count may be in another tab.
+    // Checked against the quota as the upload starts rather than at
+    // reservation: uploads in a tab run one after another, so by now the files
+    // before it are on disk at their real size.
     public bool TryStartUpload(Guid uploadId)
     {
         bool isStarted;
@@ -73,14 +80,15 @@ public sealed class PendingAttachmentRegistry
                 return false;
             }
 
-            isStarted = _limits.CanStartUpload(_entries.Values, entry.OwnerId);
-            if (isStarted)
+            var declaredSizeCheck = _quota.CheckDeclaredSizeFits(entry.OwnerId, entry.DeclaredSizeBytes);
+            isStarted = declaredSizeCheck is QuotaCheck.Fits;
+            if (declaredSizeCheck is QuotaCheck.Rejected rejected)
             {
-                entry.Status = AttachmentStatus.Uploading;
+                evicted = RejectLocked(entry, rejected.Reason);
             }
             else
             {
-                evicted = RejectLocked(entry, UploadRejections.ConcurrentUploads);
+                entry.Status = AttachmentStatus.Uploading;
             }
 
             scopeKey = entry.ScopeKey;
@@ -108,35 +116,38 @@ public sealed class PendingAttachmentRegistry
     }
 
     // Takes the file in every case, so a caller never has to decide whether to
-    // delete it: kept when the attachment is still there and within the
-    // limits, deleted when it was removed mid-upload or is over them.
+    // delete it: marked ready when the attachment is still uploading, is no duplicate
+    // and fits the quota; deleted otherwise. A file the quota refuses is
+    // already deleted by the quota.
     public void Complete(Guid uploadId, UploadOutcome.Stored stored)
     {
         Guid? scopeKey = null;
-        var isKept = false;
+        var isFileHandled = false;
         List<PendingAttachmentEntry> evicted = [];
         lock (_entriesLock)
         {
-            if (_entries.TryGetValue(uploadId, out var entry))
+            if (_entries.TryGetValue(uploadId, out var entry) && entry.Status == AttachmentStatus.Uploading)
             {
-                var refusal = PendingDuplicates.IsAlreadyPending(_entries.Values, entry.OwnerId, entry.ScopeKey, stored.Sha256)
-                    ? UploadRejections.AlreadyPending
-                    : _limits.FindCompletionRefusal(_entries.Values, entry.OwnerId, uploadId, stored.SizeBytes);
-                if (refusal is not null)
+                if (PendingDuplicates.IsAlreadyPending(_entries.Values, entry.OwnerId, entry.ScopeKey, stored.Sha256))
                 {
-                    evicted = RejectLocked(entry, refusal);
+                    evicted = RejectLocked(entry, UploadRejections.AlreadyPending);
+                }
+                else if (_quota.MarkReadyIfFits(entry.OwnerId, stored) is QuotaCheck.Rejected rejected)
+                {
+                    evicted = RejectLocked(entry, rejected.Reason);
+                    isFileHandled = true;
                 }
                 else
                 {
                     entry.Complete(stored);
-                    isKept = true;
+                    isFileHandled = true;
                 }
 
                 scopeKey = entry.ScopeKey;
             }
         }
 
-        if (!isKept)
+        if (!isFileHandled)
         {
             _storage.Delete(stored.File);
         }
@@ -167,14 +178,29 @@ public sealed class PendingAttachmentRegistry
         Changed?.Invoke(scopeKey);
     }
 
-    // The one way an entry is refused, so the cap on refused entries (see
-    // PendingAttachmentLimits) holds on every path. Returns the entries it
-    // pushed out, for the caller to discard once outside the lock.
+    // Null when acceptable. The declared size is the browser's claim: good
+    // enough to refuse an honest oversized file before any bytes are read,
+    // never trusted to count it.
+    private string? FindUnacceptableReason(AttachmentType? type, long declaredSizeBytes) =>
+        type is null ? UploadRejections.UnsupportedType
+        : declaredSizeBytes < 0 ? UploadRejections.UnreadableSize
+        : declaredSizeBytes > _options.MaxFileBytes ? UploadRejections.TooLarge(_options.MaxFileBytes)
+        : null;
+
+    // The one way an entry is refused, so the cap on refused entries holds on
+    // every path. Refused entries count towards no limit, so without the cap
+    // picking unsupported files over and over would grow memory without
+    // bound; the oldest go first. Returns the entries it pushed out, for the
+    // caller to discard once outside the lock.
     private List<PendingAttachmentEntry> RejectLocked(PendingAttachmentEntry entry, string reason)
     {
         entry.Reject(reason);
 
-        var evicted = _limits.SelectEvictedRejections(_entries.Values, entry);
+        var rejectedInScope = _entries.Values
+            .Where(other => other.OwnerId == entry.OwnerId && other.ScopeKey == entry.ScopeKey && other.Status == AttachmentStatus.Rejected)
+            .OrderBy(other => other.CreatedAt)
+            .ToList();
+        var evicted = rejectedInScope.Take(Math.Max(0, rejectedInScope.Count - MaxRejectedPerScope)).ToList();
         foreach (var old in evicted)
         {
             _entries.Remove(old.UploadId);
@@ -276,6 +302,7 @@ public sealed class PendingAttachmentRegistry
 
     // Outside the lock: file I/O must not hold up every other user's uploads.
     // Cancelled, never disposed: the upload may still be linking to its token.
+    // Deleting a file is all it takes to free its owner's quota.
     private void Discard(IEnumerable<PendingAttachmentEntry> entries)
     {
         foreach (var entry in entries)

@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text;
+
 namespace kisatsingen.Services.Attachments;
 
 // Created only by AttachmentStorage, so its Delete never reaches a path
@@ -6,13 +9,22 @@ public sealed class TempFile
 {
     internal TempFile(string path) => Path = path;
 
-    public string Path { get; }
+    // Changes once, when the file is marked ready: the handle follows its
+    // file, so whoever holds it never points at an old name.
+    public string Path { get; private set; }
+
+    internal void UpdatePathAfterRename(string renamedPath) => Path = renamedPath;
 }
 
-// Uploaded bytes between upload and processing. Names are random, so a
-// client-supplied name never reaches the file system; and the folder and
-// files are owner-only, so another local account cannot read what users
-// uploaded.
+public readonly record struct StorageUsage(int FileCount, long ByteCount);
+
+// Uploaded bytes between upload and processing. A file is named after its
+// state, owner and upload, never after what the client called it; and the
+// folder and files are owner-only, so another local account cannot read what
+// users uploaded.
+//
+//     uploading-<owner hash>-<upload id>   while it is written
+//     ready-<owner hash>-<upload id>       once the quota has marked it ready
 //
 // The folder is fixed rather than configurable, so it cannot be misconfigured,
 // and it lives in the temp folder: local to the instance and outside /home, so
@@ -20,6 +32,8 @@ public sealed class TempFile
 public sealed class AttachmentStorage
 {
     private const string FolderName = "kisatsingen-attachments";
+    private const string UploadingPrefix = "uploading-";
+    private const string ReadyPrefix = "ready-";
 
     private const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode OwnerOnlyFile = UnixFileMode.UserRead | UnixFileMode.UserWrite;
@@ -66,11 +80,12 @@ public sealed class AttachmentStorage
         return new AttachmentStorage(folder, logger);
     }
 
+    // The upload ID in the name lets the Debug logs follow one upload.
     // CreateNew, so a name that somehow already exists fails instead of being
     // overwritten.
-    public (TempFile File, FileStream Stream) Create()
+    public (TempFile File, FileStream Stream) Create(string ownerId, Guid uploadId)
     {
-        var path = Path.Combine(Folder, Path.GetRandomFileName());
+        var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + uploadId.ToString("N"));
         var stream = new FileStream(path, new FileStreamOptions
         {
             Mode = FileMode.CreateNew,
@@ -108,6 +123,58 @@ public sealed class AttachmentStorage
             _logger.LogWarning(ex, "Could not delete temp file {FileName}. It is wiped at the next StartFresh.", fileName);
         }
     }
+
+    // A rename within one folder is atomic, so a measurement sees the file
+    // either uploading or ready, never in between. When the rename fails, the
+    // file is left as it was: still uploading, at its old path.
+    internal bool TryMarkReady(TempFile file)
+    {
+        var readyPath = Path.Combine(Folder, ReadyPrefix + Path.GetFileName(file.Path)[UploadingPrefix.Length..]);
+        try
+        {
+            File.Move(file.Path, readyPath);
+            file.UpdatePathAfterRename(readyPath);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not mark temp file {FileName} ready.", Path.GetFileName(file.Path));
+            return false;
+        }
+    }
+
+    public StorageUsage UsageOf(string ownerId) => Measure("*-" + OwnerPart(ownerId) + "*");
+
+    public StorageUsage ReadyUsageOf(string ownerId) => Measure(ReadyPrefix + OwnerPart(ownerId) + "*");
+
+    public StorageUsage TotalUsage() => Measure("*");
+
+    public StorageUsage TotalReadyUsage() => Measure(ReadyPrefix + "*");
+
+    // A file deleted while it is being measured counts as gone.
+    private StorageUsage Measure(string searchPattern)
+    {
+        var fileCount = 0;
+        long byteCount = 0;
+        foreach (var path in Directory.EnumerateFiles(Folder, searchPattern))
+        {
+            try
+            {
+                byteCount += new FileInfo(path).Length;
+                fileCount++;
+            }
+            catch (FileNotFoundException)
+            {
+            }
+        }
+
+        return new StorageUsage(fileCount, byteCount);
+    }
+
+    // A hash rather than the owner ID itself: safe in a file name whatever the
+    // ID looks like, the same length for everyone, and no user ID on disk.
+    private static string OwnerPart(string ownerId) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(ownerId))) + "-";
 
     // Returns how many entries it wiped. Starting on top of old files would
     // break the promise that no upload outlives a restart, so a failed wipe

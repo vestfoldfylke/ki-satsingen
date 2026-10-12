@@ -16,11 +16,13 @@ public sealed class AttachmentOptions
     // Across all of a user's tabs, counting files still uploading.
     public int MaxPendingFilesPerUser { get; init; } = 10;
 
-    // Pending files sit on disk until their message is sent.
+    // A file counts until it is deleted, including while it is processed
+    // after its message is sent.
     public long MaxPendingBytesPerUser { get; init; } = 200 * ByteSize.Megabyte;
 
-    // Uploads share the circuit's SignalR connection with rendering.
-    public int MaxConcurrentUploadsPerUser { get; init; } = 2;
+    // For all users on one instance together: each App Service instance has
+    // its own /tmp, which shares the host disk with every app in the plan.
+    public long MaxPendingBytesPerInstance { get; init; } = 2000 * ByteSize.Megabyte;
 
     // How long an unsent attachment may stay pending before the sweep removes
     // it. Temp files nothing tracks are left to the wipe at the next start.
@@ -31,7 +33,7 @@ public sealed class AttachmentOptions
     public void Validate()
     {
         if (MaxFileBytes <= 0 || MaxFilesPerSelection <= 0 || MaxPendingFilesPerUser <= 0
-            || MaxPendingBytesPerUser <= 0 || MaxConcurrentUploadsPerUser <= 0
+            || MaxPendingBytesPerUser <= 0 || MaxPendingBytesPerInstance <= 0
             || TempFileMaxAge <= TimeSpan.Zero || TempFileSweepInterval <= TimeSpan.Zero)
         {
             throw new InvalidOperationException(
@@ -42,6 +44,12 @@ public sealed class AttachmentOptions
         {
             throw new InvalidOperationException(
                 $"'{SectionName}:MaxPendingBytesPerUser' ({MaxPendingBytesPerUser}) is below '{SectionName}:MaxFileBytes' ({MaxFileBytes}), so a file at the size limit could never be attached. Raise MaxPendingBytesPerUser or lower MaxFileBytes.");
+        }
+
+        if (MaxPendingBytesPerInstance < MaxPendingBytesPerUser)
+        {
+            throw new InvalidOperationException(
+                $"'{SectionName}:MaxPendingBytesPerInstance' ({MaxPendingBytesPerInstance}) is below '{SectionName}:MaxPendingBytesPerUser' ({MaxPendingBytesPerUser}), so one user could never reach their own limit. Raise MaxPendingBytesPerInstance or lower MaxPendingBytesPerUser.");
         }
     }
 }

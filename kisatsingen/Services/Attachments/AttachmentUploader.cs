@@ -23,12 +23,14 @@ public sealed class AttachmentUploader(AttachmentStorage storage)
 
     public async Task<UploadOutcome> CopyAsync(
         Stream source,
+        string ownerId,
+        Guid uploadId,
         AttachmentType type,
         long maxBytes,
         IProgress<long> progress,
         CancellationToken ct)
     {
-        var (file, destination) = storage.Create();
+        var (file, destination) = storage.Create(ownerId, uploadId);
         UploadOutcome? outcome = null;
 
         try

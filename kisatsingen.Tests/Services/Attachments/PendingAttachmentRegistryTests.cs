@@ -22,11 +22,16 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         registry.Reserve(owner, scopeKey ?? _scopeKey, "notat.md", size) ?? throw new InvalidOperationException("Reservation refused.");
 
     // Unique content unless a test names it, so only a test about duplicates
-    // has any.
+    // has any. The file really has the size, because the quota measures what
+    // is on disk.
     private static UploadOutcome.Stored StoreFile(AttachmentTestEnvironment environment, long size, string? sha256 = null)
     {
-        var (file, stream) = environment.Storage.Create();
-        stream.Dispose();
+        var (file, stream) = environment.Storage.Create(Owner, Guid.NewGuid());
+        using (stream)
+        {
+            stream.SetLength(size);
+        }
+
         return new UploadOutcome.Stored(file, size, sha256 ?? UploadHashes.Unique());
     }
 
@@ -73,15 +78,27 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         Assert.Null(reservation);
     }
 
+    // Only a tampered browser declares one; in the early quota check it would
+    // offset the bytes already pending.
     [Fact]
-    public void The_pending_file_limit_counts_one_owners_files_across_all_their_scopes()
+    public void A_file_declaring_a_negative_size_is_refused()
     {
-        using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
-        Reserve(environment.Registry, scopeKey: Guid.NewGuid());
-
-        var reservation = environment.Registry.Reserve(Owner, _scopeKey, "second.md", Kilobyte);
+        var reservation = Registry.Reserve(Owner, _scopeKey, "notat.md", -1);
 
         Assert.Null(reservation);
+        Assert.Equal(UploadRejections.UnreadableSize, Assert.Single(Registry.List(Owner, _scopeKey)).RejectionReason);
+    }
+
+    [Fact]
+    public void The_pending_file_limit_counts_one_owners_files_across_all_their_scopes_before_an_upload_starts()
+    {
+        using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
+        CompleteUpload(environment, Guid.NewGuid(), UploadHashes.Unique());
+        var second = Reserve(environment.Registry);
+
+        var isStarted = environment.Registry.TryStartUpload(second.UploadId);
+
+        Assert.False(isStarted);
     }
 
     [Fact]
@@ -89,24 +106,27 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         environment.Registry.Reserve(Owner, _scopeKey, "program.exe", Kilobyte);
+        var valid = Reserve(environment.Registry);
 
-        var reservation = environment.Registry.Reserve(Owner, _scopeKey, "notat.md", Kilobyte);
+        var isStarted = environment.Registry.TryStartUpload(valid.UploadId);
 
-        Assert.NotNull(reservation);
+        Assert.True(isStarted);
     }
 
     [Fact]
-    public void A_file_that_would_take_the_owner_over_the_pending_bytes_limit_is_refused()
+    public void A_file_whose_declared_size_would_take_the_owner_over_the_pending_bytes_limit_is_refused_before_its_upload_starts()
     {
         using var environment = WithOptions(new AttachmentOptions { MaxFileBytes = 10 * Kilobyte, MaxPendingBytesPerUser = 15 * Kilobyte });
-        Reserve(environment.Registry, size: 10 * Kilobyte);
+        CompleteUpload(environment, _scopeKey, UploadHashes.Unique(), size: 10 * Kilobyte);
+        var second = Reserve(environment.Registry, size: 10 * Kilobyte);
 
-        var reservation = environment.Registry.Reserve(Owner, _scopeKey, "second.md", 10 * Kilobyte);
+        var isStarted = environment.Registry.TryStartUpload(second.UploadId);
 
-        Assert.Null(reservation);
+        Assert.False(isStarted);
+        Assert.Equal(AttachmentStatus.Rejected, environment.Registry.List(Owner, _scopeKey).Single(listed => listed.UploadId == second.UploadId).Status);
     }
 
-    // The reservation check trusts the declared size; completion checks the real one.
+    // The declared size is only a hint; completion counts the real one.
     [Fact]
     public void A_file_larger_than_it_declared_is_refused_on_completion_and_deleted()
     {
@@ -125,16 +145,53 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     }
 
     [Fact]
-    public void An_upload_over_the_concurrent_limit_is_refused_when_it_would_start()
+    public void Removing_a_ready_attachment_frees_its_room_in_the_quota()
     {
-        using var environment = WithOptions(new AttachmentOptions { MaxConcurrentUploadsPerUser = 1 });
-        var first = Reserve(environment.Registry);
-        var second = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
-        environment.Registry.TryStartUpload(first.UploadId);
+        using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
+        CompleteUpload(environment, _scopeKey, UploadHashes.Unique());
+        environment.Registry.Remove(Owner, Assert.Single(environment.Registry.List(Owner, _scopeKey)).UploadId);
+        var second = Reserve(environment.Registry);
 
         var isStarted = environment.Registry.TryStartUpload(second.UploadId);
 
-        Assert.False(isStarted);
+        Assert.True(isStarted);
+    }
+
+    // A sent file is still on disk until processing deletes it, so it still
+    // counts.
+    [Fact]
+    public void A_file_taken_at_send_counts_until_its_file_is_deleted()
+    {
+        using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
+        CompleteUpload(environment, _scopeKey, UploadHashes.Unique());
+        var taken = Assert.Single(environment.Registry.TakeReady(Owner, _scopeKey, environment.Registry.List(Owner, _scopeKey).Select(listed => listed.UploadId).ToHashSet()));
+        var whileTaken = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
+        var afterDelete = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
+
+        var isStartedWhileTaken = environment.Registry.TryStartUpload(whileTaken.UploadId);
+        environment.Storage.Delete(taken.File);
+        var isStartedAfterDelete = environment.Registry.TryStartUpload(afterDelete.UploadId);
+
+        Assert.Equal((false, true), (isStartedWhileTaken, isStartedAfterDelete));
+    }
+
+    // Both started while nothing was on disk; the quota decides when they
+    // finish, with both files really there.
+    [Fact]
+    public void Of_two_uploads_that_finish_at_the_file_limit_exactly_one_becomes_ready()
+    {
+        using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
+        var first = Reserve(environment.Registry);
+        var second = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
+        environment.Registry.TryStartUpload(first.UploadId);
+        environment.Registry.TryStartUpload(second.UploadId);
+        var firstFile = StoreFile(environment, Kilobyte);
+        var secondFile = StoreFile(environment, Kilobyte);
+
+        environment.Registry.Complete(first.UploadId, firstFile);
+        environment.Registry.Complete(second.UploadId, secondFile);
+
+        Assert.Equal(1, environment.Storage.UsageOf(Owner).FileCount);
     }
 
     // The scope key is not a secret, so the owner is what isolates users.

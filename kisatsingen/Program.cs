@@ -185,6 +185,7 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
     Path.GetTempPath(),
     sp.GetRequiredService<ILogger<AttachmentStorage>>()));
+builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<PendingAttachmentRegistry>();
 builder.Services.AddHostedService<AttachmentSweeper>();

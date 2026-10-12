@@ -87,13 +87,13 @@ public sealed class ChatAttachments : IDisposable
         // they would only take turns on it.
         foreach (var (reservation, file) in reserved)
         {
-            await UploadOneAsync(reservation, file, viewStop);
+            await UploadOneAsync(ownerId, reservation, file, viewStop);
         }
     }
 
     // Never throws: this runs in a UI event handler, where an exception would
     // end the circuit.
-    private async Task UploadOneAsync(UploadReservation reservation, IBrowserFile file, CancellationToken viewStop)
+    private async Task UploadOneAsync(string ownerId, UploadReservation reservation, IBrowserFile file, CancellationToken viewStop)
     {
         if (viewStop.IsCancellationRequested || !_registry.TryStartUpload(reservation.UploadId))
         {
@@ -106,7 +106,7 @@ public sealed class ChatAttachments : IDisposable
         try
         {
             await using var source = file.OpenReadStream(_options.MaxFileBytes, linked.Token);
-            var outcome = await _uploader.CopyAsync(source, reservation.Type, _options.MaxFileBytes, progress, linked.Token);
+            var outcome = await _uploader.CopyAsync(source, ownerId, reservation.UploadId, reservation.Type, _options.MaxFileBytes, progress, linked.Token);
 
             switch (outcome)
             {

@@ -27,7 +27,7 @@ public sealed class AttachmentSweeperTests : IDisposable
     {
         var reservation = _environment.Registry.Reserve("owner", Guid.NewGuid(), "notat.md", 10)!;
         _environment.Registry.TryStartUpload(reservation.UploadId);
-        var (file, stream) = _environment.Storage.Create();
+        var (file, stream) = _environment.Storage.Create("owner", reservation.UploadId);
         stream.Dispose();
         _environment.Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, new string('a', 64)));
         _time.Advance(_environment.Options.TempFileMaxAge + TimeSpan.FromMinutes(1));

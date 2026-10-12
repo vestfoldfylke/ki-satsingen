@@ -16,7 +16,8 @@ internal sealed class AttachmentTestEnvironment : IDisposable
         ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(ParentFolder);
         Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
-        Registry = new PendingAttachmentRegistry(Storage, Options, time ?? TimeProvider.System);
+        Quota = new AttachmentQuota(Storage, Options);
+        Registry = new PendingAttachmentRegistry(Storage, Quota, Options, time ?? TimeProvider.System);
         Uploader = new AttachmentUploader(Storage);
     }
 
@@ -24,6 +25,7 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public string Folder => Storage.Folder;
     public AttachmentOptions Options { get; }
     public AttachmentStorage Storage { get; }
+    public AttachmentQuota Quota { get; }
     public PendingAttachmentRegistry Registry { get; }
     public AttachmentUploader Uploader { get; }
 

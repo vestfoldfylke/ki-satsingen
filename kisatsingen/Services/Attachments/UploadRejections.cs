@@ -14,8 +14,12 @@ internal static class UploadRejections
 
     public const string AlreadyPending = "Denne filen er allerede valgt.";
 
-    public const string ConcurrentUploads =
-        "Du laster allerede opp filer i en annen fane. Vent til de er ferdige, og prøv igjen.";
+    // A browser never declares a negative size; only a tampered one does.
+    public const string UnreadableSize =
+        "Filstørrelsen kunne ikke leses. Velg filen på nytt.";
+
+    public const string InstanceBudgetFull =
+        "Det lastes opp mye akkurat nå. Prøv igjen om litt.";
 
     public static string UnsupportedType =>
         $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.";

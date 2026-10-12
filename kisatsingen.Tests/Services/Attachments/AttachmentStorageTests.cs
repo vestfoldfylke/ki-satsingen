@@ -12,10 +12,17 @@ public sealed class AttachmentStorageTests : IDisposable
 
     public void Dispose() => _environment.Dispose();
 
-    private TempFile CreateFile()
+    private const string Owner = "owner";
+    private const string OtherOwner = "someone-else";
+
+    private TempFile CreateFile(string owner = Owner, long size = 0)
     {
-        var (file, stream) = _environment.Storage.Create();
-        stream.Dispose();
+        var (file, stream) = _environment.Storage.Create(owner, Guid.NewGuid());
+        using (stream)
+        {
+            stream.SetLength(size);
+        }
+
         return file;
     }
 
@@ -24,7 +31,7 @@ public sealed class AttachmentStorageTests : IDisposable
         AttachmentStorage.StartFresh(_environment.ParentFolder, NullLogger<AttachmentStorage>.Instance);
 
     [Fact]
-    public void A_created_file_lives_in_the_stores_folder_under_a_name_of_its_own()
+    public void A_created_file_lives_in_the_storage_folder_under_a_name_of_its_own()
     {
         var first = CreateFile();
         var second = CreateFile();
@@ -34,11 +41,94 @@ public sealed class AttachmentStorageTests : IDisposable
     }
 
     [Fact]
+    public void A_new_file_is_named_as_uploading_after_its_upload_and_never_shows_the_owner_id()
+    {
+        var uploadId = Guid.NewGuid();
+        var (file, stream) = _environment.Storage.Create("user-object-id", uploadId);
+        stream.Dispose();
+
+        var fileName = Path.GetFileName(file.Path);
+
+        Assert.StartsWith("uploading-", fileName);
+        Assert.EndsWith(uploadId.ToString("N"), fileName);
+        Assert.DoesNotContain("user-object-id", fileName);
+    }
+
+    [Fact]
+    public void Marking_a_file_ready_renames_it_and_the_handle_follows()
+    {
+        var file = CreateFile(Owner, size: 100);
+        var uploadingPath = file.Path;
+
+        var isMarked = _environment.Storage.TryMarkReady(file);
+
+        Assert.True(isMarked);
+        Assert.StartsWith("ready-", Path.GetFileName(file.Path));
+        Assert.True(File.Exists(file.Path));
+        Assert.False(File.Exists(uploadingPath));
+    }
+
+    [Fact]
     public void A_created_file_is_readable_and_writable_by_its_owner_only()
     {
         var file = CreateFile();
 
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file.Path));
+    }
+
+    [Fact]
+    public void An_owners_usage_counts_only_their_own_files_uploading_and_ready()
+    {
+        CreateFile(Owner, size: 100);
+        _environment.Storage.TryMarkReady(CreateFile(Owner, size: 50));
+        CreateFile(OtherOwner, size: 1000);
+
+        var usage = _environment.Storage.UsageOf(Owner);
+
+        Assert.Equal(new StorageUsage(2, 150), usage);
+    }
+
+    [Fact]
+    public void An_owners_ready_usage_leaves_out_uploads_still_in_progress()
+    {
+        CreateFile(Owner, size: 100);
+        _environment.Storage.TryMarkReady(CreateFile(Owner, size: 50));
+
+        var usage = _environment.Storage.ReadyUsageOf(Owner);
+
+        Assert.Equal(new StorageUsage(1, 50), usage);
+    }
+
+    [Fact]
+    public void Total_usage_counts_every_owners_files()
+    {
+        CreateFile(Owner, size: 100);
+        CreateFile(OtherOwner, size: 1000);
+
+        var usage = _environment.Storage.TotalUsage();
+
+        Assert.Equal(new StorageUsage(2, 1100), usage);
+    }
+
+    [Fact]
+    public void Total_ready_usage_leaves_out_uploads_still_in_progress()
+    {
+        CreateFile(Owner, size: 100);
+        _environment.Storage.TryMarkReady(CreateFile(OtherOwner, size: 1000));
+
+        var usage = _environment.Storage.TotalReadyUsage();
+
+        Assert.Equal(new StorageUsage(1, 1000), usage);
+    }
+
+    [Fact]
+    public void A_deleted_file_no_longer_counts()
+    {
+        var file = CreateFile(Owner, size: 100);
+
+        _environment.Storage.Delete(file);
+
+        Assert.Equal(new StorageUsage(0, 0), _environment.Storage.UsageOf(Owner));
     }
 
     [Fact]

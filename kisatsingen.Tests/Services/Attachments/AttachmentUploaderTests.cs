@@ -12,7 +12,7 @@ public sealed class AttachmentUploaderTests : IDisposable
     public void Dispose() => _environment.Dispose();
 
     private Task<UploadOutcome> CopyAsync(Stream source, AttachmentType type, long maxBytes = 1024, CancellationToken ct = default) =>
-        _environment.Uploader.CopyAsync(source, type, maxBytes, IgnoredProgress, ct);
+        _environment.Uploader.CopyAsync(source, "owner", Guid.NewGuid(), type, maxBytes, IgnoredProgress, ct);
 
     [Fact]
     public async Task A_stored_file_holds_exactly_the_uploaded_bytes()
