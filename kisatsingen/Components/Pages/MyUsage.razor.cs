@@ -41,17 +41,10 @@ public partial class MyUsage : ComponentBase, IDisposable
         await ReloadAsync();
     }
 
-    private async Task OnRangeChanged(UsageRange range)
+    private Task OnRangeChanged(UsageRange range)
     {
-        var previousRange = Range;
-
         Range = range;
-        await ReloadAsync();
-
-        if (!string.IsNullOrWhiteSpace(LoadError))
-        {
-            Range = previousRange;
-        }
+        return ReloadAsync();
     }
 
     private async Task ReloadAsync()
