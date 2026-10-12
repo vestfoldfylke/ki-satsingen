@@ -20,7 +20,7 @@ public sealed class ChatSessionDuplicateAttachmentTests
     private static readonly TimeSpan PromptStop = TimeSpan.FromSeconds(2);
 
     private static Task AttachAsync(ChatSessionHarness harness, params (string Name, byte[] Content)[] files) =>
-        harness.Attachments.UploadAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
+        harness.Attachments.AttachAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
 
     private static string LastUserMessage(ChatSessionHarness harness) =>
         harness.Client.LastMessages.Last(message => message.Role == ChatRole.User).Text;

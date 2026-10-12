@@ -70,7 +70,6 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             TokenUsageRepository,
             KnowledgeFiles,
             queue,
-            AttachmentEnvironment.Storage,
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()));
     }
 
@@ -86,8 +85,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             maxEstimatedTokens: 1_000_000,
             NullLogger<KnowledgeFileProcessor>.Instance);
 
-        var queue = new KnowledgeFileProcessingQueue(options, storage, metrics);
-        var worker = new KnowledgeFileProcessingWorker(queue, processor, storage, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
+        var queue = new KnowledgeFileProcessingQueue(options, metrics);
+        var worker = new KnowledgeFileProcessingWorker(queue, processor, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
         worker.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
         return (queue, worker);
     }

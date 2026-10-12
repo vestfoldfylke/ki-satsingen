@@ -25,7 +25,7 @@ public sealed class AttachmentQuotaTests : IDisposable
 
     private UploadOutcome.Stored CreateUploadingFile(string owner, long size)
     {
-        var (file, stream) = _environment.Storage.Create(owner, Guid.NewGuid());
+        var (file, stream) = _environment.Storage.CreateFile(owner, Guid.NewGuid());
         using (stream)
         {
             stream.SetLength(size);
@@ -153,7 +153,7 @@ public sealed class AttachmentQuotaTests : IDisposable
     public void A_deleted_file_frees_its_room()
     {
         var first = CreateReadyFile(Owner, 10 * Kilobyte);
-        _environment.Storage.Delete(first);
+        first.Dispose();
 
         var check = Quota.CheckDeclaredSizeFits(Owner, 10 * Kilobyte);
 

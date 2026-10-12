@@ -43,8 +43,8 @@ public sealed class KnowledgeFileProcessingQueueTests : IAsyncLifetime
             maxEstimatedTokens: 1_000_000,
             NullLogger<KnowledgeFileProcessor>.Instance);
 
-        _queue = new KnowledgeFileProcessingQueue(options, _environment.Storage, metrics);
-        _worker = new KnowledgeFileProcessingWorker(_queue, processor, _environment.Storage, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
+        _queue = new KnowledgeFileProcessingQueue(options, metrics);
+        _worker = new KnowledgeFileProcessingWorker(_queue, processor, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
         await _worker.StartAsync(CancellationToken.None);
     }
 

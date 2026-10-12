@@ -17,7 +17,7 @@ public sealed class AttachmentStorageTests : IDisposable
 
     private TempFile CreateFile(string owner = Owner, long size = 0)
     {
-        var (file, stream) = _environment.Storage.Create(owner, Guid.NewGuid());
+        var (file, stream) = _environment.Storage.CreateFile(owner, Guid.NewGuid());
         using (stream)
         {
             stream.SetLength(size);
@@ -44,7 +44,7 @@ public sealed class AttachmentStorageTests : IDisposable
     public void A_new_file_is_named_as_uploading_after_its_attachment_and_never_shows_the_owner_id()
     {
         var attachmentId = Guid.NewGuid();
-        var (file, stream) = _environment.Storage.Create("user-object-id", attachmentId);
+        var (file, stream) = _environment.Storage.CreateFile("user-object-id", attachmentId);
         stream.Dispose();
 
         var fileName = Path.GetFileName(file.Path);
@@ -126,7 +126,7 @@ public sealed class AttachmentStorageTests : IDisposable
     {
         var file = CreateFile(Owner, size: 100);
 
-        _environment.Storage.Delete(file);
+        file.Dispose();
 
         Assert.Equal(new StorageUsage(0, 0), _environment.Storage.UsageOf(Owner));
     }

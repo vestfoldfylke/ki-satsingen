@@ -149,7 +149,7 @@ public sealed class PendingAttachmentRegistry
 
         if (!isFileHandled)
         {
-            _storage.Delete(stored.File);
+            stored.File.Dispose();
         }
 
         Discard(evicted);
@@ -310,7 +310,7 @@ public sealed class PendingAttachmentRegistry
             entry.Cancellation.Cancel();
             if (entry.File is not null)
             {
-                _storage.Delete(entry.File);
+                entry.File.Dispose();
             }
         }
     }

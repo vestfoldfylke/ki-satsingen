@@ -19,7 +19,7 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     {
         var reservation = Registry.Reserve(owner, _scopeKey, fileName, 10) ?? throw new InvalidOperationException("Reservation refused.");
         Registry.TryStartUpload(reservation.AttachmentId);
-        var (file, stream) = _environment.Storage.Create(owner, reservation.AttachmentId);
+        var (file, stream) = _environment.Storage.CreateFile(owner, reservation.AttachmentId);
         stream.Dispose();
         Registry.Complete(reservation.AttachmentId, new UploadOutcome.Stored(file, 10, UploadHashes.Unique()));
         return file;

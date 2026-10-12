@@ -3,19 +3,10 @@ using kisatsingen.Services.Attachments;
 namespace kisatsingen.Services.Chat;
 
 // The attachments that belong to one message: those ready when it was sent.
-// Owner, composer key and attachment IDs are captured then, so taking them later
-// does not depend on what the composer holds by that time.
-internal sealed class MessageAttachments(PendingAttachmentRegistry registry, string? ownerId, Guid composerKey, IReadOnlySet<Guid> attachmentIds)
+// Their IDs are captured then, so one that becomes ready later is not taken
+// with them.
+internal sealed class MessageAttachments(ChatAttachments composer, IReadOnlySet<Guid> attachmentIds)
 {
     // The caller now owns their temp files (see ReadyAttachment).
-    public IReadOnlyList<ReadyAttachment> TakeReady()
-    {
-        // No owner yet means nothing was ever attached in this view.
-        if (ownerId is null)
-        {
-            return [];
-        }
-
-        return registry.TakeReady(ownerId, composerKey, attachmentIds);
-    }
+    public IReadOnlyList<ReadyAttachment> TakeReady() => composer.TakeReady(attachmentIds);
 }

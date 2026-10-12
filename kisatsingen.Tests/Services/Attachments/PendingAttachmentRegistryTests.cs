@@ -26,7 +26,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     // is on disk.
     private static UploadOutcome.Stored StoreFile(AttachmentTestEnvironment environment, long size, string? sha256 = null)
     {
-        var (file, stream) = environment.Storage.Create(Owner, Guid.NewGuid());
+        var (file, stream) = environment.Storage.CreateFile(Owner, Guid.NewGuid());
         using (stream)
         {
             stream.SetLength(size);
@@ -169,7 +169,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         var afterDelete = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
 
         var isStartedWhileTaken = environment.Registry.TryStartUpload(whileTaken.AttachmentId);
-        environment.Storage.Delete(taken.File);
+        taken.File.Dispose();
         var isStartedAfterDelete = environment.Registry.TryStartUpload(afterDelete.AttachmentId);
 
         Assert.Equal((false, true), (isStartedWhileTaken, isStartedAfterDelete));

@@ -13,17 +13,19 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public AttachmentTestEnvironment(AttachmentOptions? options = null, TimeProvider? time = null)
     {
         Options = options ?? new AttachmentOptions();
+        Time = time ?? TimeProvider.System;
         ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(ParentFolder);
         Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
         Quota = new AttachmentQuota(Storage, Options);
-        Registry = new PendingAttachmentRegistry(Storage, Quota, Options, time ?? TimeProvider.System);
+        Registry = new PendingAttachmentRegistry(Storage, Quota, Options, Time);
         Uploader = new AttachmentUploader(Storage);
     }
 
     public string ParentFolder { get; }
     public string Folder => Storage.Folder;
     public AttachmentOptions Options { get; }
+    public TimeProvider Time { get; }
     public AttachmentStorage Storage { get; }
     public AttachmentQuota Quota { get; }
     public PendingAttachmentRegistry Registry { get; }
@@ -32,7 +34,7 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
     public ChatAttachments CreateChatAttachments(IAuthenticationService authentication) =>
-        new(authentication, Registry, Uploader, Options, NullLogger<ChatAttachments>.Instance);
+        new(authentication, Uploader, Quota, Options, Time, NullLogger<ChatAttachments>.Instance);
 
     public void Dispose()
     {

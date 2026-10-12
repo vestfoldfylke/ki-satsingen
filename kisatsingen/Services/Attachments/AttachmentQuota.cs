@@ -58,13 +58,13 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
 
             if (check is QuotaCheck.Rejected)
             {
-                storage.Delete(stored.File);
+                stored.File.Dispose();
                 return check;
             }
 
             if (!storage.TryMarkReady(stored.File))
             {
-                storage.Delete(stored.File);
+                stored.File.Dispose();
                 return new QuotaCheck.Rejected(UploadRejections.Interrupted);
             }
 

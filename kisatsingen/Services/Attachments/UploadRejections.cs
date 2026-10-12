@@ -6,7 +6,7 @@ internal static class UploadRejections
 {
     public const string Empty = "Filen er tom.";
 
-    public const string WrongSignature =
+    public const string WrongFileType =
         "Innholdet i filen stemmer ikke med filtypen. Sjekk at filen ikke har fått feil filendelse.";
 
     public const string Interrupted =

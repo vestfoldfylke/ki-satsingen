@@ -3,17 +3,32 @@ using System.Text;
 
 namespace kisatsingen.Services.Attachments;
 
-// Created only by AttachmentStorage, so its Delete never reaches a path
-// outside the attachment folder.
-public sealed class TempFile
+// Created only by AttachmentStorage, so disposing it never reaches a path
+// outside the attachment folder. Disposing deletes the file, once.
+public sealed class TempFile : IDisposable
 {
-    internal TempFile(string path) => Path = path;
+    private readonly AttachmentStorage _storage;
+    private int _isDeleted;
+
+    internal TempFile(string path, AttachmentStorage storage)
+    {
+        Path = path;
+        _storage = storage;
+    }
 
     // Changes once, when the file is marked ready: the handle follows its
     // file, so whoever holds it never points at an old name.
     public string Path { get; private set; }
 
     internal void UpdatePathAfterRename(string renamedPath) => Path = renamedPath;
+
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref _isDeleted, 1) == 0)
+        {
+            _storage.Delete(this);
+        }
+    }
 }
 
 public readonly record struct StorageUsage(int FileCount, long ByteCount);
@@ -83,7 +98,7 @@ public sealed class AttachmentStorage
     // The attachment ID in the name lets the Debug logs follow one attachment.
     // CreateNew, so a name that somehow already exists fails instead of being
     // overwritten.
-    public (TempFile File, FileStream Stream) Create(string ownerId, Guid attachmentId)
+    public (TempFile File, FileStream Stream) CreateFile(string ownerId, Guid attachmentId)
     {
         var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + attachmentId.ToString("N"));
         var stream = new FileStream(path, new FileStreamOptions
@@ -96,7 +111,7 @@ public sealed class AttachmentStorage
         });
 
         _logger.LogDebug("Created temp file {FileName}.", Path.GetFileName(path));
-        return (new TempFile(path), stream);
+        return (new TempFile(path, this), stream);
     }
 
     public FileStream OpenRead(TempFile file) =>
@@ -110,7 +125,7 @@ public sealed class AttachmentStorage
 
     // Never throws: a file that cannot be deleted now is wiped at the next
     // start, and a caller cleaning up must not have its own outcome replaced.
-    public void Delete(TempFile file)
+    internal void Delete(TempFile file)
     {
         var fileName = Path.GetFileName(file.Path);
         try

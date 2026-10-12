@@ -16,7 +16,6 @@ namespace kisatsingen.Services.Chat;
 internal sealed class TurnAttachmentStep(
     KnowledgeFileProcessingQueue queue,
     IKnowledgeFileRepository knowledgeFiles,
-    AttachmentStorage storage,
     ILogger logger)
 {
     private sealed record JobOutcome(int Index, KnowledgeFileProcessingResult? Result)
@@ -101,7 +100,7 @@ internal sealed class TurnAttachmentStep(
     {
         foreach (var attachment in readyAttachments)
         {
-            storage.Delete(attachment.File);
+            attachment.File.Dispose();
         }
     }
 
@@ -126,7 +125,7 @@ internal sealed class TurnAttachmentStep(
 
             turnAttachments[index] = turnAttachments[index].Available(savedFile.Id);
             onKnowledgeFileAvailable(savedFile);
-            storage.Delete(attachment.File);
+            attachment.File.Dispose();
         }
 
         return attachmentsToProcess;
