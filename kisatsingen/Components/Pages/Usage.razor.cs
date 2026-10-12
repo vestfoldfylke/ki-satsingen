@@ -9,9 +9,6 @@ namespace kisatsingen.Components.Pages;
 public partial class Usage : ComponentBase, IDisposable
 {
     [Inject]
-    public required IChatModelCatalog ChatModelCatalog { get; init; }
-
-    [Inject]
     public required IOrganizationTokenUsageRepository OrganizationTokenUsageRepository { get; init; }
 
     [Inject]
