@@ -110,7 +110,7 @@ public sealed class ChatAttachmentsTests : IDisposable
         var upload = _attachments.UploadAsync(Selecting(stalling));
         await reached.Task;
 
-        _attachments.Remove(Assert.Single(_attachments.Pending).UploadId);
+        _attachments.Remove(Assert.Single(_attachments.Pending).AttachmentId);
         await upload;
 
         Assert.Empty(_attachments.Pending);
@@ -122,7 +122,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     {
         await _attachments.UploadAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        _attachments.Remove(Assert.Single(_attachments.Pending).UploadId);
+        _attachments.Remove(Assert.Single(_attachments.Pending).AttachmentId);
 
         Assert.Empty(_environment.FilesOnDisk);
     }

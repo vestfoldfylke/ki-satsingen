@@ -18,14 +18,14 @@ public sealed class PendingAttachmentRegistryTakeReadyTests : IDisposable
     private TempFile AttachReady(string owner = Owner, string fileName = "notat.md")
     {
         var reservation = Registry.Reserve(owner, _scopeKey, fileName, 10) ?? throw new InvalidOperationException("Reservation refused.");
-        Registry.TryStartUpload(reservation.UploadId);
-        var (file, stream) = _environment.Storage.Create(owner, reservation.UploadId);
+        Registry.TryStartUpload(reservation.AttachmentId);
+        var (file, stream) = _environment.Storage.Create(owner, reservation.AttachmentId);
         stream.Dispose();
-        Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, UploadHashes.Unique()));
+        Registry.Complete(reservation.AttachmentId, new UploadOutcome.Stored(file, 10, UploadHashes.Unique()));
         return file;
     }
 
-    private IReadOnlySet<Guid> AllInScope() => Registry.List(Owner, _scopeKey).Select(attachment => attachment.UploadId).ToHashSet();
+    private IReadOnlySet<Guid> AllInScope() => Registry.List(Owner, _scopeKey).Select(attachment => attachment.AttachmentId).ToHashSet();
 
     [Fact]
     public void An_attachment_not_among_the_requested_upload_ids_is_not_taken()

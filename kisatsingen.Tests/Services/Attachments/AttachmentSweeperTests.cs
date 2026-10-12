@@ -26,10 +26,10 @@ public sealed class AttachmentSweeperTests : IDisposable
     public void An_attachment_never_sent_is_deleted_once_it_is_older_than_the_maximum_age()
     {
         var reservation = _environment.Registry.Reserve("owner", Guid.NewGuid(), "notat.md", 10)!;
-        _environment.Registry.TryStartUpload(reservation.UploadId);
-        var (file, stream) = _environment.Storage.Create("owner", reservation.UploadId);
+        _environment.Registry.TryStartUpload(reservation.AttachmentId);
+        var (file, stream) = _environment.Storage.Create("owner", reservation.AttachmentId);
         stream.Dispose();
-        _environment.Registry.Complete(reservation.UploadId, new UploadOutcome.Stored(file, 10, new string('a', 64)));
+        _environment.Registry.Complete(reservation.AttachmentId, new UploadOutcome.Stored(file, 10, new string('a', 64)));
         _time.Advance(_environment.Options.TempFileMaxAge + TimeSpan.FromMinutes(1));
 
         _sweeper.Sweep();

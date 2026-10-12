@@ -71,7 +71,7 @@ public sealed class KnowledgeFileProcessor(
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Summarizing upload {UploadId} failed; the file is kept without a summary.", attachment.UploadId);
+            logger.LogWarning(ex, "Summarizing attachment {AttachmentId} failed; the file is kept without a summary.", attachment.AttachmentId);
             return null;
         }
     }

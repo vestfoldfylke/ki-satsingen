@@ -41,16 +41,16 @@ public sealed class AttachmentStorageTests : IDisposable
     }
 
     [Fact]
-    public void A_new_file_is_named_as_uploading_after_its_upload_and_never_shows_the_owner_id()
+    public void A_new_file_is_named_as_uploading_after_its_attachment_and_never_shows_the_owner_id()
     {
-        var uploadId = Guid.NewGuid();
-        var (file, stream) = _environment.Storage.Create("user-object-id", uploadId);
+        var attachmentId = Guid.NewGuid();
+        var (file, stream) = _environment.Storage.Create("user-object-id", attachmentId);
         stream.Dispose();
 
         var fileName = Path.GetFileName(file.Path);
 
         Assert.StartsWith("uploading-", fileName);
-        Assert.EndsWith(uploadId.ToString("N"), fileName);
+        Assert.EndsWith(attachmentId.ToString("N"), fileName);
         Assert.DoesNotContain("user-object-id", fileName);
     }
 

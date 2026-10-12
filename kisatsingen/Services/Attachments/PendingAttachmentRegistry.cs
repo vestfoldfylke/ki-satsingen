@@ -45,9 +45,9 @@ public sealed class PendingAttachmentRegistry
 
             // One per picked file; a selection of several files has no ID of
             // its own.
-            var uploadId = Guid.NewGuid();
-            var entry = new PendingAttachmentEntry(uploadId, ownerId, scopeKey, fileName, type, declaredSizeBytes, _time.GetUtcNow());
-            _entries.Add(entry.UploadId, entry);
+            var attachmentId = Guid.NewGuid();
+            var entry = new PendingAttachmentEntry(attachmentId, ownerId, scopeKey, fileName, type, declaredSizeBytes, _time.GetUtcNow());
+            _entries.Add(entry.AttachmentId, entry);
 
             if (refusal is not null)
             {
@@ -56,7 +56,7 @@ public sealed class PendingAttachmentRegistry
             }
             else
             {
-                reservation = new UploadReservation(entry.UploadId, type!, entry.Cancellation.Token);
+                reservation = new UploadReservation(entry.AttachmentId, type!, entry.Cancellation.Token);
             }
         }
 
@@ -68,14 +68,14 @@ public sealed class PendingAttachmentRegistry
     // Checked against the quota as the upload starts rather than at
     // reservation: uploads in a tab run one after another, so by now the files
     // before it are on disk at their real size.
-    public bool TryStartUpload(Guid uploadId)
+    public bool TryStartUpload(Guid attachmentId)
     {
         bool isStarted;
         Guid scopeKey;
         List<PendingAttachmentEntry> evicted = [];
         lock (_entriesLock)
         {
-            if (!_entries.TryGetValue(uploadId, out var entry) || entry.Status != AttachmentStatus.Waiting)
+            if (!_entries.TryGetValue(attachmentId, out var entry) || entry.Status != AttachmentStatus.Waiting)
             {
                 return false;
             }
@@ -99,12 +99,12 @@ public sealed class PendingAttachmentRegistry
         return isStarted;
     }
 
-    public void ReportProgress(Guid uploadId, long receivedBytes)
+    public void ReportProgress(Guid attachmentId, long receivedBytes)
     {
         Guid scopeKey;
         lock (_entriesLock)
         {
-            if (!_entries.TryGetValue(uploadId, out var entry) || !entry.AdvanceProgress(receivedBytes))
+            if (!_entries.TryGetValue(attachmentId, out var entry) || !entry.AdvanceProgress(receivedBytes))
             {
                 return;
             }
@@ -119,14 +119,14 @@ public sealed class PendingAttachmentRegistry
     // delete it: marked ready when the attachment is still uploading, is no duplicate
     // and fits the quota; deleted otherwise. A file the quota refuses is
     // already deleted by the quota.
-    public void Complete(Guid uploadId, UploadOutcome.Stored stored)
+    public void Complete(Guid attachmentId, UploadOutcome.Stored stored)
     {
         Guid? scopeKey = null;
         var isFileHandled = false;
         List<PendingAttachmentEntry> evicted = [];
         lock (_entriesLock)
         {
-            if (_entries.TryGetValue(uploadId, out var entry) && entry.Status == AttachmentStatus.Uploading)
+            if (_entries.TryGetValue(attachmentId, out var entry) && entry.Status == AttachmentStatus.Uploading)
             {
                 if (PendingDuplicates.IsAlreadyPending(_entries.Values, entry.OwnerId, entry.ScopeKey, stored.Sha256))
                 {
@@ -159,13 +159,13 @@ public sealed class PendingAttachmentRegistry
         }
     }
 
-    public void Reject(Guid uploadId, string reason)
+    public void Reject(Guid attachmentId, string reason)
     {
         Guid scopeKey;
         List<PendingAttachmentEntry> evicted;
         lock (_entriesLock)
         {
-            if (!_entries.TryGetValue(uploadId, out var entry))
+            if (!_entries.TryGetValue(attachmentId, out var entry))
             {
                 return;
             }
@@ -203,7 +203,7 @@ public sealed class PendingAttachmentRegistry
         var evicted = rejectedInScope.Take(Math.Max(0, rejectedInScope.Count - MaxRejectedPerScope)).ToList();
         foreach (var old in evicted)
         {
-            _entries.Remove(old.UploadId);
+            _entries.Remove(old.AttachmentId);
         }
 
         return evicted;
@@ -221,17 +221,17 @@ public sealed class PendingAttachmentRegistry
         }
     }
 
-    // Hands the ready attachments among uploadIds over to processing; the
+    // Hands the ready attachments among attachmentIds over to processing; the
     // caller names them, so one that becomes ready later is not taken. They
     // leave the registry without their temp files being deleted: the caller
     // now owns them (see ReadyAttachment). Refused and unfinished ones stay.
-    public IReadOnlyList<ReadyAttachment> TakeReady(string ownerId, Guid scopeKey, IReadOnlySet<Guid> uploadIds)
+    public IReadOnlyList<ReadyAttachment> TakeReady(string ownerId, Guid scopeKey, IReadOnlySet<Guid> attachmentIds)
     {
         List<ReadyAttachment> taken = [];
         lock (_entriesLock)
         {
             var requested = _entries.Values
-                .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey && uploadIds.Contains(entry.UploadId))
+                .Where(entry => entry.OwnerId == ownerId && entry.ScopeKey == scopeKey && attachmentIds.Contains(entry.AttachmentId))
                 .OrderBy(entry => entry.CreatedAt)
                 .ToList();
 
@@ -239,7 +239,7 @@ public sealed class PendingAttachmentRegistry
             {
                 if (entry.ToReady() is { } handedOver)
                 {
-                    _entries.Remove(entry.UploadId);
+                    _entries.Remove(entry.AttachmentId);
                     taken.Add(handedOver);
                 }
             }
@@ -254,17 +254,17 @@ public sealed class PendingAttachmentRegistry
     }
 
     // Also cancels its upload, if it is still uploading.
-    public bool Remove(string ownerId, Guid uploadId)
+    public bool Remove(string ownerId, Guid attachmentId)
     {
         PendingAttachmentEntry? removed;
         lock (_entriesLock)
         {
-            if (!_entries.TryGetValue(uploadId, out removed) || removed.OwnerId != ownerId)
+            if (!_entries.TryGetValue(attachmentId, out removed) || removed.OwnerId != ownerId)
             {
                 return false;
             }
 
-            _entries.Remove(uploadId);
+            _entries.Remove(attachmentId);
         }
 
         Discard([removed]);
@@ -287,7 +287,7 @@ public sealed class PendingAttachmentRegistry
             removed = _entries.Values.Where(predicate).ToList();
             foreach (var entry in removed)
             {
-                _entries.Remove(entry.UploadId);
+                _entries.Remove(entry.AttachmentId);
             }
         }
 

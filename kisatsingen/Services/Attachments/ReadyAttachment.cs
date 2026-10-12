@@ -4,7 +4,7 @@ namespace kisatsingen.Services.Attachments;
 // in the registry (a chat switch, the sweep) can delete its temp file any
 // more, so whoever holds this must delete File when done with it.
 public sealed record ReadyAttachment(
-    Guid UploadId,
+    Guid AttachmentId,
     string FileName,
     AttachmentType Type,
     long SizeBytes,

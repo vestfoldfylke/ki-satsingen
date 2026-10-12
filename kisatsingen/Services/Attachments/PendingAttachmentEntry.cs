@@ -3,7 +3,7 @@ namespace kisatsingen.Services.Attachments;
 // The registry's mutable record of one attachment. Only touched under the
 // registry's lock; everything outside sees a PendingAttachment snapshot.
 internal sealed class PendingAttachmentEntry(
-    Guid uploadId,
+    Guid attachmentId,
     string ownerId,
     Guid scopeKey,
     string fileName,
@@ -16,7 +16,7 @@ internal sealed class PendingAttachmentEntry(
 
     private int _reportedPercent;
 
-    public Guid UploadId { get; } = uploadId;
+    public Guid AttachmentId { get; } = attachmentId;
     public string OwnerId { get; } = ownerId;
     public Guid ScopeKey { get; } = scopeKey;
     public string FileName { get; } = fileName;
@@ -72,9 +72,9 @@ internal sealed class PendingAttachmentEntry(
     // Null unless ready: only a stored upload has a file to hand over.
     public ReadyAttachment? ToReady() =>
         Status == AttachmentStatus.Ready && Type is not null && File is not null && SizeBytes is { } size && Sha256 is { } sha256
-            ? new ReadyAttachment(UploadId, FileName, Type, size, sha256, File)
+            ? new ReadyAttachment(AttachmentId, FileName, Type, size, sha256, File)
             : null;
 
     public PendingAttachment ToView() =>
-        new(UploadId, FileName, Status, DeclaredSizeBytes, ReceivedBytes, RejectionReason, CreatedAt);
+        new(AttachmentId, FileName, Status, DeclaredSizeBytes, ReceivedBytes, RejectionReason, CreatedAt);
 }

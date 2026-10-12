@@ -95,26 +95,26 @@ public sealed class ChatAttachments : IDisposable
     // end the circuit.
     private async Task UploadOneAsync(string ownerId, UploadReservation reservation, IBrowserFile file, CancellationToken viewStop)
     {
-        if (viewStop.IsCancellationRequested || !_registry.TryStartUpload(reservation.UploadId))
+        if (viewStop.IsCancellationRequested || !_registry.TryStartUpload(reservation.AttachmentId))
         {
             return;
         }
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(reservation.Cancellation, viewStop);
-        var progress = new ImmediateProgress(receivedBytes => _registry.ReportProgress(reservation.UploadId, receivedBytes));
+        var progress = new ImmediateProgress(receivedBytes => _registry.ReportProgress(reservation.AttachmentId, receivedBytes));
 
         try
         {
             await using var source = file.OpenReadStream(_options.MaxFileBytes, linked.Token);
-            var outcome = await _uploader.CopyAsync(source, ownerId, reservation.UploadId, reservation.Type, _options.MaxFileBytes, progress, linked.Token);
+            var outcome = await _uploader.CopyAsync(source, ownerId, reservation.AttachmentId, reservation.Type, _options.MaxFileBytes, progress, linked.Token);
 
             switch (outcome)
             {
                 case UploadOutcome.Stored stored:
-                    _registry.Complete(reservation.UploadId, stored);
+                    _registry.Complete(reservation.AttachmentId, stored);
                     break;
                 case UploadOutcome.Rejected rejected:
-                    _registry.Reject(reservation.UploadId, rejected.Reason);
+                    _registry.Reject(reservation.AttachmentId, rejected.Reason);
                     break;
             }
         }
@@ -125,16 +125,16 @@ public sealed class ChatAttachments : IDisposable
         // A lost connection mid-upload surfaces as whatever the stream throws.
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Upload {UploadId} failed after it started.", reservation.UploadId);
-            _registry.Reject(reservation.UploadId, UploadRejections.Interrupted);
+            _logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed after it started.", reservation.AttachmentId);
+            _registry.Reject(reservation.AttachmentId, UploadRejections.Interrupted);
         }
     }
 
-    public void Remove(Guid uploadId)
+    public void Remove(Guid attachmentId)
     {
         if (_ownerId is not null)
         {
-            _registry.Remove(_ownerId, uploadId);
+            _registry.Remove(_ownerId, attachmentId);
         }
     }
 
@@ -143,20 +143,20 @@ public sealed class ChatAttachments : IDisposable
     // attached and has already said why, so it is cleared from the composer.
     internal MessageAttachments AttachReadyToMessage()
     {
-        var readyUploadIds = Pending
+        var readyAttachmentIds = Pending
             .Where(attachment => attachment.Status == AttachmentStatus.Ready)
-            .Select(attachment => attachment.UploadId)
+            .Select(attachment => attachment.AttachmentId)
             .ToHashSet();
 
         ClearRejected();
-        return new MessageAttachments(_registry, _ownerId, ComposerKey, readyUploadIds);
+        return new MessageAttachments(_registry, _ownerId, ComposerKey, readyAttachmentIds);
     }
 
     private void ClearRejected()
     {
         foreach (var attachment in Pending.Where(attachment => attachment.Status == AttachmentStatus.Rejected))
         {
-            Remove(attachment.UploadId);
+            Remove(attachment.AttachmentId);
         }
     }
 

@@ -38,8 +38,8 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     private void CompleteUpload(AttachmentTestEnvironment environment, Guid? scopeKey, string sha256, long size = Kilobyte)
     {
         var reservation = Reserve(environment.Registry, scopeKey: scopeKey, size: size);
-        environment.Registry.TryStartUpload(reservation.UploadId);
-        environment.Registry.Complete(reservation.UploadId, StoreFile(environment, size, sha256));
+        environment.Registry.TryStartUpload(reservation.AttachmentId);
+        environment.Registry.Complete(reservation.AttachmentId, StoreFile(environment, size, sha256));
     }
 
     [Fact]
@@ -96,7 +96,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         CompleteUpload(environment, Guid.NewGuid(), UploadHashes.Unique());
         var second = Reserve(environment.Registry);
 
-        var isStarted = environment.Registry.TryStartUpload(second.UploadId);
+        var isStarted = environment.Registry.TryStartUpload(second.AttachmentId);
 
         Assert.False(isStarted);
     }
@@ -108,7 +108,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         environment.Registry.Reserve(Owner, _scopeKey, "program.exe", Kilobyte);
         var valid = Reserve(environment.Registry);
 
-        var isStarted = environment.Registry.TryStartUpload(valid.UploadId);
+        var isStarted = environment.Registry.TryStartUpload(valid.AttachmentId);
 
         Assert.True(isStarted);
     }
@@ -120,10 +120,10 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         CompleteUpload(environment, _scopeKey, UploadHashes.Unique(), size: 10 * Kilobyte);
         var second = Reserve(environment.Registry, size: 10 * Kilobyte);
 
-        var isStarted = environment.Registry.TryStartUpload(second.UploadId);
+        var isStarted = environment.Registry.TryStartUpload(second.AttachmentId);
 
         Assert.False(isStarted);
-        Assert.Equal(AttachmentStatus.Rejected, environment.Registry.List(Owner, _scopeKey).Single(listed => listed.UploadId == second.UploadId).Status);
+        Assert.Equal(AttachmentStatus.Rejected, environment.Registry.List(Owner, _scopeKey).Single(listed => listed.AttachmentId == second.AttachmentId).Status);
     }
 
     // The declared size is only a hint; completion counts the real one.
@@ -132,15 +132,15 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         using var environment = WithOptions(new AttachmentOptions { MaxFileBytes = 10 * Kilobyte, MaxPendingBytesPerUser = 15 * Kilobyte });
         var first = Reserve(environment.Registry, size: 10 * Kilobyte);
-        environment.Registry.TryStartUpload(first.UploadId);
-        environment.Registry.Complete(first.UploadId, StoreFile(environment, 10 * Kilobyte));
+        environment.Registry.TryStartUpload(first.AttachmentId);
+        environment.Registry.Complete(first.AttachmentId, StoreFile(environment, 10 * Kilobyte));
         var liar = Reserve(environment.Registry, size: 1);
-        environment.Registry.TryStartUpload(liar.UploadId);
+        environment.Registry.TryStartUpload(liar.AttachmentId);
         var stored = StoreFile(environment, 10 * Kilobyte);
 
-        environment.Registry.Complete(liar.UploadId, stored);
+        environment.Registry.Complete(liar.AttachmentId, stored);
 
-        Assert.Equal(AttachmentStatus.Rejected, environment.Registry.List(Owner, _scopeKey).Single(listed => listed.UploadId == liar.UploadId).Status);
+        Assert.Equal(AttachmentStatus.Rejected, environment.Registry.List(Owner, _scopeKey).Single(listed => listed.AttachmentId == liar.AttachmentId).Status);
         Assert.False(File.Exists(stored.File.Path));
     }
 
@@ -149,10 +149,10 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         CompleteUpload(environment, _scopeKey, UploadHashes.Unique());
-        environment.Registry.Remove(Owner, Assert.Single(environment.Registry.List(Owner, _scopeKey)).UploadId);
+        environment.Registry.Remove(Owner, Assert.Single(environment.Registry.List(Owner, _scopeKey)).AttachmentId);
         var second = Reserve(environment.Registry);
 
-        var isStarted = environment.Registry.TryStartUpload(second.UploadId);
+        var isStarted = environment.Registry.TryStartUpload(second.AttachmentId);
 
         Assert.True(isStarted);
     }
@@ -164,13 +164,13 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         CompleteUpload(environment, _scopeKey, UploadHashes.Unique());
-        var taken = Assert.Single(environment.Registry.TakeReady(Owner, _scopeKey, environment.Registry.List(Owner, _scopeKey).Select(listed => listed.UploadId).ToHashSet()));
+        var taken = Assert.Single(environment.Registry.TakeReady(Owner, _scopeKey, environment.Registry.List(Owner, _scopeKey).Select(listed => listed.AttachmentId).ToHashSet()));
         var whileTaken = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
         var afterDelete = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
 
-        var isStartedWhileTaken = environment.Registry.TryStartUpload(whileTaken.UploadId);
+        var isStartedWhileTaken = environment.Registry.TryStartUpload(whileTaken.AttachmentId);
         environment.Storage.Delete(taken.File);
-        var isStartedAfterDelete = environment.Registry.TryStartUpload(afterDelete.UploadId);
+        var isStartedAfterDelete = environment.Registry.TryStartUpload(afterDelete.AttachmentId);
 
         Assert.Equal((false, true), (isStartedWhileTaken, isStartedAfterDelete));
     }
@@ -183,13 +183,13 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         using var environment = WithOptions(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         var first = Reserve(environment.Registry);
         var second = Reserve(environment.Registry, scopeKey: Guid.NewGuid());
-        environment.Registry.TryStartUpload(first.UploadId);
-        environment.Registry.TryStartUpload(second.UploadId);
+        environment.Registry.TryStartUpload(first.AttachmentId);
+        environment.Registry.TryStartUpload(second.AttachmentId);
         var firstFile = StoreFile(environment, Kilobyte);
         var secondFile = StoreFile(environment, Kilobyte);
 
-        environment.Registry.Complete(first.UploadId, firstFile);
-        environment.Registry.Complete(second.UploadId, secondFile);
+        environment.Registry.Complete(first.AttachmentId, firstFile);
+        environment.Registry.Complete(second.AttachmentId, secondFile);
 
         Assert.Equal(1, environment.Storage.UsageOf(Owner).FileCount);
     }
@@ -208,7 +208,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         var reservation = Reserve(Registry);
 
-        var isRemoved = Registry.Remove(OtherOwner, reservation.UploadId);
+        var isRemoved = Registry.Remove(OtherOwner, reservation.AttachmentId);
 
         Assert.False(isRemoved);
     }
@@ -218,7 +218,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         var reservation = Reserve(Registry);
 
-        Registry.Remove(Owner, reservation.UploadId);
+        Registry.Remove(Owner, reservation.AttachmentId);
 
         Assert.True(reservation.Cancellation.IsCancellationRequested);
     }
@@ -227,11 +227,11 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     public void Removing_a_ready_attachment_deletes_its_temp_file()
     {
         var reservation = Reserve(Registry);
-        Registry.TryStartUpload(reservation.UploadId);
+        Registry.TryStartUpload(reservation.AttachmentId);
         var stored = StoreFile(_environment, Kilobyte);
-        Registry.Complete(reservation.UploadId, stored);
+        Registry.Complete(reservation.AttachmentId, stored);
 
-        Registry.Remove(Owner, reservation.UploadId);
+        Registry.Remove(Owner, reservation.AttachmentId);
 
         Assert.False(File.Exists(stored.File.Path));
     }
@@ -240,11 +240,11 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     public void A_file_completed_after_its_attachment_was_removed_is_deleted()
     {
         var reservation = Reserve(Registry);
-        Registry.TryStartUpload(reservation.UploadId);
-        Registry.Remove(Owner, reservation.UploadId);
+        Registry.TryStartUpload(reservation.AttachmentId);
+        Registry.Remove(Owner, reservation.AttachmentId);
         var stored = StoreFile(_environment, Kilobyte);
 
-        Registry.Complete(reservation.UploadId, stored);
+        Registry.Complete(reservation.AttachmentId, stored);
 
         Assert.False(File.Exists(stored.File.Path));
     }
@@ -255,8 +255,8 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         foreach (var _ in Enumerable.Range(0, 2))
         {
             var reservation = Reserve(Registry);
-            Registry.TryStartUpload(reservation.UploadId);
-            Registry.Complete(reservation.UploadId, StoreFile(_environment, Kilobyte));
+            Registry.TryStartUpload(reservation.AttachmentId);
+            Registry.Complete(reservation.AttachmentId, StoreFile(_environment, Kilobyte));
         }
 
         Registry.RemoveAll(Owner, _scopeKey);
@@ -271,7 +271,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         var announced = new List<Guid>();
         Registry.Changed += announced.Add;
 
-        Registry.TryStartUpload(reservation.UploadId);
+        Registry.TryStartUpload(reservation.AttachmentId);
 
         Assert.Equal([_scopeKey], announced);
     }
@@ -287,7 +287,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
 
         environment.Registry.RemoveOlderThan(time.GetUtcNow() - TimeSpan.FromHours(1));
 
-        Assert.Equal([recent.UploadId], environment.Registry.List(Owner, _scopeKey).Select(listed => listed.UploadId));
+        Assert.Equal([recent.AttachmentId], environment.Registry.List(Owner, _scopeKey).Select(listed => listed.AttachmentId));
     }
 
     [Fact]
@@ -296,12 +296,12 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         var sha256 = UploadHashes.Unique();
         CompleteUpload(_environment, _scopeKey, sha256);
         var second = Reserve(Registry);
-        Registry.TryStartUpload(second.UploadId);
+        Registry.TryStartUpload(second.AttachmentId);
         var stored = StoreFile(_environment, Kilobyte, sha256);
 
-        Registry.Complete(second.UploadId, stored);
+        Registry.Complete(second.AttachmentId, stored);
 
-        var listed = Registry.List(Owner, _scopeKey).Single(attachment => attachment.UploadId == second.UploadId);
+        var listed = Registry.List(Owner, _scopeKey).Single(attachment => attachment.AttachmentId == second.AttachmentId);
         Assert.Equal((AttachmentStatus.Rejected, UploadRejections.AlreadyPending), (listed.Status, listed.RejectionReason));
         Assert.False(File.Exists(stored.File.Path));
     }
@@ -323,7 +323,7 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
     {
         var sha256 = UploadHashes.Unique();
         CompleteUpload(_environment, _scopeKey, sha256);
-        Registry.Remove(Owner, Assert.Single(Registry.List(Owner, _scopeKey)).UploadId);
+        Registry.Remove(Owner, Assert.Single(Registry.List(Owner, _scopeKey)).AttachmentId);
 
         CompleteUpload(_environment, _scopeKey, sha256);
 
@@ -338,10 +338,10 @@ public sealed class PendingAttachmentRegistryTests : IDisposable
         var sha256 = UploadHashes.Unique();
         CompleteUpload(environment, _scopeKey, sha256, size: 10 * Kilobyte);
         var second = Reserve(environment.Registry, size: 1);
-        environment.Registry.TryStartUpload(second.UploadId);
+        environment.Registry.TryStartUpload(second.AttachmentId);
 
-        environment.Registry.Complete(second.UploadId, StoreFile(environment, 10 * Kilobyte, sha256));
+        environment.Registry.Complete(second.AttachmentId, StoreFile(environment, 10 * Kilobyte, sha256));
 
-        Assert.Equal(UploadRejections.AlreadyPending, environment.Registry.List(Owner, _scopeKey).Single(attachment => attachment.UploadId == second.UploadId).RejectionReason);
+        Assert.Equal(UploadRejections.AlreadyPending, environment.Registry.List(Owner, _scopeKey).Single(attachment => attachment.AttachmentId == second.AttachmentId).RejectionReason);
     }
 }

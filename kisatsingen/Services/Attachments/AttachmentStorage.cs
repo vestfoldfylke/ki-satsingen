@@ -23,8 +23,8 @@ public readonly record struct StorageUsage(int FileCount, long ByteCount);
 // folder and files are owner-only, so another local account cannot read what
 // users uploaded.
 //
-//     uploading-<owner hash>-<upload id>   while it is written
-//     ready-<owner hash>-<upload id>       once the quota has marked it ready
+//     uploading-<owner hash>-<attachment id>   while it is written
+//     ready-<owner hash>-<attachment id>       once the quota has marked it ready
 //
 // The folder is fixed rather than configurable, so it cannot be misconfigured,
 // and it lives in the temp folder: local to the instance and outside /home, so
@@ -80,12 +80,12 @@ public sealed class AttachmentStorage
         return new AttachmentStorage(folder, logger);
     }
 
-    // The upload ID in the name lets the Debug logs follow one upload.
+    // The attachment ID in the name lets the Debug logs follow one attachment.
     // CreateNew, so a name that somehow already exists fails instead of being
     // overwritten.
-    public (TempFile File, FileStream Stream) Create(string ownerId, Guid uploadId)
+    public (TempFile File, FileStream Stream) Create(string ownerId, Guid attachmentId)
     {
-        var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + uploadId.ToString("N"));
+        var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + attachmentId.ToString("N"));
         var stream = new FileStream(path, new FileStreamOptions
         {
             Mode = FileMode.CreateNew,

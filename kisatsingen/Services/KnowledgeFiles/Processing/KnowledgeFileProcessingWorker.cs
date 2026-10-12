@@ -106,13 +106,13 @@ public sealed class KnowledgeFileProcessingWorker(
         catch (OperationCanceledException) when (timeout?.IsCancellationRequested == true)
         {
             outcome = Outcome.TimedOut;
-            logger.LogWarning("Processing upload {UploadId} ({ContentType}) timed out after {Timeout}.", job.Attachment.UploadId, job.Attachment.Type.ContentType, options.JobTimeout);
+            logger.LogWarning("Processing attachment {AttachmentId} ({ContentType}) timed out after {Timeout}.", job.Attachment.AttachmentId, job.Attachment.Type.ContentType, options.JobTimeout);
             job.Completion.TrySetResult(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.TimedOut));
         }
         catch (Exception ex)
         {
             outcome = Outcome.Failed;
-            logger.LogError(ex, "Processing upload {UploadId} ({ContentType}, {SizeBytes} bytes) failed.", job.Attachment.UploadId, job.Attachment.Type.ContentType, job.Attachment.SizeBytes);
+            logger.LogError(ex, "Processing attachment {AttachmentId} ({ContentType}, {SizeBytes} bytes) failed.", job.Attachment.AttachmentId, job.Attachment.Type.ContentType, job.Attachment.SizeBytes);
             job.Completion.TrySetException(ex);
         }
         finally
