@@ -18,7 +18,6 @@ internal sealed class AttachmentTestEnvironment : IDisposable
         Directory.CreateDirectory(ParentFolder);
         Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
         Quota = new AttachmentQuota(Storage, Options);
-        Registry = new PendingAttachmentRegistry(Storage, Quota, Options, Time);
         Uploader = new AttachmentUploader(Storage);
     }
 
@@ -28,7 +27,6 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public TimeProvider Time { get; }
     public AttachmentStorage Storage { get; }
     public AttachmentQuota Quota { get; }
-    public PendingAttachmentRegistry Registry { get; }
     public AttachmentUploader Uploader { get; }
 
     public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);

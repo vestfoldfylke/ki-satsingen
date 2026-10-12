@@ -1,8 +1,7 @@
 namespace kisatsingen.Services.Attachments;
 
-// Returned by PendingAttachmentRegistry.TakeReady, which forgets it: nothing
-// in the registry (a chat switch, the sweep) can delete its temp file any
-// more, so whoever holds this must delete File when done with it.
+// An attachment handed over at send. Its file no longer belongs to the
+// composer: whoever holds this owns File and disposes it when done.
 public sealed record ReadyAttachment(
     Guid AttachmentId,
     string FileName,

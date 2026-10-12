@@ -5,7 +5,7 @@ using kisatsingen.Services.KnowledgeFiles.Documents;
 namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
 // A ready attachment in, a draft out. Knows nothing of chats, assistants or
-// queues, and never deletes the temp file: whoever took it from the registry does.
+// queues, and never deletes the temp file: whoever took it at send does.
 public sealed class KnowledgeFileProcessor(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,

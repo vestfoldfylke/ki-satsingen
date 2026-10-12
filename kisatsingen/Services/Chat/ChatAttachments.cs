@@ -53,7 +53,7 @@ public sealed class ChatAttachments(
         var waiting = new List<(PendingAttachmentEntry Entry, IBrowserFile File, AttachmentType Type)>();
         foreach (var file in selection.GetMultipleFiles(options.MaxFilesPerSelection))
         {
-            var entry = Add(ownerId, file);
+            var entry = Add(file);
             if (entry.Status == AttachmentStatus.Waiting && entry.Type is { } type)
             {
                 waiting.Add((entry, file, type));
@@ -70,7 +70,7 @@ public sealed class ChatAttachments(
         }
     }
 
-    private PendingAttachmentEntry Add(string ownerId, IBrowserFile file)
+    private PendingAttachmentEntry Add(IBrowserFile file)
     {
         var fileName = AttachmentFileName.Normalize(file.Name);
         var type = AttachmentContentTypes.FromFileName(fileName);
@@ -78,7 +78,7 @@ public sealed class ChatAttachments(
         // One per picked file; a selection of several files has no ID of its
         // own.
         var attachmentId = Guid.NewGuid();
-        var entry = new PendingAttachmentEntry(attachmentId, ownerId, scopeKey: Guid.Empty, fileName, type, file.Size, time.GetUtcNow());
+        var entry = new PendingAttachmentEntry(attachmentId, fileName, type, file.Size, time.GetUtcNow());
         _entries.Add(entry);
 
         if (FindUnacceptableReason(type, file.Size) is { } reason)

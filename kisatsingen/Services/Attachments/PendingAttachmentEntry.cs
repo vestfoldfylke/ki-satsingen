@@ -1,11 +1,9 @@
 namespace kisatsingen.Services.Attachments;
 
-// The registry's mutable record of one attachment. Only touched under the
-// registry's lock; everything outside sees a PendingAttachment snapshot.
+// The composer's mutable record of one attachment; the page sees a
+// PendingAttachment snapshot of it.
 internal sealed class PendingAttachmentEntry(
     Guid attachmentId,
-    string ownerId,
-    Guid scopeKey,
     string fileName,
     AttachmentType? type,
     long declaredSizeBytes,
@@ -17,8 +15,6 @@ internal sealed class PendingAttachmentEntry(
     private int _reportedPercent;
 
     public Guid AttachmentId { get; } = attachmentId;
-    public string OwnerId { get; } = ownerId;
-    public Guid ScopeKey { get; } = scopeKey;
     public string FileName { get; } = fileName;
 
     // Null only for a file refused for its type.

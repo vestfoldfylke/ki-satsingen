@@ -24,17 +24,10 @@ public sealed class AttachmentOptions
     // its own /tmp, which shares the host disk with every app in the plan.
     public long MaxPendingBytesPerInstance { get; init; } = 2000 * ByteSize.Megabyte;
 
-    // How long an unsent attachment may stay pending before the sweep removes
-    // it. Temp files nothing tracks are left to the wipe at the next start.
-    public TimeSpan TempFileMaxAge { get; init; } = TimeSpan.FromHours(24);
-
-    public TimeSpan TempFileSweepInterval { get; init; } = TimeSpan.FromHours(1);
-
     public void Validate()
     {
         if (MaxFileBytes <= 0 || MaxFilesPerSelection <= 0 || MaxPendingFilesPerUser <= 0
-            || MaxPendingBytesPerUser <= 0 || MaxPendingBytesPerInstance <= 0
-            || TempFileMaxAge <= TimeSpan.Zero || TempFileSweepInterval <= TimeSpan.Zero)
+            || MaxPendingBytesPerUser <= 0 || MaxPendingBytesPerInstance <= 0)
         {
             throw new InvalidOperationException(
                 $"Every '{SectionName}' setting must be positive. Check the '{SectionName}' section in configuration.");
