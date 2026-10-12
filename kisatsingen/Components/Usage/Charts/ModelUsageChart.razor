@@ -1,0 +1,45 @@
+@using kisatsingen.Data.Entities
+
+<div class="usage-chart">
+    <h3 class="ds-heading" data-size="xs">Forbruk per modell</h3>
+    @if (_points.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <RadzenChart Animate="true" Style="height: 380px;" MouseMoveThrottle="150">
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
+                                Data="@_points"
+                                CategoryProperty="@nameof(ModelPoint.Model)"
+                                ValueProperty="@nameof(ModelPoint.InputTokens)"
+                                Title="Input tokens" />
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
+                                Data="@_points"
+                                CategoryProperty="@nameof(ModelPoint.Model)"
+                                ValueProperty="@nameof(ModelPoint.OutputTokens)"
+                                Title="Output tokens" />
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
+                                Data="@_points"
+                                CategoryProperty="@nameof(ModelPoint.Model)"
+                                ValueProperty="@nameof(ModelPoint.EstimatedInputTokens)"
+                                Title="Estimert input tokens" />
+            <RadzenColumnSeries FillMode="FillMode.Gradient"
+                                GradientEndOpacity="0.85"
+                                GradientStartOpacity="0.4"
+                                Data="@_points"
+                                CategoryProperty="@nameof(ModelPoint.Model)"
+                                ValueProperty="@nameof(ModelPoint.EstimatedOutputTokens)"
+                                Title="Estimert output tokens" />
+            <RadzenCategoryAxis />
+            <RadzenValueAxis />
+            <RadzenLegend Position="LegendPosition.Bottom" />
+        </RadzenChart>
+    }
+</div>

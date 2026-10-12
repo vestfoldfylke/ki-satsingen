@@ -1,0 +1,41 @@
+@using kisatsingen.Data.Entities
+
+<div class="usage-chart">
+    <h3 class="ds-heading" data-size="xs">Forbruk over tid</h3>
+    @if (_points.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <RadzenChart Animate="true" Style="height: 380px;" MouseMoveThrottle="150">
+            <RadzenAreaSeries FillMode="FillMode.Gradient"
+                              Data="@_points"
+                              CategoryProperty="@nameof(TimePoint.Bucket)"
+                              ValueProperty="@nameof(TimePoint.InputTokens)"
+                              Title="Input tokens"
+                              Smooth="true" />
+            <RadzenAreaSeries FillMode="FillMode.Gradient"
+                              Data="@_points"
+                              CategoryProperty="@nameof(TimePoint.Bucket)"
+                              ValueProperty="@nameof(TimePoint.OutputTokens)"
+                              Title="Output tokens"
+                              Smooth="true" />
+            <RadzenAreaSeries FillMode="FillMode.Gradient"
+                              Data="@_points"
+                              CategoryProperty="@nameof(TimePoint.Bucket)"
+                              ValueProperty="@nameof(TimePoint.EstimatedInputTokens)"
+                              Title="Estimert input"
+                              Smooth="true" />
+            <RadzenAreaSeries FillMode="FillMode.Gradient"
+                              Data="@_points"
+                              CategoryProperty="@nameof(TimePoint.Bucket)"
+                              ValueProperty="@nameof(TimePoint.EstimatedOutputTokens)"
+                              Title="Estimert output"
+                              Smooth="true" />
+            <RadzenCategoryAxis FormatString="@_dateFormat" />
+            <RadzenValueAxis />
+            <RadzenLegend Position="LegendPosition.Bottom" />
+        </RadzenChart>
+    }
+</div>

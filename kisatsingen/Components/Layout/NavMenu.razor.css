@@ -15,17 +15,10 @@
     }
 }
 
-.nav-item > button > span {
+.nav-item > button > span,
+.nav-item > a > span {
     font-size: .85rem;
 }
-
-    .nav-item:first-of-type {
-        padding-top: 2rem;
-    }
-
-    .nav-item:last-of-type {
-        padding-bottom: 2rem;
-    }
 
 .nav-scrollable {
     display: none;
@@ -48,6 +41,8 @@
 
 .nav-primary {
     flex-shrink: 0;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 
 .chat-sidebar {

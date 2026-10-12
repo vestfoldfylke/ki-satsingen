@@ -1,0 +1,6 @@
+.usage-cards {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    padding-bottom: 1rem;
+}
