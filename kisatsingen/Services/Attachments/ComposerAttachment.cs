@@ -18,7 +18,7 @@ public sealed class ComposerAttachment(string fileName, long declaredSizeBytes)
     // What send hands over; set when the upload is accepted.
     internal ReadyAttachment? Ready { get; private set; }
 
-    internal void StartUploading() => Status = AttachmentStatus.Uploading;
+    internal void MarkUploading() => Status = AttachmentStatus.Uploading;
 
     // True when the percent moved a whole step, so a render is worth it.
     internal bool ReportProgress(long receivedBytes)
@@ -44,7 +44,7 @@ public sealed class ComposerAttachment(string fileName, long declaredSizeBytes)
         Ready = new ReadyAttachment(AttachmentId, FileName, type, stored.SizeBytes, stored.Sha256, stored.File);
     }
 
-    internal void Reject(string reason)
+    internal void MarkRejected(string reason)
     {
         Status = AttachmentStatus.Rejected;
         RejectionReason = reason;

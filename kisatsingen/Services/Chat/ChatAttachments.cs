@@ -59,13 +59,13 @@ public sealed class ChatAttachments(
 
             if (type is null)
             {
-                attachment.Reject(UploadRejections.UnsupportedType);
+                attachment.MarkRejected(UploadRejections.UnsupportedType);
                 continue;
             }
 
             if (FindUnacceptableSizeReason(file.Size) is string reason)
             {
-                attachment.Reject(reason);
+                attachment.MarkRejected(reason);
                 continue;
             }
 
@@ -107,11 +107,11 @@ public sealed class ChatAttachments(
         // at their real size.
         if (quota.CheckDeclaredSizeFits(ownerId, attachment.DeclaredSizeBytes) is QuotaCheck.Rejected quotaRejection)
         {
-            attachment.Reject(quotaRejection.Reason);
+            attachment.MarkRejected(quotaRejection.Reason);
             return;
         }
 
-        attachment.StartUploading();
+        attachment.MarkUploading();
         Changed?.Invoke();
 
         var cancellation = attachment.Cancellation.Token;
@@ -134,7 +134,7 @@ public sealed class ChatAttachments(
                     MarkReadyIfAccepted(ownerId, attachment, type, stored);
                     break;
                 case UploadOutcome.Rejected rejected:
-                    attachment.Reject(rejected.Reason);
+                    attachment.MarkRejected(rejected.Reason);
                     break;
             }
         }
@@ -146,7 +146,7 @@ public sealed class ChatAttachments(
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed after it started.", attachment.AttachmentId);
-            attachment.Reject(UploadRejections.Interrupted);
+            attachment.MarkRejected(UploadRejections.Interrupted);
         }
     }
 
@@ -164,13 +164,13 @@ public sealed class ChatAttachments(
         if (IsAlreadyReady(stored.Sha256))
         {
             stored.File.Dispose();
-            attachment.Reject(UploadRejections.AlreadyPending);
+            attachment.MarkRejected(UploadRejections.AlreadyPending);
             return;
         }
 
         if (quota.MarkReadyIfFits(ownerId, stored) is QuotaCheck.Rejected quotaRejection)
         {
-            attachment.Reject(quotaRejection.Reason);
+            attachment.MarkRejected(quotaRejection.Reason);
             return;
         }
 
