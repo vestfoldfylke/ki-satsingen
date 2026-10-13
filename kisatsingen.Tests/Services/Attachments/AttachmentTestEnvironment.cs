@@ -10,10 +10,9 @@ namespace kisatsingen.Tests.Services.Attachments;
 // app's folder.
 internal sealed class AttachmentTestEnvironment : IDisposable
 {
-    public AttachmentTestEnvironment(AttachmentOptions? options = null, TimeProvider? time = null)
+    public AttachmentTestEnvironment(AttachmentOptions? options = null)
     {
         Options = options ?? new AttachmentOptions();
-        Time = time ?? TimeProvider.System;
         ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(ParentFolder);
         Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
@@ -24,7 +23,6 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public string ParentFolder { get; }
     public string Folder => Storage.Folder;
     public AttachmentOptions Options { get; }
-    public TimeProvider Time { get; }
     public AttachmentStorage Storage { get; }
     public AttachmentQuota Quota { get; }
     public AttachmentUploader Uploader { get; }
@@ -32,7 +30,7 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
     public ChatAttachments CreateChatAttachments(IAuthenticationService authentication) =>
-        new(authentication, Uploader, Quota, Options, Time, NullLogger<ChatAttachments>.Instance);
+        new(authentication, Uploader, Quota, Options, NullLogger<ChatAttachments>.Instance);
 
     public void Dispose()
     {

@@ -38,7 +38,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.LoadAsync(Guid.NewGuid());
 
-        Assert.Empty(harness.Attachments.Pending);
+        Assert.Empty(harness.Attachments.All);
         Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
@@ -163,7 +163,7 @@ public sealed class ChatSessionAttachmentTests
         await harness.Session.SendAsync("Hva står i notatet?");
 
         Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
-        var pending = Assert.Single(harness.Attachments.Pending);
+        var pending = Assert.Single(harness.Attachments.All);
         Assert.Equal(AttachmentStatus.Ready, pending.Status);
     }
 
@@ -209,7 +209,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var pending = Assert.Single(harness.Attachments.Pending);
+        var pending = Assert.Single(harness.Attachments.All);
         Assert.Equal(AttachmentStatus.Ready, pending.Status);
     }
 
@@ -223,7 +223,7 @@ public sealed class ChatSessionAttachmentTests
         await harness.Session.SendAsync("Hva står i filen?");
 
         Assert.Equal(["sendt.md"], harness.StoredTurn.Attachments.Select(attachment => attachment.FileName));
-        Assert.Equal(["senere.md"], harness.Attachments.Pending.Select(attachment => attachment.FileName));
+        Assert.Equal(["senere.md"], harness.Attachments.All.Select(attachment => attachment.FileName));
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.Empty(harness.Attachments.Pending);
+        Assert.Empty(harness.Attachments.All);
     }
 
     [Fact]

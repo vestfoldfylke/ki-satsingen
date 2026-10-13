@@ -181,7 +181,6 @@ var attachmentOptions = builder.Configuration.GetSection(AttachmentOptions.Secti
 attachmentOptions.Validate();
 
 builder.Services.AddSingleton(attachmentOptions);
-builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
     Path.GetTempPath(),
     sp.GetRequiredService<ILogger<AttachmentStorage>>()));

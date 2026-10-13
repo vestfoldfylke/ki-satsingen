@@ -7,16 +7,16 @@ namespace kisatsingen.Components.Chat;
 // attachment reads the same in each.
 internal static class AttachmentStatusTexts
 {
-    public static string DescribeStatus(PendingAttachment attachment) => attachment.Status switch
+    public static string DescribeStatus(ComposerAttachment attachment) => attachment.Status switch
     {
         AttachmentStatus.Waiting => "Venter",
-        AttachmentStatus.Uploading => $"Laster opp {Percent(attachment)} %",
+        AttachmentStatus.Uploading => $"Laster opp {attachment.UploadedPercent} %",
         AttachmentStatus.Ready => "Klar",
         AttachmentStatus.Rejected => attachment.RejectionReason ?? "Kunne ikke legges ved",
         _ => attachment.Status.ToString()
     };
 
-    public static bool IsRejected(PendingAttachment attachment) =>
+    public static bool IsRejected(ComposerAttachment attachment) =>
         attachment.Status == AttachmentStatus.Rejected;
 
     // Null when available: the file's name alone says it is there.
@@ -29,10 +29,4 @@ internal static class AttachmentStatusTexts
 
     public static bool IsUnavailable(TurnAttachment attachment) =>
         attachment.UnavailableReason is not null;
-
-    // From the declared size, which is only a display estimate here.
-    private static int Percent(PendingAttachment attachment) =>
-        attachment.DeclaredSizeBytes <= 0
-            ? 0
-            : (int)Math.Min(100, attachment.ReceivedBytes * 100 / attachment.DeclaredSizeBytes);
 }

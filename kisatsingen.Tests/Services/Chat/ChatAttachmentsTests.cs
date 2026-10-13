@@ -27,7 +27,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        Assert.Equal(AttachmentStatus.Ready, Assert.Single(_attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(_attachments.All).Status);
         Assert.Single(_environment.FilesOnDisk);
     }
 
@@ -38,7 +38,7 @@ public sealed class ChatAttachmentsTests : IDisposable
             new FakeBrowserFile("a.md", UploadBytes.Text),
             new FakeBrowserFile("b.png", UploadBytes.Png)));
 
-        Assert.All(_attachments.Pending, attachment => Assert.Equal(AttachmentStatus.Ready, attachment.Status));
+        Assert.All(_attachments.All, attachment => Assert.Equal(AttachmentStatus.Ready, attachment.Status));
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public sealed class ChatAttachmentsTests : IDisposable
         await _attachments.AttachAsync(Selecting(files));
 
         Assert.NotNull(_attachments.SelectionNotice);
-        Assert.Empty(_attachments.Pending);
+        Assert.Empty(_attachments.All);
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("bilde.png", UploadBytes.Text)));
 
-        Assert.Equal(AttachmentStatus.Rejected, Assert.Single(_attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Rejected, Assert.Single(_attachments.All).Status);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -72,7 +72,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(liar));
 
-        Assert.Equal(AttachmentStatus.Rejected, Assert.Single(_attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Rejected, Assert.Single(_attachments.All).Status);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -83,7 +83,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(breaking));
 
-        Assert.Equal(UploadRejections.Interrupted, Assert.Single(_attachments.Pending).RejectionReason);
+        Assert.Equal(UploadRejections.Interrupted, Assert.Single(_attachments.All).RejectionReason);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -110,10 +110,10 @@ public sealed class ChatAttachmentsTests : IDisposable
         var upload = _attachments.AttachAsync(Selecting(stalling));
         await reached.Task;
 
-        _attachments.Remove(Assert.Single(_attachments.Pending).AttachmentId);
+        _attachments.Remove(Assert.Single(_attachments.All).AttachmentId);
         await upload;
 
-        Assert.Empty(_attachments.Pending);
+        Assert.Empty(_attachments.All);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -122,7 +122,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        _attachments.Remove(Assert.Single(_attachments.Pending).AttachmentId);
+        _attachments.Remove(Assert.Single(_attachments.All).AttachmentId);
 
         Assert.Empty(_environment.FilesOnDisk);
     }
@@ -134,7 +134,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         _attachments.Reset();
 
-        Assert.Empty(_attachments.Pending);
+        Assert.Empty(_attachments.All);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -156,7 +156,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(tampered));
 
-        Assert.Equal(UploadRejections.UnreadableSize, Assert.Single(_attachments.Pending).RejectionReason);
+        Assert.Equal(UploadRejections.UnreadableSize, Assert.Single(_attachments.All).RejectionReason);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -167,7 +167,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(tooLarge));
 
-        Assert.Equal(UploadRejections.TooLarge(_environment.Options.MaxFileBytes), Assert.Single(_attachments.Pending).RejectionReason);
+        Assert.Equal(UploadRejections.TooLarge(_environment.Options.MaxFileBytes), Assert.Single(_attachments.All).RejectionReason);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -183,7 +183,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         Assert.Equal(
             [(AttachmentStatus.Ready, null), (AttachmentStatus.Rejected, UploadRejections.TooManyPending(1))],
-            attachments.Pending.Select(attachment => (attachment.Status, attachment.RejectionReason)));
+            attachments.All.Select(attachment => (attachment.Status, attachment.RejectionReason)));
     }
 
     [Fact]
@@ -192,22 +192,22 @@ public sealed class ChatAttachmentsTests : IDisposable
         using var environment = new AttachmentTestEnvironment(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         using var attachments = environment.CreateChatAttachments(new FakeAuthenticationService());
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("a.md", UploadBytes.Text)));
-        attachments.Remove(Assert.Single(attachments.Pending).AttachmentId);
+        attachments.Remove(Assert.Single(attachments.All).AttachmentId);
 
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("b.md", UploadBytes.Text)));
 
-        Assert.Equal(AttachmentStatus.Ready, Assert.Single(attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(attachments.All).Status);
     }
 
     [Fact]
     public async Task Content_whose_earlier_copy_was_removed_is_accepted_again()
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
-        _attachments.Remove(Assert.Single(_attachments.Pending).AttachmentId);
+        _attachments.Remove(Assert.Single(_attachments.All).AttachmentId);
 
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        Assert.Equal(AttachmentStatus.Ready, Assert.Single(_attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(_attachments.All).Status);
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        Assert.Equal(["notat.md"], _attachments.Pending.Select(attachment => attachment.FileName));
+        Assert.Equal(["notat.md"], _attachments.All.Select(attachment => attachment.FileName));
     }
 
     [Fact]
@@ -242,11 +242,11 @@ public sealed class ChatAttachmentsTests : IDisposable
         var taken = Assert.Single(attachments.AttachReadyToMessage().TakeReady());
 
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("b.md", UploadBytes.Png)));
-        var whileTaken = Assert.Single(attachments.Pending).Status;
+        var whileTaken = Assert.Single(attachments.All).Status;
         taken.File.Dispose();
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("c.md", UploadBytes.Png)));
 
         Assert.Equal(AttachmentStatus.Rejected, whileTaken);
-        Assert.Equal(AttachmentStatus.Ready, Assert.Single(attachments.Pending).Status);
+        Assert.Equal(AttachmentStatus.Ready, Assert.Single(attachments.All).Status);
     }
 }
