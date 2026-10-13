@@ -15,7 +15,7 @@ internal static class UploadRejections
     // The attachment folder is gone: nothing the user does helps until the app
     // is restarted.
     public const string Unavailable =
-        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator, og det kan ta litt tid.";
+        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator, og det kan ta litt tid, MEN hvis Rune er på jobb, så kommer det til å gå kjempefort!";
 
     public const string AlreadyPending = "Denne filen er allerede valgt.";
 
