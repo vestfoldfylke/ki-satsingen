@@ -1,0 +1,23 @@
+@using kisatsingen.Components.Chat
+
+<div class="usage-cards">
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Input tokens</h3>
+        <span>@TokenCountFormat.Format(TotalInputTokenUsage)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Output tokens</h3>
+        <span>@TokenCountFormat.Format(TotalOutputTokenUsage)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Estimated input tokens</h3>
+        <span>@TokenCountFormat.Format(TotalEstimatedInputTokenUsage)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Estimated output tokens</h3>
+        <span>@TokenCountFormat.Format(TotalEstimatedOutputTokenUsage)</span>
+    </div>
+</div>

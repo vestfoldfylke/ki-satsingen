@@ -1,0 +1,9 @@
+<select class="ds-input"
+        @bind:get="Current"
+        @bind:set="CurrentChanged.InvokeAsync"
+        aria-label="Velg tidsrom">
+    @foreach (var range in Ranges)
+    {
+        <option value="@range">@range.Label()</option>
+    }
+</select>

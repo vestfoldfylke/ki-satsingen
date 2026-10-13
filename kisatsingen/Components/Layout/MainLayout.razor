@@ -17,3 +17,8 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@* Host for Radzen's portal-rendered components (tooltips, dialogs, context menus).
+   RadzenChart's hover tooltip rides on TooltipService — without this anchor the
+   tooltip DOM has nowhere to land and never becomes visible. *@
+<RadzenComponents />

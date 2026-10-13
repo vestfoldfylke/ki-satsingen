@@ -1,0 +1,30 @@
+@using kisatsingen.Data.Entities
+
+<div class="usage-chart">
+    @if (_points.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen data i perioden.</p>
+    }
+    else
+    {
+        <RadzenChart Animate="true" Style="height: 320px;" MouseMoveThrottle="150">
+            <RadzenBarSeries FillMode="FillMode.Gradient"
+                             GradientEndOpacity="0.85"
+                             GradientStartOpacity="0.4"
+                             Data="@_points"
+                             CategoryProperty="@nameof(UserTurnPoint.OwnerId)"
+                             ValueProperty="@nameof(UserTurnPoint.TurnCount)"
+                             Title="Antall turer">
+                <RadzenSeriesDataLabels Visible="true" />
+            </RadzenBarSeries>
+            @* Entra object identifiers are 36-char GUIDs; widen the slot so the whole id fits. *@
+            <RadzenCategoryAxis Padding="24">
+                <RadzenAxisTitle Text="Bruker" />
+            </RadzenCategoryAxis>
+            <RadzenValueAxis>
+                <RadzenAxisTitle Text="Antall turer" />
+            </RadzenValueAxis>
+            <RadzenLegend Visible="false" />
+        </RadzenChart>
+    }
+</div>

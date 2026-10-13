@@ -1,0 +1,34 @@
+@page "/Usage"
+@using kisatsingen.Components.Usage
+@using kisatsingen.Components.Usage.Charts
+
+<div class="usage-page">
+    <div class="usage-range-selector">
+        <UsageRangeSelector Current="Range" CurrentChanged="OnRangeChanged" />
+    </div>
+
+    @if (LoadError is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@LoadError</p>
+            <button type="button" class="ds-button" data-variant="secondary" data-size="sm" @onclick="ReloadAsync">
+                Prøv på nytt
+            </button>
+        </div>
+    }
+
+    <h1 class="ds-heading" data-size="md">Mitt forbruk</h1>
+    <TotalUsage
+        TotalInputTokenUsage="Totals.TotalInputTokens"
+        TotalOutputTokenUsage="Totals.TotalOutputTokens"
+        TotalEstimatedInputTokenUsage="Totals.TotalEstimatedInputTokens"
+        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
+
+    <div class="usage-chart-row">
+        <ProviderUsageChart Breakdown="ProviderBreakdown" @key="(nameof(ProviderBreakdown), ProviderBreakdown)" />
+        <ModelUsageChart Breakdown="ModelBreakdown" @key="(nameof(ModelBreakdown), ModelBreakdown)" />
+        <TurnStatusChart Breakdown="StatusBreakdown" @key="(nameof(StatusBreakdown), StatusBreakdown)" />
+    </div>
+
+    <UsageOverTimeChart Series="TimeSeries" Bucket="Range.Bucket()" @key="(nameof(TimeSeries), TimeSeries)" />
+</div>

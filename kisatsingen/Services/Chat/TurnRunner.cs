@@ -29,7 +29,7 @@ internal sealed class TurnRunner
     private readonly TurnStreamer _streamer;
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
-    private readonly ITokenUsageRepository _tokenUsageRepository;
+    private readonly IUserTokenUsageRepository _userTokenUsageRepository;
     private readonly TurnAttachmentStep _attachmentStep;
     private readonly FileToolFactory _fileTools;
 
@@ -42,7 +42,7 @@ internal sealed class TurnRunner
         TurnStreamer streamer,
         string metricPrefix,
         ILogger logger,
-        ITokenUsageRepository tokenUsageRepository,
+        IUserTokenUsageRepository userTokenUsageRepository,
         TurnAttachmentStep attachmentStep,
         FileToolFactory fileTools)
     {
@@ -54,7 +54,7 @@ internal sealed class TurnRunner
         _streamer = streamer;
         _metricPrefix = metricPrefix;
         _logger = logger;
-        _tokenUsageRepository = tokenUsageRepository;
+        _userTokenUsageRepository = userTokenUsageRepository;
         _attachmentStep = attachmentStep;
         _fileTools = fileTools;
     }
@@ -341,7 +341,7 @@ internal sealed class TurnRunner
         try
         {
             var ownerId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
-            await _tokenUsageRepository.InsertTokenUsageAsync(
+            await _userTokenUsageRepository.InsertTokenUsageAsync(
                 ownerId,
                 model.Provider,
                 model.ModelId,
