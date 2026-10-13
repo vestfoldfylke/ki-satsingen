@@ -142,8 +142,14 @@ public sealed class ChatAttachments(
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
         }
-        // A lost connection mid-upload surfaces as whatever the stream throws,
-        // and an attachment folder gone from disk as an I/O error.
+        // Only the attachment folder can be missing, and then every upload fails
+        // until a restart recreates it.
+        catch (DirectoryNotFoundException ex)
+        {
+            logger.LogError(ex, "The attachment folder is gone, so attachment {AttachmentId} could not be uploaded. Restart the app to recreate it.", attachment.AttachmentId);
+            attachment.MarkRejected(UploadRejections.Unavailable);
+        }
+        // A lost connection mid-upload surfaces as whatever the stream throws.
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed.", attachment.AttachmentId);

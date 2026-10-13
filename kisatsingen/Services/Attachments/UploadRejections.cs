@@ -12,6 +12,11 @@ internal static class UploadRejections
     public const string Interrupted =
         "Opplastingen ble avbrutt. Prøv igjen.";
 
+    // The attachment folder is gone: nothing the user does helps until the app
+    // is restarted.
+    public const string Unavailable =
+        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator, og det kan ta litt tid.";
+
     public const string AlreadyPending = "Denne filen er allerede valgt.";
 
     // A browser never declares a negative size; only a tampered one does.
