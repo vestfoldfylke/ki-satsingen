@@ -114,8 +114,7 @@ internal sealed class TurnRunner
             var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
 
             stage = TurnStage.ProcessingAttachments;
-            var takenAttachments = TakeMessageAttachments(input.MessageAttachments, cancellation.Token);
-            var turnAttachments = await ProcessAttachmentsAsync(inserted, takenAttachments, builder, observer, cancellation.Token);
+            var turnAttachments = await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
             var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || turnAttachments.Any(attachment => attachment.FileId is not null);
@@ -234,22 +233,14 @@ internal sealed class TurnRunner
         }
     }
 
-    // From here the turn owns their temp files.
-    private static IReadOnlyList<ReadyAttachment> TakeMessageAttachments(MessageAttachments messageAttachments, CancellationToken ct)
-    {
-        // Stopped before they were taken: they stay in the composer.
-        ct.ThrowIfCancellationRequested();
-        return messageAttachments.TakeReady();
-    }
-
     private async Task<IReadOnlyList<TurnAttachment>> ProcessAttachmentsAsync(
         InsertedTurn inserted,
-        IReadOnlyList<ReadyAttachment> takenAttachments,
+        IReadOnlyList<ReadyAttachment> sentAttachments,
         TurnBuilder builder,
         TurnObserver observer,
         CancellationToken ct)
     {
-        if (takenAttachments.Count == 0)
+        if (sentAttachments.Count == 0)
         {
             return [];
         }
@@ -257,7 +248,7 @@ internal sealed class TurnRunner
         return await _attachmentProcessor.ProcessAsync(
             inserted.OwnerId,
             inserted.ChatId,
-            takenAttachments,
+            sentAttachments,
             attachments =>
             {
                 builder.SetAttachments(attachments);

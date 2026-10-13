@@ -35,21 +35,8 @@ internal sealed class TurnAttachmentProcessor(
         Action<KnowledgeFileMetadata> onKnowledgeFileAvailable,
         CancellationToken ct)
     {
-        // Shown before the lookup, so the bubble lists the files at once.
         var turnAttachments = readyAttachments.Select(attachment => TurnAttachment.Processing(attachment.FileName)).ToArray();
-        onChanged([.. turnAttachments]);
-
-        IReadOnlyDictionary<string, KnowledgeFileMetadata> savedFilesBySha256;
-        try
-        {
-            savedFilesBySha256 = await FindSavedFilesBySha256Async(ownerId, chatId, ct);
-        }
-        // No job exists yet to delete the temp files the turn has taken.
-        catch (OperationCanceledException) when (ct.IsCancellationRequested)
-        {
-            DeleteTempFiles(readyAttachments);
-            throw;
-        }
+        var savedFilesBySha256 = await FindSavedFilesBySha256Async(ownerId, chatId, ct);
 
         var attachmentsToProcess = SettleAlreadySaved(readyAttachments, turnAttachments, savedFilesBySha256, onKnowledgeFileAvailable);
         onChanged([.. turnAttachments]);
@@ -94,14 +81,6 @@ internal sealed class TurnAttachmentProcessor(
         {
             logger.LogWarning(ex, "Could not look up the saved files of chat {ChatId}. Its attachments are processed as new.", chatId);
             return new Dictionary<string, KnowledgeFileMetadata>();
-        }
-    }
-
-    private void DeleteTempFiles(IEnumerable<ReadyAttachment> readyAttachments)
-    {
-        foreach (var attachment in readyAttachments)
-        {
-            attachment.File.Dispose();
         }
     }
 

@@ -270,8 +270,9 @@ public sealed class ChatSession : IAsyncDisposable
 
         // A turn that started on one model and prompt must finish on them.
         var model = _selectedModel;
-        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt);
-        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, _attachments.AttachReadyToMessage(), ChatHasKnowledgeFiles());
+        using var sentAttachments = _attachments.TakeReady();
+        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt, sentAttachments.FileNames);
+        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;

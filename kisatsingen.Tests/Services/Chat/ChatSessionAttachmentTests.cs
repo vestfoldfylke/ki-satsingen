@@ -149,8 +149,9 @@ public sealed class ChatSessionAttachmentTests
             harness.StoredTurn.Attachments);
     }
 
+    // The files left the composer at send, so the turn is where they show.
     [Fact]
-    public async Task A_stop_before_the_attachments_are_taken_leaves_them_in_the_composer()
+    public async Task A_stop_before_processing_lists_the_files_as_interrupted_and_leaves_nothing_on_disk()
     {
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
@@ -162,13 +163,10 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
-        var pending = Assert.Single(harness.Attachments.All);
-        Assert.Equal(AttachmentStatus.Ready, pending.Status);
+        Assert.Equal([new TurnAttachment("notat.md", UnavailableReason: AttachmentTexts.InterruptedReason)], harness.VisibleTurn.Attachments);
+        Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
-    // Once taken, the turn owns the temp files; a file it never handed to
-    // processing would stay on disk until the next start.
     [Fact]
     public async Task No_temp_file_is_left_on_disk_after_a_turn_stopped_during_processing()
     {
@@ -201,7 +199,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task Attachments_stay_in_the_composer_when_the_message_could_not_be_saved()
+    public async Task Files_of_a_message_that_could_not_be_saved_are_listed_as_interrupted_and_released()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.InsertTurnFailure = new InvalidOperationException("Database down.");
@@ -209,8 +207,8 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var pending = Assert.Single(harness.Attachments.All);
-        Assert.Equal(AttachmentStatus.Ready, pending.Status);
+        Assert.Equal([new TurnAttachment("notat.md", UnavailableReason: AttachmentTexts.InterruptedReason)], harness.VisibleTurn.Attachments);
+        Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
     [Fact]

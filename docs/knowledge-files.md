@@ -10,9 +10,11 @@ file tools.
    SHA-256 and image signature are checked on the way. A refused file shows
    its reason on its chip. The same content picked twice in one composer is
    refused. (`Services/Attachments`)
-2. **Send.** The message is saved first, then the turn takes the composer's
-   ready attachments. A file that finishes uploading after send stays for the
-   next message.
+2. **Send.** The turn takes the composer's ready attachments at once and owns
+   their files until it ends, on every path. The message lists them as
+   processing from send, so a turn that ends early shows them as interrupted.
+   A file that finishes uploading after send stays for the next message.
+   (`SentAttachments`)
 3. **Already saved?** An attachment with the same content as a file already in
    the chat is available as that file, with the same `fileId`, and is not
    processed again. (`TurnAttachmentProcessor`)

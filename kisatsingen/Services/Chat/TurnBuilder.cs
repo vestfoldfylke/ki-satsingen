@@ -35,11 +35,12 @@ internal sealed class TurnBuilder
     private long _requestTokens;
     private readonly HashSet<int> _roundsWithReportedUsage = [];
 
-    private IReadOnlyList<TurnAttachment> _attachments = [];
+    private IReadOnlyList<TurnAttachment> _attachments;
 
     public TurnBuilder(Turn started)
     {
         _started = started;
+        _attachments = started.Attachments;
     }
 
     // Set by the stream, which owns the clock.

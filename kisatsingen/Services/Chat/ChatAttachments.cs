@@ -198,41 +198,23 @@ public sealed class ChatAttachments(
         }
     }
 
-    // On send: the attachments ready now are this message's, and one that
-    // finishes uploading later stays for the next.
-    internal MessageAttachments AttachReadyToMessage()
+    // On send: the ready attachments' files are the turn's from here. The
+    // refusals go too: they were about the selection just sent.
+    internal SentAttachments TakeReady()
     {
-        var readyAttachmentIds = _attachments
-            .Where(attachment => attachment.Ready is not null)
-            .Select(attachment => attachment.AttachmentId)
-            .ToHashSet();
-
-        DiscardRejected();
-        Changed?.Invoke();
-        return new MessageAttachments(this, readyAttachmentIds);
-    }
-
-    // Removes the ready attachments among attachmentIds and returns them; one
-    // that became ready later is not taken. Their files are not deleted:
-    // whoever takes them now owns them (see ReadyAttachment).
-    internal IReadOnlyList<ReadyAttachment> TakeReady(IReadOnlySet<Guid> attachmentIds)
-    {
-        var taken = new List<ReadyAttachment>();
-        foreach (var attachment in _attachments.Where(attachment => attachmentIds.Contains(attachment.AttachmentId)).ToList())
+        var sent = new List<ReadyAttachment>();
+        foreach (var attachment in _attachments.ToList())
         {
             if (attachment.Ready is ReadyAttachment ready)
             {
                 _attachments.Remove(attachment);
-                taken.Add(ready);
+                sent.Add(ready);
             }
         }
 
-        if (taken.Count > 0)
-        {
-            Changed?.Invoke();
-        }
-
-        return taken;
+        DiscardRejected();
+        Changed?.Invoke();
+        return new SentAttachments(sent);
     }
 
     // For a view switch: what was attached here is not the next chat's.

@@ -34,14 +34,17 @@ public sealed record Turn
     public TurnStage? FailedAt { get; init; }
     public TurnMetadata? Metadata { get; init; }
 
-    public static Turn Start(string prompt, ChatModel model, string systemPrompt) => new()
+    // The attachments show as processing from send, so a turn that ends before
+    // they settle still lists them, as interrupted.
+    public static Turn Start(string prompt, ChatModel model, string systemPrompt, IReadOnlyList<string> attachmentFileNames) => new()
     {
         Id = Guid.NewGuid(),
         Prompt = prompt,
         SystemPrompt = systemPrompt,
         ModelKey = model.Key,
         ModelDisplayName = model.DisplayName,
-        StartedAt = DateTimeOffset.UtcNow
+        StartedAt = DateTimeOffset.UtcNow,
+        Attachments = [.. attachmentFileNames.Select(TurnAttachment.Processing)]
     };
 
     // A tool still running when its turn ends never will finish, and a file
