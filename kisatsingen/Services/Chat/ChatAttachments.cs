@@ -236,7 +236,10 @@ public sealed class ChatAttachments(
         Changed?.Invoke();
     }
 
-    // The circuit is gone, so nothing can send what is pending.
+    // The circuit is gone, so nothing can send what is pending. That can be a
+    // few minutes after the tab closed or reloaded: Blazor keeps the circuit in
+    // case it reconnects, and until then its files stay and count towards the
+    // owner's quota.
     public void Dispose() => DiscardAll();
 
     private void DiscardAll()
