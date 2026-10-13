@@ -5,7 +5,7 @@
 
 @inject IWebHostEnvironment Env
 
-<PageTitle>Chat</PageTitle>
+<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
 <div class="chat-layout">
     <ChatHeader Title="@Title"
@@ -30,7 +30,7 @@
                             <div class="assistant-streaming" aria-hidden="true"></div>
                         }
                         <div class="chat-log-spacer" aria-hidden="true"></div>
-                        <button type="button" class="chat-jump-latest" hidden aria-label="Jump to latest">
+                        <button type="button" class="chat-jump-latest" hidden aria-label="Gå til nyeste melding" data-tooltip="Gå til nyeste melding">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                 <line x1="12" y1="5" x2="12" y2="19"/>
                                 <polyline points="19 12 12 19 5 12"/>
@@ -62,12 +62,12 @@
                     <div class="chat-greeting">
                         @if (Env.IsDevelopment())
                         {
-                            <span class="chat-greeting-emoji">🖕</span>
+                            <span class="chat-greeting-emoji" aria-hidden="true">🖕</span>
                             <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
                         }
                         else
                         {
-                            <span class="chat-greeting-emoji">👋</span>
+                            <span class="chat-greeting-emoji" aria-hidden="true">👋</span>
                             <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
                         }
                     </div>

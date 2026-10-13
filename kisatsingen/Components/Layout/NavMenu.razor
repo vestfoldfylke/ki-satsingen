@@ -7,14 +7,14 @@
     <div class="nav-scrollable">
         <nav class="nav-primary">
             <div class="nav-item">
-                <button type="button" class="ds-link" @onclick="StartNewChatAsync">
-                    <span class="material-symbols-outlined">add_2</span>
-                    New
+                <button type="button" class="ds-link" @onclick="StartNewChatAsync" data-tooltip="Start ny samtale">
+                    <span class="material-symbols-outlined" aria-hidden="true">add_2</span>
+                    Ny chat
                 </button>
             </div>
             <div class="nav-item">
-                <NavLink class="ds-link" href="usage">
-                    <span class="material-symbols-outlined">data_usage</span>
+                <NavLink class="ds-link" href="usage" data-tooltip="Se mitt forbruk">
+                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                     Mitt forbruk
                 </NavLink>
             </div>
@@ -23,10 +23,10 @@
         <AuthorizeView Policy="IsAdministrator">
             <Authorized>
                 <nav class="nav-primary">
-                    <h4 class="ds-heading" data-size="xs">Administration</h4>
+                    <h4 class="ds-heading" data-size="xs">Administrering</h4>
                     <div class="nav-item">
-                        <NavLink class="ds-link" href="administration/usage">
-                            <span class="material-symbols-outlined">data_usage</span>
+                        <NavLink class="ds-link" href="administration/usage" data-tooltip="Se forbruk for alle brukere">
+                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                             Totalt forbruk
                         </NavLink>
                     </div>
@@ -34,23 +34,23 @@
             </Authorized>
         </AuthorizeView>
 
-        <aside class="chat-sidebar" aria-label="Chat list">
+        <aside class="chat-sidebar" aria-label="Samtaler">
             <div class="chat-sidebar-header">
-                <h2 class="ds-heading" data-size="sm">Chats</h2>
+                <h2 class="ds-heading" data-size="sm">Samtaler</h2>
             </div>
             @if (ChatList.Count == 0)
             {
-                <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
+                <p class="ds-paragraph chat-sidebar-empty">Det finnes ingen samtaler enda</p>
             }
             else
             {
                 <ul class="ds-list chat-sidebar-list">
                     @foreach (var entry in ChatList)
                     {
-                        var menuId = $"chat-menu-{entry.Id}";
+                        var menuId = $"chat-m   enu-{entry.Id}";
                         <li>
                             <div class="chat-sidebar-item @(entry.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
-                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")">
+                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
                                     <span class="chat-sidebar-title">@entry.Title</span>
                                 </a>
                                 <button
@@ -60,7 +60,9 @@
                                     data-size="sm"
                                     data-icon
                                     popovertarget="@menuId"
-                                    aria-label="Chat-valg">
+                                    aria-label="@($"Flere valg for {entry.Title}")"
+                                    data-tooltip="Flere valg"
+                                >
                                     <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                                 </button>
                                 <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
@@ -99,7 +101,7 @@
         <div class="user">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-2">Connected: <strong>@context.User.Identity?.Name</strong></span>
+                    <span class="me-2">Innlogget: <strong>@context.User.Identity?.Name</strong></span>
                 </Authorized>
             </AuthorizeView>
             

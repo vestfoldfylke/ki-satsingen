@@ -15,7 +15,7 @@
                 <span class="composer-attachment-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
                     @AttachmentStatusTexts.DescribeStatus(attachment)
                 </span>
-                <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
+                <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true" data-tooltip="Fjern vedlegg"
                         aria-label="@($"Fjern {attachment.FileName}")"
                         @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
                     <span class="material-symbols-outlined" aria-hidden="true">close</span>
