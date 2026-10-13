@@ -10,10 +10,11 @@ namespace kisatsingen.Services.Chat;
 // Makes a turn's files available in its chat. A file whose content is already
 // saved there is available as that file; the rest are processed and saved.
 // Every file settles on its own, available or unavailable with a reason, so
-// one bad file never fails the others or the turn; only a stop ends the step
-// early. Each file is reported the moment it becomes available, not with the
-// result, so a stop or a later failure of the turn cannot lose it.
-internal sealed class TurnAttachmentStep(
+// one bad file never fails the others or the turn; only a stop ends the
+// processing early. Each file is reported the moment it becomes available,
+// not with the result, so a stop or a later failure of the turn cannot lose
+// it.
+internal sealed class TurnAttachmentProcessor(
     KnowledgeFileProcessingQueue queue,
     IKnowledgeFileRepository knowledgeFiles,
     ILogger logger)
@@ -26,7 +27,7 @@ internal sealed class TurnAttachmentStep(
 
     // Both callbacks are called on the turn's own flow, so the caller can show
     // what they report; never from a worker thread.
-    public async Task<IReadOnlyList<TurnAttachment>> RunAsync(
+    public async Task<IReadOnlyList<TurnAttachment>> ProcessAsync(
         string ownerId,
         Guid chatId,
         IReadOnlyList<ReadyAttachment> readyAttachments,
@@ -169,7 +170,7 @@ internal sealed class TurnAttachmentStep(
             case KnowledgeFileProcessingResult.Rejected rejected:
                 return attachment.Unavailable(rejected.Reason);
             default:
-                throw new UnreachableException($"Processing returned {result.GetType().Name}, which the attachment step does not handle. Handle it here.");
+                throw new UnreachableException($"Processing returned {result.GetType().Name}, which the attachment processor does not handle. Handle it here.");
         }
     }
 
@@ -202,7 +203,7 @@ internal sealed class TurnAttachmentStep(
             case KnowledgeFileSaveResult.Rejected rejected:
                 return attachment.Unavailable(rejected.Reason);
             default:
-                throw new UnreachableException($"Saving returned {saveResult.GetType().Name}, which the attachment step does not handle. Handle it here.");
+                throw new UnreachableException($"Saving returned {saveResult.GetType().Name}, which the attachment processor does not handle. Handle it here.");
         }
     }
 

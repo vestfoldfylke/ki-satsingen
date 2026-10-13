@@ -30,7 +30,7 @@ internal sealed class TurnRunner
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
     private readonly IUserTokenUsageRepository _userTokenUsageRepository;
-    private readonly TurnAttachmentStep _attachmentStep;
+    private readonly TurnAttachmentProcessor _attachmentProcessor;
     private readonly FileToolFactory _fileTools;
 
     public TurnRunner(
@@ -43,7 +43,7 @@ internal sealed class TurnRunner
         string metricPrefix,
         ILogger logger,
         IUserTokenUsageRepository userTokenUsageRepository,
-        TurnAttachmentStep attachmentStep,
+        TurnAttachmentProcessor attachmentProcessor,
         FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
@@ -55,7 +55,7 @@ internal sealed class TurnRunner
         _metricPrefix = metricPrefix;
         _logger = logger;
         _userTokenUsageRepository = userTokenUsageRepository;
-        _attachmentStep = attachmentStep;
+        _attachmentProcessor = attachmentProcessor;
         _fileTools = fileTools;
     }
 
@@ -254,7 +254,7 @@ internal sealed class TurnRunner
             return [];
         }
 
-        return await _attachmentStep.RunAsync(
+        return await _attachmentProcessor.ProcessAsync(
             inserted.OwnerId,
             inserted.ChatId,
             takenAttachments,

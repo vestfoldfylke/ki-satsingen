@@ -15,7 +15,7 @@ file tools.
    next message.
 3. **Already saved?** An attachment with the same content as a file already in
    the chat is available as that file, with the same `fileId`, and is not
-   processed again. (`TurnAttachmentStep`)
+   processed again. (`TurnAttachmentProcessor`)
 4. **Processing.** The other attachments go through a bounded queue:
    conversion to Markdown, then a draft. Processing never saves.
    (`Services/KnowledgeFiles/Conversion`, `Processing`)
