@@ -19,7 +19,7 @@ public sealed class ChatSessionAttachmentTests
     private static byte[] MarkdownBytes(string text) => System.Text.Encoding.UTF8.GetBytes($"# {text}\n\nInnhold.\n");
 
     private static Task AttachAsync(ChatSessionHarness harness, params (string Name, byte[] Content)[] files) =>
-        harness.Attachments.UploadAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
+        harness.Attachments.AttachAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
 
     private static string LastUserMessage(ChatSessionHarness harness) =>
         harness.Client.LastMessages.Last(message => message.Role == ChatRole.User).Text;
@@ -38,7 +38,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.LoadAsync(Guid.NewGuid());
 
-        Assert.Empty(harness.Attachments.Pending);
+        Assert.Empty(harness.Attachments.All);
         Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
@@ -163,12 +163,12 @@ public sealed class ChatSessionAttachmentTests
         await harness.Session.SendAsync("Hva står i notatet?");
 
         Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
-        var pending = Assert.Single(harness.Attachments.Pending);
+        var pending = Assert.Single(harness.Attachments.All);
         Assert.Equal(AttachmentStatus.Ready, pending.Status);
     }
 
     // Once taken, the turn owns the temp files; a file it never handed to
-    // processing would stay on disk until the age sweep.
+    // processing would stay on disk until the next start.
     [Fact]
     public async Task No_temp_file_is_left_on_disk_after_a_turn_stopped_during_processing()
     {
@@ -209,7 +209,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var pending = Assert.Single(harness.Attachments.Pending);
+        var pending = Assert.Single(harness.Attachments.All);
         Assert.Equal(AttachmentStatus.Ready, pending.Status);
     }
 
@@ -223,7 +223,7 @@ public sealed class ChatSessionAttachmentTests
         await harness.Session.SendAsync("Hva står i filen?");
 
         Assert.Equal(["sendt.md"], harness.StoredTurn.Attachments.Select(attachment => attachment.FileName));
-        Assert.Equal(["senere.md"], harness.Attachments.Pending.Select(attachment => attachment.FileName));
+        Assert.Equal(["senere.md"], harness.Attachments.All.Select(attachment => attachment.FileName));
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.Empty(harness.Attachments.Pending);
+        Assert.Empty(harness.Attachments.All);
     }
 
     [Fact]

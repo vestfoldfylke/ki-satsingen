@@ -21,7 +21,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
         new(
             new DocumentConverterRegistry([new TextDocumentConverter()]),
             summarizer ?? new OpeningExcerptSummarizer(),
-            _environment.Store,
+            _environment.Storage,
             maxEstimatedTokens,
             NullLogger<KnowledgeFileProcessor>.Instance);
 

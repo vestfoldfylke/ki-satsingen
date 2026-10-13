@@ -3,8 +3,11 @@ using System.Security.Cryptography;
 
 namespace kisatsingen.Services.Attachments;
 
+// Only the nested cases can derive, so an outcome is always Stored or Rejected.
 public abstract record UploadOutcome
 {
+    private UploadOutcome() { }
+
     public sealed record Stored(TempFile File, long SizeBytes, string Sha256) : UploadOutcome;
 
     // Shown to the user as is.
@@ -14,26 +17,33 @@ public abstract record UploadOutcome
 // Copies an upload to a temp file in one pass: hashing, counting against the
 // size limit and checking the type's signature as the bytes go by. Never holds
 // more than one buffer of the file in memory.
-public sealed class AttachmentUploader(TempFileStore store)
+public sealed class AttachmentUploader(AttachmentStorage storage)
 {
     // The default bufferSize documented for Stream.CopyToAsync. A tuning value,
     // not a correctness one: any positive size copies correctly, so change it
     // only after measuring uploads.
     private const int CopyBufferSize = 81_920;
 
-    public async Task<UploadOutcome> CopyAsync(
-        Stream source,
+    public async Task<UploadOutcome> UploadAsync(
+        Stream uploadStream,
+        string ownerId,
+        Guid attachmentId,
         AttachmentType type,
         long maxBytes,
         IProgress<long> progress,
         CancellationToken ct)
     {
-        var (file, destination) = store.Create();
+        var (tempFile, tempFileStream) = storage.CreateFile(ownerId, attachmentId);
         UploadOutcome? outcome = null;
 
         try
         {
-            outcome = await CopyToAsync(source, file, destination, type, maxBytes, progress, ct);
+            // Closed before the file is either returned or deleted below.
+            await using (tempFileStream)
+            {
+                outcome = await CopyToTempFileAsync(uploadStream, tempFile, tempFileStream, type, maxBytes, progress, ct);
+            }
+
             return outcome;
         }
         finally
@@ -41,89 +51,86 @@ public sealed class AttachmentUploader(TempFileStore store)
             // Rejected, cancelled or failed: nothing may outlive the attempt.
             if (outcome is not UploadOutcome.Stored)
             {
-                store.Delete(file);
+                tempFile.Dispose();
             }
         }
     }
 
-    // Owns the destination stream, so it is closed before CopyAsync deletes
-    // the file.
-    private static async Task<UploadOutcome> CopyToAsync(
-        Stream source,
-        TempFile file,
-        FileStream destination,
+    private static async Task<UploadOutcome> CopyToTempFileAsync(
+        Stream uploadStream,
+        TempFile tempFile,
+        FileStream tempFileStream,
         AttachmentType type,
         long maxBytes,
         IProgress<long> progress,
         CancellationToken ct)
     {
-        await using var _ = destination;
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         var buffer = ArrayPool<byte>.Shared.Rent(CopyBufferSize);
 
         try
         {
-            var signature = new SignatureCheck(type.Signature);
-            long total = 0;
+            var fileSignature = new FileSignature(type.Signature ?? []);
+            long totalBytes = 0;
 
-            int read;
-            while ((read = await source.ReadAsync(buffer.AsMemory(0, CopyBufferSize), ct)) > 0)
+            int bytesRead;
+            while ((bytesRead = await uploadStream.ReadAsync(buffer.AsMemory(0, CopyBufferSize), ct)) > 0)
             {
-                total += read;
+                totalBytes += bytesRead;
+                var chunk = buffer.AsSpan(0, bytesRead);
 
                 // Counted here too, not left to OpenReadStream: the size the
                 // browser declared is the client's claim, not a fact.
-                if (total > maxBytes)
+                if (totalBytes > maxBytes)
                 {
                     return new UploadOutcome.Rejected(UploadRejections.TooLarge(maxBytes));
                 }
 
-                var chunk = buffer.AsSpan(0, read);
-                if (!signature.Accepts(chunk))
+                if (!fileSignature.MatchesNext(chunk))
                 {
-                    return new UploadOutcome.Rejected(UploadRejections.WrongSignature);
+                    return new UploadOutcome.Rejected(UploadRejections.WrongFileType);
                 }
 
-                hash.AppendData(chunk);
-                await destination.WriteAsync(buffer.AsMemory(0, read), ct);
-                progress.Report(total);
+                sha256.AppendData(chunk);
+                await tempFileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+                progress.Report(totalBytes);
             }
 
-            if (total == 0)
+            if (totalBytes == 0)
             {
                 return new UploadOutcome.Rejected(UploadRejections.Empty);
             }
 
-            // A file shorter than its type's signature never proved its type.
-            if (!signature.IsComplete)
+            if (fileSignature.IsIncomplete)
             {
-                return new UploadOutcome.Rejected(UploadRejections.WrongSignature);
+                return new UploadOutcome.Rejected(UploadRejections.WrongFileType);
             }
 
-            return new UploadOutcome.Stored(file, total, Convert.ToHexStringLower(hash.GetHashAndReset()));
+            return new UploadOutcome.Stored(tempFile, totalBytes, Convert.ToHexStringLower(sha256.GetHashAndReset()));
         }
         finally
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            ArrayPool<byte>.Shared.Return(buffer, clearArray: true);
         }
     }
 
-    // Tracks the file's first bytes across reads, since one read may return
-    // fewer bytes than the signature is long.
-    private sealed class SignatureCheck(byte[]? expected)
+    // The bytes a file of its type must start with, as they arrive. Tracked
+    // across reads, since one read may return fewer bytes than the signature
+    // is long.
+    private sealed class FileSignature(byte[] expected)
     {
         private int _matched;
 
-        public bool IsComplete => expected is null || _matched == expected.Length;
+        public bool IsIncomplete => _matched < expected.Length;
 
-        public bool Accepts(ReadOnlySpan<byte> chunk)
+        public bool MatchesNext(ReadOnlySpan<byte> chunk)
         {
-            if (IsComplete)
+            if (!IsIncomplete)
             {
                 return true;
             }
 
-            var remaining = expected!.AsSpan(_matched);
+            var remaining = expected.AsSpan(_matched);
             var compared = Math.Min(remaining.Length, chunk.Length);
             if (!chunk[..compared].SequenceEqual(remaining[..compared]))
             {

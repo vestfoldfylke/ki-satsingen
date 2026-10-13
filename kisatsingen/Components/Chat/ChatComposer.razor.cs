@@ -45,7 +45,7 @@ public sealed partial class ChatComposer : ComponentBase
     public MessageUsage? ConversationUsage { get; set; }
 
     [Parameter]
-    public IReadOnlyList<PendingAttachment> Attachments { get; set; } = [];
+    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
 
     [Parameter]
     public string? AttachmentNotice { get; set; }

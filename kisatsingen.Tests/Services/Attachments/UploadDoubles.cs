@@ -94,25 +94,8 @@ internal sealed class StallingStream(byte[] first, TaskCompletionSource reached)
     public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
 }
 
-// Starts at the real clock, so file timestamps and registry times agree.
-internal sealed class ManualTime : TimeProvider
-{
-    private DateTimeOffset _now = DateTimeOffset.UtcNow;
-
-    public override DateTimeOffset GetUtcNow() => _now;
-
-    public void Advance(TimeSpan by) => _now += by;
-}
-
 internal static class UploadBytes
 {
     public static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D];
     public static readonly byte[] Text = "Hei, dette er en notatfil.\n"u8.ToArray();
-}
-
-internal static class UploadHashes
-{
-    // Shaped like a SHA-256 hex string and different every call, for a file
-    // that must not count as a duplicate of any other. Not a hash of anything.
-    public static string Unique() => $"{Guid.NewGuid():N}{Guid.NewGuid():N}";
 }
