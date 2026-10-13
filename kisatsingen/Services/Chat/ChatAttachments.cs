@@ -102,18 +102,6 @@ public sealed class ChatAttachments(
             return;
         }
 
-        // Checked as the upload starts rather than when picked: uploads in a
-        // tab run one after another, so preivously attached files are on disk
-        // at their real size.
-        if (quota.CheckDeclaredSizeFits(ownerId, attachment.DeclaredSizeBytes) is QuotaCheck.Rejected quotaRejection)
-        {
-            attachment.MarkRejected(quotaRejection.Reason);
-            return;
-        }
-
-        attachment.MarkUploading();
-        Changed?.Invoke();
-
         var cancellation = attachment.Cancellation.Token;
         var progress = new ImmediateProgress(receivedBytes =>
         {
@@ -125,6 +113,18 @@ public sealed class ChatAttachments(
 
         try
         {
+            // Checked as the upload starts rather than when picked: uploads in a
+            // tab run one after another, so previously attached files are on disk
+            // at their real size.
+            if (quota.CheckDeclaredSizeFits(ownerId, attachment.DeclaredSizeBytes) is QuotaCheck.Rejected quotaRejection)
+            {
+                attachment.MarkRejected(quotaRejection.Reason);
+                return;
+            }
+
+            attachment.MarkUploading();
+            Changed?.Invoke();
+
             await using var uploadStream = file.OpenReadStream(options.MaxFileBytes, cancellation);
             var outcome = await uploader.UploadAsync(uploadStream, ownerId, attachment.AttachmentId, type, options.MaxFileBytes, progress, cancellation);
 
@@ -142,10 +142,11 @@ public sealed class ChatAttachments(
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
         }
-        // A lost connection mid-upload surfaces as whatever the stream throws.
+        // A lost connection mid-upload surfaces as whatever the stream throws,
+        // and an attachment folder gone from disk as an I/O error.
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed after it started.", attachment.AttachmentId);
+            logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed.", attachment.AttachmentId);
             attachment.MarkRejected(UploadRejections.Interrupted);
         }
     }

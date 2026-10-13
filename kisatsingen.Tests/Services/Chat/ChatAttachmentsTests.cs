@@ -87,6 +87,17 @@ public sealed class ChatAttachmentsTests : IDisposable
         Assert.Empty(_environment.FilesOnDisk);
     }
 
+    // An exception here would end the circuit.
+    [Fact]
+    public async Task A_file_picked_after_the_attachment_folder_is_gone_is_listed_as_interrupted()
+    {
+        Directory.Delete(_environment.Folder, recursive: true);
+
+        await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
+
+        Assert.Equal(UploadRejections.Interrupted, Assert.Single(_attachments.All).RejectionReason);
+    }
+
     [Fact]
     public async Task An_attachment_counts_as_uploading_until_its_bytes_have_arrived()
     {
