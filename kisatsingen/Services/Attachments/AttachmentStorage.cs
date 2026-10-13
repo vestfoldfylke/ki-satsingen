@@ -50,6 +50,8 @@ public sealed class AttachmentStorage
     private const string UploadingPrefix = "uploading-";
     private const string ReadyPrefix = "ready-";
 
+    // Not applied on Windows, which has no Unix modes and where the temp folder
+    // is already private to the user. Windows is for local development only.
     private const UnixFileMode OwnerOnlyFolder = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
     private const UnixFileMode OwnerOnlyFile = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
@@ -87,7 +89,15 @@ public sealed class AttachmentStorage
         var folder = Path.Combine(parentFolder, FolderName);
 
         var leftoverCount = WipeLeftovers(folder);
-        Directory.CreateDirectory(folder, OwnerOnlyFolder);
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(folder);
+        }
+        else
+        {
+            Directory.CreateDirectory(folder, OwnerOnlyFolder);
+        }
+
         EnsureOwnerOnly(folder);
         EnsureWritable(folder);
 
@@ -101,14 +111,19 @@ public sealed class AttachmentStorage
     public (TempFile File, FileStream Stream) CreateFile(string ownerId, Guid attachmentId)
     {
         var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + attachmentId.ToString("N"));
-        var stream = new FileStream(path, new FileStreamOptions
+        var streamOptions = new FileStreamOptions
         {
             Mode = FileMode.CreateNew,
             Access = FileAccess.Write,
             Share = FileShare.None,
-            Options = FileOptions.Asynchronous,
-            UnixCreateMode = OwnerOnlyFile
-        });
+            Options = FileOptions.Asynchronous
+        };
+        if (!OperatingSystem.IsWindows())
+        {
+            streamOptions.UnixCreateMode = OwnerOnlyFile;
+        }
+
+        var stream = new FileStream(path, streamOptions);
 
         _logger.LogDebug("Created temp file {FileName}.", Path.GetFileName(path));
         return (new TempFile(path, this), stream);
@@ -224,7 +239,8 @@ public sealed class AttachmentStorage
     internal static void EnsureOwnerOnly(string folder)
     {
         var created = new DirectoryInfo(folder);
-        if (created.LinkTarget is not null || created.UnixFileMode != OwnerOnlyFolder)
+        var isOwnerOnly = OperatingSystem.IsWindows() || created.UnixFileMode == OwnerOnlyFolder;
+        if (created.LinkTarget is not null || !isOwnerOnly)
         {
             throw new InvalidOperationException(
                 $"The attachment temp folder '{folder}' is a link or is not owner-only right after the app created it, " +

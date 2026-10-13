@@ -8,13 +8,6 @@
         <DefaultItemExcludes>$(DefaultItemExcludes);browser-designsystemet\package*;browser-chat-client\package*;package*</DefaultItemExcludes>
     </PropertyGroup>
 
-    <!-- Hosted on Linux only, so Unix file modes need no Windows fallback. -->
-    <ItemGroup>
-        <AssemblyAttribute Include="System.Runtime.Versioning.UnsupportedOSPlatformAttribute">
-            <_Parameter1>windows</_Parameter1>
-        </AssemblyAttribute>
-    </ItemGroup>
-
     <!-- Debug: ikke generer .exe — kjør via dotnet.exe -->
     <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
       <UseAppHost>false</UseAppHost>
