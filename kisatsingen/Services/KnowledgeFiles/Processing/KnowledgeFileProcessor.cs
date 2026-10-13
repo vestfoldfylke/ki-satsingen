@@ -13,7 +13,7 @@ public sealed class KnowledgeFileProcessor(
     int maxEstimatedTokens,
     ILogger<KnowledgeFileProcessor> logger)
 {
-    public async Task<KnowledgeFileProcessingResult> ProcessAsync(ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage> progress, CancellationToken ct)
+    public async Task<KnowledgeFileProcessingResult> CreateDraftAsync(ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage> progress, CancellationToken ct)
     {
         var contentType = attachment.Type.ContentType;
         if (!converters.TryGet(contentType, out var converter))

@@ -84,7 +84,7 @@ public sealed class KnowledgeFileProcessingWorker(
             linked = CancellationTokenSource.CreateLinkedTokenSource(job.Cancellation, stoppingToken, timeout.Token);
             var conversion = metrics.StartConversion();
 
-            var result = await processor.ProcessAsync(job.Attachment, job.Progress, linked.Token);
+            var result = await processor.CreateDraftAsync(job.Attachment, job.Progress, linked.Token);
             outcome = result is KnowledgeFileProcessingResult.Processed ? Outcome.Processed : Outcome.Rejected;
             job.Completion.TrySetResult(result);
             metrics.Observe(conversion);

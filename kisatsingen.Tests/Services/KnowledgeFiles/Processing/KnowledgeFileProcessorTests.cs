@@ -28,15 +28,15 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     private ReadyAttachment Markdown(string text) =>
         ReadyAttachments.From(_environment, Encoding.UTF8.GetBytes(text), AttachmentContentTypes.Markdown, "notat.md");
 
-    private static Task<KnowledgeFileProcessingResult> ProcessAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage>? progress = null) =>
-        processor.ProcessAsync(attachment, progress ?? new RecordingProgress(), CancellationToken.None);
+    private static Task<KnowledgeFileProcessingResult> CreateDraftAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage>? progress = null) =>
+        processor.CreateDraftAsync(attachment, progress ?? new RecordingProgress(), CancellationToken.None);
 
     [Fact]
     public async Task A_markdown_attachment_becomes_a_draft_of_its_text_and_where_it_came_from()
     {
         var attachment = Markdown("# Budsjett\n\nTall for 2027.");
 
-        var result = await ProcessAsync(Processor(), attachment);
+        var result = await CreateDraftAsync(Processor(), attachment);
 
         var draft = Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft;
         Assert.Equal(
@@ -49,7 +49,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var binary = ReadyAttachments.From(_environment, [0x01, 0x00, 0x02], AttachmentContentTypes.PlainText);
 
-        var result = await ProcessAsync(Processor(), binary);
+        var result = await CreateDraftAsync(Processor(), binary);
 
         Assert.Equal(new KnowledgeFileProcessingResult.Rejected(ConversionRejections.Binary), result);
     }
@@ -60,7 +60,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var summarizer = new CountingSummarizer();
 
-        var result = await ProcessAsync(Processor(maxEstimatedTokens: 3, summarizer), Markdown("# Tittel\n\nMer enn ni tegn."));
+        var result = await CreateDraftAsync(Processor(maxEstimatedTokens: 3, summarizer), Markdown("# Tittel\n\nMer enn ni tegn."));
 
         Assert.IsType<KnowledgeFileProcessingResult.Rejected>(result);
         Assert.Equal(0, summarizer.Calls);
@@ -69,7 +69,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     [Fact]
     public async Task A_summarizer_that_fails_costs_the_summary_not_the_file()
     {
-        var result = await ProcessAsync(Processor(summarizer: new FailingSummarizer()), Markdown("# Tittel\n\nTekst."));
+        var result = await CreateDraftAsync(Processor(summarizer: new FailingSummarizer()), Markdown("# Tittel\n\nTekst."));
 
         Assert.Null(Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft.Summary);
     }
@@ -78,7 +78,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     [Fact]
     public async Task A_summarizer_that_times_out_costs_the_summary_not_the_file()
     {
-        var result = await ProcessAsync(Processor(summarizer: new TimingOutSummarizer()), Markdown("# Tittel\n\nTekst."));
+        var result = await CreateDraftAsync(Processor(summarizer: new TimingOutSummarizer()), Markdown("# Tittel\n\nTekst."));
 
         Assert.Null(Assert.IsType<KnowledgeFileProcessingResult.Processed>(result).Draft.Summary);
     }
@@ -88,7 +88,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var unknown = ReadyAttachments.From(_environment, [1, 2, 3], new AttachmentType("application/x-unknown", Signature: null));
 
-        var result = await ProcessAsync(Processor(), unknown);
+        var result = await CreateDraftAsync(Processor(), unknown);
 
         Assert.IsType<KnowledgeFileProcessingResult.Rejected>(result);
     }
@@ -98,7 +98,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var progress = new RecordingProgress();
 
-        await ProcessAsync(Processor(), Markdown("tekst"), progress);
+        await CreateDraftAsync(Processor(), Markdown("tekst"), progress);
 
         Assert.Equal([KnowledgeFileProcessingStage.Converting, KnowledgeFileProcessingStage.Summarizing], progress.Reported);
     }
@@ -109,7 +109,7 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     {
         var attachment = Markdown("tekst");
 
-        await ProcessAsync(Processor(), attachment);
+        await CreateDraftAsync(Processor(), attachment);
 
         Assert.True(File.Exists(attachment.File.Path));
     }
