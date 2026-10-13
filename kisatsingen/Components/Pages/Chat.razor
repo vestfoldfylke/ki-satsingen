@@ -9,7 +9,7 @@
 
 <div class="chat-layout">
     <ChatHeader Title="@Title"
-                FileCount="Session.KnowledgeFiles.Count + Attachments.Pending.Count"
+                FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
                 IsFilesPanelOpen="_isFilesPanelOpen"
                 OnToggleFiles="ToggleFilesPanel" />
 
@@ -48,10 +48,10 @@
                                       EstimatedContextTokens="Session.EstimatedContextTokens"
                                       ConversationUsage="Session.ConversationUsage"
                                       OnSelectModel="SelectModelAsync"
-                                      Attachments="Attachments.Pending"
+                                      Attachments="Attachments.All"
                                       AttachmentNotice="@Attachments.SelectionNotice"
                                       IsUploading="Attachments.IsUploading"
-                                      OnFilesSelected="Attachments.UploadAsync"
+                                      OnFilesSelected="Attachments.AttachAsync"
                                       OnRemoveAttachment="Attachments.Remove" />
                     </div>
                 </div>
@@ -79,10 +79,10 @@
                                   Models="Session.AvailableModels"
                                   SelectedModel="Session.SelectedModel"
                                   OnSelectModel="SelectModelAsync"
-                                  Attachments="Attachments.Pending"
+                                  Attachments="Attachments.All"
                                   AttachmentNotice="@Attachments.SelectionNotice"
                                   IsUploading="Attachments.IsUploading"
-                                  OnFilesSelected="Attachments.UploadAsync"
+                                  OnFilesSelected="Attachments.AttachAsync"
                                   OnRemoveAttachment="Attachments.Remove" />
                 </div>
             }
@@ -91,7 +91,7 @@
         @if (_isFilesPanelOpen)
         {
             <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
-                            Pending="Attachments.Pending"
+                            Attachments="Attachments.All"
                             OnRemove="Attachments.Remove"
                             OnClose="ToggleFilesPanel" />
         }

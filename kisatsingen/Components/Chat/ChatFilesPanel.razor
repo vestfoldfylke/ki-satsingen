@@ -13,7 +13,7 @@
         </button>
     </div>
 
-    @if (KnowledgeFiles.Count == 0 && Pending.Count == 0)
+    @if (KnowledgeFiles.Count == 0 && Attachments.Count == 0)
     {
         <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
     }
@@ -36,20 +36,20 @@
         </ul>
     }
 
-    @if (Pending.Count > 0)
+    @if (Attachments.Count > 0)
     {
         <h3 class="ds-heading" data-size="2xs">Ikke sendt ennå</h3>
         <ul class="chat-files-list">
-            @foreach (var attachment in Pending)
+            @foreach (var attachment in Attachments)
             {
-                <li @key="attachment.UploadId" class="chat-files-item">
+                <li @key="attachment.AttachmentId" class="chat-files-item">
                     <span class="chat-files-item-name">@attachment.FileName</span>
                     <span class="chat-files-item-meta">@ByteSize.Format(attachment.DeclaredSizeBytes)</span>
                     <span class="chat-files-item-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
                         @AttachmentStatusTexts.DescribeStatus(attachment)
                     </span>
                     <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
-                            @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
+                            @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)">
                         Fjern
                     </button>
                 </li>
@@ -63,7 +63,7 @@
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles { get; set; } = [];
 
     [Parameter]
-    public IReadOnlyList<PendingAttachment> Pending { get; set; } = [];
+    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
 
     [Parameter]
     public EventCallback<Guid> OnRemove { get; set; }

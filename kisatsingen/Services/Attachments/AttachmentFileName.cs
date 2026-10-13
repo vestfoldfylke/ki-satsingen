@@ -4,7 +4,7 @@ using kisatsingen.Data.Entities;
 namespace kisatsingen.Services.Attachments;
 
 // For display and for the stored file name only; it never reaches the file
-// system (see TempFileStore). It does reach the model, in the attachment line.
+// system (see AttachmentStorage). It does reach the model, in the attachment line.
 public static class AttachmentFileName
 {
     private const string FallbackName = "fil";

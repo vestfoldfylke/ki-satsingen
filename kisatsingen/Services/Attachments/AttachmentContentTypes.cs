@@ -13,6 +13,7 @@ public static class AttachmentContentTypes
     private const string TextFiles = "tekstfiler";
     private const string Images = "bilder";
 
+    // See magic bytes / file type signatures here: https://www.garykessler.net/library/file_sigs_GCK_latest.html
     public static readonly AttachmentType PlainText = new("text/plain", Signature: null);
     public static readonly AttachmentType Markdown = new("text/markdown", Signature: null);
     public static readonly AttachmentType Png = new("image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);

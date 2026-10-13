@@ -5,35 +5,38 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace kisatsingen.Tests.Services.Attachments;
 
-// The real upload stack over a folder of its own, deleted afterwards, so tests
-// can assert on the files actually left on disk.
+// The real upload stack over a parent folder of its own, deleted afterwards,
+// so tests can assert on the files actually left on disk and never touch the
+// app's folder.
 internal sealed class AttachmentTestEnvironment : IDisposable
 {
-    public AttachmentTestEnvironment(AttachmentOptions? options = null, TimeProvider? time = null)
+    public AttachmentTestEnvironment(AttachmentOptions? options = null)
     {
         Options = options ?? new AttachmentOptions();
-        Directory = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
-        Store = new TempFileStore(Directory, NullLogger<TempFileStore>.Instance);
-        Registry = new PendingAttachmentRegistry(Store, Options, time ?? TimeProvider.System);
-        Uploader = new AttachmentUploader(Store);
+        ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(ParentFolder);
+        Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
+        Quota = new AttachmentQuota(Storage, Options);
+        Uploader = new AttachmentUploader(Storage);
     }
 
-    public string Directory { get; }
+    public string ParentFolder { get; }
+    public string Folder => Storage.Folder;
     public AttachmentOptions Options { get; }
-    public TempFileStore Store { get; }
-    public PendingAttachmentRegistry Registry { get; }
+    public AttachmentStorage Storage { get; }
+    public AttachmentQuota Quota { get; }
     public AttachmentUploader Uploader { get; }
 
-    public IReadOnlyList<string> FilesOnDisk => System.IO.Directory.GetFiles(Directory);
+    public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
     public ChatAttachments CreateChatAttachments(IAuthenticationService authentication) =>
-        new(authentication, Registry, Uploader, Options, NullLogger<ChatAttachments>.Instance);
+        new(authentication, Uploader, Quota, Options, NullLogger<ChatAttachments>.Instance);
 
     public void Dispose()
     {
-        if (System.IO.Directory.Exists(Directory))
+        if (Directory.Exists(ParentFolder))
         {
-            System.IO.Directory.Delete(Directory, recursive: true);
+            Directory.Delete(ParentFolder, recursive: true);
         }
     }
 }

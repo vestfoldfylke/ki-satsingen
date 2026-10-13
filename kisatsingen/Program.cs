@@ -189,13 +189,11 @@ var attachmentOptions = builder.Configuration.GetSection(AttachmentOptions.Secti
 attachmentOptions.Validate();
 
 builder.Services.AddSingleton(attachmentOptions);
-builder.Services.AddSingleton(TimeProvider.System);
-builder.Services.AddSingleton(sp => new TempFileStore(
-    Path.Combine(Path.GetTempPath(), TempFileStore.DefaultFolderName),
-    sp.GetRequiredService<ILogger<TempFileStore>>()));
+builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
+    Path.GetTempPath(),
+    sp.GetRequiredService<ILogger<AttachmentStorage>>()));
+builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
-builder.Services.AddSingleton<PendingAttachmentRegistry>();
-builder.Services.AddHostedService<AttachmentSweeper>();
 builder.Services.AddScoped<ChatAttachments>();
 
 // ─── Knowledge-file processing ─────────────────────────
@@ -215,7 +213,7 @@ builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
     sp.GetRequiredService<DocumentConverterRegistry>(),
     sp.GetRequiredService<IDocumentSummarizer>(),
-    sp.GetRequiredService<TempFileStore>(),
+    sp.GetRequiredService<AttachmentStorage>(),
     maxKnowledgeFileTokens,
     sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
 builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
@@ -240,13 +238,9 @@ var app = builder.Build();
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
 
 // ─── One-time startup: attachment temp files ───────────
-// Before the server accepts a request, so no upload can race it. Whatever is
-// left belongs to a process that no longer exists.
-var orphanedTempFiles = app.Services.GetRequiredService<TempFileStore>().DeleteAll();
-if (orphanedTempFiles > 0)
-{
-    app.Logger.LogInformation("Deleted {Count} attachment temp files left by a previous run.", orphanedTempFiles);
-}
+// Resolved eagerly so StartFresh wipes the folder before the server accepts a
+// request, and no upload can race it.
+_ = app.Services.GetRequiredService<AttachmentStorage>();
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

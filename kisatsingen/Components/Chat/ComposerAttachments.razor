@@ -10,14 +10,14 @@
     <ul class="composer-attachments" aria-label="Vedlegg">
         @foreach (var attachment in Attachments)
         {
-            <li @key="attachment.UploadId" class="composer-attachment">
+            <li @key="attachment.AttachmentId" class="composer-attachment">
                 <span class="composer-attachment-name">@attachment.FileName</span>
                 <span class="composer-attachment-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
                     @AttachmentStatusTexts.DescribeStatus(attachment)
                 </span>
                 <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true" data-tooltip="Fjern vedlegg"
                         aria-label="@($"Fjern {attachment.FileName}")"
-                        @onclick="() => OnRemove.InvokeAsync(attachment.UploadId)">
+                        @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)">
                     <span class="material-symbols-outlined" aria-hidden="true">close</span>
                 </button>
             </li>
@@ -27,7 +27,7 @@
 
 @code {
     [Parameter]
-    public IReadOnlyList<PendingAttachment> Attachments { get; set; } = [];
+    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
 
     [Parameter]
     public string? Notice { get; set; }

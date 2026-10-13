@@ -3,6 +3,9 @@
 ## Docs
 - [Knowledge files in chat](docs/knowledge-files.md): how attached files become knowledge files the model can read
 
+## Hosting
+Host on Linux. Windows works for local development, but hosting on Windows is not tested or supported: the attachment temp folder relies on Unix file permissions and on one app process per temp folder.
+
 ## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json

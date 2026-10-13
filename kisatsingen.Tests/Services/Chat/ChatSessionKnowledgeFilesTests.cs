@@ -18,7 +18,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         AttachAsync(harness, (fileName, NoteBytes));
 
     private static Task AttachAsync(ChatSessionHarness harness, params (string Name, byte[] Content)[] files) =>
-        harness.Attachments.UploadAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
+        harness.Attachments.AttachAsync(new InputFileChangeEventArgs([.. files.Select(file => new FakeBrowserFile(file.Name, file.Content))]));
 
     private static byte[] MarkdownBytes(string text) => System.Text.Encoding.UTF8.GetBytes($"# {text}\n\nInnhold.\n");
 

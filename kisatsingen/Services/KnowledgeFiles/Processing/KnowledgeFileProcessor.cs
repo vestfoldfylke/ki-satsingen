@@ -5,11 +5,11 @@ using kisatsingen.Services.KnowledgeFiles.Documents;
 namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
 // A ready attachment in, a draft out. Knows nothing of chats, assistants or
-// queues, and never deletes the temp file: whoever took it from the registry does.
+// queues, and never deletes the temp file: whoever took it at send does.
 public sealed class KnowledgeFileProcessor(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,
-    TempFileStore store,
+    AttachmentStorage storage,
     int maxEstimatedTokens,
     ILogger<KnowledgeFileProcessor> logger)
 {
@@ -55,7 +55,7 @@ public sealed class KnowledgeFileProcessor(
 
     private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, string contentType, CancellationToken ct)
     {
-        await using var content = store.OpenRead(attachment.File);
+        await using var content = storage.OpenRead(attachment.File);
         return await converter.ConvertAsync(new ConversionRequest(attachment.FileName, contentType, content, maxEstimatedTokens), ct);
     }
 
@@ -71,7 +71,7 @@ public sealed class KnowledgeFileProcessor(
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Summarizing upload {UploadId} failed; the file is kept without a summary.", attachment.UploadId);
+            logger.LogWarning(ex, "Summarizing attachment {AttachmentId} failed; the file is kept without a summary.", attachment.AttachmentId);
             return null;
         }
     }

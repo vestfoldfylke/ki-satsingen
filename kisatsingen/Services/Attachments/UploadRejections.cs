@@ -6,16 +6,25 @@ internal static class UploadRejections
 {
     public const string Empty = "Filen er tom.";
 
-    public const string WrongSignature =
+    public const string WrongFileType =
         "Innholdet i filen stemmer ikke med filtypen. Sjekk at filen ikke har fått feil filendelse.";
 
     public const string Interrupted =
         "Opplastingen ble avbrutt. Prøv igjen.";
 
+    // The attachment folder is gone: nothing the user does helps until the app
+    // is restarted.
+    public const string Unavailable =
+        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator.";
+
     public const string AlreadyPending = "Denne filen er allerede valgt.";
 
-    public const string ConcurrentUploads =
-        "Du laster allerede opp filer i en annen fane. Vent til de er ferdige, og prøv igjen.";
+    // A browser never declares a negative size; only a tampered one does.
+    public const string UnreadableSize =
+        "Filstørrelsen kunne ikke leses. Velg filen på nytt.";
+
+    public const string InstanceBudgetFull =
+        "Det lastes opp mye akkurat nå. Prøv igjen om litt.";
 
     public static string UnsupportedType =>
         $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.";
