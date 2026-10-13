@@ -41,10 +41,10 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
             totalUsage.ByteCount + declaredSizeBytes);
     }
 
-    // Decides with the stored file at its real size, and under one lock either
-    // marks it ready or deletes it. The next upload to finish therefore sees
-    // the true state: two uploads finishing together cannot both slip past a
-    // limit, nor both be refused when one would fit.
+    // Decides with the stored file at its real size, and marks it ready under
+    // the same lock, so the next upload to finish already counts it: two
+    // uploads finishing together cannot both slip past a limit, nor both be
+    // refused when one would fit. A refused file is deleted here.
     public QuotaCheck MarkReadyIfFits(string ownerId, UploadOutcome.Stored stored)
     {
         lock (_markReadyLock)
