@@ -9,7 +9,6 @@
             data-variant="@(IsFilesPanelOpen ? "secondary" : "tertiary")"
             aria-controls="chat-files-panel"
             aria-expanded="@(IsFilesPanelOpen ? "true" : "false")"
-            data-tooltip="Håndter filer"
             @onclick="OnToggleFiles">
         <span class="material-symbols-outlined" aria-hidden="true">folder</span>
         Filer@(FileCount > 0 ? $" ({FileCount})" : null)

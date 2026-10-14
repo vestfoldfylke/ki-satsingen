@@ -9,7 +9,7 @@
             <div class="nav-item">
                 <button type="button" class="ds-link" @onclick="StartNewChatAsync">
                     <span class="material-symbols-outlined" aria-hidden="true">add_2</span>
-                    Start ny samtale
+                    Ny samtale
                 </button>
             </div>
             <div class="nav-item">
@@ -40,7 +40,7 @@
             </div>
             @if (ChatList.Count == 0)
             {
-                <p class="ds-paragraph chat-sidebar-empty">Det finnes ingen samtaler enda</p>
+                <p class="ds-paragraph chat-sidebar-empty">Ingen samtaler enda</p>
             }
             else
             {
@@ -52,13 +52,13 @@
                             <div class="chat-sidebar-item @(entry.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
                                 <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
                                     <span class="chat-sidebar-title">@entry.Title</span>
-                                </a>
+                                    </a>
                                 <button
                                     type="button"
                                     class="ds-button chat-sidebar-item-option-button"
                                     data-variant="tertiary"
                                     data-size="sm"
-                                    data-icon
+                                    data-icon="true"
                                     popovertarget="@menuId"
                                     aria-label="Valg for samtalen"
                                     data-tooltip="Valg for samtalen"
