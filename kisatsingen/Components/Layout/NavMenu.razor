@@ -12,27 +12,7 @@
                     Ny samtale
                 </button>
             </div>
-            <div class="nav-item">
-                <NavLink class="ds-link" href="usage">
-                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
-                    Mitt forbruk
-                </NavLink>
-            </div>
         </nav>
-
-        <AuthorizeView Policy="IsAdministrator">
-            <Authorized>
-                <nav class="nav-primary">
-                    <h4 class="ds-heading" data-size="xs">Administrator</h4>
-                    <div class="nav-item">
-                        <NavLink class="ds-link" href="administration/usage">
-                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
-                            Totalt forbruk
-                        </NavLink>
-                    </div>
-                </nav>
-            </Authorized>
-        </AuthorizeView>
 
         <aside class="chat-sidebar" aria-label="Samtaler">
             <div class="chat-sidebar-header">
@@ -101,19 +81,59 @@
         <div class="user">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-2">Innlogget: <strong>@context.User.Identity?.Name</strong></span>
+                    <div>
+                        <button class="ds-button"
+                                type="button"
+                                data-variant="tertiary"
+                                data-color="primary"
+                                popovertarget="user-menu"
+                                aria-haspopup="menu">
+                            <span class="ds-paragraph" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
+                        </button>
+
+                        <div id="user-menu" class="ds-dropdown" popover="auto" data-placement="top-start">
+                            <ul role="menu" aria-label="Avansert brukermeny">
+                                <span class="ds-paragraph" data-size="sm">@context.User.Identity?.Name</span>
+                                <li role="none">
+                                    <NavLink type="button"
+                                            class="ds-button user-menu-picker-option"
+                                            data-variant="tertiary"
+                                            data-color="neutral"
+                                            role="menuitemradio"
+                                            popovertargetaction="hide"
+                                            data-placement="right"
+                                            href="usage">
+
+                                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
+                                            <span class="ds-paragraph" data-size="sm">Mitt forbruk</span>
+                                    </NavLink>
+                                </li>
+
+                                <br />
+
+                                <AuthorizeView Policy="IsAdministrator">
+                                    <Authorized>
+                                        <li>
+                                            <span class="ds-paragraph" data-size="sm">Administrator</span>
+                                            <NavLink type="button"
+                                                    class="ds-button user-menu-picker-option"
+                                                    data-variant="tertiary"
+                                                    data-color="neutral"
+                                                    role="menuitemradio"
+                                                    popovertargetaction="hide"
+                                                    data-placement="right"
+                                                    href="administration/usage">
+                                                    
+                                                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
+                                                    <span class="ds-paragraph" data-size="sm">Totalt forbruk</span>
+                                            </NavLink>
+                                        </li>
+                                    </Authorized>
+                                </AuthorizeView>
+                            </ul>
+                        </div>
+                    </div>
                 </Authorized>
-            </AuthorizeView>
-            
-            <br />
-            
-            <AuthorizeView Policy="IsAdministrator">
-                <Authorized>
-                    <span>Du er admin du</span>
-                </Authorized>
-                <NotAuthorized>
-                    <span>Du er ikke admin du</span>
-                </NotAuthorized>
             </AuthorizeView>
         </div>
     </div>
