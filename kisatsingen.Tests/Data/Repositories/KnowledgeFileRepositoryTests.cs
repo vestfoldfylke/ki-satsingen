@@ -2,7 +2,7 @@ using kisatsingen.Data;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using NpgsqlTypes;

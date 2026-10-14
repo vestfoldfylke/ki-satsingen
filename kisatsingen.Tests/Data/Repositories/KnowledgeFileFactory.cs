@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 namespace kisatsingen.Tests.Data.Repositories;
 

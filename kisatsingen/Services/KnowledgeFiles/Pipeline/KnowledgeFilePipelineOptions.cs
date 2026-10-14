@@ -1,9 +1,9 @@
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 // Defaults in code, overridable per environment under this section name.
-public sealed class KnowledgeFileProcessingOptions
+public sealed class KnowledgeFilePipelineOptions
 {
-    public const string SectionName = "KnowledgeFileProcessing";
+    public const string SectionName = "KnowledgeFilePipeline";
 
     // Converting is CPU work: more conversions at once than cores only take
     // turns on them, and each can hold a few hundred MB while it runs.

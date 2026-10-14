@@ -6,7 +6,7 @@ using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -196,29 +196,29 @@ builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddScoped<ChatAttachments>();
 
-// ─── Knowledge-file processing ─────────────────────────
-// Defaults live in KnowledgeFileProcessingOptions; the section overrides them.
-var processingOptions = builder.Configuration.GetSection(KnowledgeFileProcessingOptions.SectionName).Get<KnowledgeFileProcessingOptions>()
-    ?? new KnowledgeFileProcessingOptions();
-processingOptions.Validate();
+// ─── Knowledge-file pipeline ───────────────────────────
+// Defaults live in KnowledgeFilePipelineOptions; the section overrides them.
+var pipelineOptions = builder.Configuration.GetSection(KnowledgeFilePipelineOptions.SectionName).Get<KnowledgeFilePipelineOptions>()
+    ?? new KnowledgeFilePipelineOptions();
+pipelineOptions.Validate();
 
-builder.Services.AddSingleton(processingOptions);
+builder.Services.AddSingleton(pipelineOptions);
 
 // One converter per content type. Moving a type to a remote converter means
 // swapping its registration here for one that calls that service.
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
-builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(processingOptions.MaxImageSidePixels, processingOptions.MaxImagePixels));
+builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(pipelineOptions.MaxImageSidePixels, pipelineOptions.MaxImagePixels));
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
-builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
-builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
+builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();
+builder.Services.AddSingleton(sp => new KnowledgeFilePipeline(
     sp.GetRequiredService<DocumentConverterRegistry>(),
     sp.GetRequiredService<IDocumentSummarizer>(),
     sp.GetRequiredService<AttachmentStorage>(),
-    processingOptions,
-    sp.GetRequiredService<KnowledgeFileProcessingMetrics>(),
+    pipelineOptions,
+    sp.GetRequiredService<KnowledgeFilePipelineMetrics>(),
     maxKnowledgeFileTokens,
-    sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
+    sp.GetRequiredService<ILogger<KnowledgeFilePipeline>>()));
 
 // ─── File tools ────────────────────────────────────────
 // Defaults live in FileToolOptions; the section overrides them.

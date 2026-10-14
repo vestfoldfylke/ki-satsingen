@@ -20,7 +20,7 @@ file tools.
    processed again. (`TurnAttachmentProcessor`)
 4. **Processing.** The other attachments go through a bounded queue:
    conversion to Markdown, then a draft. Processing never saves.
-   (`Services/KnowledgeFiles/Conversion`, `Processing`)
+   (`Services/KnowledgeFiles/Conversion`, `Pipeline`)
 5. **Save.** The turn saves each draft as a knowledge file. The attachment is
    then **available** (`fileId`). A file that fails in conversion or saving is
    **unavailable** (with a reason), and the turn goes on.

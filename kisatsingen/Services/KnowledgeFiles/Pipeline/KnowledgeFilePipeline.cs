@@ -2,18 +2,19 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
-// A ready attachment in, a draft out. Knows nothing of chats or turns, and
-// never deletes the temp file: whoever owns it does.
-public sealed class KnowledgeFileProcessor(
+// A file in, a knowledge-file draft out, through fixed steps in order:
+// convert, check size, outline, summarize. Knows nothing of chats or
+// assistants, and never deletes the temp file: whoever owns it does.
+public sealed class KnowledgeFilePipeline(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,
     AttachmentStorage storage,
-    KnowledgeFileProcessingOptions options,
-    KnowledgeFileProcessingMetrics metrics,
+    KnowledgeFilePipelineOptions options,
+    KnowledgeFilePipelineMetrics metrics,
     int maxEstimatedTokens,
-    ILogger<KnowledgeFileProcessor> logger)
+    ILogger<KnowledgeFilePipeline> logger)
 {
     // The metric's result label for one conversion.
     private enum ConversionResultLabel
@@ -27,17 +28,17 @@ public sealed class KnowledgeFileProcessor(
     // Shared by every user's conversions.
     private readonly SemaphoreSlim _conversionSlots = new(options.MaxConcurrentConversions);
 
-    internal async Task<KnowledgeFileProcessingResult> CreateDraftAsync(ReadyAttachment attachment, CancellationToken ct)
+    internal async Task<KnowledgeFilePipelineResult> RunAsync(ReadyAttachment attachment, CancellationToken ct)
     {
         if (!converters.TryGet(attachment.Type.ContentType, out var converter))
         {
-            return new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.UnsupportedType);
+            return new KnowledgeFilePipelineResult.Rejected(PipelineRejections.UnsupportedType);
         }
 
         var conversion = await ConvertAsync(converter, attachment, ct);
         if (conversion is ConversionResult.Rejected rejected)
         {
-            return new KnowledgeFileProcessingResult.Rejected(rejected.Reason);
+            return new KnowledgeFilePipelineResult.Rejected(rejected.Reason);
         }
 
         var converted = (ConversionResult.Converted)conversion;
@@ -46,13 +47,13 @@ public sealed class KnowledgeFileProcessor(
         // only rules out files certain to be too large, and a summary may cost.
         if (TokenEstimate.FromCharacters(converted.Markdown.Length) > maxEstimatedTokens)
         {
-            return new KnowledgeFileProcessingResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens));
+            return new KnowledgeFilePipelineResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens));
         }
 
         var outline = DocumentOutline.Build(converted.Markdown);
         var summary = await SummarizeAsync(attachment, converted.Markdown, outline, ct);
 
-        return new KnowledgeFileProcessingResult.Processed(new KnowledgeFileDraft(
+        return new KnowledgeFilePipelineResult.Completed(new KnowledgeFileDraft(
             attachment.FileName,
             attachment.Type.ContentType,
             attachment.SizeBytes,
@@ -99,7 +100,7 @@ public sealed class KnowledgeFileProcessor(
         {
             resultLabel = ConversionResultLabel.TimedOut;
             logger.LogWarning("Converting attachment {AttachmentId} ({ContentType}) timed out after {Timeout}.", attachment.AttachmentId, attachment.Type.ContentType, options.ConversionTimeout);
-            return new ConversionResult.Rejected(ProcessingRejections.TimedOut);
+            return new ConversionResult.Rejected(PipelineRejections.TimedOut);
         }
         finally
         {

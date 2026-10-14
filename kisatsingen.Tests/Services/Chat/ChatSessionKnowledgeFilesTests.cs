@@ -1,6 +1,6 @@
 using kisatsingen.Tests.Data.Repositories;
 using kisatsingen.Tests.Services.Attachments;
-using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+using kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.AI;
 using Xunit;

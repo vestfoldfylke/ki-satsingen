@@ -1,5 +1,5 @@
 using kisatsingen.Data.Entities;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 namespace kisatsingen.Data.Repositories;
 

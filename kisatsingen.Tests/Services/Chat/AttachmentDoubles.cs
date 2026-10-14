@@ -1,7 +1,7 @@
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 namespace kisatsingen.Tests.Services.Chat;
 

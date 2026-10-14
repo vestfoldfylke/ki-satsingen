@@ -2,7 +2,7 @@ using System.Diagnostics;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 namespace kisatsingen.Services.Chat;
 
@@ -11,7 +11,7 @@ namespace kisatsingen.Services.Chat;
 // settles, available or unavailable with a reason, so one bad file never
 // fails the others or the turn; only a stop propagates.
 internal sealed class TurnAttachmentProcessor(
-    KnowledgeFileProcessor processor,
+    KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
     ILogger logger)
 {
@@ -47,14 +47,14 @@ internal sealed class TurnAttachmentProcessor(
         }
     }
 
-    // Creates its draft and saves it. A converter bug is that file's reason,
-    // not the turn's failure.
+    // Runs the pipeline for its draft and saves it. A converter bug is that
+    // file's reason, not the turn's failure.
     private async Task<TurnAttachmentResult> ProcessAsNewAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
-        KnowledgeFileProcessingResult result;
+        KnowledgeFilePipelineResult result;
         try
         {
-            result = await processor.CreateDraftAsync(attachment, ct);
+            result = await pipeline.RunAsync(attachment, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
@@ -64,12 +64,12 @@ internal sealed class TurnAttachmentProcessor(
 
         switch (result)
         {
-            case KnowledgeFileProcessingResult.Processed processed:
-                return await SaveAsync(ownerId, chatId, attachment, processed.Draft);
-            case KnowledgeFileProcessingResult.Rejected rejected:
+            case KnowledgeFilePipelineResult.Completed completed:
+                return await SaveAsync(ownerId, chatId, attachment, completed.Draft);
+            case KnowledgeFilePipelineResult.Rejected rejected:
                 return new TurnAttachmentResult.Unavailable(rejected.Reason);
             default:
-                throw new UnreachableException($"Processing returned {result.GetType().Name}, which the attachment processor does not handle. Handle it here.");
+                throw new UnreachableException($"The pipeline returned {result.GetType().Name}, which the attachment processor does not handle. Handle it here.");
         }
     }
 

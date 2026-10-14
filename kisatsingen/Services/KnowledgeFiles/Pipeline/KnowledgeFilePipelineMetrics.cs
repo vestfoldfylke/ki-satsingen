@@ -2,12 +2,12 @@ using kisatsingen.Constants;
 using Vestfold.Extensions.Metrics.Services;
 using MetricTimer = Prometheus.ITimer;
 
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
-// Every metric processing records, in one place and never throwing: Prometheus
-// throws on a registration or label conflict, and that must never replace a
-// file's own outcome. A metric that fails is logged and skipped.
-public sealed class KnowledgeFileProcessingMetrics(IMetricsService metrics, ILogger<KnowledgeFileProcessingMetrics> logger)
+// Every metric the pipeline records, in one place and never throwing:
+// Prometheus throws on a registration or label conflict, and that must never
+// replace a file's own outcome. A metric that fails is logged and skipped.
+public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogger<KnowledgeFilePipelineMetrics> logger)
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_KnowledgeFile";
 
@@ -22,7 +22,7 @@ public sealed class KnowledgeFileProcessingMetrics(IMetricsService metrics, ILog
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Could not record a knowledge-file processing duration.");
+            logger.LogError(ex, "Could not record a knowledge-file conversion duration.");
         }
     }
 

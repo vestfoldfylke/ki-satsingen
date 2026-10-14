@@ -3,7 +3,7 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 
@@ -68,7 +68,7 @@ public sealed class ChatSession : IAsyncDisposable
         ILogger<ChatSession> logger,
         IUserTokenUsageRepository userTokenUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
-        KnowledgeFileProcessor knowledgeFileProcessor,
+        KnowledgeFilePipeline knowledgeFilePipeline,
         FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
@@ -81,7 +81,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFileProcessor, knowledgeFileRepository, logger);
+        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, logger);
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 

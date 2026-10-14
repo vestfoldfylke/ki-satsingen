@@ -2,7 +2,7 @@ using System.Text.Json;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using kisatsingen.Tests.Data;
 using kisatsingen.Tests.Data.Repositories;

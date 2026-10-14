@@ -3,7 +3,7 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
-using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+using kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 using Microsoft.AspNetCore.Components.Forms;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;

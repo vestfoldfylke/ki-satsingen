@@ -3,7 +3,7 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
 
-namespace kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 
 // Holds every conversion until released or cancelled, so a test can act while
 // a conversion is genuinely running.
@@ -78,7 +78,7 @@ internal static class ReadyAttachments
     // A real temp file in the environment's storage, so tests can see it deleted.
     public static ReadyAttachment From(AttachmentTestEnvironment environment, byte[] content, AttachmentType type, string fileName = "fil.md")
     {
-        var (file, stream) = environment.Storage.CreateFile("processing-test-owner", Guid.NewGuid());
+        var (file, stream) = environment.Storage.CreateFile("pipeline-test-owner", Guid.NewGuid());
         using (stream)
         {
             stream.Write(content);

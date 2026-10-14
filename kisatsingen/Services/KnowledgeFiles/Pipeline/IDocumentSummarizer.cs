@@ -1,6 +1,6 @@
 using kisatsingen.Services.KnowledgeFiles.Documents;
 
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 // Given the outline and the text, but meant to read only the outline and the
 // start: a summary is for choosing where to read, not a digest of all of it.

@@ -5,7 +5,7 @@ using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using kisatsingen.Tests.Services.Attachments;
 using System.Diagnostics.CodeAnalysis;
@@ -43,7 +43,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public AttachmentTestEnvironment AttachmentEnvironment { get; } = new();
     public ChatAttachments Attachments { get; }
 
-    // The real processor, so a turn's files are processed the way production
+    // The real pipeline, so a turn's files are processed the way production
     // processes them; only the database is a double.
     public FakeKnowledgeFileRepository KnowledgeFiles { get; } = new();
     public HoldingTextConverter TextConverter { get; } = new();
@@ -65,21 +65,21 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             NullLogger<ChatSession>.Instance,
             UserTokenUsageRepository,
             KnowledgeFiles,
-            CreateProcessor(),
+            CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()));
     }
 
-    private KnowledgeFileProcessor CreateProcessor()
+    private KnowledgeFilePipeline CreatePipeline()
     {
-        var options = new KnowledgeFileProcessingOptions();
-        return new KnowledgeFileProcessor(
+        var options = new KnowledgeFilePipelineOptions();
+        return new KnowledgeFilePipeline(
             new DocumentConverterRegistry([TextConverter, new ImagePlaceholderConverter(options.MaxImageSidePixels, options.MaxImagePixels)]),
             new OpeningExcerptSummarizer(),
             AttachmentEnvironment.Storage,
             options,
-            new KnowledgeFileProcessingMetrics(new RecordingMetricsService(), NullLogger<KnowledgeFileProcessingMetrics>.Instance),
+            new KnowledgeFilePipelineMetrics(new RecordingMetricsService(), NullLogger<KnowledgeFilePipelineMetrics>.Instance),
             maxEstimatedTokens: 1_000_000,
-            NullLogger<KnowledgeFileProcessor>.Instance);
+            NullLogger<KnowledgeFilePipeline>.Instance);
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.

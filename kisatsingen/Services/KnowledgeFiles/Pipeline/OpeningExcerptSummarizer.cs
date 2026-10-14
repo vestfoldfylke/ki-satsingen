@@ -1,6 +1,6 @@
 using kisatsingen.Services.KnowledgeFiles.Documents;
 
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 // Stand-in until summaries come from a model: the opening of the document,
 // labelled as an excerpt so no one mistakes it for a summary.
