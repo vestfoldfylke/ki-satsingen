@@ -7,9 +7,9 @@ using kisatsingen.Services.KnowledgeFiles.Pipeline;
 namespace kisatsingen.Services.Chat;
 
 // Makes one sent file available in its chat: as the file already saved there
-// with the same content, or by running the pipeline and saving the new file. Every file
-// settles, available or unavailable with a reason, so one bad file never
-// fails the others or the turn; only a stop propagates.
+// with the same content, or by running the pipeline and saving the new file.
+// Every file settles, available or unavailable with a reason, so one bad file
+// never fails the others or the turn; only a stop propagates.
 internal sealed class TurnAttachmentProcessor(
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
@@ -47,8 +47,7 @@ internal sealed class TurnAttachmentProcessor(
         }
     }
 
-    // Runs the pipeline and saves the new file it makes. A converter bug is
-    // that file's reason, not the turn's failure.
+    // A converter bug is that file's reason, not the turn's failure.
     private async Task<TurnAttachmentResult> ProcessAsNewAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
         KnowledgeFilePipelineResult result;
