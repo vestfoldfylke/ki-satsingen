@@ -144,32 +144,32 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
     {
-        if (FileNamesThatFailToSave.Contains(draft.FileName))
+        if (FileNamesThatFailToSave.Contains(newFile.FileName))
         {
-            return Task.FromException<KnowledgeFileSaveResult>(new InvalidOperationException($"Scripted save failure for {draft.FileName}."));
+            return Task.FromException<KnowledgeFileSaveResult>(new InvalidOperationException($"Scripted save failure for {newFile.FileName}."));
         }
 
         var now = DateTimeOffset.UtcNow;
         var file = new KnowledgeFileMetadata(
             Guid.NewGuid(),
-            draft.FileName,
-            draft.ContentType,
-            draft.SizeBytes,
-            draft.Sha256,
-            draft.Summary,
+            newFile.FileName,
+            newFile.ContentType,
+            newFile.SizeBytes,
+            newFile.Sha256,
+            newFile.Summary,
             LineCount: 1,
             EstimatedTokenCount: 1,
-            draft.Origin,
-            draft.PageCount,
+            newFile.Origin,
+            newFile.PageCount,
             Version: 1,
             now,
             now);
 
         lock (_files)
         {
-            _files.Add(new StoredFile(ownerId, chatId, file, draft.Markdown));
+            _files.Add(new StoredFile(ownerId, chatId, file, newFile.Markdown));
         }
 
         return Task.FromResult<KnowledgeFileSaveResult>(new KnowledgeFileSaveResult.Saved(file));
@@ -218,7 +218,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default) =>
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
     public Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>

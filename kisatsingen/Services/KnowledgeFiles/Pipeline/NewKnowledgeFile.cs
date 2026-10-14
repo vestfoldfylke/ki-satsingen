@@ -5,7 +5,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 // Converted and ready to save, not yet saved. Carries nothing derived from the
 // Markdown (line count, outline, token estimate): the save path computes those
 // itself, so they can never disagree with the text.
-public sealed record KnowledgeFileDraft(
+public sealed record NewKnowledgeFile(
     string FileName,
     string ContentType,
     long SizeBytes,

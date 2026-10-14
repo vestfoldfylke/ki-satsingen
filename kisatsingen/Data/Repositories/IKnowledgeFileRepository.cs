@@ -9,8 +9,8 @@ public interface IKnowledgeFileRepository
     // cannot express "both parents" or "neither" and the check constraint is a
     // backstop rather than the only guard. Both throw when the scope is not
     // the owner's.
-    Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default);
-    Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default);
+    Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default);
+    Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default);
 
     Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default);
 

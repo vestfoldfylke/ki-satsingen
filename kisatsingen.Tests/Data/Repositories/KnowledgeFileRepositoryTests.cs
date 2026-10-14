@@ -37,7 +37,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
         var found = await Repo.GetFileAsync(OwnerId, saved.Id);
 
         Assert.Equal(saved, found);
@@ -47,9 +47,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_saved_file_keeps_its_markdown_and_content_origin()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var draft = KnowledgeFileFactory.Draft("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder };
+        var newFile = KnowledgeFileFactory.NewFile("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder };
 
-        var saved = await SaveIntoChatAsync(chat.Id, draft);
+        var saved = await SaveIntoChatAsync(chat.Id, newFile);
 
         var stored = await LoadStoredAsync(saved.Id);
         Assert.Equal(("Bilde: 10 x 10 px.", ContentOrigin.ImagePlaceholder), (stored.Markdown, saved.ContentOrigin));
@@ -67,13 +67,13 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task A_draft_with_an_undefined_content_origin_is_refused()
+    public async Task A_new_file_with_an_undefined_content_origin_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var draft = KnowledgeFileFactory.Draft("notat.md") with { Origin = (ContentOrigin)99 };
+        var newFile = KnowledgeFileFactory.NewFile("notat.md") with { Origin = (ContentOrigin)99 };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, newFile));
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
 
         // 15 characters, so 5 estimated tokens; the final newline ends the
         // last line rather than starting a fifth.
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md", "en\nto\ntre\nfire\n"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md", "en\nto\ntre\nfire\n"));
 
         Assert.Equal((4, 5), (saved.LineCount, saved.EstimatedTokenCount));
     }
@@ -93,7 +93,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         Assert.Equal(1, saved.Version);
     }
@@ -103,7 +103,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.txt", "ett\r\nto\rtre"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.txt", "ett\r\nto\rtre"));
 
         var stored = await LoadStoredAsync(saved.Id);
         Assert.Equal(("ett\nto\ntre", 3), (stored.Markdown, stored.LineCount));
@@ -114,7 +114,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md") with { Summary = null });
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md") with { Summary = null });
 
         Assert.Null(saved.Summary);
     }
@@ -124,9 +124,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         // 33 characters is 11 estimated tokens, one over the cap.
-        var draft = KnowledgeFileFactory.Draft("stor.md", new string('a', 33));
+        var newFile = KnowledgeFileFactory.NewFile("stor.md", new string('a', 33));
 
-        var result = await RepoWithTokenCap(10).CreateFileForChatAsync(OwnerId, chat.Id, draft);
+        var result = await RepoWithTokenCap(10).CreateFileForChatAsync(OwnerId, chat.Id, newFile);
 
         Assert.Equal(ConversionRejections.TooManyTokens(10), Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
         Assert.Equal(0, await CountFilesAsync());
@@ -137,7 +137,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("tom.md", " \r\n\t\n"));
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.NewFile("tom.md", " \r\n\t\n"));
 
         Assert.Equal(ConversionRejections.Empty, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
         Assert.Equal(0, await CountFilesAsync());
@@ -148,7 +148,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
-        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("notat.md", "før\0etter"));
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "før\0etter"));
 
         Assert.Equal(ConversionRejections.InvalidCharacters, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
         Assert.Equal(0, await CountFilesAsync());
@@ -158,9 +158,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_file_already_saved_in_the_same_chat_is_rejected_as_a_duplicate()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
-        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("kopi av notat.md"));
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.NewFile("kopi av notat.md"));
 
         Assert.Equal(KnowledgeFileSaveRejections.DuplicateInChat, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
         Assert.Equal(1, await CountFilesAsync());
@@ -171,9 +171,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var first = await ChatRepo.CreateChatAsync(OwnerId, "first", assistantId: null);
         var second = await ChatRepo.CreateChatAsync(OwnerId, "second", assistantId: null);
-        await SaveIntoChatAsync(first.Id, KnowledgeFileFactory.Draft("notat.md"));
+        await SaveIntoChatAsync(first.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
-        var result = await Repo.CreateFileForChatAsync(OwnerId, second.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var result = await Repo.CreateFileForChatAsync(OwnerId, second.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         Assert.IsType<KnowledgeFileSaveResult.Saved>(result);
     }
@@ -182,40 +182,40 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_file_already_saved_in_the_same_assistant_is_rejected_as_a_duplicate()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
+        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
 
-        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
+        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
 
         Assert.Equal(KnowledgeFileSaveRejections.DuplicateInAssistant, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
     }
 
     [Fact]
-    public async Task A_draft_with_a_blank_file_name_is_refused()
+    public async Task A_new_file_with_a_blank_file_name_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("   ")));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.NewFile("   ")));
     }
 
     [Fact]
-    public async Task A_draft_with_a_malformed_sha256_is_refused()
+    public async Task A_new_file_with_a_malformed_sha256_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
         // 63 hex chars — right alphabet, wrong length. Also covers non-hex via the length branch.
-        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = new string('a', 63) };
+        var newFile = KnowledgeFileFactory.NewFile("notat.md") with { Sha256 = new string('a', 63) };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, newFile));
     }
 
     [Fact]
     public async Task An_uppercase_sha256_is_stored_in_lowercase()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = new string('A', 64) };
+        var newFile = KnowledgeFileFactory.NewFile("notat.md") with { Sha256 = new string('A', 64) };
 
-        var saved = await SaveIntoChatAsync(chat.Id, draft);
+        var saved = await SaveIntoChatAsync(chat.Id, newFile);
 
         Assert.Equal(new string('a', 64), saved.Sha256);
     }
@@ -227,23 +227,23 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         // 10_000-char blob masquerading as a hash; nothing about the message
         // should carry the full input into logs.
         var giantBlob = new string('z', 10_000);
-        var draft = KnowledgeFileFactory.Draft("notat.md") with { Sha256 = giantBlob };
+        var newFile = KnowledgeFileFactory.NewFile("notat.md") with { Sha256 = giantBlob };
 
         var error = await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, newFile));
 
         Assert.DoesNotContain(giantBlob, error.Message);
         Assert.Contains("10000", error.Message);
     }
 
     [Fact]
-    public async Task A_draft_with_a_non_positive_page_count_is_refused()
+    public async Task A_new_file_with_a_non_positive_page_count_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var draft = KnowledgeFileFactory.Draft("notat.md") with { PageCount = 0 };
+        var newFile = KnowledgeFileFactory.NewFile("notat.md") with { PageCount = 0 };
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, draft));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, newFile));
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("notat.md")));
+            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("notat.md")));
     }
 
     [Fact]
@@ -261,7 +261,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.Draft("notat.md")));
+            () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, KnowledgeFileFactory.NewFile("notat.md")));
 
         Assert.Equal(0, await CountFilesAsync());
     }
@@ -270,7 +270,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task GetFileAsync_returns_null_for_another_owners_file()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"));
+        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
 
         var found = await Repo.GetFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
 
@@ -281,8 +281,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task Listing_a_chats_files_carries_each_files_sha256_in_the_order_they_were_saved()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var first = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("en.md", "en"));
-        var second = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("to.md", "to"));
+        var first = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("en.md", "en"));
+        var second = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("to.md", "to"));
 
         var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
 
@@ -293,7 +293,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_chats_file_is_found_by_its_content()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256);
 
@@ -304,7 +304,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task Another_owners_file_is_never_found_by_its_content()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
-        var saved = Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"))).File;
+        var saved = Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"))).File;
 
         var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256);
 
@@ -316,7 +316,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_chats_file_is_found_by_its_content_given_in_uppercase()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256.ToUpperInvariant());
 
@@ -328,8 +328,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     {
         var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null, "x");
         var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
-        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.Draft("mine.md"));
-        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.Draft("theirs.md"));
+        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.NewFile("mine.md"));
+        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.NewFile("theirs.md"));
 
         var listed = await Repo.ListFilesForAssistantAsync(OwnerId, mine.Id);
 
@@ -340,7 +340,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task Deleting_an_assistant_takes_its_files_with_it()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.Draft("rundskriv.md"));
+        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
 
         await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
 
@@ -353,7 +353,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task Deleting_a_chat_takes_its_files_with_it()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         var deleted = await ChatRepo.DeleteChatAsync(OwnerId, chat.Id);
 
@@ -365,7 +365,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task DeleteFileAsync_removes_the_file()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
 
         var deleted = await Repo.DeleteFileAsync(OwnerId, saved.Id);
 
@@ -377,7 +377,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task DeleteFileAsync_reports_false_for_another_owners_file()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"));
+        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
 
         var deleted = await Repo.DeleteFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
 
@@ -407,9 +407,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         Assert.Equal(PostgresErrorCodes.CheckViolation, error.SqlState);
     }
 
-    private async Task<KnowledgeFileMetadata> SaveIntoChatAsync(Guid chatId, KnowledgeFileDraft draft)
+    private async Task<KnowledgeFileMetadata> SaveIntoChatAsync(Guid chatId, NewKnowledgeFile newFile)
     {
-        var result = await Repo.CreateFileForChatAsync(OwnerId, chatId, draft);
+        var result = await Repo.CreateFileForChatAsync(OwnerId, chatId, newFile);
         return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File;
     }
 

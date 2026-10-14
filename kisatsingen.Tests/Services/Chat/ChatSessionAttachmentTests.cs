@@ -352,7 +352,7 @@ public sealed class ChatSessionAttachmentTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.LoadAsync(chat.Id);
 
         await harness.Session.SendAsync("Hva sto i notatet?");

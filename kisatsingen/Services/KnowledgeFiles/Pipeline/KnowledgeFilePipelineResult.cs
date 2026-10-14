@@ -4,7 +4,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 // of these.
 public abstract record KnowledgeFilePipelineResult
 {
-    public sealed record Completed(KnowledgeFileDraft Draft) : KnowledgeFilePipelineResult;
+    public sealed record Completed(NewKnowledgeFile File) : KnowledgeFilePipelineResult;
 
     // Shown to the user as is.
     public sealed record Rejected(string Reason) : KnowledgeFilePipelineResult;

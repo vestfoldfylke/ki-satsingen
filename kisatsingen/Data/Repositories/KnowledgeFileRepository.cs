@@ -31,45 +31,45 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
     private static readonly Func<KnowledgeFile, KnowledgeFileMetadata> ToMetadata = MetadataProjection.Compile();
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default)
-        => CreateAsync(ownerId, assistantId, chatId: null, draft, ct);
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default)
+        => CreateAsync(ownerId, assistantId, chatId: null, newFile, ct);
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
-        => CreateAsync(ownerId, assistantId: null, chatId, draft, ct);
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
+        => CreateAsync(ownerId, assistantId: null, chatId, newFile, ct);
 
     // The single write path, and the only place the nullable scope pair exists.
     // Every stored text passes through here, so this is where the guarantees
     // the read tools depend on are enforced, whatever converter produced it.
-    private async Task<KnowledgeFileSaveResult> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, KnowledgeFileDraft draft, CancellationToken ct)
+    private async Task<KnowledgeFileSaveResult> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, NewKnowledgeFile newFile, CancellationToken ct)
     {
-        var normalisedFileName = BoundedText.RequireTrimmed(draft.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
-        var normalisedContentType = BoundedText.RequireTrimmed(draft.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
-        var normalisedSha256 = NormaliseSha256(draft.Sha256);
-        var normalisedSummary = BoundedText.TrimToNullable(draft.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
+        var normalisedFileName = BoundedText.RequireTrimmed(newFile.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
+        var normalisedContentType = BoundedText.RequireTrimmed(newFile.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
+        var normalisedSha256 = NormaliseSha256(newFile.Sha256);
+        var normalisedSummary = BoundedText.TrimToNullable(newFile.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
 
-        if (draft.SizeBytes <= 0)
+        if (newFile.SizeBytes <= 0)
         {
             throw new ArgumentException(
-                $"Knowledge file '{normalisedFileName}' reports {draft.SizeBytes} bytes; a stored file must have positive size.",
-                nameof(draft));
+                $"Knowledge file '{normalisedFileName}' reports {newFile.SizeBytes} bytes; a stored file must have positive size.",
+                nameof(newFile));
         }
 
-        if (draft.PageCount is <= 0)
+        if (newFile.PageCount is <= 0)
         {
             throw new ArgumentException(
-                $"Knowledge file '{normalisedFileName}' reports {draft.PageCount} pages; page count must be positive when supplied (null is fine for formats without pages).",
-                nameof(draft));
+                $"Knowledge file '{normalisedFileName}' reports {newFile.PageCount} pages; page count must be positive when supplied (null is fine for formats without pages).",
+                nameof(newFile));
         }
 
-        if (!Enum.IsDefined(draft.Origin))
+        if (!Enum.IsDefined(newFile.Origin))
         {
             throw new ArgumentException(
-                $"Knowledge file '{normalisedFileName}' has content origin {(int)draft.Origin}, which is not a defined {nameof(ContentOrigin)}. Add the value to the enum before a converter returns it.",
-                nameof(draft));
+                $"Knowledge file '{normalisedFileName}' has content origin {(int)newFile.Origin}, which is not a defined {nameof(ContentOrigin)}. Add the value to the enum before a converter returns it.",
+                nameof(newFile));
         }
 
         // Before anything is counted, so LineCount matches the stored text.
-        var markdown = draft.Markdown.ReplaceLineEndings("\n");
+        var markdown = newFile.Markdown.ReplaceLineEndings("\n");
 
         if (string.IsNullOrWhiteSpace(markdown))
         {
@@ -96,14 +96,14 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             ChatId = chatId,
             FileName = normalisedFileName,
             ContentType = normalisedContentType,
-            SizeBytes = draft.SizeBytes,
+            SizeBytes = newFile.SizeBytes,
             Sha256 = normalisedSha256,
             Summary = normalisedSummary,
             Markdown = markdown,
             LineCount = DocumentLines.Count(markdown),
             EstimatedTokenCount = (int)estimatedTokenCount,
-            ContentOrigin = draft.Origin.ToString(),
-            PageCount = draft.PageCount,
+            ContentOrigin = newFile.Origin.ToString(),
+            PageCount = newFile.PageCount,
             Version = KnowledgeFile.FirstVersion,
             CreatedAt = now,
             UpdatedAt = now

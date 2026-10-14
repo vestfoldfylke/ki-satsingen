@@ -7,7 +7,7 @@ using kisatsingen.Services.KnowledgeFiles.Pipeline;
 namespace kisatsingen.Services.Chat;
 
 // Makes one sent file available in its chat: as the file already saved there
-// with the same content, or by creating a draft and saving it. Every file
+// with the same content, or by running the pipeline and saving the new file. Every file
 // settles, available or unavailable with a reason, so one bad file never
 // fails the others or the turn; only a stop propagates.
 internal sealed class TurnAttachmentProcessor(
@@ -47,8 +47,8 @@ internal sealed class TurnAttachmentProcessor(
         }
     }
 
-    // Runs the pipeline for its draft and saves it. A converter bug is that
-    // file's reason, not the turn's failure.
+    // Runs the pipeline and saves the new file it makes. A converter bug is
+    // that file's reason, not the turn's failure.
     private async Task<TurnAttachmentResult> ProcessAsNewAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
         KnowledgeFilePipelineResult result;
@@ -65,7 +65,7 @@ internal sealed class TurnAttachmentProcessor(
         switch (result)
         {
             case KnowledgeFilePipelineResult.Completed completed:
-                return await SaveAsync(ownerId, chatId, attachment, completed.Draft);
+                return await SaveAsync(ownerId, chatId, attachment, completed.File);
             case KnowledgeFilePipelineResult.Rejected rejected:
                 return new TurnAttachmentResult.Unavailable(rejected.Reason);
             default:
@@ -76,12 +76,12 @@ internal sealed class TurnAttachmentProcessor(
     // CancellationToken.None: a processed file is saved even if stop comes
     // now. A failed save is that file's reason, not the turn's failure; only
     // the save is caught, so a bug below still fails the turn.
-    private async Task<TurnAttachmentResult> SaveAsync(string ownerId, Guid chatId, ReadyAttachment attachment, KnowledgeFileDraft draft)
+    private async Task<TurnAttachmentResult> SaveAsync(string ownerId, Guid chatId, ReadyAttachment attachment, NewKnowledgeFile newFile)
     {
         KnowledgeFileSaveResult saveResult;
         try
         {
-            saveResult = await knowledgeFiles.CreateFileForChatAsync(ownerId, chatId, draft, CancellationToken.None);
+            saveResult = await knowledgeFiles.CreateFileForChatAsync(ownerId, chatId, newFile, CancellationToken.None);
         }
         catch (Exception ex)
         {

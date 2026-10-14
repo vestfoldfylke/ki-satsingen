@@ -4,7 +4,7 @@ using kisatsingen.Services.KnowledgeFiles.Documents;
 
 namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
-// A file in, a knowledge-file draft out, through fixed steps in order:
+// A file in, a new knowledge file out, through fixed steps in order:
 // convert, check size, outline, summarize. Knows nothing of chats or
 // assistants, and never deletes the temp file: whoever owns it does.
 public sealed class KnowledgeFilePipeline(
@@ -53,7 +53,7 @@ public sealed class KnowledgeFilePipeline(
         var outline = DocumentOutline.Build(converted.Markdown);
         var summary = await SummarizeAsync(attachment, converted.Markdown, outline, ct);
 
-        return new KnowledgeFilePipelineResult.Completed(new KnowledgeFileDraft(
+        return new KnowledgeFilePipelineResult.Completed(new NewKnowledgeFile(
             attachment.FileName,
             attachment.Type.ContentType,
             attachment.SizeBytes,

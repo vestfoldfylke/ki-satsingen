@@ -7,9 +7,9 @@ namespace kisatsingen.Tests.Data.Repositories;
 
 internal static class KnowledgeFileFactory
 {
-    // The hash is the Markdown's, so two drafts with different text are never
-    // duplicates of each other unless a test says so.
-    public static KnowledgeFileDraft Draft(string fileName, string markdown = "# Innledning\n\nTekst.\n") =>
+    // The hash is the Markdown's, so two new files with different text are
+    // never duplicates of each other unless a test says so.
+    public static NewKnowledgeFile NewFile(string fileName, string markdown = "# Innledning\n\nTekst.\n") =>
         new(
             FileName: fileName,
             ContentType: "text/markdown",

@@ -39,7 +39,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
 
         await harness.Session.LoadAsync(chat.Id);
 
@@ -51,7 +51,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.LoadAsync(chat.Id);
 
         await harness.Session.LoadAsync(null);

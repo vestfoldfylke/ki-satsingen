@@ -45,16 +45,16 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
         pipeline.RunAsync(attachment, ct);
 
     [Fact]
-    public async Task A_markdown_attachment_becomes_a_draft_of_its_text_and_where_it_came_from()
+    public async Task A_markdown_attachment_becomes_a_new_knowledge_file_of_its_text_and_where_it_came_from()
     {
         var attachment = Markdown("# Budsjett\n\nTall for 2027.");
 
         var result = await RunAsync(Pipeline(), attachment);
 
-        var draft = Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).Draft;
+        var newFile = Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).File;
         Assert.Equal(
             ("notat.md", "# Budsjett\n\nTall for 2027.", ContentOrigin.TextFile, attachment.Sha256),
-            (draft.FileName, draft.Markdown, draft.Origin, draft.Sha256));
+            (newFile.FileName, newFile.Markdown, newFile.Origin, newFile.Sha256));
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     {
         var result = await RunAsync(Pipeline(summarizer: new FailingSummarizer()), Markdown("# Tittel\n\nTekst."));
 
-        Assert.Null(Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).Draft.Summary);
+        Assert.Null(Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).File.Summary);
     }
 
     // A provider's HTTP timeout is a TaskCanceledException nobody here asked for.
@@ -93,7 +93,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     {
         var result = await RunAsync(Pipeline(summarizer: new TimingOutSummarizer()), Markdown("# Tittel\n\nTekst."));
 
-        Assert.Null(Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).Draft.Summary);
+        Assert.Null(Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).File.Summary);
     }
 
     [Fact]
