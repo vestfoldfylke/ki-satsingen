@@ -16,6 +16,7 @@
                     @AttachmentStatusTexts.DescribeStatus(attachment)
                 </span>
                 <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
+                        data-tooltip="@($"Fjern {attachment.FileName}")"
                         aria-label="@($"Fjern {attachment.FileName}")"
                         @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)">
                     <span class="material-symbols-outlined" aria-hidden="true">close</span>

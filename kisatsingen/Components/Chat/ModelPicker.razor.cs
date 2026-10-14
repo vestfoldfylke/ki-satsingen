@@ -22,8 +22,4 @@ public sealed partial class ModelPicker : ComponentBase
 
     [Parameter]
     public long? EstimatedContextTokens { get; set; }
-
-    // The visible label is just the model name, which doesn't say what the control
-    // does; screen readers get the whole sentence.
-    private string TriggerLabel => $"Språkmodell: {Selected.DisplayName}. Velg en annen.";
 }
