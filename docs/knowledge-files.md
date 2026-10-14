@@ -19,9 +19,9 @@ file tools.
    the chat is available as that file, with the same `fileId`, and is not
    processed again. (`TurnAttachmentProcessor`)
 4. **Processing.** The other attachments go through a bounded queue:
-   conversion to Markdown, then a draft. Processing never saves.
+   conversion to Markdown, then a new knowledge file. Processing never saves.
    (`Services/KnowledgeFiles/Conversion`, `Pipeline`)
-5. **Save.** The turn saves each draft as a knowledge file. The attachment is
+5. **Save.** The turn saves each new knowledge file. The attachment is
    then **available** (`fileId`). A file that fails in conversion or saving is
    **unavailable** (with a reason), and the turn goes on.
 6. **Attachment line.** The user message sent to the model names each file
