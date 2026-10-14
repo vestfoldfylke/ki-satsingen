@@ -281,9 +281,9 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
-                snapshot => ShowSnapshot(viewVersion, snapshot),
-                file => AddKnowledgeFile(viewVersion, file));
+                ChatPersisted: chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
+                Changed: snapshot => ShowSnapshot(viewVersion, snapshot),
+                KnowledgeFileAvailable: file => AddKnowledgeFile(viewVersion, file));
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
             Replace(viewVersion, ended);
