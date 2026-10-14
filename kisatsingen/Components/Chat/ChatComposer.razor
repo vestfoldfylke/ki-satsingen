@@ -60,9 +60,8 @@
                                 data-icon="true"
                                 aria-label="Stopp generering"
                                 data-tooltip="Stopp generering"
-                                aria-hidden="true"
                                 @onclick="OnStop">
-                            <span class="material-symbols-outlined">stop</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">stop</span>
                         </button>
                     }
                     @* Static: right for an empty textarea, and chat-composer.ts owns it
@@ -74,10 +73,9 @@
                             type="button"
                             aria-label="Send melding"
                             data-tooltip="Send melding"
-                            aria-hidden="true"
                             disabled
                             @onclick="OnSend">
-                        <span class="material-symbols-outlined">arrow_upward</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
                     </button>
                 </div>
             </div>
