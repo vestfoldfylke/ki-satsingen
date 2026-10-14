@@ -30,6 +30,7 @@
       <PackageReference Include="Microsoft.Identity.Web" Version="4.16.1" />
       <PackageReference Include="MudBlazor.FontIcons.MaterialSymbols" Version="1.5.0" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
+      <!-- Remove below when Microsoft.Identity.Web have patched it -->
       <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
       <PackageReference Include="Vestfold.Extensions.Logging" Version="3.4.1" />
       <PackageReference Include="Vestfold.Extensions.Metrics" Version="1.0.2" />
