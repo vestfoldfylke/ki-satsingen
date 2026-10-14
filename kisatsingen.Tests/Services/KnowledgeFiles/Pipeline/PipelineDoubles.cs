@@ -57,7 +57,7 @@ internal sealed class SlotHoldingConverter : IDocumentConverter
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
         _started.TrySetResult();
-        await _release.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _release.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         return new ConversionResult.Converted("# Ferdig\n\nInnhold.", ContentOrigin.TextFile, PageCount: null);
     }
 }
