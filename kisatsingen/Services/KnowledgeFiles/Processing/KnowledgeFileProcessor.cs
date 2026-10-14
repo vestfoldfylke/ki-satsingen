@@ -4,25 +4,37 @@ using kisatsingen.Services.KnowledgeFiles.Documents;
 
 namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
-// A ready attachment in, a draft out. Knows nothing of chats, assistants or
-// queues, and never deletes the temp file: whoever took it at send does.
+// A ready attachment in, a draft out. Knows nothing of chats or turns, and
+// never deletes the temp file: whoever owns it does.
 public sealed class KnowledgeFileProcessor(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,
     AttachmentStorage storage,
+    KnowledgeFileProcessingOptions options,
+    KnowledgeFileProcessingMetrics metrics,
     int maxEstimatedTokens,
     ILogger<KnowledgeFileProcessor> logger)
 {
-    public async Task<KnowledgeFileProcessingResult> CreateDraftAsync(ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage> progress, CancellationToken ct)
+    // The metric's result label for one conversion.
+    private enum ConversionResultLabel
     {
-        var contentType = attachment.Type.ContentType;
-        if (!converters.TryGet(contentType, out var converter))
+        Converted,
+        Rejected,
+        TimedOut,
+        Failed
+    }
+
+    // Shared by every user's conversions.
+    private readonly SemaphoreSlim _conversionSlots = new(options.MaxConcurrentConversions);
+
+    internal async Task<KnowledgeFileProcessingResult> CreateDraftAsync(ReadyAttachment attachment, CancellationToken ct)
+    {
+        if (!converters.TryGet(attachment.Type.ContentType, out var converter))
         {
             return new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.UnsupportedType);
         }
 
-        progress.Report(KnowledgeFileProcessingStage.Converting);
-        var conversion = await ConvertAsync(converter, attachment, contentType, ct);
+        var conversion = await ConvertAsync(converter, attachment, ct);
         if (conversion is ConversionResult.Rejected rejected)
         {
             return new KnowledgeFileProcessingResult.Rejected(rejected.Reason);
@@ -38,13 +50,11 @@ public sealed class KnowledgeFileProcessor(
         }
 
         var outline = DocumentOutline.Build(converted.Markdown);
-
-        progress.Report(KnowledgeFileProcessingStage.Summarizing);
         var summary = await SummarizeAsync(attachment, converted.Markdown, outline, ct);
 
         return new KnowledgeFileProcessingResult.Processed(new KnowledgeFileDraft(
             attachment.FileName,
-            contentType,
+            attachment.Type.ContentType,
             attachment.SizeBytes,
             attachment.Sha256,
             converted.Markdown,
@@ -53,10 +63,53 @@ public sealed class KnowledgeFileProcessor(
             summary));
     }
 
-    private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, string contentType, CancellationToken ct)
+    // The timeout starts once a slot is free, so waiting for one never counts
+    // against it. The conversion runs off the circuit: on it, a large file
+    // would freeze that user's page.
+    private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, CancellationToken ct)
     {
-        await using var content = storage.OpenRead(attachment.File);
-        return await converter.ConvertAsync(new ConversionRequest(attachment.FileName, contentType, content, maxEstimatedTokens), ct);
+        await _conversionSlots.WaitAsync(ct);
+
+        ConversionResultLabel? resultLabel = ConversionResultLabel.Failed;
+        var duration = metrics.StartConversion();
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(options.ConversionTimeout);
+
+        try
+        {
+            var conversion = await Task.Run(async () =>
+            {
+                await using var content = storage.OpenRead(attachment.File);
+                var request = new ConversionRequest(attachment.FileName, attachment.Type.ContentType, content, maxEstimatedTokens);
+                return await converter.ConvertAsync(request, timeout.Token);
+            }, CancellationToken.None);
+
+            resultLabel = conversion is ConversionResult.Converted ? ConversionResultLabel.Converted : ConversionResultLabel.Rejected;
+            return conversion;
+        }
+        // The order matters: the turn's own stop is a cancellation, and only
+        // the timer left is the timeout. A stop is not counted: nothing went
+        // wrong, and its duration says nothing about converting.
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            resultLabel = null;
+            throw;
+        }
+        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+        {
+            resultLabel = ConversionResultLabel.TimedOut;
+            logger.LogWarning("Converting attachment {AttachmentId} ({ContentType}) timed out after {Timeout}.", attachment.AttachmentId, attachment.Type.ContentType, options.ConversionTimeout);
+            return new ConversionResult.Rejected(ProcessingRejections.TimedOut);
+        }
+        finally
+        {
+            _conversionSlots.Release();
+            if (resultLabel is ConversionResultLabel label)
+            {
+                metrics.Observe(duration);
+                metrics.CountOutcome(attachment.Type.ContentType, label.ToString());
+            }
+        }
     }
 
     // A file is usable without a summary, so a summarizer that fails costs the

@@ -6,15 +6,10 @@ namespace kisatsingen.Services.KnowledgeFiles.Processing;
 
 // Every metric processing records, in one place and never throwing: Prometheus
 // throws on a registration or label conflict, and that must never replace a
-// job's own outcome or leave its caller waiting. A metric that fails is logged
-// and skipped.
+// file's own outcome. A metric that fails is logged and skipped.
 public sealed class KnowledgeFileProcessingMetrics(IMetricsService metrics, ILogger<KnowledgeFileProcessingMetrics> logger)
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_KnowledgeFile";
-
-    // Started when a job is queued, observed when a worker takes it.
-    public MetricTimer? StartQueueWait() =>
-        StartTimer($"{Prefix}_QueueWait", "Time a knowledge file waited for a worker");
 
     public MetricTimer? StartConversion() =>
         StartTimer($"{Prefix}_Duration", "Time spent converting a knowledge file");

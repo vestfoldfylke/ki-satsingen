@@ -18,6 +18,10 @@ public interface IKnowledgeFileRepository
     // and in that chat, so a file id alone never reaches another scope.
     Task<KnowledgeFileText?> GetChatFileTextAsync(string ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default);
 
+    // The owner's file in that chat with this content, if any; the unique index
+    // allows at most one.
+    Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(string ownerId, Guid chatId, string sha256, CancellationToken ct = default);
+
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default);
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default);
 

@@ -111,20 +111,14 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task Files_finishing_out_of_order_are_each_saved_once_and_listed_in_the_order_they_were_attached()
+    public async Task Files_are_processed_and_saved_in_the_order_they_were_attached()
     {
         await using var harness = new ChatSessionHarness();
-        harness.TextConverter.Hold("først.md");
         await AttachAsync(harness, ("først.md", MarkdownBytes("Først")), ("sist.md", MarkdownBytes("Sist")));
 
-        var send = harness.Session.SendAsync("Hva står i filene?");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
-        harness.TextConverter.Release("først.md");
-        await send;
+        await harness.Session.SendAsync("Hva står i filene?");
 
-        Assert.Equal(["sist.md", "først.md"], harness.KnowledgeFiles.Saved.Select(file => file.FileName));
-        Assert.Equal(["først.md", "sist.md"], harness.StoredTurn.Attachments.Select(attachment => attachment.FileName));
-        Assert.All(harness.StoredTurn.Attachments, attachment => Assert.NotNull(attachment.FileId));
+        Assert.Equal(["først.md", "sist.md"], harness.KnowledgeFiles.Saved.Select(file => file.FileName));
     }
 
     [Fact]
@@ -132,19 +126,18 @@ public sealed class ChatSessionAttachmentTests
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Hold("treg.md");
-        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
+        await AttachAsync(harness, ("rask.md", MarkdownBytes("Rask")), ("treg.md", MarkdownBytes("Treg")));
 
         var send = harness.Session.SendAsync("Hva står i filene?");
         await harness.TextConverter.WaitUntilStartedAsync("treg.md");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
         harness.Session.Cancel();
         await send;
 
         Assert.Equal(TurnStatus.Stopped, harness.StoredTurn.Status);
         Assert.Equal(
             [
-                new TurnAttachment("treg.md", UnavailableReason: AttachmentTexts.InterruptedReason),
-                new TurnAttachment("rask.md", SavedFileId(harness, "rask.md"))
+                new TurnAttachment("rask.md", SavedFileId(harness, "rask.md")),
+                new TurnAttachment("treg.md", UnavailableReason: AttachmentTexts.InterruptedReason)
             ],
             harness.StoredTurn.Attachments);
     }

@@ -134,11 +134,10 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Hold("treg.md");
-        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
+        await AttachAsync(harness, ("rask.md", MarkdownBytes("Rask")), ("treg.md", MarkdownBytes("Treg")));
 
         var sending = harness.Session.SendAsync("Hva står i filene?");
         await harness.TextConverter.WaitUntilStartedAsync("treg.md");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
         harness.Session.Cancel();
         await sending;
 

@@ -238,6 +238,17 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         return file is null ? null : new KnowledgeFileText(ToMetadata(file), file.Markdown);
     }
 
+    // Normalised the way saving does, so the two can never disagree.
+    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(string ownerId, Guid chatId, string sha256, CancellationToken ct = default)
+    {
+        var normalisedSha256 = NormaliseSha256(sha256);
+        await using var db = await factory.CreateDbContextAsync(ct);
+        return await db.KnowledgeFiles
+            .Where(f => f.ChatId == chatId && f.Sha256 == normalisedSha256 && f.OwnerId == ownerId)
+            .Select(MetadataProjection)
+            .FirstOrDefaultAsync(ct);
+    }
+
     public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);

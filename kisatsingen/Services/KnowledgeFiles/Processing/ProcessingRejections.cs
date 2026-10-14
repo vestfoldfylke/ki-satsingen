@@ -10,7 +10,4 @@ internal static class ProcessingRejections
 
     public const string TimedOut =
         "Behandlingen av filen tok for lang tid og ble stoppet. Prøv igjen, eller del filen opp.";
-
-    public const string ShuttingDown =
-        "Behandlingen ble avbrutt fordi tjenesten startet på nytt. Legg ved filen igjen.";
 }

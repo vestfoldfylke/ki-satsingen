@@ -290,6 +290,40 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
+    public async Task A_chats_file_is_found_by_its_content()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256);
+
+        Assert.Equal(saved, found);
+    }
+
+    [Fact]
+    public async Task Another_owners_file_is_never_found_by_its_content()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, "theirs", assistantId: null);
+        var saved = Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.Draft("hemmelig.md"))).File;
+
+        var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256);
+
+        Assert.Null(found);
+    }
+
+    // Saving lowercases it, so looking up must too.
+    [Fact]
+    public async Task A_chats_file_is_found_by_its_content_given_in_uppercase()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
+        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.Draft("notat.md"));
+
+        var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256.ToUpperInvariant());
+
+        Assert.Equal(saved, found);
+    }
+
+    [Fact]
     public async Task Listing_an_assistants_files_returns_only_the_callers_files()
     {
         var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null, "x");

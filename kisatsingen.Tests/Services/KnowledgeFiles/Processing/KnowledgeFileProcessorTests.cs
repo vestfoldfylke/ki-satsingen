@@ -4,7 +4,9 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 using kisatsingen.Services.KnowledgeFiles.Processing;
 using kisatsingen.Tests.Services.Attachments;
+using kisatsingen.Tests.Services.Chat;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vestfold.Extensions.Metrics.Services;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Processing;
@@ -12,24 +14,35 @@ namespace kisatsingen.Tests.Services.KnowledgeFiles.Processing;
 public sealed class KnowledgeFileProcessorTests : IDisposable
 {
     private const int GenerousTokenCap = 1_000_000;
+    private static readonly KnowledgeFileProcessingOptions OneSlot = new() { MaxConcurrentConversions = 1 };
 
     private readonly AttachmentTestEnvironment _environment = new();
+    private readonly StallingConverter _stalling = new();
+    private readonly SlotHoldingConverter _slotHolding = new();
 
     public void Dispose() => _environment.Dispose();
 
-    private KnowledgeFileProcessor Processor(int maxEstimatedTokens = GenerousTokenCap, IDocumentSummarizer? summarizer = null) =>
+    private KnowledgeFileProcessor Processor(
+        int maxEstimatedTokens = GenerousTokenCap,
+        IDocumentSummarizer? summarizer = null,
+        KnowledgeFileProcessingOptions? options = null,
+        IMetricsService? metrics = null) =>
         new(
-            new DocumentConverterRegistry([new TextDocumentConverter()]),
+            new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, _slotHolding, new ThrowingConverter()]),
             summarizer ?? new OpeningExcerptSummarizer(),
             _environment.Storage,
+            options ?? new KnowledgeFileProcessingOptions(),
+            new KnowledgeFileProcessingMetrics(metrics ?? new RecordingMetricsService(), NullLogger<KnowledgeFileProcessingMetrics>.Instance),
             maxEstimatedTokens,
             NullLogger<KnowledgeFileProcessor>.Instance);
 
     private ReadyAttachment Markdown(string text) =>
         ReadyAttachments.From(_environment, Encoding.UTF8.GetBytes(text), AttachmentContentTypes.Markdown, "notat.md");
 
-    private static Task<KnowledgeFileProcessingResult> CreateDraftAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, IProgress<KnowledgeFileProcessingStage>? progress = null) =>
-        processor.CreateDraftAsync(attachment, progress ?? new RecordingProgress(), CancellationToken.None);
+    private ReadyAttachment OfType(AttachmentType type) => ReadyAttachments.From(_environment, [1, 2, 3], type);
+
+    private static Task<KnowledgeFileProcessingResult> CreateDraftAsync(KnowledgeFileProcessor processor, ReadyAttachment attachment, CancellationToken ct = default) =>
+        processor.CreateDraftAsync(attachment, ct);
 
     [Fact]
     public async Task A_markdown_attachment_becomes_a_draft_of_its_text_and_where_it_came_from()
@@ -94,13 +107,84 @@ public sealed class KnowledgeFileProcessorTests : IDisposable
     }
 
     [Fact]
-    public async Task Progress_is_reported_in_pipeline_order()
+    public async Task A_conversion_that_runs_past_the_timeout_is_refused_with_a_reason()
     {
-        var progress = new RecordingProgress();
+        var processor = Processor(options: new KnowledgeFileProcessingOptions { ConversionTimeout = TimeSpan.FromMilliseconds(50) });
 
-        await CreateDraftAsync(Processor(), Markdown("tekst"), progress);
+        var result = await CreateDraftAsync(processor, OfType(StallingConverter.Type));
 
-        Assert.Equal([KnowledgeFileProcessingStage.Converting, KnowledgeFileProcessingStage.Summarizing], progress.Reported);
+        Assert.Equal(new KnowledgeFileProcessingResult.Rejected(ProcessingRejections.TimedOut), result);
+    }
+
+    [Fact]
+    public async Task A_converter_bug_reaches_the_caller_as_an_exception()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateDraftAsync(Processor(), OfType(ThrowingConverter.Type)));
+    }
+
+    [Fact]
+    public async Task A_stop_reaches_the_caller_as_a_cancellation_rather_than_a_timeout()
+    {
+        using var stop = new CancellationTokenSource();
+        var conversion = CreateDraftAsync(Processor(), OfType(StallingConverter.Type), stop.Token);
+        await _stalling.WaitUntilStartedAsync();
+
+        await stop.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => conversion);
+    }
+
+    [Fact]
+    public async Task With_every_slot_busy_a_conversion_waits_until_one_is_free()
+    {
+        var processor = Processor(options: OneSlot);
+        var first = CreateDraftAsync(processor, OfType(SlotHoldingConverter.Type));
+        await _slotHolding.WaitUntilStartedAsync();
+        var second = CreateDraftAsync(processor, OfType(StallingConverter.Type));
+        await Task.Delay(100);
+        var startedWhileBusy = _stalling.StartedCount;
+
+        _slotHolding.Release();
+        _stalling.Release();
+        await Task.WhenAll(first, second);
+
+        Assert.Equal(0, startedWhileBusy);
+    }
+
+    // Otherwise files would time out under load because of other users'
+    // conversions.
+    [Fact]
+    public async Task The_timeout_starts_only_once_a_slot_is_free()
+    {
+        var processor = Processor(options: new KnowledgeFileProcessingOptions { MaxConcurrentConversions = 1, ConversionTimeout = TimeSpan.FromMilliseconds(100) });
+        var holdingTheSlot = CreateDraftAsync(processor, OfType(SlotHoldingConverter.Type));
+        await _slotHolding.WaitUntilStartedAsync();
+        var waiting = CreateDraftAsync(processor, Markdown("# Tittel\n\nTekst."));
+
+        await Task.Delay(300);
+        _slotHolding.Release();
+        await holdingTheSlot;
+
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(await waiting);
+    }
+
+    [Fact]
+    public async Task A_slot_is_freed_after_a_conversion_that_throws()
+    {
+        var processor = Processor(options: OneSlot);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CreateDraftAsync(processor, OfType(ThrowingConverter.Type)));
+
+        var next = await CreateDraftAsync(processor, Markdown("# Tittel\n\nTekst.")).WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(next);
+    }
+
+    [Fact]
+    public async Task A_metrics_failure_does_not_fail_the_file()
+    {
+        var result = await CreateDraftAsync(Processor(metrics: new BrokenMetricsService()), Markdown("# Tittel\n\nTekst."));
+
+        Assert.IsType<KnowledgeFileProcessingResult.Processed>(result);
     }
 
     // Deleting it is the job of whoever took it, so a caller can still retry with it.

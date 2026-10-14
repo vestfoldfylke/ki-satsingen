@@ -63,8 +63,6 @@ public sealed record Turn
             ? tool with { Status = ToolStatus.Interrupted }
             : segment;
 
-    // Its temp file is never kept, though a stopped worker may still be
-    // deleting it, so attaching it again is the only way on.
     private static TurnAttachment InterruptIfProcessing(TurnAttachment attachment) =>
         attachment.IsProcessing
             ? attachment.Unavailable(AttachmentTexts.InterruptedReason)

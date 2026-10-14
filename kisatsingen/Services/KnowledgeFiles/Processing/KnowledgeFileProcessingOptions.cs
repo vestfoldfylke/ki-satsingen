@@ -5,18 +5,12 @@ public sealed class KnowledgeFileProcessingOptions
 {
     public const string SectionName = "KnowledgeFileProcessing";
 
-    // Jobs hold a temp-file path, not bytes, so a deep queue is cheap.
-    public int QueueCapacity { get; init; } = 50;
-
-    // Text conversion needs little CPU. Raise it once summaries are model
-    // calls, which wait on the network rather than the processor.
-    public int Workers { get; init; } = 2;
-
-    // Keeps one user, or later an assistant batch, from filling the queue.
-    public int MaxActiveJobsPerUser { get; init; } = 3;
+    // Converting is CPU work: more conversions at once than cores only take
+    // turns on them, and each can hold a few hundred MB while it runs.
+    public int MaxConcurrentConversions { get; init; } = Environment.ProcessorCount;
 
     // A stuck converter must not hold a turn open forever.
-    public TimeSpan JobTimeout { get; init; } = TimeSpan.FromMinutes(2);
+    public TimeSpan ConversionTimeout { get; init; } = TimeSpan.FromMinutes(2);
 
     // Far above any screenshot; checked from the header before decoding.
     public long MaxImageSidePixels { get; init; } = 8_000;
@@ -26,7 +20,7 @@ public sealed class KnowledgeFileProcessingOptions
 
     public void Validate()
     {
-        if (QueueCapacity <= 0 || Workers <= 0 || MaxActiveJobsPerUser <= 0 || JobTimeout <= TimeSpan.Zero
+        if (MaxConcurrentConversions <= 0 || ConversionTimeout <= TimeSpan.Zero
             || MaxImageSidePixels <= 0 || MaxImagePixels <= 0)
         {
             throw new InvalidOperationException(

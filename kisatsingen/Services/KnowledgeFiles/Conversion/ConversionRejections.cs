@@ -6,8 +6,6 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 // Written in advance and never built from an exception.
 internal static class ConversionRejections
 {
-    // Explicit, because these are built on the processing worker: it serves no
-    // request, so the app's request culture never reaches it.
     private static readonly CultureInfo Norwegian = CultureInfo.GetCultureInfo("nb-NO");
 
     public const string Binary =

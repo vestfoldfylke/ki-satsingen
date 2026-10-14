@@ -114,10 +114,10 @@ internal sealed class TurnRunner
             var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
 
             stage = TurnStage.ProcessingAttachments;
-            var turnAttachments = await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
+            await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || turnAttachments.Any(attachment => attachment.FileId is not null);
+            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || builder.Attachments.Any(attachment => attachment.FileId is not null);
             await StreamAsync(inserted, input, builder, chatHasKnowledgeFiles, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
@@ -233,29 +233,28 @@ internal sealed class TurnRunner
         }
     }
 
-    private async Task<IReadOnlyList<TurnAttachment>> ProcessAttachmentsAsync(
+    // One file at a time, in the order they were attached, each shown as it
+    // settles so a stop or a later failure of the turn cannot lose it. A stop
+    // leaves the rest processing, and ending the turn marks them interrupted.
+    private async Task ProcessAttachmentsAsync(
         InsertedTurn inserted,
         IReadOnlyList<ReadyAttachment> sentAttachments,
         TurnBuilder builder,
         TurnObserver observer,
         CancellationToken ct)
     {
-        if (sentAttachments.Count == 0)
+        for (var index = 0; index < sentAttachments.Count; index++)
         {
-            return [];
-        }
+            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, sentAttachments[index], ct);
 
-        return await _attachmentProcessor.ProcessAsync(
-            inserted.OwnerId,
-            inserted.ChatId,
-            sentAttachments,
-            attachments =>
+            builder.SettleAttachment(index, result);
+            if (result is TurnAttachmentResult.Available available)
             {
-                builder.SetAttachments(attachments);
-                observer.Changed(builder.Snapshot());
-            },
-            observer.KnowledgeFileAvailable,
-            ct);
+                observer.KnowledgeFileAvailable(available.File);
+            }
+
+            observer.Changed(builder.Snapshot());
+        }
     }
 
     // Built here, after the attachments settle, since the attachment line

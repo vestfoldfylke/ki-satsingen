@@ -210,15 +210,15 @@ builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(processingOptions.MaxImageSidePixels, processingOptions.MaxImagePixels));
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
+builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
 builder.Services.AddSingleton(sp => new KnowledgeFileProcessor(
     sp.GetRequiredService<DocumentConverterRegistry>(),
     sp.GetRequiredService<IDocumentSummarizer>(),
     sp.GetRequiredService<AttachmentStorage>(),
+    processingOptions,
+    sp.GetRequiredService<KnowledgeFileProcessingMetrics>(),
     maxKnowledgeFileTokens,
     sp.GetRequiredService<ILogger<KnowledgeFileProcessor>>()));
-builder.Services.AddSingleton<KnowledgeFileProcessingMetrics>();
-builder.Services.AddSingleton<KnowledgeFileProcessingQueue>();
-builder.Services.AddHostedService<KnowledgeFileProcessingWorker>();
 
 // ─── File tools ────────────────────────────────────────
 // Defaults live in FileToolOptions; the section overrides them.
