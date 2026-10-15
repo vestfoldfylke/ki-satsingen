@@ -113,37 +113,32 @@
                                             data-variant="tertiary"
                                             data-color="accent"
                                             role="menuitemradio"
-                                            popovertargetaction="hide"
-                                            data-placement="top"
                                             href="usage">
-
+                                            
                                             <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                                             Mitt forbruk
                                     </NavLink>
                                 </li>
-
-                                <br />
-
-                                <AuthorizeView Policy="IsAdministrator">
-                                    <Authorized>
-                                        <li>
-                                            <span class="ds-paragraph" data-size="sm">Administrator</span>
-                                            <NavLink type="button"
-                                                    class="ds-button user-menu-picker-option"
-                                                    data-variant="tertiary"
-                                                    data-color="neutral"
-                                                    role="menuitemradio"
-                                                    popovertargetaction="hide"
-                                                    data-placement="right"
-                                                    href="administration/usage">
-                                                    
-                                                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
-                                                    <span class="ds-paragraph" data-size="sm">Totalt forbruk</span>
-                                            </NavLink>
-                                        </li>
-                                    </Authorized>
-                                </AuthorizeView>
                             </ul>
+
+                            <AuthorizeView Policy="IsAdministrator" Context="adminContext">
+                                <hr aria-hidden="true" class="ds-divider"/>
+                                <h2 class="ds-heading"><strong>Administrator</strong></h2>
+                                <ul role="menu" aria-label="Avansert brukermeny">
+                                    <li role="none">
+                                        <NavLink class="ds-button"
+                                                type="button"
+                                                data-variant="tertiary"
+                                                data-color="accent"
+                                                role="menuitemradio"
+                                                href="usage">
+                                                
+                                                <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
+                                                Totalt forbruk
+                                        </NavLink>
+                                    </li>
+                                </ul>
+                            </AuthorizeView>
                         </div>
                     </div>
                 </Authorized>
