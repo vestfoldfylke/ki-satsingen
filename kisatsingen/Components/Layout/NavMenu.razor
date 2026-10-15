@@ -84,25 +84,24 @@
             }
         </aside>
 
-        <div class="user" >
+        <div class="user">
             <AuthorizeView>
                 <Authorized>
-                    <div>
-                        <button class="ds-button chat-sidebar-user-menu-button"
+                    <div class="chat-sidebar-item">
+                        <button class="ds-button chat-sidebar-user-button"
                                 type="button"
                                 data-variant="tertiary"
                                 data-color="neutral"
                                 popovertarget="user-menu-dropdown"
-                                aria-haspopup="menu"
+                                aria-label="Brukermeny"
                                 >
                             <span
-                                aria-label="User avatar icon"
+                                aria-hidden="true"
                                 class="ds-avatar"
-                                role="img"
                                 data-size="xs"
                                 data-color="accent"
                             ></span>
-                            <span class="ds-paragraph chat-sidebar-user-menu-button-content" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
+                            <span class="ds-paragraph" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
                         </button>
 
                         <div
@@ -111,8 +110,8 @@
                             popover="auto"
                             data-placement="top-start"
                         >   
-                            <h2 class="ds-heading"><strong>Meg og mitt</strong></h2>
-                            <ul role="menu" aria-label="Avansert brukermeny">
+                            <h2 id="user-menu-heading" class="ds-heading"><strong>Meg og mitt</strong></h2>
+                            <ul aria-labelledby="user-menu-heading">
                                 <li role="none">
                                     <NavLink class="ds-button"
                                             data-variant="tertiary"
@@ -133,7 +132,7 @@
                                         <NavLink class="ds-button"
                                                 data-variant="tertiary"
                                                 data-color="accent"
-                                                href="usage">
+                                                href="administration/usage">
                                                 
                                                 <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                                                 Totalt forbruk
