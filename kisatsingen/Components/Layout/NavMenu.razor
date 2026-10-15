@@ -8,13 +8,13 @@
         <nav class="nav-primary">
             <div class="nav-item">
                 <button type="button" class="ds-link" @onclick="StartNewChatAsync">
-                    <span class="material-symbols-outlined">add_2</span>
-                    New
+                    <span class="material-symbols-outlined" aria-hidden="true">add_2</span>
+                    Ny samtale
                 </button>
             </div>
             <div class="nav-item">
                 <NavLink class="ds-link" href="usage">
-                    <span class="material-symbols-outlined">data_usage</span>
+                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                     Mitt forbruk
                 </NavLink>
             </div>
@@ -23,10 +23,10 @@
         <AuthorizeView Policy="IsAdministrator">
             <Authorized>
                 <nav class="nav-primary">
-                    <h4 class="ds-heading" data-size="xs">Administration</h4>
+                    <h4 class="ds-heading" data-size="xs">Administrator</h4>
                     <div class="nav-item">
                         <NavLink class="ds-link" href="administration/usage">
-                            <span class="material-symbols-outlined">data_usage</span>
+                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                             Totalt forbruk
                         </NavLink>
                     </div>
@@ -34,13 +34,13 @@
             </Authorized>
         </AuthorizeView>
 
-        <aside class="chat-sidebar" aria-label="Chat list">
+        <aside class="chat-sidebar" aria-label="Samtaler">
             <div class="chat-sidebar-header">
-                <h2 class="ds-heading" data-size="sm">Chats</h2>
+                <h2 class="ds-heading" data-size="sm">Samtaler</h2>
             </div>
             @if (ChatList.Count == 0)
             {
-                <p class="ds-paragraph chat-sidebar-empty">No chats yet.</p>
+                <p class="ds-paragraph chat-sidebar-empty">Ingen samtaler enda</p>
             }
             else
             {
@@ -50,7 +50,7 @@
                         var menuId = $"chat-menu-{entry.Id}";
                         <li>
                             <div class="chat-sidebar-item @(entry.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
-                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")">
+                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
                                     <span class="chat-sidebar-title">@entry.Title</span>
                                 </a>
                                 <button
@@ -58,9 +58,11 @@
                                     class="ds-button chat-sidebar-item-option-button"
                                     data-variant="tertiary"
                                     data-size="sm"
-                                    data-icon
+                                    data-icon="true"
                                     popovertarget="@menuId"
-                                    aria-label="Chat-valg">
+                                    aria-label="Valg for samtalen"
+                                    data-tooltip="Valg for samtalen"
+                                >
                                     <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                                 </button>
                                 <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
@@ -99,7 +101,7 @@
         <div class="user">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-2">Connected: <strong>@context.User.Identity?.Name</strong></span>
+                    <span class="me-2">Innlogget: <strong>@context.User.Identity?.Name</strong></span>
                 </Authorized>
             </AuthorizeView>
             
