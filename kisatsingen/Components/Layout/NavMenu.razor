@@ -86,14 +86,19 @@
                                 type="button"
                                 data-variant="tertiary"
                                 data-color="primary"
-                                popovertarget="user-menu"
+                                popovertarget="user-menu-dropdown"
                                 aria-haspopup="menu">
                             <span class="ds-paragraph" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
                         </button>
 
-                        <div id="user-menu" class="ds-dropdown" popover="auto" data-placement="top-start">
+                        <div
+                            id="user-menu-dropdown"
+                            class="ds-dropdown"
+                            popover="auto"
+                            data-placement="top-start"
+                        >   
+                            <h2 class="ds-heading">@context.User.Identity?.Name</h2>
                             <ul role="menu" aria-label="Avansert brukermeny">
-                                <span class="ds-paragraph" data-size="sm">@context.User.Identity?.Name</span>
                                 <li role="none">
                                     <NavLink class="ds-button"
                                             type="button"
