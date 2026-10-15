@@ -52,6 +52,11 @@
     overflow-y: auto;
 }
 
+.chat-sidebar-new-chat-button {
+    width: 100%;
+    justify-content: left;
+}
+
 .user {
     flex-shrink: 0;
 }
