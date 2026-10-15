@@ -42,7 +42,18 @@ Host on Linux. Windows works for local development, but hosting on Windows is no
   },
   "KnowledgeFile": {
     "MaxEstimatedTokenCount": "500000"
-  }
+  },
+  // Optional (default value shown below)
+  // "Attachments": {
+  //   "MaxFileBytes": 52428800,              // 50 MiB
+  //   "MaxPendingFilesPerUser": 10,
+  //   "MaxPendingBytesPerUser": 209715200,   // 200 MiB
+  //   "MaxPendingBytesPerInstance": 2097152000 // 2000 MiB
+  // },
+  // "KnowledgeFilePipeline": {
+  //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
+  //   "ConversionTimeout": "00:02:00"
+  // }
 }
 ```
 - run app `dotnet watch --project kisatsingen`

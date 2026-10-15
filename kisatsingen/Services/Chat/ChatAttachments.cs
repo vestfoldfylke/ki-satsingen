@@ -37,9 +37,9 @@ public sealed class ChatAttachments(
         var ownerId = await EnsureOwnerAsync();
 
         // Checked before GetMultipleFiles, which throws above its limit.
-        if (selection.FileCount > options.MaxFilesPerSelection)
+        if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
         {
-            SelectionNotice = UploadRejections.TooManyInSelection(options.MaxFilesPerSelection);
+            SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection);
             Changed?.Invoke();
             return;
         }
@@ -50,7 +50,7 @@ public sealed class ChatAttachments(
         // All listed up front, so the whole selection shows at once and a file
         // that is not acceptable is refused before any bytes move.
         var waiting = new List<(ComposerAttachment Attachment, IBrowserFile File, AttachmentType Type)>();
-        foreach (var file in selection.GetMultipleFiles(options.MaxFilesPerSelection))
+        foreach (var file in selection.GetMultipleFiles(AttachmentOptions.MaxFilesPerSelection))
         {
             var fileName = AttachmentFileName.Normalize(file.Name);
             var type = AttachmentContentTypes.FromFileName(fileName);

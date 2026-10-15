@@ -207,7 +207,7 @@ builder.Services.AddSingleton(pipelineOptions);
 // One converter per content type. Moving a type to a remote converter means
 // swapping its registration here for one that calls that service.
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
-builder.Services.AddSingleton<IDocumentConverter>(new ImagePlaceholderConverter(pipelineOptions.MaxImageSidePixels, pipelineOptions.MaxImagePixels));
+builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();
@@ -221,9 +221,7 @@ builder.Services.AddSingleton(sp => new KnowledgeFilePipeline(
     sp.GetRequiredService<ILogger<KnowledgeFilePipeline>>()));
 
 // ─── File tools ────────────────────────────────────────
-// Defaults live in FileToolOptions; the section overrides them.
-var fileToolOptions = builder.Configuration.GetSection(FileToolOptions.SectionName).Get<FileToolOptions>()
-    ?? new FileToolOptions();
+var fileToolOptions = new FileToolOptions();
 fileToolOptions.Validate();
 
 builder.Services.AddSingleton(fileToolOptions);

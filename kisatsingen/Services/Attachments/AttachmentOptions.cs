@@ -9,9 +9,8 @@ public sealed class AttachmentOptions
     // Measured in the cloud: 50 MiB works over SignalR, though slowly.
     public long MaxFileBytes { get; init; } = 50 * ByteSize.Megabyte;
 
-    // GetMultipleFiles throws above its limit, so a selection is checked
-    // against this before any file is read.
-    public int MaxFilesPerSelection { get; init; } = 10;
+    // Fixed, not a setting: a rule of the picker, not a capacity.
+    public const int MaxFilesPerSelection = 10;
 
     // Across all of a user's tabs, counting files still uploading.
     public int MaxPendingFilesPerUser { get; init; } = 10;
@@ -26,7 +25,7 @@ public sealed class AttachmentOptions
 
     public void Validate()
     {
-        if (MaxFileBytes <= 0 || MaxFilesPerSelection <= 0 || MaxPendingFilesPerUser <= 0
+        if (MaxFileBytes <= 0 || MaxPendingFilesPerUser <= 0
             || MaxPendingBytesPerUser <= 0 || MaxPendingBytesPerInstance <= 0)
         {
             throw new InvalidOperationException(

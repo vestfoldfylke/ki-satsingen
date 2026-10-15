@@ -7,14 +7,14 @@ namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion;
 
 public sealed class ImagePlaceholderConverterTests
 {
-    private const long MaxSide = 8_000;
-    private const long MaxPixels = 40_000_000;
+    private const long MaxSide = ImagePlaceholderConverter.MaxSidePixels;
+    private const long MaxPixels = ImagePlaceholderConverter.MaxTotalPixels;
 
     private static Task<ConversionResult> ConvertAsync(byte[] image, AttachmentType type) =>
         ConvertAsync(new MemoryStream(image), type);
 
     private static Task<ConversionResult> ConvertAsync(Stream image, AttachmentType type) =>
-        new ImagePlaceholderConverter(MaxSide, MaxPixels).ConvertAsync(
+        new ImagePlaceholderConverter().ConvertAsync(
             new ConversionRequest("bilde", type.ContentType, image, MaxEstimatedTokens: 1_000),
             CancellationToken.None);
 

@@ -44,7 +44,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     [Fact]
     public async Task A_selection_over_the_limit_is_refused_as_a_whole_before_any_file_is_read()
     {
-        var files = Enumerable.Range(0, _environment.Options.MaxFilesPerSelection + 1)
+        var files = Enumerable.Range(0, AttachmentOptions.MaxFilesPerSelection + 1)
             .Select(index => (IBrowserFile)new FakeBrowserFile($"{index}.md", UploadBytes.Text))
             .ToArray();
 
