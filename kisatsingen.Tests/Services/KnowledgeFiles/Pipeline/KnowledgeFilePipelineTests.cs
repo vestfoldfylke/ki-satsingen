@@ -151,6 +151,30 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
         Assert.Equal(0, startedWhileBusy);
     }
 
+    // A stopped waiter never took a slot, so it must not free one: that would
+    // let more conversions run at once than there are slots.
+    [Fact]
+    public async Task A_stop_while_waiting_for_a_slot_ends_the_wait_and_frees_no_slot()
+    {
+        var pipeline = Pipeline(options: OneSlot);
+        var holdingTheSlot = RunAsync(pipeline, OfType(SlotHoldingConverter.Type));
+        await _slotHolding.WaitUntilStartedAsync();
+        using var stop = new CancellationTokenSource();
+        var stopped = RunAsync(pipeline, Markdown("# Tittel\n\nTekst."), stop.Token);
+
+        await stop.CancelAsync();
+        var stoppedFailure = await Record.ExceptionAsync(() => stopped);
+        var next = RunAsync(pipeline, OfType(StallingConverter.Type));
+        await Task.Delay(100);
+        var startedWhileTheSlotWasHeld = _stalling.StartedCount;
+        _slotHolding.Release();
+        _stalling.Release();
+        await Task.WhenAll(holdingTheSlot, next);
+
+        Assert.IsAssignableFrom<OperationCanceledException>(stoppedFailure);
+        Assert.Equal(0, startedWhileTheSlotWasHeld);
+    }
+
     // Otherwise files would time out under load because of other users'
     // conversions.
     [Fact]

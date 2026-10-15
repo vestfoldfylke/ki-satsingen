@@ -16,7 +16,6 @@ public sealed class KnowledgeFilePipeline(
     int maxEstimatedTokens,
     ILogger<KnowledgeFilePipeline> logger)
 {
-    // The metric's result label for one conversion.
     private enum ConversionResultLabel
     {
         Converted,
