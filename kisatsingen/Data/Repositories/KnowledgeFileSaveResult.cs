@@ -2,7 +2,7 @@ using kisatsingen.Data.Entities;
 
 namespace kisatsingen.Data.Repositories;
 
-// Refusals the user can act on. A draft that breaks the repository's own
+// Refusals the user can act on. A new file that breaks the repository's own
 // contract (a malformed hash, a scope that is not the caller's) is a bug in
 // the caller and throws instead.
 public abstract record KnowledgeFileSaveResult

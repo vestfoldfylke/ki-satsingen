@@ -1,8 +1,8 @@
-namespace kisatsingen.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
-// Reasons processing refuses a file for something other than its content,
+// Reasons the pipeline refuses a file for something other than its content,
 // shown to the user as is.
-internal static class ProcessingRejections
+internal static class PipelineRejections
 {
     // Unreachable while uploads and converters share one list of types; kept
     // so a gap between them shows as a message, not a crash.
@@ -10,7 +10,4 @@ internal static class ProcessingRejections
 
     public const string TimedOut =
         "Behandlingen av filen tok for lang tid og ble stoppet. Prøv igjen, eller del filen opp.";
-
-    public const string ShuttingDown =
-        "Behandlingen ble avbrutt fordi tjenesten startet på nytt. Legg ved filen igjen.";
 }

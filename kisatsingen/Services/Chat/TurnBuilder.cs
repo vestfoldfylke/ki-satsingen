@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
@@ -35,11 +36,12 @@ internal sealed class TurnBuilder
     private long _requestTokens;
     private readonly HashSet<int> _roundsWithReportedUsage = [];
 
-    private IReadOnlyList<TurnAttachment> _attachments = [];
+    private IReadOnlyList<TurnAttachment> _attachments;
 
     public TurnBuilder(Turn started)
     {
         _started = started;
+        _attachments = started.Attachments;
     }
 
     // Set by the stream, which owns the clock.
@@ -48,7 +50,22 @@ internal sealed class TurnBuilder
 
     public Guid? OpenTextSegmentId => _openTextIndex < 0 ? null : _segments[_openTextIndex].Id;
 
-    public void SetAttachments(IReadOnlyList<TurnAttachment> attachments) => _attachments = attachments;
+    public IReadOnlyList<TurnAttachment> Attachments => _attachments;
+
+    // Replaced rather than changed in place: earlier snapshots hold this same
+    // list, and changing it would change them too.
+    public void SettleAttachment(int index, TurnAttachmentResult result)
+    {
+        var attachments = _attachments.ToArray();
+        var settling = attachments[index];
+        attachments[index] = result switch
+        {
+            TurnAttachmentResult.Available available => settling.Available(available.File.Id),
+            TurnAttachmentResult.Unavailable unavailable => settling.Unavailable(unavailable.Reason),
+            _ => throw new UnreachableException($"Processing returned {result.GetType().Name}, which the turn does not settle. Handle it here.")
+        };
+        _attachments = attachments;
+    }
 
     public void SetRequestTokens(long requestTokens) => _requestTokens = requestTokens;
 

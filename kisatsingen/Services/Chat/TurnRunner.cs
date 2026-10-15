@@ -30,7 +30,7 @@ internal sealed class TurnRunner
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
     private readonly IUserTokenUsageRepository _userTokenUsageRepository;
-    private readonly TurnAttachmentStep _attachmentStep;
+    private readonly TurnAttachmentProcessor _attachmentProcessor;
     private readonly FileToolFactory _fileTools;
 
     public TurnRunner(
@@ -43,7 +43,7 @@ internal sealed class TurnRunner
         string metricPrefix,
         ILogger logger,
         IUserTokenUsageRepository userTokenUsageRepository,
-        TurnAttachmentStep attachmentStep,
+        TurnAttachmentProcessor attachmentProcessor,
         FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
@@ -55,7 +55,7 @@ internal sealed class TurnRunner
         _metricPrefix = metricPrefix;
         _logger = logger;
         _userTokenUsageRepository = userTokenUsageRepository;
-        _attachmentStep = attachmentStep;
+        _attachmentProcessor = attachmentProcessor;
         _fileTools = fileTools;
     }
 
@@ -114,11 +114,10 @@ internal sealed class TurnRunner
             var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
 
             stage = TurnStage.ProcessingAttachments;
-            var takenAttachments = TakeMessageAttachments(input.MessageAttachments, cancellation.Token);
-            var turnAttachments = await ProcessAttachmentsAsync(inserted, takenAttachments, builder, observer, cancellation.Token);
+            await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || turnAttachments.Any(attachment => attachment.FileId is not null);
+            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || builder.Attachments.Any(attachment => attachment.FileId is not null);
             await StreamAsync(inserted, input, builder, chatHasKnowledgeFiles, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
@@ -234,37 +233,28 @@ internal sealed class TurnRunner
         }
     }
 
-    // From here the turn owns their temp files.
-    private static IReadOnlyList<ReadyAttachment> TakeMessageAttachments(MessageAttachments messageAttachments, CancellationToken ct)
-    {
-        // Stopped before they were taken: they stay in the composer.
-        ct.ThrowIfCancellationRequested();
-        return messageAttachments.TakeReady();
-    }
-
-    private async Task<IReadOnlyList<TurnAttachment>> ProcessAttachmentsAsync(
+    // One file at a time, in the order they were attached, each shown as it
+    // settles so a stop or a later failure of the turn cannot lose it. A stop
+    // leaves the rest processing, and ending the turn marks them interrupted.
+    private async Task ProcessAttachmentsAsync(
         InsertedTurn inserted,
-        IReadOnlyList<ReadyAttachment> takenAttachments,
+        IReadOnlyList<ReadyAttachment> sentAttachments,
         TurnBuilder builder,
         TurnObserver observer,
         CancellationToken ct)
     {
-        if (takenAttachments.Count == 0)
+        for (var index = 0; index < sentAttachments.Count; index++)
         {
-            return [];
-        }
+            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, sentAttachments[index], ct);
 
-        return await _attachmentStep.RunAsync(
-            inserted.OwnerId,
-            inserted.ChatId,
-            takenAttachments,
-            attachments =>
+            builder.SettleAttachment(index, result);
+            if (result is TurnAttachmentResult.Available available)
             {
-                builder.SetAttachments(attachments);
-                observer.Changed(builder.Snapshot());
-            },
-            observer.KnowledgeFileAvailable,
-            ct);
+                observer.KnowledgeFileAvailable(available.File);
+            }
+
+            observer.Changed(builder.Snapshot());
+        }
     }
 
     // Built here, after the attachments settle, since the attachment line

@@ -2,7 +2,7 @@ using System.Text.Json;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using kisatsingen.Tests.Data;
 using kisatsingen.Tests.Data.Repositories;
@@ -32,7 +32,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task List_files_lists_a_saved_file_with_its_id_and_line_count()
     {
         var chatId = await CreateChatAsync(OwnerId);
-        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.Draft("budsjett.md", Budget));
+        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
 
         var result = await InvokeAsync(OwnerId, chatId, "list_files", []);
 
@@ -46,7 +46,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task List_files_notes_that_an_images_content_is_not_read()
     {
         var chatId = await CreateChatAsync(OwnerId);
-        await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.Draft("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder });
+        await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder });
 
         var result = await InvokeAsync(OwnerId, chatId, "list_files", []);
 
@@ -58,7 +58,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task Get_outline_returns_the_headings_and_tables_of_a_saved_file_with_their_lines()
     {
         var chatId = await CreateChatAsync(OwnerId);
-        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.Draft("budsjett.md", Budget));
+        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
 
         var result = await InvokeAsync(OwnerId, chatId, "get_outline", new() { ["fileId"] = fileId.ToString() });
 
@@ -71,7 +71,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task Read_file_returns_the_numbered_lines_of_a_saved_file()
     {
         var chatId = await CreateChatAsync(OwnerId);
-        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.Draft("budsjett.md", Budget));
+        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
 
         var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
 
@@ -82,7 +82,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task A_file_in_another_chat_of_the_same_owner_is_not_found()
     {
         var otherChatId = await CreateChatAsync(OwnerId);
-        var fileId = await SaveAsync(OwnerId, otherChatId, KnowledgeFileFactory.Draft("budsjett.md", Budget));
+        var fileId = await SaveAsync(OwnerId, otherChatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
         var chatId = await CreateChatAsync(OwnerId);
 
         var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
@@ -94,7 +94,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task Another_owners_file_is_not_found_even_through_tools_bound_to_that_owners_chat()
     {
         var theirChatId = await CreateChatAsync(OtherOwnerId);
-        var fileId = await SaveAsync(OtherOwnerId, theirChatId, KnowledgeFileFactory.Draft("hemmelig.md", Budget));
+        var fileId = await SaveAsync(OtherOwnerId, theirChatId, KnowledgeFileFactory.NewFile("hemmelig.md", Budget));
 
         var result = await InvokeAsync(OwnerId, theirChatId, "get_outline", new() { ["fileId"] = fileId.ToString() });
 
@@ -105,7 +105,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     public async Task List_files_lists_nothing_from_another_owners_chat()
     {
         var theirChatId = await CreateChatAsync(OtherOwnerId);
-        await SaveAsync(OtherOwnerId, theirChatId, KnowledgeFileFactory.Draft("hemmelig.md", Budget));
+        await SaveAsync(OtherOwnerId, theirChatId, KnowledgeFileFactory.NewFile("hemmelig.md", Budget));
 
         var result = await InvokeAsync(OwnerId, theirChatId, "list_files", []);
 
@@ -115,9 +115,9 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     private async Task<Guid> CreateChatAsync(string ownerId) =>
         (await Chats.CreateChatAsync(ownerId, "hello", assistantId: null)).Id;
 
-    private async Task<Guid> SaveAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft)
+    private async Task<Guid> SaveAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile)
     {
-        var result = await Files.CreateFileForChatAsync(ownerId, chatId, draft);
+        var result = await Files.CreateFileForChatAsync(ownerId, chatId, newFile);
         return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File.Id;
     }
 

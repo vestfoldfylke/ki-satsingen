@@ -38,7 +38,7 @@ public sealed partial class ComposerAddMenu : ComponentBase
         AttachmentContentTypes.AllowedKindsText[1..]);
 
     private string FileLimitsText =>
-        $"Maks {ByteSize.Format(Options.MaxFileBytes)} per fil, opptil {Options.MaxFilesPerSelection} filer om gangen";
+        $"Maks {ByteSize.Format(Options.MaxFileBytes)} per fil, opptil {AttachmentOptions.MaxFilesPerSelection} filer om gangen";
 
     // Choosing a file is a click inside the popover, which popover="auto"
     // doesn't treat as a dismissal, so the menu would stay open over the upload.

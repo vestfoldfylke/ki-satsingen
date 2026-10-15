@@ -10,18 +10,25 @@ file tools.
    SHA-256 and image signature are checked on the way. A refused file shows
    its reason on its chip. The same content picked twice in one composer is
    refused. (`Services/Attachments`)
-2. **Send.** The message is saved first, then the turn takes the composer's
-   ready attachments. A file that finishes uploading after send stays for the
-   next message.
+2. **Send.** The turn takes the composer's ready attachments at once and owns
+   their files until it ends, on every path. The message lists them as
+   processing from send, so a turn that ends early shows them as interrupted.
+   A file that finishes uploading after send stays for the next message.
+   (`SentAttachments`)
 3. **Already saved?** An attachment with the same content as a file already in
    the chat is available as that file, with the same `fileId`, and is not
-   processed again. (`TurnAttachmentStep`)
-4. **Processing.** The other attachments go through a bounded queue:
-   conversion to Markdown, then a draft. Processing never saves.
-   (`Services/KnowledgeFiles/Conversion`, `Processing`)
-5. **Save.** The turn saves each draft as a knowledge file. The attachment is
-   then **available** (`fileId`). A file that fails in conversion or saving is
-   **unavailable** (with a reason), and the turn goes on.
+   processed again. (`TurnAttachmentProcessor`)
+4. **Pipeline.** The other attachments are processed one at a time, in the
+   order they were attached. The knowledge-file pipeline turns each into a
+   new knowledge file: it converts the file to Markdown, checks its size,
+   builds the outline and adds a summary. Conversions run off the circuit, at
+   most one per CPU core across all users, each with a timeout. The pipeline
+   never saves. (`KnowledgeFilePipeline`, `Services/KnowledgeFiles/Conversion`)
+5. **Save.** The turn saves each new knowledge file and releases its temp
+   file at once, so it stops counting against the user's quota while the
+   answer streams. The attachment is then **available** (`fileId`). A file
+   that fails in conversion or saving is **unavailable** (with a reason), and
+   the turn goes on.
 6. **Attachment line.** The user message sent to the model names each file
    with its `fileId`, or its reason if unavailable, and says to read the file
    before answering about it. (`AttachmentLine`)
@@ -34,7 +41,10 @@ States of an attachment: Uploading → Ready → *(send)* Processing →
 ## Rules
 
 - **Processed on send, not on upload.** Until then an attachment is only a
-  temp file plus metadata. The turn waits for processing.
+  temp file plus metadata. The turn waits for processing, which is part of
+  the turn: opening another chat stops it like the answer, and closing the
+  tab stops it when Blazor drops the circuit. Files settled before a stop are
+  saved.
 - **Markdown is the only stored form.** Originals are never kept. Each file
   records its `ContentOrigin` (`TextFile`, `ImagePlaceholder`), and the tools
   turn it into a note on how far to trust the text.

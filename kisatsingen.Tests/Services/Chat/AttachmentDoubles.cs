@@ -1,7 +1,7 @@
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 
 namespace kisatsingen.Tests.Services.Chat;
 
@@ -49,7 +49,7 @@ internal sealed class HoldingTextConverter : IDocumentConverter
             gate.Started.TrySetResult();
 
             // Bounded, so a test that never releases fails in seconds rather
-            // than at the queue's processing timeout.
+            // than at the conversion timeout.
             await gate.Released.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         }
 
@@ -69,34 +69,34 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 }
 
 // Saves into memory, assigning ids the way the database would. A file in
-// FileNamesThatFailToSave throws, and so does listing when FailListing is set,
-// the way a lost connection would. HoldListing makes listings wait, as a slow
-// query does, until released or cancelled.
+// FileNamesThatFailToSave throws, and so does the lookup by content when
+// FailLookup is set, the way a lost connection would. HoldLookup makes lookups
+// wait, as a slow query does, until released or cancelled.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
     private sealed record StoredFile(string OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
 
-    private static readonly TimeSpan HeldListingTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan HeldLookupTimeout = TimeSpan.FromSeconds(5);
 
     private readonly List<StoredFile> _files = [];
-    private TaskCompletionSource? _listingStarted;
-    private TaskCompletionSource? _listingReleased;
+    private TaskCompletionSource? _lookupStarted;
+    private TaskCompletionSource? _lookupReleased;
 
     public HashSet<string> FileNamesThatFailToSave { get; } = new(StringComparer.Ordinal);
 
-    public bool FailListing { get; set; }
+    public bool FailLookup { get; set; }
 
-    public void HoldListing()
+    public void HoldLookup()
     {
-        _listingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _listingReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _lookupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _lookupReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
-    // Fails the test rather than hanging it when the listing never starts.
-    public Task WaitUntilListingStartedAsync() =>
-        (_listingStarted ?? throw new InvalidOperationException("Call HoldListing first.")).Task.WaitAsync(TimeSpan.FromSeconds(5));
+    // Fails the test rather than hanging it when the lookup never starts.
+    public Task WaitUntilLookupStartedAsync() =>
+        (_lookupStarted ?? throw new InvalidOperationException("Call HoldLookup first.")).Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-    public void ReleaseListing() => _listingReleased?.TrySetResult();
+    public void ReleaseLookup() => _lookupReleased?.TrySetResult();
 
     // A file saved outside this session: in an earlier one, or from another tab.
     public KnowledgeFileMetadata SaveElsewhere(string ownerId, Guid chatId, string fileName, byte[] content)
@@ -144,56 +144,68 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, KnowledgeFileDraft draft, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
     {
-        if (FileNamesThatFailToSave.Contains(draft.FileName))
+        if (FileNamesThatFailToSave.Contains(newFile.FileName))
         {
-            return Task.FromException<KnowledgeFileSaveResult>(new InvalidOperationException($"Scripted save failure for {draft.FileName}."));
+            return Task.FromException<KnowledgeFileSaveResult>(new InvalidOperationException($"Scripted save failure for {newFile.FileName}."));
         }
 
         var now = DateTimeOffset.UtcNow;
         var file = new KnowledgeFileMetadata(
             Guid.NewGuid(),
-            draft.FileName,
-            draft.ContentType,
-            draft.SizeBytes,
-            draft.Sha256,
-            draft.Summary,
+            newFile.FileName,
+            newFile.ContentType,
+            newFile.SizeBytes,
+            newFile.Sha256,
+            newFile.Summary,
             LineCount: 1,
             EstimatedTokenCount: 1,
-            draft.Origin,
-            draft.PageCount,
+            newFile.Origin,
+            newFile.PageCount,
             Version: 1,
             now,
             now);
 
         lock (_files)
         {
-            _files.Add(new StoredFile(ownerId, chatId, file, draft.Markdown));
+            _files.Add(new StoredFile(ownerId, chatId, file, newFile.Markdown));
         }
 
         return Task.FromResult<KnowledgeFileSaveResult>(new KnowledgeFileSaveResult.Saved(file));
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
     {
-        if (FailListing)
+        lock (_files)
         {
-            throw new InvalidOperationException("Scripted listing failure.");
+            return Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>(
+                [.. _files.Where(file => file.OwnerId == ownerId && file.ChatId == chatId).Select(file => file.File)]);
+        }
+    }
+
+    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(string ownerId, Guid chatId, string sha256, CancellationToken ct = default)
+    {
+        if (FailLookup)
+        {
+            throw new InvalidOperationException("Scripted lookup failure.");
         }
 
-        if (_listingReleased is { } released)
+        if (_lookupReleased is { } released)
         {
-            _listingStarted!.TrySetResult();
+            _lookupStarted!.TrySetResult();
 
             // Bounded, so code that ignores the stop fails the test rather
             // than hanging it.
-            await released.Task.WaitAsync(HeldListingTimeout, ct);
+            await released.Task.WaitAsync(HeldLookupTimeout, ct);
         }
 
         lock (_files)
         {
-            return [.. _files.Where(file => file.OwnerId == ownerId && file.ChatId == chatId).Select(file => file.File)];
+            return _files
+                .Where(file => file.OwnerId == ownerId && file.ChatId == chatId && file.File.Sha256 == sha256)
+                .Select(file => file.File)
+                .FirstOrDefault();
         }
     }
 
@@ -206,7 +218,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, KnowledgeFileDraft draft, CancellationToken ct = default) =>
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
     public Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>

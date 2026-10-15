@@ -44,7 +44,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     [Fact]
     public async Task A_selection_over_the_limit_is_refused_as_a_whole_before_any_file_is_read()
     {
-        var files = Enumerable.Range(0, _environment.Options.MaxFilesPerSelection + 1)
+        var files = Enumerable.Range(0, AttachmentOptions.MaxFilesPerSelection + 1)
             .Select(index => (IBrowserFile)new FakeBrowserFile($"{index}.md", UploadBytes.Text))
             .ToArray();
 
@@ -235,11 +235,11 @@ public sealed class ChatAttachmentsTests : IDisposable
     public async Task A_file_taken_at_send_survives_the_composer_being_reset()
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
-        var taken = Assert.Single(_attachments.AttachReadyToMessage().TakeReady());
+        using var sentAttachments = _attachments.TakeReady();
 
         _attachments.Reset();
 
-        Assert.True(File.Exists(taken.File.Path));
+        Assert.True(File.Exists(Assert.Single(sentAttachments.All).File.Path));
     }
 
     // From send the turn owns the file; it is still on disk until the turn
@@ -250,11 +250,11 @@ public sealed class ChatAttachmentsTests : IDisposable
         using var environment = new AttachmentTestEnvironment(new AttachmentOptions { MaxPendingFilesPerUser = 1 });
         using var attachments = environment.CreateChatAttachments(new FakeAuthenticationService());
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("a.md", UploadBytes.Text)));
-        var taken = Assert.Single(attachments.AttachReadyToMessage().TakeReady());
+        var sentAttachments = attachments.TakeReady();
 
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("b.md", UploadBytes.Png)));
         var whileTaken = Assert.Single(attachments.All).Status;
-        taken.File.Dispose();
+        sentAttachments.Dispose();
         await attachments.AttachAsync(Selecting(new FakeBrowserFile("c.md", UploadBytes.Png)));
 
         Assert.Equal(AttachmentStatus.Rejected, whileTaken);

@@ -1,6 +1,6 @@
 using kisatsingen.Tests.Data.Repositories;
 using kisatsingen.Tests.Services.Attachments;
-using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+using kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.AI;
 using Xunit;
@@ -39,7 +39,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
 
         await harness.Session.LoadAsync(chat.Id);
 
@@ -51,7 +51,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.LoadAsync(chat.Id);
 
         await harness.Session.LoadAsync(null);
@@ -134,11 +134,10 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Hold("treg.md");
-        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
+        await AttachAsync(harness, ("rask.md", MarkdownBytes("Rask")), ("treg.md", MarkdownBytes("Treg")));
 
         var sending = harness.Session.SendAsync("Hva står i filene?");
         await harness.TextConverter.WaitUntilStartedAsync("treg.md");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
         harness.Session.Cancel();
         await sending;
 

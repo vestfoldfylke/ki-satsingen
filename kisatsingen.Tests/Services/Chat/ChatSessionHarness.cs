@@ -5,7 +5,7 @@ using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using kisatsingen.Tests.Services.Attachments;
 using System.Diagnostics.CodeAnalysis;
@@ -43,20 +43,16 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public AttachmentTestEnvironment AttachmentEnvironment { get; } = new();
     public ChatAttachments Attachments { get; }
 
-    // The real queue, worker and processor, so a turn's files are processed
-    // the way production processes them; only the database is a double.
+    // The real pipeline, so a turn's files are processed the way production
+    // processes them; only the database is a double.
     public FakeKnowledgeFileRepository KnowledgeFiles { get; } = new();
     public HoldingTextConverter TextConverter { get; } = new();
-    private readonly KnowledgeFileProcessingWorker _processingWorker;
 
     public ChatSessionHarness()
     {
         Catalog = new FakeChatModelCatalog(Client);
         Manager = new ChatManager(Authentication, Repository, NullLogger<ChatManager>.Instance);
         Attachments = AttachmentEnvironment.CreateChatAttachments(Authentication);
-
-        var (queue, worker) = StartProcessing();
-        _processingWorker = worker;
 
         Session = new ChatSession(
             Authentication,
@@ -69,26 +65,21 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             NullLogger<ChatSession>.Instance,
             UserTokenUsageRepository,
             KnowledgeFiles,
-            queue,
+            CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()));
     }
 
-    private (KnowledgeFileProcessingQueue Queue, KnowledgeFileProcessingWorker Worker) StartProcessing()
+    private KnowledgeFilePipeline CreatePipeline()
     {
-        var options = new KnowledgeFileProcessingOptions();
-        var storage = AttachmentEnvironment.Storage;
-        var metrics = new KnowledgeFileProcessingMetrics(new RecordingMetricsService(), NullLogger<KnowledgeFileProcessingMetrics>.Instance);
-        var processor = new KnowledgeFileProcessor(
-            new DocumentConverterRegistry([TextConverter, new ImagePlaceholderConverter(options.MaxImageSidePixels, options.MaxImagePixels)]),
+        var options = new KnowledgeFilePipelineOptions();
+        return new KnowledgeFilePipeline(
+            new DocumentConverterRegistry([TextConverter, new ImagePlaceholderConverter()]),
             new OpeningExcerptSummarizer(),
-            storage,
+            AttachmentEnvironment.Storage,
+            options,
+            new KnowledgeFilePipelineMetrics(new RecordingMetricsService(), NullLogger<KnowledgeFilePipelineMetrics>.Instance),
             maxEstimatedTokens: 1_000_000,
-            NullLogger<KnowledgeFileProcessor>.Instance);
-
-        var queue = new KnowledgeFileProcessingQueue(options, metrics);
-        var worker = new KnowledgeFileProcessingWorker(queue, processor, options, metrics, NullLogger<KnowledgeFileProcessingWorker>.Instance);
-        worker.StartAsync(CancellationToken.None).GetAwaiter().GetResult();
-        return (queue, worker);
+            NullLogger<KnowledgeFilePipeline>.Instance);
     }
 
     // Through the public projection, so an outcome the UI can't render fails the test.
@@ -103,8 +94,6 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await Session.DisposeAsync();
-        await _processingWorker.StopAsync(CancellationToken.None);
-        _processingWorker.Dispose();
         Attachments.Dispose();
         AttachmentEnvironment.Dispose();
     }

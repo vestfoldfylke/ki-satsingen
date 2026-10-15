@@ -1,8 +1,8 @@
 namespace kisatsingen.Services.Attachments;
 
-// An attachment handed over at send. Its file no longer belongs to the
-// composer: whoever holds this owns File and disposes it when done.
-public sealed record ReadyAttachment(
+// An upload the quota accepted, ready to be sent. Its file belongs to the
+// composer until send, then to the SentAttachments it was sent in.
+internal sealed record ReadyAttachment(
     Guid AttachmentId,
     string FileName,
     AttachmentType Type,

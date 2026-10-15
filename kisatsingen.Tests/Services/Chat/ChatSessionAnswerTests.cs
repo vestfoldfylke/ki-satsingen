@@ -189,7 +189,7 @@ public sealed class ChatSessionAnswerTests
     public async Task A_reasoning_chunk_is_counted_rather_than_kept()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Client.OnStream = _ => Reasoning();
+        harness.Client.OnStream = ct => Reasoning(ct);
 
         await harness.Session.SendAsync("hei");
 

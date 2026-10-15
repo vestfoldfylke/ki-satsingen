@@ -3,7 +3,7 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
-using kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+using kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 using Microsoft.AspNetCore.Components.Forms;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.AI;
@@ -111,20 +111,14 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task Files_finishing_out_of_order_are_each_saved_once_and_listed_in_the_order_they_were_attached()
+    public async Task Files_are_processed_and_saved_in_the_order_they_were_attached()
     {
         await using var harness = new ChatSessionHarness();
-        harness.TextConverter.Hold("først.md");
         await AttachAsync(harness, ("først.md", MarkdownBytes("Først")), ("sist.md", MarkdownBytes("Sist")));
 
-        var send = harness.Session.SendAsync("Hva står i filene?");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
-        harness.TextConverter.Release("først.md");
-        await send;
+        await harness.Session.SendAsync("Hva står i filene?");
 
-        Assert.Equal(["sist.md", "først.md"], harness.KnowledgeFiles.Saved.Select(file => file.FileName));
-        Assert.Equal(["først.md", "sist.md"], harness.StoredTurn.Attachments.Select(attachment => attachment.FileName));
-        Assert.All(harness.StoredTurn.Attachments, attachment => Assert.NotNull(attachment.FileId));
+        Assert.Equal(["først.md", "sist.md"], harness.KnowledgeFiles.Saved.Select(file => file.FileName));
     }
 
     [Fact]
@@ -132,25 +126,25 @@ public sealed class ChatSessionAttachmentTests
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Hold("treg.md");
-        await AttachAsync(harness, ("treg.md", MarkdownBytes("Treg")), ("rask.md", MarkdownBytes("Rask")));
+        await AttachAsync(harness, ("rask.md", MarkdownBytes("Rask")), ("treg.md", MarkdownBytes("Treg")));
 
         var send = harness.Session.SendAsync("Hva står i filene?");
         await harness.TextConverter.WaitUntilStartedAsync("treg.md");
-        await Eventually.TrueAsync(() => harness.KnowledgeFiles.Saved.Count == 1, "The file that was not held was never saved.");
         harness.Session.Cancel();
         await send;
 
         Assert.Equal(TurnStatus.Stopped, harness.StoredTurn.Status);
         Assert.Equal(
             [
-                new TurnAttachment("treg.md", UnavailableReason: AttachmentTexts.InterruptedReason),
-                new TurnAttachment("rask.md", SavedFileId(harness, "rask.md"))
+                new TurnAttachment("rask.md", SavedFileId(harness, "rask.md")),
+                new TurnAttachment("treg.md", UnavailableReason: AttachmentTexts.InterruptedReason)
             ],
             harness.StoredTurn.Attachments);
     }
 
+    // The files left the composer at send, so the turn is where they show.
     [Fact]
-    public async Task A_stop_before_the_attachments_are_taken_leaves_them_in_the_composer()
+    public async Task A_stop_before_processing_lists_the_files_as_interrupted_and_leaves_nothing_on_disk()
     {
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
@@ -162,13 +156,10 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(TurnStatus.Stopped, harness.VisibleTurn.Status);
-        var pending = Assert.Single(harness.Attachments.All);
-        Assert.Equal(AttachmentStatus.Ready, pending.Status);
+        Assert.Equal([new TurnAttachment("notat.md", UnavailableReason: AttachmentTexts.InterruptedReason)], harness.VisibleTurn.Attachments);
+        Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
-    // Once taken, the turn owns the temp files; a file it never handed to
-    // processing would stay on disk until the next start.
     [Fact]
     public async Task No_temp_file_is_left_on_disk_after_a_turn_stopped_during_processing()
     {
@@ -201,7 +192,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task Attachments_stay_in_the_composer_when_the_message_could_not_be_saved()
+    public async Task Files_of_a_message_that_could_not_be_saved_are_listed_as_interrupted_and_released()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.InsertTurnFailure = new InvalidOperationException("Database down.");
@@ -209,8 +200,8 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var pending = Assert.Single(harness.Attachments.All);
-        Assert.Equal(AttachmentStatus.Ready, pending.Status);
+        Assert.Equal([new TurnAttachment("notat.md", UnavailableReason: AttachmentTexts.InterruptedReason)], harness.VisibleTurn.Attachments);
+        Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
     }
 
     [Fact]
@@ -361,7 +352,7 @@ public sealed class ChatSessionAttachmentTests
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         });
-        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.Draft("notat.md", "# Notat\n"));
+        await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.LoadAsync(chat.Id);
 
         await harness.Session.SendAsync("Hva sto i notatet?");

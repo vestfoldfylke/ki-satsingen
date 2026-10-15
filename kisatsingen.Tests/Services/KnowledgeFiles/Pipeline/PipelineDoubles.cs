@@ -1,13 +1,12 @@
 using System.Security.Cryptography;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
-using kisatsingen.Services.KnowledgeFiles.Processing;
 using kisatsingen.Tests.Services.Attachments;
 
-namespace kisatsingen.Tests.Services.KnowledgeFiles.Processing;
+namespace kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 
-// Holds every conversion until released, so a test can act while a job is
-// genuinely running or genuinely queued behind one.
+// Holds every conversion until released or cancelled, so a test can act while
+// a conversion is genuinely running.
 internal sealed class StallingConverter : IDocumentConverter
 {
     public static readonly AttachmentType Type = new("test/stall", Signature: null);
@@ -40,6 +39,29 @@ internal sealed class StallingConverter : IDocumentConverter
     }
 }
 
+// Holds its conversion until released and ignores cancellation, so a test can
+// keep a slot busy for longer than the timeout.
+internal sealed class SlotHoldingConverter : IDocumentConverter
+{
+    public static readonly AttachmentType Type = new("test/hold", Signature: null);
+
+    private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
+
+    public Task WaitUntilStartedAsync() => _started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+    public void Release() => _release.TrySetResult();
+
+    public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
+    {
+        _started.TrySetResult();
+        await _release.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
+        return new ConversionResult.Converted("# Ferdig\n\nInnhold.", ContentOrigin.TextFile, PageCount: null);
+    }
+}
+
 // A bug in a converter, as opposed to a file it refuses.
 internal sealed class ThrowingConverter : IDocumentConverter
 {
@@ -56,7 +78,7 @@ internal static class ReadyAttachments
     // A real temp file in the environment's storage, so tests can see it deleted.
     public static ReadyAttachment From(AttachmentTestEnvironment environment, byte[] content, AttachmentType type, string fileName = "fil.md")
     {
-        var (file, stream) = environment.Storage.CreateFile("processing-test-owner", Guid.NewGuid());
+        var (file, stream) = environment.Storage.CreateFile("pipeline-test-owner", Guid.NewGuid());
         using (stream)
         {
             stream.Write(content);
@@ -66,22 +88,9 @@ internal static class ReadyAttachments
     }
 }
 
-internal sealed class RecordingProgress : IProgress<KnowledgeFileProcessingStage>
-{
-    public List<KnowledgeFileProcessingStage> Reported { get; } = [];
-
-    public void Report(KnowledgeFileProcessingStage value)
-    {
-        lock (Reported)
-        {
-            Reported.Add(value);
-        }
-    }
-}
-
 internal static class Eventually
 {
-    // For effects a worker finishes after the caller has already returned.
+    // For effects that finish after the caller has already returned.
     public static async Task TrueAsync(Func<bool> condition, string failure)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);

@@ -3,7 +3,7 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
-using kisatsingen.Services.KnowledgeFiles.Processing;
+using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 
@@ -68,7 +68,7 @@ public sealed class ChatSession : IAsyncDisposable
         ILogger<ChatSession> logger,
         IUserTokenUsageRepository userTokenUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
-        KnowledgeFileProcessingQueue processingQueue,
+        KnowledgeFilePipeline knowledgeFilePipeline,
         FileToolFactory fileTools)
     {
         _authenticationService = authenticationService;
@@ -81,8 +81,8 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentStep = new TurnAttachmentStep(processingQueue, knowledgeFileRepository, logger);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentStep, fileTools);
+        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, logger);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 
     public Guid? ChatId => _currentChatId;
@@ -270,8 +270,9 @@ public sealed class ChatSession : IAsyncDisposable
 
         // A turn that started on one model and prompt must finish on them.
         var model = _selectedModel;
-        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt);
-        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, _attachments.AttachReadyToMessage(), ChatHasKnowledgeFiles());
+        using var sentAttachments = _attachments.TakeReady();
+        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt, sentAttachments.FileNames);
+        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -280,9 +281,9 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
-                snapshot => ShowSnapshot(viewVersion, snapshot),
-                file => AddKnowledgeFile(viewVersion, file));
+                ChatPersisted: chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
+                Changed: snapshot => ShowSnapshot(viewVersion, snapshot),
+                KnowledgeFileAvailable: file => AddKnowledgeFile(viewVersion, file));
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
             Replace(viewVersion, ended);
