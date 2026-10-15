@@ -78,17 +78,25 @@
             }
         </aside>
 
-        <div class="user">
+        <div class="user" >
             <AuthorizeView>
                 <Authorized>
                     <div>
-                        <button class="ds-button"
+                        <button class="ds-button chat-sidebar-user-menu-button"
                                 type="button"
                                 data-variant="tertiary"
                                 data-color="neutral"
                                 popovertarget="user-menu-dropdown"
-                                aria-haspopup="menu">
-                            <span class="ds-paragraph" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
+                                aria-haspopup="menu"
+                                >
+                            <span
+                                aria-label="User avatar icon"
+                                class="ds-avatar"
+                                role="img"
+                                data-size="xs"
+                                data-color="accent"
+                            ></span>
+                            <span class="ds-paragraph chat-sidebar-user-menu-button-content" data-size="sm" ><strong>@context.User.Identity?.Name</strong></span>
                         </button>
 
                         <div
@@ -97,13 +105,13 @@
                             popover="auto"
                             data-placement="top-start"
                         >   
-                            <h2 class="ds-heading">@context.User.Identity?.Name</h2>
+                            <h2 class="ds-heading"><strong>Meg og mitt</strong></h2>
                             <ul role="menu" aria-label="Avansert brukermeny">
                                 <li role="none">
                                     <NavLink class="ds-button"
                                             type="button"
                                             data-variant="tertiary"
-                                            data-color="neutral"
+                                            data-color="accent"
                                             role="menuitemradio"
                                             popovertargetaction="hide"
                                             data-placement="top"

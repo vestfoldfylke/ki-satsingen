@@ -158,3 +158,18 @@
     white-space: nowrap;
 }
 
+.chat-sidebar-user-menu-button-content {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.chat-sidebar-user-menu-button {
+    max-width: 100%;
+    width: 100%;
+}
+
+
+.chat-sidebar-user-menu-button .ds-avatar {
+    --dsc-avatar-size: 1.7rem;
+}
