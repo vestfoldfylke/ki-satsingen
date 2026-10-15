@@ -171,6 +171,12 @@
     background: transparent;
 }
 
+.chat-sidebar-user-button .chat-sidebar-title {
+    flex: 1;
+    text-align: left;
+}
+
+
 .chat-sidebar-user-button .ds-avatar {
     --dsc-avatar-size: 1.7rem;
 }

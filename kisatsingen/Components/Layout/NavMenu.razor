@@ -101,7 +101,7 @@
                                 data-size="xs"
                                 data-color="accent"
                             ></span>
-                            <span class="ds-paragraph chat-sidebar-title" data-size="sm"><strong>@context.User.Identity?.Name</strong></span>
+                            <span class="ds-paragraph chat-sidebar-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
                             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
                         </button>
 
