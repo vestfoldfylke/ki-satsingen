@@ -236,6 +236,11 @@ var app = builder.Build();
 // must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
 
+// ─── One-time startup: document converters ─────────────
+// Resolved eagerly because building the registry validates it: two converters
+// for one type must stop startup, not surface later as a failed upload.
+_ = app.Services.GetRequiredService<DocumentConverterRegistry>();
+
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a
 // request, and no upload can race it.
