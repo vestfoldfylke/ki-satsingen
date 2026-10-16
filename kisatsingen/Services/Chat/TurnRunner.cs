@@ -187,7 +187,7 @@ internal sealed class TurnRunner
             _metrics.Count(
                 $"{_metricPrefix}_failure_total",
                 "Failed chat turns, by stage and exception type",
-                (MetricConstants.MetricsStageLabelName, stage.ToString()),
+                (MetricConstants.MetricsStageLabelName, TurnStageMetric.LabelValue(stage)),
                 (MetricConstants.MetricsExceptionLabelName, error.GetType().Name));
         }
     }
