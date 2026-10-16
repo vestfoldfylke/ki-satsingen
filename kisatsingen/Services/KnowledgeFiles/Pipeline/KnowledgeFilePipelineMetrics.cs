@@ -9,10 +9,10 @@ namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 // replace a file's own outcome. A metric that fails is logged and skipped.
 public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogger<KnowledgeFilePipelineMetrics> logger)
 {
-    private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_KnowledgeFile";
+    private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_knowledge_file";
 
     public MetricTimer? StartConversion() =>
-        StartTimer($"{Prefix}_Duration", "Time spent converting a knowledge file");
+        StartTimer($"{Prefix}_conversion_duration_seconds", "Time spent converting a knowledge file");
 
     public void Observe(MetricTimer? timer)
     {
@@ -31,8 +31,8 @@ public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogge
         try
         {
             metrics.Count(
-                $"{Prefix}_Processed",
-                "Knowledge files processed, by content type and outcome",
+                $"{Prefix}_converted_total",
+                "Knowledge file conversions, by content type and outcome",
                 (MetricConstants.MetricsContentTypeLabelName, contentType),
                 (MetricConstants.MetricsResultLabelName, outcome));
         }

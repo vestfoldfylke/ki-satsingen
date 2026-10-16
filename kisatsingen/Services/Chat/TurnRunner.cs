@@ -185,7 +185,7 @@ internal sealed class TurnRunner
         if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
         {
             _metrics.Count(
-                $"{_metricPrefix}_Failure",
+                $"{_metricPrefix}_failure_total",
                 "Failed chat turns, by stage and exception type",
                 (MetricConstants.MetricsStageLabelName, stage.ToString()),
                 (MetricConstants.MetricsExceptionLabelName, error.GetType().Name));
@@ -357,7 +357,7 @@ internal sealed class TurnRunner
     // on first use and throws if a later call differs.
     private void CountSend(TurnOutcome outcome, string? modelId, ChatModelKey modelKey) =>
         _metrics.Count(
-            $"{_metricPrefix}_Send",
+            $"{_metricPrefix}_send_total",
             "Chat send attempts, by outcome",
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
             (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),

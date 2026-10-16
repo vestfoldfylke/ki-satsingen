@@ -33,7 +33,7 @@ internal sealed class TurnStreamer
         Action onStructureChanged,
         CancellationToken ct)
     {
-        var duration = _metrics.Histogram($"{_metricPrefix}_Duration", "Elapsed time for a chat message");
+        var duration = _metrics.Histogram($"{_metricPrefix}_duration_seconds", "Elapsed time for a chat message");
 
         // Not UtcNow: FlushCadence needs offsets that never go backwards, and an NTP
         // step would freeze the visible stream.
@@ -120,16 +120,16 @@ internal sealed class TurnStreamer
             switch (content)
             {
                 case FunctionCallContent call:
-                    _metrics.Count($"{_metricPrefix}_ToolCall", "Number of tool calls performed", (MetricConstants.MetricsToolLabelName, call.Name));
+                    _metrics.Count($"{_metricPrefix}_tool_call_total", "Number of tool calls performed", (MetricConstants.MetricsToolLabelName, call.Name));
                     break;
                 case FunctionResultContent:
-                    _metrics.Count($"{_metricPrefix}_ToolResult", "Number of tool results retrieved");
+                    _metrics.Count($"{_metricPrefix}_tool_result_total", "Number of tool results retrieved");
                     break;
                 case TextContent or UsageContent:
                     break;
                 // TurnBuilder drops these; counted so a kind an upgrade starts sending is noticed.
                 default:
-                    _metrics.Count($"{_metricPrefix}_UnkeptContent", "Streamed content the transcript does not keep", (MetricConstants.MetricsContentTypeLabelName, content.GetType().Name));
+                    _metrics.Count($"{_metricPrefix}_unkept_content_total", "Streamed content the transcript does not keep", (MetricConstants.MetricsContentTypeLabelName, content.GetType().Name));
                     break;
             }
         }

@@ -84,7 +84,7 @@ builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.Authe
         {
             if (ctx.Principal?.IsInRole(role) ?? false)
             {
-                metricsService.Count($"{MetricConstants.MetricsAppPrefix}_{role}LoginCount", $"Number of {role} logins");
+                metricsService.Count($"{MetricConstants.MetricsAppPrefix}_login_total", "Number of logins, by role", ("role", role));
                 break;
             }
         }

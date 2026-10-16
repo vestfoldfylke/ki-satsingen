@@ -472,8 +472,8 @@ internal static class ModelStream
 // merely that something was counted.
 internal sealed class RecordingMetricsService : IMetricsService
 {
-    public const string SendCounter = "_Send";
-    public const string FailureCounter = "_Failure";
+    public const string SendCounter = "_send_total";
+    public const string FailureCounter = "_failure_total";
 
     public List<MetricCall> Calls { get; } = [];
 

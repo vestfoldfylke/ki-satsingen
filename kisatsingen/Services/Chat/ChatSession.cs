@@ -14,7 +14,7 @@ public sealed class ChatSession : IAsyncDisposable
 {
     private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
 
-    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_ChatSession";
+    private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_chat_session";
 
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatModelCatalog _catalog;
