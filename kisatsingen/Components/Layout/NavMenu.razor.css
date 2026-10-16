@@ -17,7 +17,7 @@
 
 .nav-item > button > span,
 .nav-item > a > span {
-    font-size: .85rem;
+    font-size: 1rem;
 }
 
 .nav-scrollable {
@@ -41,7 +41,7 @@
 
 .nav-primary {
     flex-shrink: 0;
-    padding-top: 2rem;
+    padding-top: 1rem;
     padding-bottom: 2rem;
 }
 
@@ -55,6 +55,7 @@
 .chat-sidebar-new-chat-button {
     width: 100%;
     justify-content: left;
+    padding-left: .3rem;
 }
 
 .user {
