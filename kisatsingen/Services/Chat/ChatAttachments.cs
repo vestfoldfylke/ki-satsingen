@@ -39,7 +39,7 @@ public sealed class ChatAttachments(
         // Checked before GetMultipleFiles, which throws above its limit.
         if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
         {
-            SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection);
+            SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection).Message;
             Changed?.Invoke();
             return;
         }
@@ -63,7 +63,7 @@ public sealed class ChatAttachments(
                 continue;
             }
 
-            if (FindUnacceptableSizeReason(file.Size) is string reason)
+            if (FindUnacceptableSizeReason(file.Size) is UploadRejection reason)
             {
                 attachment.MarkRejected(reason);
                 continue;
@@ -86,7 +86,7 @@ public sealed class ChatAttachments(
     // Null when acceptable. The declared size is the browser's claim: good
     // enough to refuse an honest oversized file before any bytes are read,
     // never trusted to count it.
-    private string? FindUnacceptableSizeReason(long declaredSizeBytes) =>
+    private UploadRejection? FindUnacceptableSizeReason(long declaredSizeBytes) =>
         declaredSizeBytes < 0 ? UploadRejections.UnreadableSize
         : declaredSizeBytes > options.MaxFileBytes ? UploadRejections.TooLarge(options.MaxFileBytes)
         : null;

@@ -11,7 +11,7 @@ public sealed class ComposerAttachment(string fileName, long declaredSizeBytes)
     public long DeclaredSizeBytes { get; } = declaredSizeBytes;
     public AttachmentStatus Status { get; private set; } = AttachmentStatus.Waiting;
     public int UploadedPercent { get; private set; }
-    public string? RejectionReason { get; private set; }
+    public UploadRejection? Rejection { get; private set; }
 
     internal CancellationTokenSource Cancellation { get; } = new();
 
@@ -44,9 +44,9 @@ public sealed class ComposerAttachment(string fileName, long declaredSizeBytes)
         Ready = new ReadyAttachment(AttachmentId, FileName, type, stored.SizeBytes, stored.Sha256, stored.File);
     }
 
-    internal void MarkRejected(string reason)
+    internal void MarkRejected(UploadRejection rejection)
     {
         Status = AttachmentStatus.Rejected;
-        RejectionReason = reason;
+        Rejection = rejection;
     }
 }

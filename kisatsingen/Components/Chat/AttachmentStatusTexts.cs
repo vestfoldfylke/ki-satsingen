@@ -12,7 +12,7 @@ internal static class AttachmentStatusTexts
         AttachmentStatus.Waiting => "Venter",
         AttachmentStatus.Uploading => $"Laster opp {attachment.UploadedPercent} %",
         AttachmentStatus.Ready => "Klar",
-        AttachmentStatus.Rejected => attachment.RejectionReason ?? "Kunne ikke legges ved",
+        AttachmentStatus.Rejected => attachment.Rejection?.Message ?? "Kunne ikke legges ved",
         _ => attachment.Status.ToString()
     };
 

@@ -43,7 +43,7 @@ public sealed class ChatSessionDuplicateAttachmentTests
         await AttachAsync(harness, ("notat.md", NoteBytes), ("notat-kopi.md", NoteBytes));
 
         var copy = harness.Attachments.All.Single(attachment => attachment.FileName == "notat-kopi.md");
-        Assert.Equal((AttachmentStatus.Rejected, UploadRejections.AlreadyPending), (copy.Status, copy.RejectionReason));
+        Assert.Equal((AttachmentStatus.Rejected, UploadRejections.AlreadyPending), (copy.Status, copy.Rejection));
     }
 
     [Fact]

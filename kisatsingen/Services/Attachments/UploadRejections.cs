@@ -1,43 +1,57 @@
 namespace kisatsingen.Services.Attachments;
 
-// Every reason an upload can be refused, shown to the user as is. Written in
-// advance and never built from an exception, so no internals reach the page.
+// Key is a metric label value: written out beside the message, so rewording
+// or renaming never renames a time series. Message is shown to the user as is.
+public sealed record UploadRejection(string Key, string Message);
+
+// Every reason an upload can be refused. Written in advance and never built
+// from an exception, so no internals reach the page.
 internal static class UploadRejections
 {
-    public const string Empty = "Filen er tom.";
+    public static UploadRejection Empty { get; } = new("empty", "Filen er tom.");
 
-    public const string WrongFileType =
-        "Innholdet i filen stemmer ikke med filtypen. Sjekk at filen ikke har fått feil filendelse.";
+    public static UploadRejection WrongFileType { get; } = new(
+        "wrong_file_type",
+        "Innholdet i filen stemmer ikke med filtypen. Sjekk at filen ikke har fått feil filendelse.");
 
-    public const string Interrupted =
-        "Opplastingen ble avbrutt. Prøv igjen.";
+    public static UploadRejection Interrupted { get; } = new(
+        "interrupted",
+        "Opplastingen ble avbrutt. Prøv igjen.");
 
     // The attachment folder is gone: nothing the user does helps until the app
     // is restarted.
-    public const string Unavailable =
-        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator.";
+    public static UploadRejection Unavailable { get; } = new(
+        "unavailable",
+        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator.");
 
-    public const string AlreadyPending = "Denne filen er allerede valgt.";
+    public static UploadRejection AlreadyPending { get; } = new("already_pending", "Denne filen er allerede valgt.");
 
     // A browser never declares a negative size; only a tampered one does.
-    public const string UnreadableSize =
-        "Filstørrelsen kunne ikke leses. Velg filen på nytt.";
+    public static UploadRejection UnreadableSize { get; } = new(
+        "unreadable_size",
+        "Filstørrelsen kunne ikke leses. Velg filen på nytt.");
 
-    public const string InstanceBudgetFull =
-        "Det lastes opp mye akkurat nå. Prøv igjen om litt.";
+    public static UploadRejection InstanceBudgetFull { get; } = new(
+        "instance_budget_full",
+        "Det lastes opp mye akkurat nå. Prøv igjen om litt.");
 
-    public static string UnsupportedType =>
-        $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.";
+    public static UploadRejection UnsupportedType => new(
+        "unsupported_type",
+        $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.");
 
-    public static string TooLarge(long maxBytes) =>
-        $"Filen er større enn grensen på {ByteSize.Format(maxBytes)}.";
+    public static UploadRejection TooLarge(long maxBytes) => new(
+        "too_large",
+        $"Filen er større enn grensen på {ByteSize.Format(maxBytes)}.");
 
-    public static string TooManyPending(int max) =>
-        $"Du har allerede {max} vedlegg som venter. Send meldingen eller fjern noen vedlegg først.";
+    public static UploadRejection TooManyPending(int max) => new(
+        "too_many_pending",
+        $"Du har allerede {max} vedlegg som venter. Send meldingen eller fjern noen vedlegg først.");
 
-    public static string TooManyPendingBytes(long maxBytes) =>
-        $"Vedleggene som venter er til sammen større enn {ByteSize.Format(maxBytes)}. Send meldingen eller fjern noen vedlegg først.";
+    public static UploadRejection TooManyPendingBytes(long maxBytes) => new(
+        "too_many_pending_bytes",
+        $"Vedleggene som venter er til sammen større enn {ByteSize.Format(maxBytes)}. Send meldingen eller fjern noen vedlegg først.");
 
-    public static string TooManyInSelection(int max) =>
-        $"Du kan velge opptil {max} filer om gangen.";
+    public static UploadRejection TooManyInSelection(int max) => new(
+        "too_many_in_selection",
+        $"Du kan velge opptil {max} filer om gangen.");
 }
