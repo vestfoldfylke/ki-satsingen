@@ -51,7 +51,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var result = await InvokeAsync(OwnerId, chatId, "list_files", []);
 
         var file = Assert.Single(result.GetProperty("files").EnumerateArray());
-        Assert.Equal("Innholdet i bildet er ikke tolket.", file.GetProperty("originNote").GetString());
+        Assert.Equal(FileToolTexts.OriginNote(ContentOrigin.ImagePlaceholder), file.GetProperty("originNote").GetString());
     }
 
     [Fact]

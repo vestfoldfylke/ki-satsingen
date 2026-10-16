@@ -1,8 +1,8 @@
 namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 
-// One implementation per content type, chosen by DocumentConverterRegistry.
-// Moving a type to a remote service means registering a converter that calls
-// that service instead.
+// Exactly one converter per content type, chosen by DocumentConverterRegistry.
+// A new converter also needs its registration in Program.cs and its
+// extensions in AttachmentContentTypes.
 public interface IDocumentConverter
 {
     IReadOnlyList<string> ContentTypes { get; }

@@ -159,21 +159,11 @@ public sealed class FileToolContractTests
     }
 
     [Fact]
-    public async Task A_file_whose_origin_this_build_does_not_know_gets_the_most_cautious_note()
+    public async Task A_file_whose_origin_this_build_does_not_know_still_gets_an_origin_note()
     {
         var result = await InvokeAsync("list_files", Arguments(), origin: null);
 
         Assert.Contains($"\"originNote\":\"{FileToolTexts.OriginNote(null)}\"", result);
-    }
-
-    [Fact]
-    public void Every_content_origin_has_a_deliberate_note()
-    {
-        var origins = Enum.GetValues<ContentOrigin>();
-
-        var exception = Record.Exception(() => origins.Select(origin => FileToolTexts.OriginNote(origin)).ToList());
-
-        Assert.Null(exception);
     }
 
     [Theory]

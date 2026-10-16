@@ -1,6 +1,7 @@
 @using kisatsingen.Data.Entities
 @using kisatsingen.Services
 @using kisatsingen.Services.Attachments
+@using kisatsingen.Services.KnowledgeFiles.Conversion
 
 @* The chat's knowledge files, then the ones not sent yet. Items are list
    entries rather than links: when parsed content can be viewed, each
@@ -27,7 +28,7 @@
                 <li @key="file.Id" class="chat-files-item">
                     <span class="chat-files-item-name">@file.FileName</span>
                     <span class="chat-files-item-meta">@ByteSize.Format(file.SizeBytes)</span>
-                    @if (KnowledgeFileTexts.OriginNote(file.ContentOrigin) is { } note)
+                    @if (ContentOriginNotes.For(file.ContentOrigin) is { } note)
                     {
                         <span class="chat-files-item-status">@note</span>
                     }
