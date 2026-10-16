@@ -194,6 +194,7 @@ builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
     sp.GetRequiredService<ILogger<AttachmentStorage>>()));
 builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
+builder.Services.AddSingleton<AttachmentMetrics>();
 builder.Services.AddScoped<ChatAttachments>();
 
 // ─── Knowledge-file pipeline ───────────────────────────
