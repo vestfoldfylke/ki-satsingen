@@ -43,7 +43,7 @@ public static class MetricConstants
 
     public static string MetricsToolLabelName => "tool";
 
-    // A rejection key, written out beside its message: never the message itself.
+    // The rejection key, never its message: a message is reworded, a key is not.
     public static string MetricsReasonLabelName => "reason";
 
     public static string MetricsStateLabelName => "state";

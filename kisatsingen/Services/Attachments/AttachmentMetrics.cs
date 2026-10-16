@@ -4,10 +4,9 @@ using MetricTimer = Prometheus.ITimer;
 
 namespace kisatsingen.Services.Attachments;
 
-// Every metric attaching and uploading record, in one place and never
-// throwing: Prometheus throws on a registration or label conflict, and this
-// runs in UI event handlers, where an exception would end the circuit. A
-// metric that fails is logged and skipped.
+// Every attachment metric, in one place and never throwing: these run in UI
+// event handlers, where an exception would end the circuit, and before every
+// scrape. A metric that fails is logged and skipped.
 public sealed class AttachmentMetrics(IMetricsService metrics, ILogger<AttachmentMetrics> logger)
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_attachment";
@@ -63,8 +62,7 @@ public sealed class AttachmentMetrics(IMetricsService metrics, ILogger<Attachmen
         }
     }
 
-    // Runs before every scrape, where a throw fails the whole scrape and not
-    // just this gauge; a missing folder throws.
+    // A throw here fails the whole scrape, not just this gauge; a missing folder throws.
     public void RecordFolderUsage(AttachmentStorage storage)
     {
         try

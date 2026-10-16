@@ -4,9 +4,9 @@ using MetricTimer = Prometheus.ITimer;
 
 namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 
-// Every metric the pipeline records, in one place and never throwing:
-// Prometheus throws on a registration or label conflict, and that must never
-// replace a file's own outcome. A metric that fails is logged and skipped.
+// Every metric the pipeline records, in one place and never throwing: a
+// metric must never replace a file's own outcome. A metric that fails is
+// logged and skipped.
 public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogger<KnowledgeFilePipelineMetrics> logger)
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_knowledge_file";
