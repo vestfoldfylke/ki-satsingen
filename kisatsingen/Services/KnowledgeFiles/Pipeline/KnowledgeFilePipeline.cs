@@ -68,7 +68,10 @@ public sealed class KnowledgeFilePipeline(
     // would freeze that user's page.
     private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, CancellationToken ct)
     {
+        // Not recorded when the turn stops while waiting, like a stopped conversion.
+        var slotWait = metrics.StartSlotWait();
         await _conversionSlots.WaitAsync(ct);
+        metrics.Observe(slotWait);
 
         string? resultLabel = MetricConstants.MetricsResultFailedLabelValue;
         var duration = metrics.StartConversion();

@@ -14,6 +14,9 @@ public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogge
     public MetricTimer? StartConversion() =>
         StartTimer($"{Prefix}_conversion_duration_seconds", "Time spent converting a knowledge file");
 
+    public MetricTimer? StartSlotWait() =>
+        StartTimer($"{Prefix}_conversion_slot_wait_seconds", "Time a knowledge file waited for a free conversion slot");
+
     public void Observe(MetricTimer? timer)
     {
         try
@@ -22,7 +25,7 @@ public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogge
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Could not record a knowledge-file conversion duration.");
+            logger.LogError(ex, "Could not record a knowledge-file pipeline timing.");
         }
     }
 
