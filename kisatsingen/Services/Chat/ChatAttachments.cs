@@ -14,6 +14,7 @@ public sealed class ChatAttachments(
     AttachmentUploader uploader,
     AttachmentQuota quota,
     AttachmentOptions options,
+    AttachmentMetrics metrics,
     ILogger<ChatAttachments> logger) : IDisposable
 {
     private readonly List<ComposerAttachment> _attachments = [];
@@ -39,7 +40,7 @@ public sealed class ChatAttachments(
         // Checked before GetMultipleFiles, which throws above its limit.
         if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
         {
-            SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection);
+            SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection).Message;
             Changed?.Invoke();
             return;
         }
@@ -49,6 +50,7 @@ public sealed class ChatAttachments(
 
         // All listed up front, so the whole selection shows at once and a file
         // that is not acceptable is refused before any bytes move.
+        var picked = new List<ComposerAttachment>();
         var waiting = new List<(ComposerAttachment Attachment, IBrowserFile File, AttachmentType Type)>();
         foreach (var file in selection.GetMultipleFiles(AttachmentOptions.MaxFilesPerSelection))
         {
@@ -56,6 +58,7 @@ public sealed class ChatAttachments(
             var type = AttachmentContentTypes.FromFileName(fileName);
             var attachment = new ComposerAttachment(fileName, file.Size);
             _attachments.Add(attachment);
+            picked.Add(attachment);
 
             if (type is null)
             {
@@ -63,7 +66,7 @@ public sealed class ChatAttachments(
                 continue;
             }
 
-            if (FindUnacceptableSizeReason(file.Size) is string reason)
+            if (FindUnacceptableSizeReason(file.Size) is UploadRejection reason)
             {
                 attachment.MarkRejected(reason);
                 continue;
@@ -81,12 +84,23 @@ public sealed class ChatAttachments(
             await AttachOneAsync(ownerId, attachment, file, type);
             Changed?.Invoke();
         }
+
+        // Counted here, from the final status, so no way of refusing a file can
+        // be missed; from the selection's own list, since a reset or the
+        // circuit closing can empty _attachments meanwhile.
+        foreach (var attachment in picked)
+        {
+            if (attachment.Rejection is UploadRejection rejection)
+            {
+                metrics.CountRejected(rejection);
+            }
+        }
     }
 
     // Null when acceptable. The declared size is the browser's claim: good
     // enough to refuse an honest oversized file before any bytes are read,
     // never trusted to count it.
-    private string? FindUnacceptableSizeReason(long declaredSizeBytes) =>
+    private UploadRejection? FindUnacceptableSizeReason(long declaredSizeBytes) =>
         declaredSizeBytes < 0 ? UploadRejections.UnreadableSize
         : declaredSizeBytes > options.MaxFileBytes ? UploadRejections.TooLarge(options.MaxFileBytes)
         : null;
@@ -126,11 +140,14 @@ public sealed class ChatAttachments(
             Changed?.Invoke();
 
             await using var uploadStream = file.OpenReadStream(options.MaxFileBytes, cancellation);
+            var uploadDuration = metrics.StartUpload();
             var outcome = await uploader.UploadAsync(uploadStream, ownerId, attachment.AttachmentId, type, options.MaxFileBytes, progress, cancellation);
 
             switch (outcome)
             {
+                // Recorded before the duplicate and quota checks: the bytes moved either way.
                 case UploadOutcome.Stored stored:
+                    metrics.RecordUpload(uploadDuration, stored.SizeBytes);
                     MarkReadyIfAccepted(ownerId, attachment, type, stored);
                     break;
                 case UploadOutcome.Rejected rejected:

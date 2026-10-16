@@ -10,8 +10,7 @@ public abstract record UploadOutcome
 
     public sealed record Stored(TempFile File, long SizeBytes, string Sha256) : UploadOutcome;
 
-    // Shown to the user as is.
-    public sealed record Rejected(string Reason) : UploadOutcome;
+    public sealed record Rejected(UploadRejection Reason) : UploadOutcome;
 }
 
 // Copies an upload to a temp file in one pass: hashing, counting against the

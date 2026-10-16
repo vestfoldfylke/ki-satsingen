@@ -1,7 +1,9 @@
 using kisatsingen.Services;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Tests.Services.Chat;
 using Microsoft.Extensions.Logging.Abstractions;
+using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Tests.Services.Attachments;
 
@@ -27,10 +29,18 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public AttachmentQuota Quota { get; }
     public AttachmentUploader Uploader { get; }
 
+    public RecordingMetricsService Metrics { get; } = new();
+
     public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
-    public ChatAttachments CreateChatAttachments(IAuthenticationService authentication) =>
-        new(authentication, Uploader, Quota, Options, NullLogger<ChatAttachments>.Instance);
+    public ChatAttachments CreateChatAttachments(IAuthenticationService authentication, IMetricsService? metrics = null) =>
+        new(
+            authentication,
+            Uploader,
+            Quota,
+            Options,
+            new AttachmentMetrics(metrics ?? Metrics, NullLogger<AttachmentMetrics>.Instance),
+            NullLogger<ChatAttachments>.Instance);
 
     public void Dispose()
     {

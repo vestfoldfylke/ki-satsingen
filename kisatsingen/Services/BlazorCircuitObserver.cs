@@ -10,17 +10,17 @@ namespace kisatsingen.Services;
 // injected here is the same instance the page is driving.
 internal sealed class BlazorCircuitObserver(IMetricsService metrics, ChatSession session) : CircuitHandler
 {
-    private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_Circuit";
+    private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_circuit";
 
     public override Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        metrics.Count($"{Prefix}_Opened", "Blazor Server circuits opened");
+        metrics.Count($"{Prefix}_opened_total", "Blazor Server circuits opened");
         return Task.CompletedTask;
     }
 
     public override Task OnCircuitClosedAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        metrics.Count($"{Prefix}_Closed", "Blazor Server circuits closed");
+        metrics.Count($"{Prefix}_closed_total", "Blazor Server circuits closed");
         return Task.CompletedTask;
     }
 
@@ -31,14 +31,14 @@ internal sealed class BlazorCircuitObserver(IMetricsService metrics, ChatSession
         // persisting, and only the push of tokens nobody can receive stops.
         // Cancelling here would destroy an in-flight answer over a blip the
         // framework is built to recover from.
-        metrics.Count($"{Prefix}_ConnectionDown", "SignalR transport lost while a circuit is still alive");
+        metrics.Count($"{Prefix}_connection_down_total", "SignalR transport lost while a circuit is still alive");
         session.PauseDelivery();
         return Task.CompletedTask;
     }
 
     public override Task OnConnectionUpAsync(Circuit circuit, CancellationToken cancellationToken)
     {
-        metrics.Count($"{Prefix}_ConnectionUp", "SignalR transport restored on an existing circuit");
+        metrics.Count($"{Prefix}_connection_up_total", "SignalR transport restored on an existing circuit");
 
         // Lifts the pause set on the way down. Without this the channel stays
         // muted and every later turn on this circuit streams nothing, arriving in

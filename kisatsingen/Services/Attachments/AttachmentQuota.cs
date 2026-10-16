@@ -8,8 +8,7 @@ public abstract record QuotaCheck
 
     public sealed record Fits : QuotaCheck;
 
-    // Shown to the user as is.
-    public sealed record Rejected(string Reason) : QuotaCheck;
+    public sealed record Rejected(UploadRejection Reason) : QuotaCheck;
 }
 
 // How much pending attachments may hold: per owner across all their tabs, and

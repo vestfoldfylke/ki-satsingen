@@ -193,7 +193,7 @@ public sealed class ChatSessionAnswerTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.Metrics.Named("_UnkeptContent"));
+        Assert.Single(harness.Metrics.Named("_unkept_content_total"));
         Assert.Equal("svar", TurnText.Of(harness.StoredTurn));
     }
 

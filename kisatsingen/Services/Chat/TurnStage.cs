@@ -14,6 +14,21 @@ public enum TurnStage
     SavingResponse
 }
 
+internal static class TurnStageMetric
+{
+    // Mapped explicitly, like TurnOutcomeMetric: the stored name is PascalCase,
+    // and a metric label value is snake_case.
+    public static string LabelValue(TurnStage stage) => stage switch
+    {
+        TurnStage.Authenticating => "authenticating",
+        TurnStage.SavingMessage => "saving_message",
+        TurnStage.ProcessingAttachments => "processing_attachments",
+        TurnStage.Generating => "generating",
+        TurnStage.SavingResponse => "saving_response",
+        _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Every stage needs a metric label; add one to TurnStageMetric.")
+    };
+}
+
 internal static class TurnStageNotice
 {
     // From the stage, never the exception: exception messages carry connection

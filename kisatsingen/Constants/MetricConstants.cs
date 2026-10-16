@@ -2,46 +2,52 @@ namespace kisatsingen.Constants;
 
 public static class MetricConstants
 {
-    public static string MetricsAppPrefix => "KIWeb";
+    // Names follow https://prometheus.io/docs/practices/naming/
+    public static string MetricsAppPrefix => "kiweb";
 
-    public static string MetricsModelLabelName => "Model";
+    public static string MetricsModelLabelName => "model";
 
-    // Stable, unlike Model, which changes whenever a provider rolls a dated build.
+    // Stable, unlike model, which changes whenever a provider rolls a dated build.
     // Group dashboards by this one.
-    public static string MetricsModelKeyLabelName => "ModelKey";
+    public static string MetricsModelKeyLabelName => "model_key";
 
     // A turn that ended before a response came back.
     public static string MetricsModelUnknownLabelValue => "unknown";
 
-    public static string MetricsResultLabelName => "Result";
-    public static string MetricsResultSuccessLabelValue => "Success";
+    public static string MetricsResultLabelName => "result";
+    public static string MetricsResultSuccessLabelValue => "success";
 
-    // Apart from Failed, so pressing stop never reaches failure alerts.
-    public static string MetricsResultCancelledLabelValue => "Cancelled";
+    // Apart from failed, so pressing stop never reaches failure alerts.
+    public static string MetricsResultCancelledLabelValue => "cancelled";
 
-    // Apart from Cancelled: how often this happens decides whether turns should
+    // Apart from cancelled: how often this happens decides whether turns should
     // keep running in the background.
-    public static string MetricsResultLeftChatLabelValue => "LeftChat";
+    public static string MetricsResultLeftChatLabelValue => "left_chat";
 
     // Says something about connectivity, not the app.
-    public static string MetricsResultDisconnectedLabelValue => "Disconnected";
+    public static string MetricsResultDisconnectedLabelValue => "disconnected";
 
-    // Apart from Failed, so an auth problem isn't read as the chat breaking.
-    public static string MetricsResultUnauthenticatedLabelValue => "Unauthenticated";
+    // Apart from failed, so an auth problem isn't read as the chat breaking.
+    public static string MetricsResultUnauthenticatedLabelValue => "unauthenticated";
 
     // The one bucket worth alerting on.
-    public static string MetricsResultFailedLabelValue => "Failed";
+    public static string MetricsResultFailedLabelValue => "failed";
 
     // Its own counter rather than a third outcome label: label names are fixed on
     // first use, so every success would need a filler stage.
-    public static string MetricsStageLabelName => "Stage";
+    public static string MetricsStageLabelName => "stage";
 
     // The type name, never the message: messages carry ids and provider bodies, and
     // would make the series cardinality unbounded.
-    public static string MetricsExceptionLabelName => "Exception";
+    public static string MetricsExceptionLabelName => "exception";
 
-    public static string MetricsToolLabelName => "Tool";
+    public static string MetricsToolLabelName => "tool";
+
+    // The rejection key, never its message: a message is reworded, a key is not.
+    public static string MetricsReasonLabelName => "reason";
+
+    public static string MetricsStateLabelName => "state";
 
     // A type name, so the package bounds it: never anything the model wrote.
-    public static string MetricsContentTypeLabelName => "Type";
+    public static string MetricsContentTypeLabelName => "type";
 }

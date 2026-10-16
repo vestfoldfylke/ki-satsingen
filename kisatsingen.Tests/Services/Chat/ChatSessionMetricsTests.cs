@@ -132,7 +132,7 @@ public sealed class ChatSessionMetricsTests
         await harness.Session.SendAsync("hei");
 
         var failure = Assert.Single(harness.Metrics.Named(FailureCounter));
-        Assert.Equal(nameof(TurnStage.Generating), failure.Label(MetricConstants.MetricsStageLabelName));
+        Assert.Equal("generating", failure.Label(MetricConstants.MetricsStageLabelName));
         Assert.Equal(nameof(TimeoutException), failure.Label(MetricConstants.MetricsExceptionLabelName));
     }
 
@@ -145,7 +145,7 @@ public sealed class ChatSessionMetricsTests
         await harness.Session.SendAsync("hei");
 
         var failure = Assert.Single(harness.Metrics.Named(FailureCounter));
-        Assert.Equal(nameof(TurnStage.SavingResponse), failure.Label(MetricConstants.MetricsStageLabelName));
+        Assert.Equal("saving_response", failure.Label(MetricConstants.MetricsStageLabelName));
     }
 
     // Not the cancellation bucket, which has no Failure series for an alert to read.
