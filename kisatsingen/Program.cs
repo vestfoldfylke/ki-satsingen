@@ -1,3 +1,4 @@
+using ElBruno.MarkItDotNet;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components;
 using kisatsingen.Data;
@@ -204,10 +205,27 @@ pipelineOptions.Validate();
 
 builder.Services.AddSingleton(pipelineOptions);
 
+// MarkItDotNet (for PDF -> Markdown)
+// TODO: 👇 Remove this manual implementation of MarkItDotNet if/when MarkItDotNet fixes the issue raised here: https://github.com/elbruno/ElBruno.MarkItDotNet/issues/30
+// TODO: If/When fixed, instead use: builder.Services.AddMarkItDotNet();
+builder.Services.AddSingleton(new MarkItDotNetOptions());
+builder.Services.AddSingleton(_ =>
+{
+    var registry = new ConverterRegistry();
+    registry.Register(new VestfoldPdfConverter());
+    return registry;
+});
+builder.Services.AddSingleton(serviceProvider => new MarkdownService(
+    serviceProvider.GetRequiredService<ConverterRegistry>(),
+    serviceProvider.GetServices<IConverterPlugin>(),
+    serviceProvider.GetRequiredService<MarkItDotNetOptions>()));
+// TODO: 👆 Remove this manual implementation of MarkItDotNet if/when MarkItDotNet fixes the issue raised here: https://github.com/elbruno/ElBruno.MarkItDotNet/issues/30
+
 // One converter per content type. Moving a type to a remote converter means
 // swapping its registration here for one that calls that service.
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
+builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();

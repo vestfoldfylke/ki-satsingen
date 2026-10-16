@@ -39,6 +39,7 @@ internal static class FileToolTexts
     {
         ContentOrigin.TextFile => null,
         ContentOrigin.ImagePlaceholder => "Innholdet i bildet er ikke tolket.",
+        ContentOrigin.Pdf => "Teksten er hentet ut til Markdown",
         null => "Det er ukjent hvordan teksten ble hentet ut, så den kan være unøyaktig.",
         _ => throw new UnreachableException($"ContentOrigin {origin} has no origin note. Add one here in the same change that adds the value.")
     };

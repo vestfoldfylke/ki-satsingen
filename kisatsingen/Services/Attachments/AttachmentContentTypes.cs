@@ -12,12 +12,14 @@ public static class AttachmentContentTypes
     // In the plural, since they name what may be attached.
     private const string TextFiles = "tekstfiler";
     private const string Images = "bilder";
+    private const string PdfFiles = "PDF-filer";
 
     // See magic bytes / file type signatures here: https://www.garykessler.net/library/file_sigs_GCK_latest.html
     public static readonly AttachmentType PlainText = new("text/plain", Signature: null);
     public static readonly AttachmentType Markdown = new("text/markdown", Signature: null);
     public static readonly AttachmentType Png = new("image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     public static readonly AttachmentType Jpeg = new("image/jpeg", [0xFF, 0xD8, 0xFF]);
+    public static readonly AttachmentType Pdf = new("application/pdf", [.. "%PDF"u8]);
 
     private sealed record AllowedExtension(string Extension, AttachmentType Type, string KindName);
 
@@ -31,6 +33,7 @@ public static class AttachmentContentTypes
         new(".png", Png, Images),
         new(".jpg", Jpeg, Images),
         new(".jpeg", Jpeg, Images),
+        new(".pdf", Pdf, PdfFiles)
     ];
 
     private static readonly Dictionary<string, AttachmentType> ByExtension =

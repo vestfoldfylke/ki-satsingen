@@ -13,6 +13,7 @@ internal static class KnowledgeFileTexts
     {
         ContentOrigin.TextFile => null,
         ContentOrigin.ImagePlaceholder => "Innholdet i bildet er ikke tolket.",
+        ContentOrigin.Pdf => "Teksten er hentet ut til Markdown",
         null => "Det er ukjent hvordan teksten ble hentet ut.",
         _ => throw new UnreachableException($"ContentOrigin {origin} has no note for the files panel. Add one here in the same change that adds the value.")
     };

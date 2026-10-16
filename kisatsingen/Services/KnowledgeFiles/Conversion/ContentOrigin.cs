@@ -17,5 +17,8 @@ public enum ContentOrigin
     TextFile,
 
     // The upload was an image whose content is not read.
-    ImagePlaceholder
+    ImagePlaceholder,
+
+    // The upload was a PDF file (*.pdf), whose content has been converted to Markdown.
+    Pdf
 }
