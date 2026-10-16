@@ -239,7 +239,12 @@ _ = app.Services.GetRequiredService<IChatModelCatalog>();
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a
 // request, and no upload can race it.
-_ = app.Services.GetRequiredService<AttachmentStorage>();
+var attachmentStorage = app.Services.GetRequiredService<AttachmentStorage>();
+
+// Measured at each scrape rather than kept up to date: the folder is the
+// truth, as it is for the quota.
+var attachmentMetrics = app.Services.GetRequiredService<AttachmentMetrics>();
+Metrics.DefaultRegistry.AddBeforeCollectCallback(() => attachmentMetrics.RecordFolderUsage(attachmentStorage));
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

@@ -483,19 +483,19 @@ internal sealed class RecordingMetricsService : IMetricsService
     public IReadOnlyList<MetricCall> Named(string suffix) =>
         Calls.Where(call => call.Name.EndsWith(suffix, StringComparison.Ordinal)).ToList();
 
-    public void Count(string name, string? description, int value = 1) => Record(name, []);
+    public void Count(string name, string? description, int value = 1) => Record(name, value, []);
 
-    public void Count(string name, string? description, params (string, string)[] labels) => Record(name, labels);
+    public void Count(string name, string? description, params (string, string)[] labels) => Record(name, 1, labels);
 
-    public void Count(string name, string? description, int value, params (string, string)[] labels) => Record(name, labels);
+    public void Count(string name, string? description, int value, params (string, string)[] labels) => Record(name, value, labels);
 
-    public void Gauge(string name, double value) => Record(name, []);
+    public void Gauge(string name, double value) => Record(name, value, []);
 
-    public void Gauge(string name, string description, double value) => Record(name, []);
+    public void Gauge(string name, string description, double value) => Record(name, value, []);
 
-    public void Gauge(string name, double value, params (string, string)[] labels) => Record(name, labels);
+    public void Gauge(string name, double value, params (string, string)[] labels) => Record(name, value, labels);
 
-    public void Gauge(string name, string description, double value, params (string, string)[] labels) => Record(name, labels);
+    public void Gauge(string name, string description, double value, params (string, string)[] labels) => Record(name, value, labels);
 
     public MetricTimer Histogram(string name, string? description) => new ZeroTimer();
 
@@ -503,14 +503,14 @@ internal sealed class RecordingMetricsService : IMetricsService
 
     public MetricTimer Histogram(string name, string? description, params (string, string)[] labels) => new ZeroTimer();
 
-    private void Record(string name, (string, string)[] labels)
+    private void Record(string name, double value, (string, string)[] labels)
     {
         if (ThrowForNameEndingWith is { } suffix && name.EndsWith(suffix, StringComparison.Ordinal))
         {
             throw new InvalidOperationException($"Scripted metrics failure for {name}.");
         }
 
-        Calls.Add(new MetricCall(name, labels.ToDictionary(label => label.Item1, label => label.Item2)));
+        Calls.Add(new MetricCall(name, value, labels.ToDictionary(label => label.Item1, label => label.Item2)));
     }
 
     // Nothing asserts on durations.
@@ -524,7 +524,7 @@ internal sealed class RecordingMetricsService : IMetricsService
     }
 }
 
-internal sealed record MetricCall(string Name, IReadOnlyDictionary<string, string> Labels)
+internal sealed record MetricCall(string Name, double Value, IReadOnlyDictionary<string, string> Labels)
 {
     public string Label(string name) => Labels.TryGetValue(name, out var value) ? value : "<absent>";
 }

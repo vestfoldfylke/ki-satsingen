@@ -46,6 +46,8 @@ public static class MetricConstants
     // A rejection key, written out beside its message: never the message itself.
     public static string MetricsReasonLabelName => "reason";
 
+    public static string MetricsStateLabelName => "state";
+
     // A type name, so the package bounds it: never anything the model wrote.
     public static string MetricsContentTypeLabelName => "type";
 }

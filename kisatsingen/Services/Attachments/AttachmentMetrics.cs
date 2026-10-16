@@ -12,6 +12,12 @@ public sealed class AttachmentMetrics(IMetricsService metrics, ILogger<Attachmen
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_attachment";
 
+    private static class FolderStateLabel
+    {
+        public const string Uploading = "uploading";
+        public const string Ready = "ready";
+    }
+
     public void CountRejected(UploadRejection rejection)
     {
         try
@@ -54,6 +60,23 @@ public sealed class AttachmentMetrics(IMetricsService metrics, ILogger<Attachmen
         catch (Exception ex)
         {
             logger.LogError(ex, "Could not record a completed upload of {SizeBytes} bytes.", sizeBytes);
+        }
+    }
+
+    // Runs before every scrape, where a throw fails the whole scrape and not
+    // just this gauge; a missing folder throws.
+    public void RecordFolderUsage(AttachmentStorage storage)
+    {
+        try
+        {
+            var name = $"{Prefix}_folder_bytes";
+            const string description = "Bytes in the attachment temp folder, by state";
+            metrics.Gauge(name, description, storage.TotalUploadingUsage().ByteCount, (MetricConstants.MetricsStateLabelName, FolderStateLabel.Uploading));
+            metrics.Gauge(name, description, storage.TotalReadyUsage().ByteCount, (MetricConstants.MetricsStateLabelName, FolderStateLabel.Ready));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not measure the attachment temp folder {Folder} for metrics.", storage.Folder);
         }
     }
 }

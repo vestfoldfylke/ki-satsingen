@@ -181,6 +181,8 @@ public sealed class AttachmentStorage
 
     public StorageUsage TotalReadyUsage() => Measure(ReadyPrefix + "*");
 
+    public StorageUsage TotalUploadingUsage() => Measure(UploadingPrefix + "*");
+
     // A file deleted while it is being measured counts as gone.
     private StorageUsage Measure(string searchPattern)
     {
