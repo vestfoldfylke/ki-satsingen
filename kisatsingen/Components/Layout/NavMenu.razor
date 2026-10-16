@@ -94,7 +94,6 @@
                                 data-variant="tertiary"
                                 data-color="neutral"
                                 popovertarget="user-menu-dropdown"
-                                aria-label="Brukermeny"
                                 data-tooltip="Brukermeny"
                                 >
                             <span
@@ -115,7 +114,7 @@
                         >   
                             <h2 id="user-menu-heading" class="ds-heading"><strong>Meg og mitt</strong></h2>
                             <ul aria-labelledby="user-menu-heading">
-                                <li role="none">
+                                <li>
                                     <NavLink class="ds-button"
                                             data-variant="tertiary"
                                             data-color="accent"
@@ -129,9 +128,9 @@
 
                             <AuthorizeView Policy="IsAdministrator" Context="adminContext">
                                 <hr aria-hidden="true" class="ds-divider"/>
-                                <h2 class="ds-heading"><strong>Administrator</strong></h2>
-                                <ul role="menu" aria-label="Avansert brukermeny">
-                                    <li role="none">
+                                <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
+                                <ul aria-labelledby="admin-menu-heading">
+                                    <li>
                                         <NavLink class="ds-button"
                                                 data-variant="tertiary"
                                                 data-color="accent"
