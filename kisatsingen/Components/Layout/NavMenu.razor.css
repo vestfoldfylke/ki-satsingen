@@ -15,9 +15,8 @@
     }
 }
 
-.nav-item > button > span,
-.nav-item > a > span {
-    font-size: .85rem;
+.nav-item > button > span.material-symbols-outlined {
+   font-size: 1.1rem;
 }
 
 .nav-scrollable {
@@ -41,7 +40,7 @@
 
 .nav-primary {
     flex-shrink: 0;
-    padding-top: 2rem;
+    padding-top: 1rem;
     padding-bottom: 2rem;
 }
 
@@ -50,6 +49,12 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+}
+
+.chat-sidebar-new-chat-button {
+    width: 100%;
+    justify-content: left;
+    padding-left: .3rem;
 }
 
 .user {
@@ -158,3 +163,19 @@
     white-space: nowrap;
 }
 
+.chat-sidebar-user-button {
+    flex: 1;
+    min-width: 0;
+    justify-content: flex-start;
+    padding: 0;
+    background: transparent;
+}
+
+.chat-sidebar-user-button .chat-sidebar-title {
+    flex: 1;
+    text-align: left;
+}
+
+.chat-sidebar-user-button .ds-avatar {
+    --dsc-avatar-size: 1.7rem;
+}

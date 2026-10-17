@@ -1,3 +1,4 @@
+using kisatsingen.Constants;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Documents;
@@ -16,12 +17,11 @@ public sealed class KnowledgeFilePipeline(
     int maxEstimatedTokens,
     ILogger<KnowledgeFilePipeline> logger)
 {
-    private enum ConversionResultLabel
+    private static class ConversionResultLabel
     {
-        Converted,
-        Rejected,
-        TimedOut,
-        Failed
+        public const string Converted = "converted";
+        public const string Rejected = "rejected";
+        public const string TimedOut = "timed_out";
     }
 
     // Shared by every user's conversions.
@@ -68,9 +68,12 @@ public sealed class KnowledgeFilePipeline(
     // would freeze that user's page.
     private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, CancellationToken ct)
     {
+        // Not recorded when the turn stops while waiting, like a stopped conversion.
+        var slotWait = metrics.StartSlotWait();
         await _conversionSlots.WaitAsync(ct);
+        metrics.Observe(slotWait);
 
-        ConversionResultLabel? resultLabel = ConversionResultLabel.Failed;
+        string? resultLabel = MetricConstants.MetricsResultFailedLabelValue;
         var duration = metrics.StartConversion();
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(options.ConversionTimeout);
@@ -104,10 +107,10 @@ public sealed class KnowledgeFilePipeline(
         finally
         {
             _conversionSlots.Release();
-            if (resultLabel is ConversionResultLabel label)
+            if (resultLabel is not null)
             {
                 metrics.Observe(duration);
-                metrics.CountOutcome(attachment.Type.ContentType, label.ToString());
+                metrics.CountOutcome(attachment.Type.ContentType, resultLabel);
             }
         }
     }

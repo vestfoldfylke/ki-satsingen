@@ -5,6 +5,6 @@
                 <p class="ds-paragraph">Du har ikke tilgang til denne siden.</p>
             </NotAuthorized>
         </AuthorizeRouteView>
-        <FocusOnNavigate RouteData="routeData" Selector="h1"/>
+        <FocusOnNavigate RouteData="routeData" Selector="body:has(#chat-textarea) #chat-textarea, body:not(:has(#chat-textarea)) h1" />
     </Found>
 </Router>

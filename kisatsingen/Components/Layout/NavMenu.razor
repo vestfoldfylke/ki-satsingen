@@ -7,32 +7,18 @@
     <div class="nav-scrollable">
         <nav class="nav-primary">
             <div class="nav-item">
-                <button type="button" class="ds-link" @onclick="StartNewChatAsync">
-                    <span class="material-symbols-outlined" aria-hidden="true">add_2</span>
+                <button
+                    class="ds-button chat-sidebar-new-chat-button"
+                    type="button"
+                    data-variant="tertiary"
+                    data-color="accent"
+                    @onclick="StartNewChatAsync"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
                     Ny samtale
                 </button>
             </div>
-            <div class="nav-item">
-                <NavLink class="ds-link" href="usage">
-                    <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
-                    Mitt forbruk
-                </NavLink>
-            </div>
         </nav>
-
-        <AuthorizeView Policy="IsAdministrator">
-            <Authorized>
-                <nav class="nav-primary">
-                    <h4 class="ds-heading" data-size="xs">Administrator</h4>
-                    <div class="nav-item">
-                        <NavLink class="ds-link" href="administration/usage">
-                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
-                            Totalt forbruk
-                        </NavLink>
-                    </div>
-                </nav>
-            </Authorized>
-        </AuthorizeView>
 
         <aside class="chat-sidebar" aria-label="Samtaler">
             <div class="chat-sidebar-header">
@@ -101,19 +87,62 @@
         <div class="user">
             <AuthorizeView>
                 <Authorized>
-                    <span class="me-2">Innlogget: <strong>@context.User.Identity?.Name</strong></span>
+                    <hr aria-hidden="true" class="ds-divider"/>
+                    <div class="chat-sidebar-item">
+                        <button class="ds-button chat-sidebar-user-button"
+                            type="button"
+                            data-variant="tertiary"
+                            data-color="neutral"
+                            popovertarget="user-menu-dropdown"
+                            data-tooltip="Brukermeny"
+                        >
+                            <span
+                                aria-hidden="true"
+                                class="ds-avatar"
+                                data-size="xs"
+                                data-color="accent"
+                            ></span>
+                            <span class="ds-paragraph chat-sidebar-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
+                            <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
+                        </button>
+
+                        <div
+                            id="user-menu-dropdown"
+                            class="ds-dropdown"
+                            popover="auto"
+                            data-placement="top-start"
+                        >
+                            <h2 id="user-menu-heading" class="ds-heading"><strong>Meg og mitt</strong></h2>
+                            <ul aria-labelledby="user-menu-heading">
+                                <li>
+                                    <NavLink class="ds-button"
+                                        data-variant="tertiary"
+                                        data-color="accent"
+                                        href="usage">
+                                        <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
+                                        Mitt forbruk
+                                    </NavLink>
+                                </li>
+                            </ul>
+
+                            <AuthorizeView Policy="IsAdministrator" Context="adminContext">
+                                <hr aria-hidden="true" class="ds-divider"/>
+                                <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
+                                <ul aria-labelledby="admin-menu-heading">
+                                    <li>
+                                        <NavLink class="ds-button"
+                                            data-variant="tertiary"
+                                            data-color="accent"
+                                            href="administration/usage">
+                                            <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
+                                            Totalt forbruk
+                                        </NavLink>
+                                    </li>
+                                </ul>
+                            </AuthorizeView>
+                        </div>
+                    </div>
                 </Authorized>
-            </AuthorizeView>
-            
-            <br />
-            
-            <AuthorizeView Policy="IsAdministrator">
-                <Authorized>
-                    <span>Du er admin du</span>
-                </Authorized>
-                <NotAuthorized>
-                    <span>Du er ikke admin du</span>
-                </NotAuthorized>
             </AuthorizeView>
         </div>
     </div>

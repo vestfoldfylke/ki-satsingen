@@ -85,7 +85,7 @@ builder.Services.PostConfigure<OpenIdConnectOptions>(OpenIdConnectDefaults.Authe
         {
             if (ctx.Principal?.IsInRole(role) ?? false)
             {
-                metricsService.Count($"{MetricConstants.MetricsAppPrefix}_{role}LoginCount", $"Number of {role} logins");
+                metricsService.Count($"{MetricConstants.MetricsAppPrefix}_login_total", "Number of logins, by role", ("role", role));
                 break;
             }
         }
@@ -195,6 +195,7 @@ builder.Services.AddSingleton(sp => AttachmentStorage.StartFresh(
     sp.GetRequiredService<ILogger<AttachmentStorage>>()));
 builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
+builder.Services.AddSingleton<AttachmentMetrics>();
 builder.Services.AddScoped<ChatAttachments>();
 
 // ─── Knowledge-file pipeline ───────────────────────────
@@ -253,10 +254,20 @@ var app = builder.Build();
 // must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
 
+// ─── One-time startup: document converters ─────────────
+// Resolved eagerly because building the registry validates it: two converters
+// for one type must stop startup, not surface later as a failed upload.
+_ = app.Services.GetRequiredService<DocumentConverterRegistry>();
+
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a
 // request, and no upload can race it.
-_ = app.Services.GetRequiredService<AttachmentStorage>();
+var attachmentStorage = app.Services.GetRequiredService<AttachmentStorage>();
+
+// Measured at each scrape rather than kept up to date: the folder is the
+// truth, as it is for the quota.
+var attachmentMetrics = app.Services.GetRequiredService<AttachmentMetrics>();
+Metrics.DefaultRegistry.AddBeforeCollectCallback(() => attachmentMetrics.RecordFolderUsage(attachmentStorage));
 
 // ─── One-time startup: database ────────────────────────
 if (app.Environment.IsDevelopment())

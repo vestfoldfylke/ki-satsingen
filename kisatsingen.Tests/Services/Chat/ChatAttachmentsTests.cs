@@ -83,7 +83,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(breaking));
 
-        Assert.Equal(UploadRejections.Interrupted, Assert.Single(_attachments.All).RejectionReason);
+        Assert.Equal(UploadRejections.Interrupted, Assert.Single(_attachments.All).Rejection);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -95,7 +95,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
-        Assert.Equal(UploadRejections.Unavailable, Assert.Single(_attachments.All).RejectionReason);
+        Assert.Equal(UploadRejections.Unavailable, Assert.Single(_attachments.All).Rejection);
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(tampered));
 
-        Assert.Equal(UploadRejections.UnreadableSize, Assert.Single(_attachments.All).RejectionReason);
+        Assert.Equal(UploadRejections.UnreadableSize, Assert.Single(_attachments.All).Rejection);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -178,7 +178,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         await _attachments.AttachAsync(Selecting(tooLarge));
 
-        Assert.Equal(UploadRejections.TooLarge(_environment.Options.MaxFileBytes), Assert.Single(_attachments.All).RejectionReason);
+        Assert.Equal(UploadRejections.TooLarge(_environment.Options.MaxFileBytes), Assert.Single(_attachments.All).Rejection);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -194,7 +194,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
         Assert.Equal(
             [(AttachmentStatus.Ready, null), (AttachmentStatus.Rejected, UploadRejections.TooManyPending(1))],
-            attachments.All.Select(attachment => (attachment.Status, attachment.RejectionReason)));
+            attachments.All.Select(attachment => (attachment.Status, attachment.Rejection)));
     }
 
     [Fact]
