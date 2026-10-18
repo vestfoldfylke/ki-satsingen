@@ -211,3 +211,6 @@ Thumbs.db
 
 # Environments
 **/appsettings.*json
+
+# Just crap i want to ignore
+ignore/

@@ -176,7 +176,6 @@ public sealed class ChatSession : IAsyncDisposable
             if (chat is not null)
             {
                 _currentChatId = chat.Id;
-                _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
                 _knowledgeFiles = knowledgeFiles;
                 var loadedAt = DateTimeOffset.UtcNow;
                 _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
