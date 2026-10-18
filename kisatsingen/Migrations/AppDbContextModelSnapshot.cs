@@ -38,7 +38,6 @@ namespace kisatsingen.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<string>("Instructions")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("Name")

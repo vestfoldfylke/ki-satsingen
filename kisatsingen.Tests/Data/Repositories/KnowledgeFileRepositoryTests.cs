@@ -181,7 +181,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     [Fact]
     public async Task A_file_already_saved_in_the_same_assistant_is_rejected_as_a_duplicate()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
         await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
 
         var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
@@ -249,7 +249,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     [Fact]
     public async Task Saving_into_another_owners_assistant_throws()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("notat.md")));
@@ -326,8 +326,8 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     [Fact]
     public async Task Listing_an_assistants_files_returns_only_the_callers_files()
     {
-        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null, "x");
-        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
+        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null);
+        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
         await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.NewFile("mine.md"));
         await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.NewFile("theirs.md"));
 
@@ -339,7 +339,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     [Fact]
     public async Task Deleting_an_assistant_takes_its_files_with_it()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
         await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
 
         await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
@@ -398,7 +398,7 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     [Fact]
     public async Task The_database_rejects_a_file_scoped_to_both_an_assistant_and_a_chat()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
         var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistantId: null);
 
         var error = await Assert.ThrowsAsync<PostgresException>(

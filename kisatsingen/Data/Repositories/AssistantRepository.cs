@@ -5,11 +5,10 @@ namespace kisatsingen.Data.Repositories;
 
 public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory) : IAssistantRepository
 {
-    public async Task<Assistant> CreateAssistantAsync(string ownerId, string name, string? description, string instructions, AssistantVisibility visibility = AssistantVisibility.Private, CancellationToken ct = default)
+    public async Task<Assistant> CreateAssistantAsync(string ownerId, string name, string? description, AssistantVisibility visibility = AssistantVisibility.Private, CancellationToken ct = default)
     {
         var normalisedName = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength);
         var normalisedDescription = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength);
-        var normalisedInstructions = BoundedText.RequireTrimmed(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
 
         await using var db = await factory.CreateDbContextAsync(ct);
         var now = DateTimeOffset.UtcNow;
@@ -20,7 +19,6 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             OwnerId = ownerId,
             Name = normalisedName,
             Description = normalisedDescription,
-            Instructions = normalisedInstructions,
             Visibility = visibility,
             CreatedAt = now,
             UpdatedAt = now
@@ -51,11 +49,10 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             .ToListAsync(ct);
     }
 
-    public async Task<bool> UpdateAssistantAsync(string userId, Guid assistantId, string name, string? description, string instructions, AssistantVisibility visibility, CancellationToken ct = default)
+    public async Task<bool> UpdateAssistantDetailsAsync(string userId, Guid assistantId, string name, string? description, AssistantVisibility visibility, CancellationToken ct = default)
     {
         var normalisedName = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength);
         var normalisedDescription = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength);
-        var normalisedInstructions = BoundedText.RequireTrimmed(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
 
         await using var db = await factory.CreateDbContextAsync(ct);
 
@@ -65,8 +62,23 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.Name, normalisedName)
                 .SetProperty(a => a.Description, normalisedDescription)
-                .SetProperty(a => a.Instructions, normalisedInstructions)
                 .SetProperty(a => a.Visibility, visibility)
+                .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
+        return updatedCount > 0;
+    }
+
+    public async Task<bool> UpdateAssistantInstructionsAsync(string userId, Guid assistantId, string? instructions, CancellationToken ct = default)
+    {
+        var normalisedInstructions = BoundedText.TrimToNullable(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        var updatedCount = await db.Assistants
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.Instructions, normalisedInstructions)
                 .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
 
         return updatedCount > 0;

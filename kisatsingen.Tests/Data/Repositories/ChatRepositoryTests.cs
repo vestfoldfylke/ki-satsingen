@@ -53,7 +53,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task CreateChatAsync_snapshots_the_assistant_name()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null);
 
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
 
@@ -79,7 +79,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task Deleting_the_assistant_nulls_the_id_but_keeps_the_snapshot()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null);
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
 
         await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
@@ -93,10 +93,10 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     [Fact]
     public async Task Renaming_the_assistant_does_not_rewrite_older_chats_snapshots()
     {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null);
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
 
-        await AssistantRepo.UpdateAssistantAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, "x", AssistantVisibility.Private);
+        await AssistantRepo.UpdateAssistantDetailsAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, AssistantVisibility.Private);
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
