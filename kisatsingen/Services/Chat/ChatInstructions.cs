@@ -1,9 +1,8 @@
 namespace kisatsingen.Services.Chat;
 
-// What the model is told before the conversation, in layers: the base holds in
-// every chat, then a layer for the kind of chat. Nothing here may depend on the
-// user, the chat or the time: a provider caches only an identical start of the
-// request, so a date or a name would make every request start differently.
+// Nothing here may depend on the user, the chat or the time: a provider caches
+// only an identical start of the request, so a date or a name would make every
+// request start differently.
 internal static class ChatInstructions
 {
     // Nothing about a particular tool: each tool's description covers it, and

@@ -121,12 +121,16 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    // The one place the prompt for the next turn is chosen, so what is sent and
+    // what is estimated can never differ.
+    private static string Instructions => ChatInstructions.ForPlainChat;
+
     // Estimated from the request we would send, not from usage: usage sums every
     // tool round trip. Right for cost (see ConversationUsage), wrong for size.
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
-            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), ChatInstructions.ForPlainChat);
+            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), Instructions);
 
     public MessageUsage? ConversationUsage
     {
@@ -263,10 +267,10 @@ public sealed class ChatSession : IAsyncDisposable
         var viewVersion = _viewVersion;
         var isNewChat = _currentChatId is null;
 
-        // A turn that started on one model and prompt must finish on them.
+        // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, ChatInstructions.ForPlainChat, sentAttachments.FileNames);
+        var turn = Turn.Start(text.Trim(), model, Instructions, sentAttachments.FileNames);
         var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
