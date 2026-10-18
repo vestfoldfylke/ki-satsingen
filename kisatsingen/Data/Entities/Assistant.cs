@@ -13,6 +13,7 @@ public sealed class Assistant
     public required string OwnerId { get; init; }
     public required string Name { get; init; }
     public string? Description { get; init; }
+    public required AssistantVisibility Visibility { get; init; }
 
     // Not versioned: ChatTurn.SystemPrompt already records what each
     // turn was actually sent, so editing this cannot rewrite past chats.

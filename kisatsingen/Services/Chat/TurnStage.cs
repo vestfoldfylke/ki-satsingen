@@ -4,7 +4,7 @@ namespace kisatsingen.Services.Chat;
 // in metric labels and stored rows, so it must be a small bounded set that is
 // safe to render. The exception itself goes to the log.
 //
-// Persisted by name: reorder freely, never rename.
+// Stored by name, so renaming a member needs a migration that renames the stored values.
 public enum TurnStage
 {
     Authenticating,

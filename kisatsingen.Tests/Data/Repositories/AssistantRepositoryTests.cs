@@ -36,6 +36,25 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
+    public async Task CreateAssistantAsync_makes_the_assistant_private_unless_told_otherwise()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
+
+        Assert.Equal(AssistantVisibility.Private, assistant.Visibility);
+    }
+
+    [Fact]
+    public async Task UpdateAssistantAsync_stores_a_changed_visibility()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
+
+        await Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Saksbehandler", null, "x", AssistantVisibility.Organization);
+
+        var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
+        Assert.Equal(AssistantVisibility.Organization, stored?.Visibility);
+    }
+
+    [Fact]
     public async Task CreateAssistantAsync_refuses_a_blank_name()
     {
         await Assert.ThrowsAsync<ArgumentException>(
@@ -84,7 +103,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "  ", null, "x"));
+            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "  ", null, "x", AssistantVisibility.Private));
     }
 
     [Fact]
@@ -93,7 +112,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null, "x");
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Saksbehandler", null, "   "));
+            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Saksbehandler", null, "   ", AssistantVisibility.Private));
     }
 
     [Fact]
@@ -123,7 +142,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Hijacked", null, "evil"));
+            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Hijacked", null, "evil", AssistantVisibility.Private));
     }
 
     [Fact]

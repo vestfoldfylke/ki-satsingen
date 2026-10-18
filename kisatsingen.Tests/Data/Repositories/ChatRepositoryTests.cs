@@ -96,7 +96,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Legal Advisor", null, "x");
         var chat = await Repo.CreateChatAsync(OwnerId, "hello", assistant.Id);
 
-        await AssistantRepo.UpdateAssistantAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, "x");
+        await AssistantRepo.UpdateAssistantAsync(OwnerId, assistant.Id, "Legal Advisor v2", null, "x", AssistantVisibility.Private);
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.Chats.SingleAsync(c => c.Id == chat.Id);
