@@ -1,3 +1,4 @@
+using kisatsingen.Services.Chat;
 using Microsoft.Extensions.AI;
 using Xunit;
 
@@ -19,6 +20,16 @@ public sealed class ChatSessionInstructionsTests
         // Two nulls would also pass the comparison below.
         Assert.NotNull(instructionsSent);
         Assert.Equal(instructionsSent, harness.StoredTurn.SystemPrompt);
+    }
+
+    [Fact]
+    public async Task A_chat_without_an_assistant_is_sent_the_plain_chat_instructions()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(ChatInstructions.ForPlainChat, harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]

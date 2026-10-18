@@ -12,8 +12,6 @@ namespace kisatsingen.Services.Chat;
 // What the page shows of the open chat. Running a turn is TurnRunner's job.
 public sealed class ChatSession : IAsyncDisposable
 {
-    private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
-
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_chat_session";
 
     private readonly IAuthenticationService _authenticationService;
@@ -32,7 +30,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Identity only; ChatManager owns the chat's metadata.
     private Guid? _currentChatId;
-    private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     // Loaded with the chat. Every file a turn makes available is added as it
     // becomes available, while the view is still that turn's. A file another
@@ -129,7 +126,7 @@ public sealed class ChatSession : IAsyncDisposable
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
-            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), _effectiveSystemPrompt);
+            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), ChatInstructions.ForPlainChat);
 
     public MessageUsage? ConversationUsage
     {
@@ -235,7 +232,6 @@ public sealed class ChatSession : IAsyncDisposable
         _turns.Clear();
         _liveTurnId = null;
         _currentChatId = null;
-        _effectiveSystemPrompt = DefaultSystemPrompt;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 
@@ -270,7 +266,7 @@ public sealed class ChatSession : IAsyncDisposable
         // A turn that started on one model and prompt must finish on them.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt, sentAttachments.FileNames);
+        var turn = Turn.Start(text.Trim(), model, ChatInstructions.ForPlainChat, sentAttachments.FileNames);
         var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
