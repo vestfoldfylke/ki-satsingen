@@ -116,18 +116,19 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
-    public async Task ListAssistantsAsync_returns_only_the_callers_assistants()
+    public async Task ListAssistantsAsync_returns_the_users_own_and_organization_wide_assistants_but_not_another_owners_private_ones()
     {
         await Repo.CreateAssistantAsync(OwnerId, "Mine", null, "x");
         await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
+        await Repo.CreateAssistantAsync(OtherOwnerId, "OrganizationWide", null, "x", AssistantVisibility.Organization);
 
         var summaries = await Repo.ListAssistantsAsync(OwnerId);
 
-        Assert.Equal(["Mine"], summaries.Select(s => s.Name));
+        Assert.Equal(["Mine", "OrganizationWide"], summaries.Select(s => s.Name).Order());
     }
 
     [Fact]
-    public async Task GetAssistantAsync_returns_null_for_another_owners_assistant()
+    public async Task GetAssistantAsync_returns_null_for_another_owners_private_assistant()
     {
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
 
@@ -137,12 +138,35 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
-    public async Task UpdateAssistantAsync_throws_for_another_owners_assistant()
+    public async Task GetAssistantAsync_returns_another_owners_organization_wide_assistant()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "OrganizationWide", null, "x", AssistantVisibility.Organization);
+
+        var found = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
+
+        Assert.Equal(assistant.Id, found?.Id);
+    }
+
+    [Fact]
+    public async Task UpdateAssistantAsync_reports_false_for_another_owners_private_assistant()
     {
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "x");
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Hijacked", null, "evil", AssistantVisibility.Private));
+        var updated = await Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "Hijacked", null, "evil", AssistantVisibility.Private);
+
+        Assert.False(updated);
+    }
+
+    // The query only guarantees the user may use it; whether they may edit it
+    // is the CanEditAssistant policy, checked before this is called.
+    [Fact]
+    public async Task UpdateAssistantAsync_reaches_another_owners_organization_wide_assistant()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "OrganizationWide", null, "x", AssistantVisibility.Organization);
+
+        var updated = await Repo.UpdateAssistantAsync(OwnerId, assistant.Id, "OrganizationWide", null, "y", AssistantVisibility.Organization);
+
+        Assert.True(updated);
     }
 
     [Fact]
@@ -169,11 +193,21 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
-    public async Task CreateChatAsync_throws_when_the_assistant_belongs_to_another_owner()
+    public async Task CreateChatAsync_throws_when_the_assistant_is_another_owners_private_one()
     {
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null, "secret instructions");
 
         await Assert.ThrowsAsync<InvalidOperationException>(
             () => ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id));
+    }
+
+    [Fact]
+    public async Task CreateChatAsync_accepts_another_owners_organization_wide_assistant()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "OrganizationWide", null, "x", AssistantVisibility.Organization);
+
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+
+        Assert.Equal(assistant.Id, chat.AssistantId);
     }
 }

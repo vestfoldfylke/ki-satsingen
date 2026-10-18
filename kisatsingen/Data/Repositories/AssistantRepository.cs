@@ -32,25 +32,26 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
         return assistant;
     }
 
-    public async Task<Assistant?> GetAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
+    public async Task<Assistant?> GetAssistantAsync(string userId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Assistants
             .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == assistantId && a.OwnerId == ownerId, ct);
+            .Where(AssistantAccess.UsableBy(userId))
+            .FirstOrDefaultAsync(a => a.Id == assistantId, ct);
     }
 
-    public async Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(string ownerId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(string userId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Assistants
-            .Where(a => a.OwnerId == ownerId)
+            .Where(AssistantAccess.UsableBy(userId))
             .OrderByDescending(a => a.UpdatedAt)
             .Select(a => new AssistantSummary(a.Id, a.OwnerId, a.Name, a.Description, a.Visibility, a.UpdatedAt))
             .ToListAsync(ct);
     }
 
-    public async Task UpdateAssistantAsync(string ownerId, Guid assistantId, string name, string? description, string instructions, AssistantVisibility visibility, CancellationToken ct = default)
+    public async Task<bool> UpdateAssistantAsync(string userId, Guid assistantId, string name, string? description, string instructions, AssistantVisibility visibility, CancellationToken ct = default)
     {
         var normalisedName = BoundedText.RequireTrimmed(name, "Assistant name", Assistant.MaxNameLength);
         var normalisedDescription = BoundedText.TrimToNullable(description, "Assistant description", Assistant.MaxDescriptionLength);
@@ -59,7 +60,8 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
         await using var db = await factory.CreateDbContextAsync(ct);
 
         var updatedCount = await db.Assistants
-            .Where(a => a.Id == assistantId && a.OwnerId == ownerId)
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.Name, normalisedName)
                 .SetProperty(a => a.Description, normalisedDescription)
@@ -67,17 +69,15 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
                 .SetProperty(a => a.Visibility, visibility)
                 .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
 
-        if (updatedCount == 0)
-        {
-            throw new InvalidOperationException($"Assistant {assistantId} was not found for the specified owner.");
-        }
+        return updatedCount > 0;
     }
 
-    public async Task<bool> DeleteAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
+    public async Task<bool> DeleteAssistantAsync(string userId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var deletedCount = await db.Assistants
-            .Where(a => a.Id == assistantId && a.OwnerId == ownerId)
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
             .ExecuteDeleteAsync(ct);
         return deletedCount > 0;
     }

@@ -131,7 +131,7 @@ var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
 builder.Services.AddAuthorizationBuilder()
     .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
     .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy("CanContributeOrganizationWide", policy => policy.RequireRole(administratorRole, contributorRole))
     .AddPolicy("CanReadMetrics", policy => policy
         .AddAuthenticationSchemes(CookieOrBearerScheme)
         .RequireAuthenticatedUser()
