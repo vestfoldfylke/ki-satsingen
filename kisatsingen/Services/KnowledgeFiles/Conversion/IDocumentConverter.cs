@@ -11,5 +11,10 @@ public interface IDocumentConverter
     // pipeline waits for conversion to end, so a converter that ignores ct holds
     // its turn, the user's Stop and a conversion slot until it finishes.
     // CA2016 only checks that ct is passed on, not that it is honoured.
+    // The KnowledgeFilePipeline handles timeouts and files exceeding the maximum
+    // file size, so converters don't need to check for these.
+    // Converters should, however, check request.MaxEstimatedTokens themselves,
+    // since the token estimate depends on the extracted content and can only be
+    // calculated during conversion.
     Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct);
 }
