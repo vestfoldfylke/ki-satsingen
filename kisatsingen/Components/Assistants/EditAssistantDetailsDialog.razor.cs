@@ -7,11 +7,10 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace kisatsingen.Components.Assistants;
 
-// An assistant's name, description and visibility, editable when
-// CanEditAssistant allows. What is shown follows AuthorizeView; saving checks
-// the policies again, since a dialog that was allowed when it rendered may no
+// Edits an assistant's name, description and visibility. Saving checks the
+// policies again, since a dialog that was allowed when it rendered may no
 // longer be.
-public sealed partial class AssistantDetailsDialog : ComponentBase
+public sealed partial class EditAssistantDetailsDialog : ComponentBase
 {
     [Inject]
     public required IAssistantRepository AssistantRepository { get; init; }
@@ -32,7 +31,7 @@ public sealed partial class AssistantDetailsDialog : ComponentBase
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
-    private string DialogId => $"assistant-details-{AssistantId}";
+    private string DialogId => $"edit-assistant-details-{AssistantId}";
 
     private AssistantDetailsForm Form { get; set; } = new();
 
