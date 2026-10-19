@@ -8,6 +8,7 @@ namespace kisatsingen.Components.Layout;
 public partial class NavMenu : ComponentBase, IDisposable
 {
     private const string NewChatPath = "new";
+    private const string SidebarPanelId = "sidebar-panel";
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -27,16 +28,39 @@ public partial class NavMenu : ComponentBase, IDisposable
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
+    private async Task HideSidebarPanelAsync()
+    {
+        try
+        {
+            await using var sidebarPanel = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", SidebarPanelId);
+            await sidebarPanel.InvokeVoidAsync("hidePopover");
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, so there is no page left to hide the panel on.
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to hide {SidebarPanelId} after navigation; the mobile drawer stays open", SidebarPanelId);
+        }
+    }
+
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)
         {
             Session.StateChanged += OnStateChanged;
             Manager.ChatListChanged += OnStateChanged;
+            Navigation.LocationChanged += OnLocationChanged;
             _stateWired = true;
         }
 
         await Manager.EnsureLoadedAsync();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await HideSidebarPanelAsync();
     }
 
     private async Task StartNewChatAsync()
@@ -117,6 +141,7 @@ public partial class NavMenu : ComponentBase, IDisposable
         {
             Session.StateChanged -= OnStateChanged;
             Manager.ChatListChanged -= OnStateChanged;
+            Navigation.LocationChanged -= OnLocationChanged;
         }
     }
 }
