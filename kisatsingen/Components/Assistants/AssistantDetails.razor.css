@@ -1,0 +1,27 @@
+/* Name and description on the left, editing to the top right. */
+.assistant-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--ds-size-4);
+}
+
+.assistant-details-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-2);
+}
+
+.assistant-details-visibility {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-size-1);
+}
+
+.assistant-details-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-size-2);
+}

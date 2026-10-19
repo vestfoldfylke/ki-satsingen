@@ -8,10 +8,11 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace kisatsingen.Components.Assistants;
 
-// An assistant's instructions: visible to everyone who can use it, editable
-// when CanEditAssistant allows. Saving checks the policy again, since a dialog
-// that was allowed when it rendered may no longer be.
-public sealed partial class AssistantInstructionsDialog : ComponentBase
+// An assistant's instructions: a preview for everyone who can use it, all of
+// them in a dialog, editable there when CanEditAssistant allows. Saving checks
+// the policy again, since a dialog that was allowed when it rendered may no
+// longer be.
+public sealed partial class AssistantInstructionsCard : ComponentBase
 {
     [Inject]
     public required IAssistantRepository AssistantRepository { get; init; }
@@ -26,60 +27,46 @@ public sealed partial class AssistantInstructionsDialog : ComponentBase
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
     [Parameter, EditorRequired]
-    public required Guid AssistantId { get; set; }
+    public required Assistant Assistant { get; set; }
 
-    private string DialogId => $"assistant-instructions-{AssistantId}";
+    // After the instructions are saved, so the caller can show the change.
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
+    private string DialogId => $"assistant-instructions-{Assistant.Id}";
 
     private InstructionsForm Form { get; set; } = new();
 
-    private Assistant? _assistant;
-    private bool _isLoading;
     private bool _isNotFound;
     private string? _refusal;
 
     private int _dialogKey;
 
-    private async Task OpenAsync()
+    private void OpenDialog()
     {
         _refusal = null;
         _isNotFound = false;
-
-        _isLoading = true;
-        var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
-        _isLoading = false;
-
-        if (_assistant is null)
-        {
-            _isNotFound = true;
-            return;
-        }
-
-        Form = new InstructionsForm { Instructions = _assistant.Instructions };
+        Form = new InstructionsForm { Instructions = Assistant.Instructions };
     }
 
     private async Task SaveAsync()
     {
-        if (_assistant is null)
-        {
-            return;
-        }
-
         var user = (await AuthenticationState).User;
-        if (!(await AuthorizationService.AuthorizeAsync(user, _assistant, "CanEditAssistant")).Succeeded)
+        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
         {
             _refusal = "Du har ikke lenger tilgang til å redigere denne assistenten.";
             return;
         }
 
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        if (!await AssistantRepository.UpdateAssistantInstructionsAsync(userId, _assistant.Id, Form.Instructions))
+        if (!await AssistantRepository.UpdateAssistantInstructionsAsync(userId, Assistant.Id, Form.Instructions))
         {
             _isNotFound = true;
             return;
         }
 
         CloseDialog();
+        await OnChanged.InvokeAsync();
     }
 
     // Closing a modal <dialog> from code takes its close() method, which only

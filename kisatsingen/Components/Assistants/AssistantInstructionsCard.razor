@@ -1,9 +1,40 @@
 @using kisatsingen.Data.Entities
 
-<button type="button" class="ds-button" data-variant="tertiary"
-        command="show-modal" commandfor="@DialogId" @onclick="OpenAsync">
-    Instruksjoner
-</button>
+<div class="ds-card" data-color="neutral">
+    <div class="ds-card__block">
+        <div class="assistant-instructions-header">
+            <h2 class="ds-heading" data-size="xs">Instruksjoner</h2>
+            <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+                <Authorized>
+                    <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
+                            command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
+                            data-tooltip="Rediger instruksjoner" aria-label="Rediger instruksjoner">
+                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                    </button>
+                </Authorized>
+                <NotAuthorized>
+                    @if (Assistant.Instructions is not null)
+                    {
+                        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
+                                command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
+                                data-tooltip="Vis alle instruksjonene" aria-label="Vis alle instruksjonene">
+                            <span class="material-symbols-outlined" aria-hidden="true">open_in_full</span>
+                        </button>
+                    }
+                </NotAuthorized>
+            </AuthorizeView>
+        </div>
+
+        @if (Assistant.Instructions is string instructions)
+        {
+            <p class="ds-paragraph assistant-instructions-preview">@instructions</p>
+        }
+        else
+        {
+            <p class="ds-paragraph">Ingen instruksjoner ennå.</p>
+        }
+    </div>
+</div>
 
 <dialog @key="_dialogKey" id="@DialogId" class="ds-dialog" data-modal="true" data-placement="center">
     <button type="button" class="ds-button" data-icon="true" data-variant="tertiary" data-color="neutral"
@@ -14,17 +45,13 @@
     </div>
 
     <div class="ds-dialog__block">
-        @if (_isLoading)
-        {
-            <p class="ds-paragraph">Laster …</p>
-        }
-        else if (_isNotFound)
+        @if (_isNotFound)
         {
             <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
         }
-        else if (_assistant is not null)
+        else
         {
-            <AuthorizeView Policy="CanEditAssistant" Resource="_assistant" Context="editAuthenticationState">
+            <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
                 <Authorized>
                     <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
                         <DataAnnotationsValidator />
@@ -49,14 +76,7 @@
                     </EditForm>
                 </Authorized>
                 <NotAuthorized>
-                    @if (_assistant.Instructions is string instructions)
-                    {
-                        <p class="ds-paragraph assistant-instructions">@instructions</p>
-                    }
-                    else
-                    {
-                        <p class="ds-paragraph">Assistenten har ingen instruksjoner.</p>
-                    }
+                    <p class="ds-paragraph assistant-instructions">@Assistant.Instructions</p>
                 </NotAuthorized>
             </AuthorizeView>
         }

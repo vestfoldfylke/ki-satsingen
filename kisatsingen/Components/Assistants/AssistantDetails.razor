@@ -1,0 +1,46 @@
+@using kisatsingen.Data.Entities
+
+<div class="assistant-details">
+    <div class="assistant-details-text">
+        <h1 class="ds-heading" data-size="md">@Assistant.Name</h1>
+        @if (Assistant.Description is string description)
+        {
+            <p class="ds-paragraph">@description</p>
+        }
+        <p class="ds-paragraph assistant-details-visibility" data-size="sm">
+            @if (Assistant.Visibility == AssistantVisibility.Private)
+            {
+                <span class="material-symbols-outlined" aria-hidden="true">lock_person</span>
+                <span>Privat</span>
+            }
+            else
+            {
+                <span class="material-symbols-outlined" aria-hidden="true">public</span>
+                <span>Felles for hele organisasjonen</span>
+            }
+        </p>
+    </div>
+
+    <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+        <div class="assistant-details-actions">
+            <EditAssistantDetailsDialog AssistantId="Assistant.Id" OnChanged="OnChanged" />
+
+            <button type="button" class="ds-button" data-variant="tertiary" data-color="danger" data-icon="true"
+                    popovertarget="@DeletePopoverId" data-tooltip="Slett assistenten" aria-label="Slett assistenten">
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+            </button>
+            <div class="ds-popover" id="@DeletePopoverId" popover="manual" data-placement="top" data-color="danger">
+                <p class="ds-paragraph">Vil du slette «@Assistant.Name»? Samtaler med den beholdes, men dette kan ikke angres.</p>
+                @if (_refusal is not null)
+                {
+                    <p class="ds-paragraph" role="alert">@_refusal</p>
+                }
+                <div class="assistant-details-actions">
+                    <button type="button" class="ds-button" data-size="sm" @onclick="DeleteAsync">Ja, slett</button>
+                    <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
+                            popovertarget="@DeletePopoverId" popovertargetaction="hide">Avbryt</button>
+                </div>
+            </div>
+        </div>
+    </AuthorizeView>
+</div>

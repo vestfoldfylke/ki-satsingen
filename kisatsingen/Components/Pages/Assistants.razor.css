@@ -1,0 +1,42 @@
+.assistants-page {
+    box-sizing: border-box;
+    padding: 0.5rem 1rem;
+    max-width: 64rem;
+    width: 100%;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-6);
+}
+
+/* The filter on the left, creating on the right. */
+.assistants-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ds-size-4);
+}
+
+/* At most three cards on a line; fewer when the page is narrow. */
+.assistant-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* The name on the left, its visibility to the right. */
+.assistant-card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--ds-size-2);
+}
+
+.assistant-cards > li {
+    flex: 0 1 calc((100% - 2rem) / 3);
+    min-width: 12rem;
+}
