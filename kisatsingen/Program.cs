@@ -101,13 +101,13 @@ builder.Services
     .AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraAuthConfiguration"));
 
-const string CookieOrBearerScheme = "CookieOrBearer";
+const string cookieOrBearerScheme = "CookieOrBearer";
 
 // Policy scheme used only by /metrics: bearer if there's a bearer header, OIDC otherwise.
 // ForwardDefaultSelector covers authenticate, challenge, and forbid — no other wiring needed.
 builder.Services
     .AddAuthentication()
-    .AddPolicyScheme(CookieOrBearerScheme, CookieOrBearerScheme, options =>
+    .AddPolicyScheme(cookieOrBearerScheme, cookieOrBearerScheme, options =>
     {
         options.ForwardDefaultSelector = ctx =>
             ctx.Request.Headers.Authorization.ToString()
@@ -133,7 +133,7 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
     .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
     .AddPolicy("CanReadMetrics", policy => policy
-        .AddAuthenticationSchemes(CookieOrBearerScheme)
+        .AddAuthenticationSchemes(cookieOrBearerScheme)
         .RequireAuthenticatedUser()
         .RequireRole(metricsRole));
 
@@ -280,11 +280,11 @@ app.UseForwardedHeaders();
 // ─── Culture ───────────────────────────────────────────
 // Fixed, not negotiated: the app is Norwegian only. A circuit keeps the culture
 // of the request that opened it.
-const string AppCulture = "nb-NO";
+const string appCulture = "nb-NO";
 app.UseRequestLocalization(new RequestLocalizationOptions()
-    .SetDefaultCulture(AppCulture)
-    .AddSupportedCultures(AppCulture)
-    .AddSupportedUICultures(AppCulture));
+    .SetDefaultCulture(appCulture)
+    .AddSupportedCultures(appCulture)
+    .AddSupportedUICultures(appCulture));
 
 // ─── Security response headers (apply to every response) ───
 var scriptSrc = app.Environment.IsDevelopment()
