@@ -1,0 +1,64 @@
+@using kisatsingen.Data.Entities
+
+<button type="button" class="ds-button" data-variant="tertiary"
+        command="show-modal" commandfor="@DialogId" @onclick="OpenAsync">
+    Instruksjoner
+</button>
+
+<dialog @key="_dialogKey" id="@DialogId" class="ds-dialog" data-modal="true" data-placement="center">
+    <button type="button" class="ds-button" data-icon="true" data-variant="tertiary" data-color="neutral"
+            command="close" commandfor="@DialogId" aria-label="Lukk dialogvindu"></button>
+
+    <div class="ds-dialog__block">
+        <h2 class="ds-heading">Instruksjoner</h2>
+    </div>
+
+    <div class="ds-dialog__block">
+        @if (_isLoading)
+        {
+            <p class="ds-paragraph">Laster …</p>
+        }
+        else if (_isNotFound)
+        {
+            <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
+        }
+        else if (_assistant is not null)
+        {
+            <AuthorizeView Policy="CanEditAssistant" Resource="_assistant" Context="editAuthenticationState">
+                <Authorized>
+                    <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
+                        <DataAnnotationsValidator />
+
+                        @if (_refusal is not null)
+                        {
+                            <div class="ds-alert" data-color="danger" role="alert">
+                                <p class="ds-paragraph">@_refusal</p>
+                            </div>
+                        }
+
+                        <ds-field class="ds-field">
+                            <label class="ds-label">Hva skal assistenten gjøre, og hvordan?</label>
+                            <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" />
+                            <DesignsystemetValidationMessage For="() => Form.Instructions" />
+                        </ds-field>
+
+                        <div class="form-actions">
+                            <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
+                            <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@DialogId">Avbryt</button>
+                        </div>
+                    </EditForm>
+                </Authorized>
+                <NotAuthorized>
+                    @if (_assistant.Instructions is string instructions)
+                    {
+                        <p class="ds-paragraph assistant-instructions">@instructions</p>
+                    }
+                    else
+                    {
+                        <p class="ds-paragraph">Assistenten har ingen instruksjoner.</p>
+                    }
+                </NotAuthorized>
+            </AuthorizeView>
+        }
+    </div>
+</dialog>
