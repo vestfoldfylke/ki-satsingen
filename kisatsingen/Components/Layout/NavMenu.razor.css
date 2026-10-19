@@ -12,6 +12,7 @@
         gap: 0.5rem;
         font-weight: 600;
         flex-shrink: 0;
+        padding: .5rem .7rem;
     }
 }
 
@@ -19,22 +20,63 @@
    font-size: 1.1rem;
 }
 
-.nav-scrollable {
-    display: none;
-    padding: .2rem .4rem .4rem .4rem;
-}
-
-/* Fixed-size top (nav-primary) and bottom (user) rows; .chat-sidebar is the
-   sole flexible, scrolling middle — so it (not this container) owns
-   flex:1/min-height:0/overflow-y:auto. No margin-top:auto needed on .user:
-   .chat-sidebar's flex-grow already claims all leftover space. */
 @media (min-width: 641px) {
     .nav-scrollable {
-        /* Never collapse the sidebar for wide screens */
         display: flex;
         flex-direction: column;
         flex: 1;
         min-height: 0;
+    }
+
+    .top-headers-container > .ds-button,
+    .menu-close-button,
+    .menu-backdrop {
+        display: none;
+    }
+}
+
+@media (max-width: 640px) {
+    .top-headers-container {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+    }
+
+    .nav-scrollable {
+        position: fixed;
+        display: flex;
+        flex-direction: column;
+        inset: 0 auto 0 0;
+        width: min(85vw, 20rem);
+        z-index: 100;
+        background: var(--chat-surface, #fff);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform .3s ease-in-out, visibility .3s, box-shadow .3s;
+        padding: .2rem .4rem .4rem .4rem;
+    }
+
+    .nav-open {
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    .nav-open-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .menu-close-button {
+        margin: 1rem;
+    }
+
+    .menu-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 99;
     }
 }
 

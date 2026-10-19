@@ -1,24 +1,59 @@
 ﻿<div class="navbar">
-    <div class="logo-container">
-        <img src="favicon-32x32.png" alt="Vestfold fylke logo" />
-        <span>KI-satsingen</span>
+    <div class="top-headers-container">
+        <button
+            type="button"
+            class="ds-button"
+            data-variant="tertiary"
+            data-size="sm"
+            data-icon="true"
+            aria-label="Åpne meny"
+            aria-controls="nav-drawer"
+            aria-expanded="@_menuOpen"
+            @onclick="ToggleMenu"
+        >
+            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
+            
+        <div class="logo-container">
+            <img src="favicon-32x32.png" alt="Vestfold fylke logo" />
+            <span>KI-satsingen</span>
+        </div>
     </div>
 
-    <div class="nav-scrollable">
-        <nav class="nav-primary">
-            <div class="nav-item">
-                <button
-                    class="ds-button chat-sidebar-new-chat-button"
-                    type="button"
-                    data-variant="tertiary"
-                    data-color="accent"
-                    @onclick="StartNewChatAsync"
-                >
-                    <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
-                    Ny samtale
-                </button>
-            </div>
-        </nav>
+    @if (_menuOpen)
+    {
+        <div class="menu-backdrop" aria-hidden="true" @onclick="ToggleMenu"></div>
+    }
+
+    <div id="nav-drawer" class="nav-scrollable @(_menuOpen ? "nav-open" : null)">
+        <div class="nav-open-header">
+            <nav class="nav-primary">
+                <div class="nav-item">
+                    <button
+                        class="ds-button chat-sidebar-new-chat-button"
+                        type="button"
+                        data-variant="tertiary"
+                        data-color="accent"
+                        @onclick="StartNewChatAsync"
+                    >
+                        <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
+                        Ny samtale
+                    </button>
+                </div>
+            </nav>
+
+            <button
+                type="button"
+                class="ds-button menu-close-button"
+                data-variant="tertiary"
+                data-size="sm"
+                data-icon="true"
+                aria-label="Lukk meny"
+                @onclick="ToggleMenu"
+            >
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
 
         <aside class="chat-sidebar" aria-label="Samtaler">
             <div class="chat-sidebar-header">
