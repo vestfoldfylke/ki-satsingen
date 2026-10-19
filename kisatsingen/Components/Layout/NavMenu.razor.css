@@ -6,14 +6,16 @@
     flex: 1;
     min-height: 0;
     padding: .2rem;
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
-        flex-shrink: 0;
-        padding: .5rem .7rem;
-    }
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    padding: .5rem .7rem;
+    margin-bottom: 1rem;
 }
 
 .nav-item > button > span.material-symbols-outlined {
@@ -84,7 +86,8 @@
     }
 
     .sidebar-panel-close {
-        margin: 1rem;
+        padding: 1rem;
+        margin: 1.2rem 0;
     }
 }
 

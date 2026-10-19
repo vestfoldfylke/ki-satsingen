@@ -20,7 +20,7 @@
 }
 
 @media (max-width: 640px) {
-    .chat-header {
+    .chat-header>.chat-header-files {
         display: none;
     }
 }
