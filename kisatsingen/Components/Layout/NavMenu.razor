@@ -1,5 +1,5 @@
 ﻿<div class="navbar">
-    <div class="top-headers-container">
+    <div class="sidebar-top">
         <button
             type="button"
             class="ds-button"
@@ -7,9 +7,8 @@
             data-size="sm"
             data-icon="true"
             aria-label="Åpne meny"
-            aria-controls="nav-drawer"
-            aria-expanded="@_menuOpen"
-            @onclick="ToggleMenu"
+            aria-controls="sidebar-panel"
+            popovertarget="sidebar-panel"
         >
             <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
@@ -20,13 +19,8 @@
         </div>
     </div>
 
-    @if (_menuOpen)
-    {
-        <div class="menu-backdrop" aria-hidden="true" @onclick="ToggleMenu"></div>
-    }
-
-    <div id="nav-drawer" class="nav-scrollable @(_menuOpen ? "nav-open" : null)">
-        <div class="nav-open-header">
+    <div id="sidebar-panel" class="sidebar-panel" popover="auto">
+        <div class="sidebar-panel-header">
             <nav class="nav-primary">
                 <div class="nav-item">
                     <button
@@ -34,6 +28,8 @@
                         type="button"
                         data-variant="tertiary"
                         data-color="accent"
+                        popovertarget="sidebar-panel"
+                        popovertargetaction="hide"
                         @onclick="StartNewChatAsync"
                     >
                         <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
@@ -44,18 +40,23 @@
 
             <button
                 type="button"
-                class="ds-button menu-close-button"
+                class="ds-button sidebar-panel-close"
                 data-variant="tertiary"
                 data-size="sm"
                 data-icon="true"
                 aria-label="Lukk meny"
-                @onclick="ToggleMenu"
+                popovertarget="sidebar-panel"
+                popovertargetaction="hide"
             >
                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </div>
 
-        <aside class="chat-sidebar" aria-label="Samtaler">
+        <aside
+            class="chat-sidebar"
+            aria-label="Samtaler"
+            onclick="if (event.target.closest('a')) document.getElementById('sidebar-panel').hidePopover()"
+        >
             <div class="chat-sidebar-header">
                 <h2 class="ds-heading" data-size="sm">Samtaler</h2>
             </div>

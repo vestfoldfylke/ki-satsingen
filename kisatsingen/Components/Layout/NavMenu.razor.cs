@@ -27,38 +27,21 @@ public partial class NavMenu : ComponentBase, IDisposable
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
-    private bool _menuOpen;
-
-    private void ToggleMenu()
-    {
-        _menuOpen = !_menuOpen;
-    }
-
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)
         {
             Session.StateChanged += OnStateChanged;
             Manager.ChatListChanged += OnStateChanged;
-            Navigation.LocationChanged += OnLocationChanged;
             _stateWired = true;
         }
 
         await Manager.EnsureLoadedAsync();
     }
 
-    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        if(!_menuOpen) return;
-        _menuOpen = false;
-        InvokeAsync(StateHasChanged);
-    }
-
     private async Task StartNewChatAsync()
     {
         Logger.LogInformation("New chat started");
-
-        _menuOpen = false;
 
         // Loaded here, not left to the page: until the first message has created
         // its chat the URL is still /new, and navigating to /new changes no
@@ -134,7 +117,6 @@ public partial class NavMenu : ComponentBase, IDisposable
         {
             Session.StateChanged -= OnStateChanged;
             Manager.ChatListChanged -= OnStateChanged;
-            Navigation.LocationChanged -= OnLocationChanged;
         }
     }
 }
