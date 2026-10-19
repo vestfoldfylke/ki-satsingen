@@ -1,7 +1,6 @@
-using System.Runtime.CompilerServices;
 using System.Text;
-using ElBruno.MarkItDotNet;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.Chat;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -10,36 +9,35 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 public class PdfDocumentConverter : IDocumentConverter
 {
     private readonly ILogger<PdfDocumentConverter> _logger;
-    private readonly MarkdownService _markdownService;
 
-    public PdfDocumentConverter(ILogger<PdfDocumentConverter> logger, MarkdownService markdownService)
+    public PdfDocumentConverter(ILogger<PdfDocumentConverter> logger)
     {
         _logger = logger;
-        _markdownService = markdownService;
     }
 
     public IReadOnlyList<string> ContentTypes { get; } = [AttachmentContentTypes.Pdf.ContentType];
 
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
-        var result = await _markdownService.ConvertAsync(request.Content, Path.GetExtension(request.FileName), ct);
+        var result = await VestfoldPdfConverter.ConvertAsync(request.Content, request.MaxEstimatedTokens, ct);
         if (!result.Success)
         {
-            var errorMessage = result.ErrorMessage ?? "Ukjent feil";
-            _logger.LogError("PdfDocumentConverter -> Failed to convert PDF file '{Filename}' with ContentType '{ContentType}' to Markdown. ErrorMessage: {ErrorMessage}. MetaData: {@MetaData}", request.FileName, request.ContentType, errorMessage, result.Metadata);
-            return new ConversionResult.Rejected(errorMessage);
+            _logger.LogError(
+                "Failed to convert PDF file '{Filename}' with ContentType '{ContentType}' to Markdown. ErrorMessage: {ErrorMessage}",
+                request.FileName,
+                request.ContentType,
+                result.ErrorMessage
+            );
+            return new ConversionResult.Rejected(ConversionRejections.ErrorParsingPdf);
         }
 
         if (result.Markdown.Length == 0)
         {
-            return new ConversionResult.Rejected("Tomt innhold returnert");
+            return new ConversionResult.Rejected(ConversionRejections.EmptyPdf);
         }
 
-        var pageCount = GetPageCount(result.Markdown);
-        return new ConversionResult.Converted(result.Markdown, ContentOrigin.Pdf, pageCount);
+        return new ConversionResult.Converted(result.Markdown, ContentOrigin.Pdf, result.PageCount);
     }
-
-    private static int GetPageCount(string text) => text.Split("\n---\n", StringSplitOptions.RemoveEmptyEntries).Length;
 }
 
 /// <summary>
@@ -49,11 +47,9 @@ public class PdfDocumentConverter : IDocumentConverter
 ///
 /// Converts PDF (.pdf) files to Markdown using UglyToad.PdfPig.
 /// Uses word-level extraction with line/paragraph grouping and heading detection.
-/// Implements <see cref="IStreamingMarkdownConverter"/> for page-by-page streaming.
 /// </summary>
-public class VestfoldPdfConverter : IStreamingMarkdownConverter
+public static class VestfoldPdfConverter
 {
-    // TODO: Remove this class if/when MarkItDotNet fixes the issue raised here: https://github.com/elbruno/ElBruno.MarkItDotNet/issues/30
     private const double LineYTolerance = 3.0;
     // ENDRET: nå relativt til dokumentets vanlige linjeavstand, ikke ordboksens høyde.
     private const double ParagraphSpacingFactor = 1.25;
@@ -61,80 +57,60 @@ public class VestfoldPdfConverter : IStreamingMarkdownConverter
     private const double HeadingMinimumBoldSizeRatio = 1.05;
     private const int MaxHeadingLevel = 6; // ENDRET: var 3, så #### og lavere ble aldri gjenkjent
 
-    /// <inheritdoc />
-    public bool CanHandle(string fileExtension) =>
-        fileExtension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
-
-    /// <inheritdoc />
-    public Task<string> ConvertAsync(Stream fileStream, string fileExtension, CancellationToken cancellationToken = default)
+    public static Task<PdfConversionResult> ConvertAsync(Stream fileStream, int maxEstimatedTokens, CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(fileStream);
-
-        using var document = PdfDocument.Open(fileStream);
-        var sb = new StringBuilder();
-        var pageCount = document.NumberOfPages;
-
-        for (var i = 1; i <= pageCount; i++)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            ArgumentNullException.ThrowIfNull(fileStream);
 
-            var page = document.GetPage(i);
+            using var document = PdfDocument.Open(fileStream);
+            var sb = new StringBuilder();
+            var pageCount = document.NumberOfPages;
+            long totalEstimatedTokens = 0;
 
-            if (i > 1)
+            for (var i = 1; i <= pageCount; i++)
             {
-                sb.AppendLine();
-                sb.AppendLine("---");
-                sb.AppendLine();
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var page = document.GetPage(i);
+
+                if (i > 1 && !string.IsNullOrWhiteSpace(page.Text))
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("---");
+                    sb.AppendLine();
+                }
+
+                var pageMarkdown = ExtractPageMarkdown(page);
+                if (string.IsNullOrWhiteSpace(pageMarkdown))
+                {
+                    continue;
+                }
+
+                var trimmedPageMarkdown = pageMarkdown.TrimEnd();
+                sb.AppendLine(trimmedPageMarkdown);
+
+                totalEstimatedTokens += ContextTokenEstimator.EstimateGenerated(new TextSegment(Guid.Empty, i, trimmedPageMarkdown));
+                if (totalEstimatedTokens >= maxEstimatedTokens)
+                {
+                    return Task.FromResult(PdfConversionResult.Failure($"PDF-filen overskrider maksimalt estimert antall tokens. Estimert: {totalEstimatedTokens}. Maks tillatt tokens: {maxEstimatedTokens}"));
+                }
             }
 
-            var pageMarkdown = ExtractPageMarkdown(page);
-            if (!string.IsNullOrWhiteSpace(pageMarkdown))
-            {
-                sb.AppendLine(pageMarkdown.TrimEnd());
-            }
+            return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString().TrimEnd(), pageCount));
         }
-
-        return Task.FromResult(sb.ToString().TrimEnd());
-    }
-
-    /// <inheritdoc />
-    public async IAsyncEnumerable<string> ConvertStreamingAsync(
-        Stream fileStream,
-        string fileExtension,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(fileStream);
-
-        using var document = PdfDocument.Open(fileStream);
-        var pageCount = document.NumberOfPages;
-
-        for (var i = 1; i <= pageCount; i++)
+        catch (ArgumentNullException ex)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var page = document.GetPage(i);
-            var chunkSb = new StringBuilder();
-
-            if (i > 1)
-            {
-                chunkSb.AppendLine();
-                chunkSb.AppendLine("---");
-                chunkSb.AppendLine();
-            }
-
-            var pageMarkdown = ExtractPageMarkdown(page);
-            if (!string.IsNullOrWhiteSpace(pageMarkdown))
-            {
-                chunkSb.AppendLine(pageMarkdown.TrimEnd());
-            }
-
-            yield return chunkSb.ToString();
-            await Task.CompletedTask.ConfigureAwait(false);
+            return Task.FromResult(PdfConversionResult.Failure(ex.Message));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return Task.FromResult(PdfConversionResult.Failure(ex.Message));
         }
     }
-    
+
     /// <summary>
-    /// Extracts structured markdown from a single page using word-level extraction.
+    /// Extracts structured Markdown from a single page using word-level extraction.
     /// Groups words into lines by Y-coordinate, lines into paragraphs by spacing,
     /// and detects headings by font size.
     /// </summary>
@@ -196,10 +172,9 @@ public class VestfoldPdfConverter : IStreamingMarkdownConverter
             if (currentLineWords.Count == 0 || Math.Abs(wordY - currentY) <= LineYTolerance)
             {
                 currentLineWords.Add(word);
-                if (currentLineWords.Count == 1)
-                    currentY = wordY;
-                else
-                    currentY = currentLineWords.Average(w => w.BoundingBox.Bottom);
+                currentY = currentLineWords.Count == 1
+                    ? wordY
+                    : currentLineWords.Average(w => w.BoundingBox.Bottom);
             }
             else
             {
@@ -310,7 +285,7 @@ public class VestfoldPdfConverter : IStreamingMarkdownConverter
 
     /// <summary>
     /// ENDRET (ny): Finner vanligste linjeavstand på siden, som andel av fontstørrelsen.
-    /// Bare avstander under 1,9 x fontstørrelsen regnes som linjeavstand (større er avsnittsskift).
+    /// Bare avstander under 1,9 x fontstørrelsen regnes som linjeavstand (større er avsnittskift).
     /// Faller tilbake til 1,2 (vanlig enkel linjeavstand) når siden har for få linjer til å avgjøre.
     /// </summary>
     private static double DetectTypicalLineSpacingRatio(List<TextLine> lines)
@@ -323,7 +298,7 @@ public class VestfoldPdfConverter : IStreamingMarkdownConverter
                 continue;
 
             var ratio = (lines[i - 1].Y - lines[i].Y) / fontSize;
-            if (ratio > 0.8 && ratio < 1.9)
+            if (ratio is > 0.8 and < 1.9)
                 ratios.Add(Math.Round(ratio, 1));
         }
 
@@ -430,4 +405,24 @@ public class VestfoldPdfConverter : IStreamingMarkdownConverter
 
     private sealed record TextLine(string Text, double Y, double Height, double FontSize, double BoldRatio, bool HasColumnGap);
     private sealed record ParagraphInfo(string Text, double FontSize, double BoldRatio, int LineCount);
+}
+
+public class PdfConversionResult
+{
+    public string Markdown { get; }
+    public bool Success { get; }
+    public string? ErrorMessage { get; }
+    public int? PageCount { get; }
+
+    private PdfConversionResult(string markdown, bool success, string? errorMessage, int? pageCount)
+    {
+        Markdown = markdown;
+        Success = success;
+        ErrorMessage = errorMessage;
+        PageCount = pageCount;
+    }
+
+    public static PdfConversionResult Succeeded(string markdown, int? pageCount = null) => new(markdown, true, null, pageCount);
+
+    public static PdfConversionResult Failure(string error) => new("", false, error, null);
 }
