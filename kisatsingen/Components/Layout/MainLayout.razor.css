@@ -2,6 +2,7 @@
    browser chrome collapsing/expanding doesn't clip content — every
    descendant below this just flexes to fill whatever height it's given. */
 .page {
+    --topbar-height: 3rem;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -29,6 +30,12 @@ main {
         flex-shrink: 0;
         border: 1px solid #cccccc79;
         width: 300px;
+    }
+}
+
+@media (max-width: 640px) {
+    .sidebar {
+        height: 0;
     }
 }
 

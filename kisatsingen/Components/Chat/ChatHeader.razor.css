@@ -3,7 +3,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.5rem 1rem;
 }
 
 /* Right-aligned with or without a title beside it. */
@@ -12,9 +11,30 @@
 }
 
 .chat-header-title {
-    margin: 0;
+    margin: 1rem;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .chat-header {
+        grid-template-columns: 1fr minmax(0, auto) 1fr;
+        display: grid;
+        min-height: var(--topbar-height);
+        align-items: center;
+    }
+
+    .chat-header-title {
+        margin: 0;
+        grid-column: 2;
+        text-align: center;
+    }
+
+    .chat-header-files {
+        display: none;
+        grid-column: 3;
+        justify-self: end;
+    }
 }
