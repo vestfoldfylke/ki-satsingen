@@ -1,16 +1,23 @@
 using kisatsingen.Services.Chat;
-using kisatsingen.Services.Attachments;
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Chat;
 
-public sealed partial class ChatComposer : ComponentBase
+// The composer for the open chat: it reads and drives the chat session and its
+// attachments itself, so a page only decides where it goes.
+public sealed partial class ChatComposer : ComponentBase, IDisposable
 {
     private ElementReference _textarea;
     private bool? _previousIsBusy;
     private bool? _previousIsUploading;
+    private bool _isSending;
+
+    [Inject]
+    public required ChatSession Session { get; set; }
+
+    [Inject]
+    public required ChatAttachments Attachments { get; set; }
 
     [Inject]
     public required IJSRuntime JS { get; set; }
@@ -18,71 +25,69 @@ public sealed partial class ChatComposer : ComponentBase
     [Inject]
     public required ILogger<ChatComposer> Logger { get; set; }
 
-    [Parameter]
-    public bool IsBusy { get; set; }
-
-    [Parameter]
-    public EventCallback OnSend { get; set; }
-
-    [Parameter]
-    public EventCallback OnStop { get; set; }
-
-    // Empty for a frame while the page reads the catalogue, rather than blocking
-    // the composer on it.
-    [Parameter]
-    public IReadOnlyList<ChatModel> Models { get; set; } = [];
-
-    [Parameter]
-    public ChatModel? SelectedModel { get; set; }
-
-    [Parameter]
-    public EventCallback<ChatModelKey> OnSelectModel { get; set; }
-
-    [Parameter]
-    public long? EstimatedContextTokens { get; set; }
-
-    [Parameter]
-    public MessageUsage? ConversationUsage { get; set; }
-
-    [Parameter]
-    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
-
-    [Parameter]
-    public string? AttachmentNotice { get; set; }
-
-    [Parameter]
-    public bool IsUploading { get; set; }
-
-    [Parameter]
-    public EventCallback<InputFileChangeEventArgs> OnFilesSelected { get; set; }
-
-    [Parameter]
-    public EventCallback<Guid> OnRemoveAttachment { get; set; }
-
     // A new selection makes the files of the one still uploading unreadable. A
     // running turn does not hold the picker: the files a message takes are
     // decided at send, so one attached now goes with the next message.
-    private bool IsPickerDisabled => IsUploading;
+    private bool IsPickerDisabled => Attachments.IsUploading;
 
     private sealed record ComposerNotice(string Color, string Text);
 
-    private ComposerNotice? Notice => SelectedModel is not { } model
-        ? null
-        : model.ClassifyContext(EstimatedContextTokens) switch
+    private ComposerNotice? Notice
+    {
+        get
         {
-            ContextFillLevel.Overflowing => new("danger", $"Samtalen er trolig for lang for {model.DisplayName}. Svaret kan feile. Start en ny samtale eller bytt modell."),
-            ContextFillLevel.NearlyFull => new("danger", $"Samtalen er nesten full for {model.DisplayName}. Start en ny samtale snart."),
-            ContextFillLevel.Filling => new("warning", $"Samtalen nærmer seg grensen for {model.DisplayName}."),
-            _ => null,
-        };
+            var model = Session.SelectedModel;
+            return model.ClassifyContext(Session.EstimatedContextTokens) switch
+            {
+                ContextFillLevel.Overflowing => new("danger", $"Samtalen er trolig for lang for {model.DisplayName}. Svaret kan feile. Start en ny samtale eller bytt modell."),
+                ContextFillLevel.NearlyFull => new("danger", $"Samtalen er nesten full for {model.DisplayName}. Start en ny samtale snart."),
+                ContextFillLevel.Filling => new("warning", $"Samtalen nærmer seg grensen for {model.DisplayName}."),
+                _ => null,
+            };
+        }
+    }
+
+    // Subscribed here, not left to the page: with no parameters, this component
+    // is not re-rendered when its page is.
+    protected override void OnInitialized()
+    {
+        Session.StateChanged += OnStateChanged;
+        Attachments.Changed += OnStateChanged;
+    }
 
     // The page's switch from empty state to transcript layout rebuilds this DOM
     // and drops the caret; it calls this to restore focus.
     public ValueTask FocusAsync() => _textarea.FocusAsync();
 
-    // One call, not a read and a clear: see takeComposerValue in chat-composer.ts.
-    public ValueTask<string> TakeTextAsync() =>
-        JS.InvokeAsync<string>("chatClient.takeComposerValue");
+    private async Task SendAsync()
+    {
+        // Synchronous, checked before any await: a rapid double-trigger (e.g.
+        // Enter racing a click) is rejected here at zero network cost, rather
+        // than after a wasted round trip to read the composer's text.
+        // Uploading is checked too: the browser holds send while it lasts, and
+        // this is the guard that does not trust it.
+        if (_isSending || Attachments.IsUploading)
+        {
+            return;
+        }
+
+        _isSending = true;
+        try
+        {
+            // One call, not a read and a clear: see takeComposerValue in chat-composer.ts.
+            var text = await JS.InvokeAsync<string>("chatClient.takeComposerValue");
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            await Session.SendAsync(text);
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -96,11 +101,12 @@ public sealed partial class ChatComposer : ComponentBase
 
             // Re-rendered on every session change, but IsBusy only flips at turn
             // start and end — don't resend what the client already has.
-            if (firstRender || IsBusy != _previousIsBusy)
+            var isBusy = Session.IsBusy;
+            if (firstRender || isBusy != _previousIsBusy)
             {
-                var completingTurn = _previousIsBusy == true && !IsBusy;
-                _previousIsBusy = IsBusy;
-                await JS.InvokeVoidAsync("chatClient.setComposerBusy", IsBusy);
+                var completingTurn = _previousIsBusy == true && !isBusy;
+                _previousIsBusy = isBusy;
+                await JS.InvokeVoidAsync("chatClient.setComposerBusy", isBusy);
 
                 // The textarea was disabled during the turn and lost focus; give it
                 // back so the next message can be typed without clicking.
@@ -110,15 +116,24 @@ public sealed partial class ChatComposer : ComponentBase
                 }
             }
 
-            if (firstRender || IsUploading != _previousIsUploading)
+            var isUploading = Attachments.IsUploading;
+            if (firstRender || isUploading != _previousIsUploading)
             {
-                _previousIsUploading = IsUploading;
-                await JS.InvokeVoidAsync("chatClient.setComposerUploading", IsUploading);
+                _previousIsUploading = isUploading;
+                await JS.InvokeVoidAsync("chatClient.setComposerUploading", isUploading);
             }
         }
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "ChatComposer JS interop failed");
         }
+    }
+
+    private void OnStateChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Session.StateChanged -= OnStateChanged;
+        Attachments.Changed -= OnStateChanged;
     }
 }

@@ -29,7 +29,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
-    private ChatSessionComposer? _composer;
+    private ChatComposer? _composer;
     private bool _stateWired;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
