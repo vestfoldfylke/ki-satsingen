@@ -7,34 +7,32 @@
             data-size="sm"
             data-icon="true"
             aria-label="Åpne meny"
-            aria-controls="sidebar-panel"
-            popovertarget="sidebar-panel"
+            aria-controls="@SidebarPanelId"
+            popovertarget="@SidebarPanelId"
         >
             <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
     </div>
 
-    <div id="sidebar-panel" class="sidebar-panel" popover="auto">
+    <div id="@SidebarPanelId" class="@SidebarPanelId" popover="auto">
         <div class="sidebar-panel-header">
             <nav class="nav-primary">
                 <div class="logo-container">
                     <img src="favicon-32x32.png" alt="Vestfold fylke logo" />
                     <span>KI-satsingen</span>
                 </div>
-                <div class="nav-item">
-                    <button
-                        class="ds-button chat-list-new-chat-button"
-                        type="button"
-                        data-variant="tertiary"
-                        data-color="accent"
-                        popovertarget="sidebar-panel"
-                        popovertargetaction="hide"
-                        @onclick="StartNewChatAsync"
-                    >
-                        <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
-                        Ny samtale
-                    </button>
-                </div>
+                <button
+                    class="ds-button chat-list-new-chat-button"
+                    type="button"
+                    data-variant="tertiary"
+                    data-color="accent"
+                    popovertarget="@SidebarPanelId"
+                    popovertargetaction="hide"
+                    @onclick="StartNewChatAsync"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
+                    Ny samtale
+                </button>
             </nav>
 
             <button
@@ -44,7 +42,7 @@
                 data-size="sm"
                 data-icon="true"
                 aria-label="Lukk meny"
-                popovertarget="sidebar-panel"
+                popovertarget="@SidebarPanelId"
                 popovertargetaction="hide"
             >
                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
@@ -119,8 +117,8 @@
             <AuthorizeView>
                 <Authorized>
                     <hr aria-hidden="true" class="ds-divider"/>
-                    <div class="chat-list-item">
-                        <button class="ds-button chat-list-user-button"
+                    <div class="chat-sidebar-item">
+                        <button class="ds-button chat-sidebar-user-button"
                             type="button"
                             data-variant="tertiary"
                             data-color="neutral"
@@ -133,7 +131,7 @@
                                 data-size="xs"
                                 data-color="accent"
                             ></span>
-                            <span class="ds-paragraph chat-list-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
+                            <span class="ds-paragraph chat-sidebar-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
                             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
                         </button>
 

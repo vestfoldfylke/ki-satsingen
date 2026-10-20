@@ -17,7 +17,7 @@
     margin-bottom: 1rem;
 }
 
-.nav-item > button > span.material-symbols-outlined {
+.chat-list-new-chat-button > span.material-symbols-outlined {
    font-size: 1.1rem;
 }
 
@@ -152,7 +152,7 @@
     margin-top: 0.1rem;
 }
 
-.chat-list-item {
+.chat-list-item, .chat-sidebar-item {
     display:flex;
     align-items: center;
     gap: 0.25rem;
@@ -217,14 +217,14 @@
     color: inherit;
 }
 
-.chat-list-title {
+.chat-list-title, .chat-sidebar-title {
     font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.chat-list-user-button {
+.chat-sidebar-user-button {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
