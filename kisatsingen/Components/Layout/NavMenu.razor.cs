@@ -84,7 +84,6 @@ public partial class NavMenu : ComponentBase, IDisposable
 
         if (wasActive)
         {
-            Session.Reset();
             // Replaced: back must not lead to the deleted chat.
             Navigation.NavigateTo($"/{NewChatPath}", replace: true);
         }

@@ -237,14 +237,6 @@ public sealed class ChatSession : IAsyncDisposable
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // For when the open chat was just deleted: there is nothing to load.
-    public void Reset()
-    {
-        _viewVersion++;
-        ClearView();
-        Notify();
-    }
-
     // A turn stops when the session is asked to show another chat, never when a
     // route without a chat is opened: there it finishes and is waiting on return.
     public Task StopTurnForLeaveAsync()

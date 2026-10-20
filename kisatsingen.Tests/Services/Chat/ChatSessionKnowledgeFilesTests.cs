@@ -143,24 +143,4 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         Assert.Equal(["rask.md"], KnowledgeFileNames(harness));
     }
-
-    // Reset is what deleting the open chat does: it moves the view on without
-    // stopping the turn, so the file is saved after the view stopped being the
-    // turn's.
-    [Fact]
-    public async Task A_file_saved_after_the_view_moved_on_stays_out_of_the_list()
-    {
-        await using var harness = new ChatSessionHarness();
-        harness.TextConverter.Hold("notat.md");
-        await AttachAsync(harness, "notat.md");
-        var sending = harness.Session.SendAsync("Hva står i notatet?");
-        await harness.TextConverter.WaitUntilStartedAsync("notat.md");
-
-        harness.Session.Reset();
-        harness.TextConverter.Release("notat.md");
-        await sending;
-
-        Assert.Single(harness.KnowledgeFiles.Saved);
-        Assert.Empty(harness.Session.KnowledgeFiles);
-    }
 }
