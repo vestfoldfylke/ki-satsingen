@@ -38,19 +38,24 @@ public sealed partial class AssistantDetails : ComponentBase
 
     private string DeletePopoverId => $"delete-assistant-{Assistant.Id}";
 
-    private string? _refusal;
+    private string? _deleteFailure;
 
     private async Task DeleteAsync()
     {
         var user = (await AuthenticationState).User;
         if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
         {
-            _refusal = "Du har ikke tilgang til å slette denne assistenten.";
+            _deleteFailure = "Du har ikke tilgang til å slette denne assistenten.";
             return;
         }
 
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        await AssistantRepository.DeleteAssistantAsync(userId, Assistant.Id);
+        if (!await AssistantRepository.DeleteAssistantAsync(userId, Assistant.Id))
+        {
+            _deleteFailure = "Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.";
+            return;
+        }
+
         Navigation.NavigateTo(AssistantsPath);
     }
 }

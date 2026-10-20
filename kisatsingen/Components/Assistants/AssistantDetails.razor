@@ -31,9 +31,9 @@
             </button>
             <div class="ds-popover" id="@DeletePopoverId" popover="manual" data-placement="top" data-color="danger">
                 <p class="ds-paragraph">Vil du slette «@Assistant.Name»? Samtaler med den beholdes, men dette kan ikke angres.</p>
-                @if (_refusal is not null)
+                @if (_deleteFailure is not null)
                 {
-                    <p class="ds-paragraph" role="alert">@_refusal</p>
+                    <p class="ds-paragraph" role="alert">@_deleteFailure</p>
                 }
                 <div class="assistant-details-actions">
                     <button type="button" class="ds-button" data-size="sm" @onclick="DeleteAsync">Ja, slett</button>
