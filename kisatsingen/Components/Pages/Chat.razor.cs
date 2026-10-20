@@ -29,9 +29,8 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public Guid? ChatId { get; set; }
 
     private string MessageText { get; set; } = string.Empty;
-    private ChatComposer? _composer;
+    private ChatSessionComposer? _composer;
     private bool _stateWired;
-    private bool _isSending;
     private Guid? _lastInitChatId;
     private bool _lastInitChatHadVisibleMessages;
     private bool _isFilesPanelOpen;
@@ -40,8 +39,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     // tracks renames and the title a new chat is given. Null for a new chat.
     private string? Title =>
         Manager.Entries.FirstOrDefault(entry => entry.Id == Session.ChatId)?.Title;
-
-    private Task SelectModelAsync(ChatModelKey key) => Session.SelectModelAsync(key);
 
     private void ToggleFilesPanel() => _isFilesPanelOpen = !_isFilesPanelOpen;
 
@@ -61,37 +58,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             await Session.LoadAsync(ChatId);
         }
     }
-
-    private async Task SendAsync()
-    {
-        // Synchronous, checked before any await: a rapid double-trigger (e.g.
-        // Enter racing a click) is rejected here at zero network cost, rather
-        // than after a wasted round trip to read the composer's text.
-        // Uploading is checked too: the browser holds send while it lasts, and
-        // this is the guard that does not trust it.
-        if (_isSending || _composer is null || Attachments.IsUploading)
-        {
-            return;
-        }
-
-        _isSending = true;
-        try
-        {
-            var text = await _composer.TakeTextAsync();
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return;
-            }
-
-            await Session.SendAsync(text);
-        }
-        finally
-        {
-            _isSending = false;
-        }
-    }
-
-    private void Stop() => Session.Cancel();
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
 

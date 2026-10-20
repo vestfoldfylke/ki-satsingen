@@ -39,20 +39,7 @@
                     </div>
 
                     <div class="chat-tail">
-                        <ChatComposer @ref="_composer"
-                                      IsBusy="Session.IsBusy"
-                                      OnSend="SendAsync"
-                                      OnStop="Stop"
-                                      Models="Session.AvailableModels"
-                                      SelectedModel="Session.SelectedModel"
-                                      EstimatedContextTokens="Session.EstimatedContextTokens"
-                                      ConversationUsage="Session.ConversationUsage"
-                                      OnSelectModel="SelectModelAsync"
-                                      Attachments="Attachments.All"
-                                      AttachmentNotice="@Attachments.SelectionNotice"
-                                      IsUploading="Attachments.IsUploading"
-                                      OnFilesSelected="Attachments.AttachAsync"
-                                      OnRemoveAttachment="Attachments.Remove" />
+                        <ChatSessionComposer @ref="_composer" />
                     </div>
                 </div>
             }
@@ -72,18 +59,7 @@
                         }
                     </div>
 
-                    <ChatComposer @ref="_composer"
-                                  IsBusy="Session.IsBusy"
-                                  OnSend="SendAsync"
-                                  OnStop="Stop"
-                                  Models="Session.AvailableModels"
-                                  SelectedModel="Session.SelectedModel"
-                                  OnSelectModel="SelectModelAsync"
-                                  Attachments="Attachments.All"
-                                  AttachmentNotice="@Attachments.SelectionNotice"
-                                  IsUploading="Attachments.IsUploading"
-                                  OnFilesSelected="Attachments.AttachAsync"
-                                  OnRemoveAttachment="Attachments.Remove" />
+                    <ChatSessionComposer @ref="_composer" />
                 </div>
             }
         </div>
