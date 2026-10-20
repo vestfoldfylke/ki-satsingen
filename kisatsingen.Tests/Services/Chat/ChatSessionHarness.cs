@@ -151,7 +151,7 @@ internal sealed class FakeChatRepository : IChatRepository
         return chat;
     }
 
-    public async Task<ChatEntity> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    public async Task<ChatEntity> CreateChatAsync(string ownerId, Guid chatId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         if (BeforeCreateChat is not null)
         {
@@ -165,7 +165,7 @@ internal sealed class FakeChatRepository : IChatRepository
 
         return new ChatEntity
         {
-            Id = Guid.NewGuid(),
+            Id = chatId,
             OwnerId = ownerId,
             AssistantId = assistantId,
             Title = title,

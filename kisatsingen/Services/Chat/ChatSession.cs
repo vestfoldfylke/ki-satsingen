@@ -28,8 +28,11 @@ public sealed class ChatSession : IAsyncDisposable
     // Not derivable from status: a Running turn may have been loaded that way.
     private Guid? _liveTurnId;
 
-    // Identity only; ChatManager owns the chat's metadata.
-    private Guid? _currentChatId;
+    // Identity only; ChatManager owns the chat's metadata. A new chat has its id
+    // from the start and is saved with its first turn; if that turn was stopped
+    // or failed before saving, the next message saves it under the same id.
+    private Guid _chatId = Guid.NewGuid();
+    private bool _isChatSaved;
 
     // Loaded with the chat. Every file a turn makes available is added as it
     // becomes available, while the view is still that turn's. A file another
@@ -82,7 +85,8 @@ public sealed class ChatSession : IAsyncDisposable
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 
-    public Guid? ChatId => _currentChatId;
+    // Null until the chat is saved: a page treats null as a new chat.
+    public Guid? ChatId => _isChatSaved ? _chatId : null;
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
     public bool HasVisibleMessages => _turns.Count > 0;
@@ -105,7 +109,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             _logger.LogWarning(
                 "Refused to switch chat {ChatId} to model {ModelKey}: not in this user's available models.",
-                _currentChatId,
+                _chatId,
                 key);
             return Task.CompletedTask;
         }
@@ -176,7 +180,8 @@ public sealed class ChatSession : IAsyncDisposable
 
             if (chat is not null)
             {
-                _currentChatId = chat.Id;
+                _chatId = chat.Id;
+                _isChatSaved = true;
                 _knowledgeFiles = knowledgeFiles;
                 var loadedAt = DateTimeOffset.UtcNow;
                 _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
@@ -204,7 +209,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _logger.LogInformation(
             "Chat {ChatId} was last used with model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
-            _currentChatId,
+            _chatId,
             storedKey,
             _catalog.Default.Key);
 
@@ -235,7 +240,8 @@ public sealed class ChatSession : IAsyncDisposable
     {
         _turns.Clear();
         _liveTurnId = null;
-        _currentChatId = null;
+        _chatId = Guid.NewGuid();
+        _isChatSaved = false;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 
@@ -265,13 +271,13 @@ public sealed class ChatSession : IAsyncDisposable
         // The turn keeps writing to its own chat after the user moves on; only the
         // page stops following it.
         var viewVersion = _viewVersion;
-        var isNewChat = _currentChatId is null;
+        var isNewChat = !_isChatSaved;
 
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, Instructions, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
+        var input = new TurnInput(turn, _chatId, _isChatSaved, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -322,7 +328,7 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        _currentChatId = chatId;
+        _isChatSaved = true;
         if (isNewChat)
         {
             ChatCreated?.Invoke(chatId);

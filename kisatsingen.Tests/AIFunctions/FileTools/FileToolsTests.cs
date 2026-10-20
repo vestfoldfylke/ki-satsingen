@@ -113,7 +113,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     }
 
     private async Task<Guid> CreateChatAsync(string ownerId) =>
-        (await Chats.CreateChatAsync(ownerId, "hello", assistantId: null)).Id;
+        (await Chats.CreateChatAsync(ownerId, Guid.NewGuid(), "hello", assistantId: null)).Id;
 
     private async Task<Guid> SaveAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile)
     {
