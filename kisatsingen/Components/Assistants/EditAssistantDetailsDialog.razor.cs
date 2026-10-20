@@ -49,7 +49,7 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
     {
         _refusal = null;
         _isNotFound = false;
-        Form = AssistantDetailsForm.From(Assistant);
+        Form = AssistantDetailsForm.FromAssistant(Assistant);
         StateHasChanged();
     }
 

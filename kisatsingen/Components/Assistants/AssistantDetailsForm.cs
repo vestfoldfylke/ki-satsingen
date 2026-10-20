@@ -17,7 +17,7 @@ internal sealed class AssistantDetailsForm
 
     public AssistantVisibility Visibility { get; set; } = AssistantVisibility.Private;
 
-    public static AssistantDetailsForm From(Assistant assistant) => new()
+    public static AssistantDetailsForm FromAssistant(Assistant assistant) => new()
     {
         Name = assistant.Name,
         Description = assistant.Description,
