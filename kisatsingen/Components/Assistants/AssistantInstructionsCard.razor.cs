@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using kisatsingen.Components.Shared;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -40,7 +41,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     private bool _isNotFound;
     private string? _refusal;
 
-    private int _dialogKey;
+    private ModalDialog? _dialog;
 
     private void OpenDialog()
     {
@@ -65,14 +66,9 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
             return;
         }
 
-        CloseDialog();
+        _dialog?.Close();
         await OnChanged.InvokeAsync();
     }
-
-    // Closing a modal <dialog> from code takes its close() method, which only
-    // JavaScript can call. A new key makes Blazor replace the element instead,
-    // and a new <dialog> starts closed.
-    private void CloseDialog() => _dialogKey++;
 
     // The entity's own limit, so the form refuses what the repository would.
     private sealed class InstructionsForm

@@ -1,3 +1,4 @@
+using kisatsingen.Components.Shared;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -34,7 +35,7 @@ public sealed partial class NewAssistantDialog : ComponentBase
 
     private string? _refusal;
 
-    private int _dialogKey;
+    private ModalDialog? _dialog;
 
     private void Open()
     {
@@ -55,12 +56,7 @@ public sealed partial class NewAssistantDialog : ComponentBase
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
         var assistant = await AssistantRepository.CreateAssistantAsync(userId, Form.Name, Form.Description, Form.Visibility);
 
-        CloseDialog();
+        _dialog?.Close();
         await OnCreated.InvokeAsync(assistant.Id);
     }
-
-    // Closing a modal <dialog> from code takes its close() method, which only
-    // JavaScript can call. A new key makes Blazor replace the element instead,
-    // and a new <dialog> starts closed.
-    private void CloseDialog() => _dialogKey++;
 }
