@@ -42,10 +42,10 @@ public partial class NavMenu : ComponentBase, IDisposable
     {
         Logger.LogInformation("New chat started");
 
-        // Loaded here, not left to the page: until the first message has created
+        // Started here, not left to the page: until the first message has created
         // its chat the URL is still /new, and navigating to /new changes no
-        // parameter, so the page would never load and that answer would carry on.
-        await Session.LoadAsync(null);
+        // parameter, so the page would never start one and that answer would carry on.
+        await Session.StartNewChatAsync();
 
         // Pushed: leaving a chat is a real navigation, and back should return to it.
         // Skipped on /new itself, where it would only stack duplicate entries.

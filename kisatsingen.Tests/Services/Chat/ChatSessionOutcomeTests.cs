@@ -288,7 +288,7 @@ public sealed class ChatSessionOutcomeTests
             OwnerId = ChatSessionHarness.OwnerUnderTest,
             Title = "stored"
         });
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
@@ -333,7 +333,7 @@ public sealed class ChatSessionOutcomeTests
             ]
         });
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal("Svaret ble ikke fullført", harness.VisibleNotice);
     }

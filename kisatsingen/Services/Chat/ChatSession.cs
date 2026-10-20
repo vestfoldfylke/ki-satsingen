@@ -152,7 +152,8 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    public async Task LoadAsync(Guid? chatId, CancellationToken ct = default)
+    // A chat the user can't open shows as a new chat.
+    public async Task OpenChatAsync(Guid chatId, CancellationToken ct = default)
     {
         var viewVersion = ++_viewVersion;
 
@@ -166,31 +167,41 @@ public sealed class ChatSession : IAsyncDisposable
 
         ClearView();
 
-        if (chatId is Guid id)
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+        var chat = await _repo.GetChatAsync(userObjectId, chatId, ct);
+        var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId, ct);
+
+        // A later navigation that finished first must not be overwritten.
+        if (!OwnsView(viewVersion))
         {
-            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            var chat = await _repo.GetChatAsync(userObjectId, id, ct);
-            var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, id, ct);
-
-            // A later navigation that finished first must not be overwritten.
-            if (!OwnsView(viewVersion))
-            {
-                return;
-            }
-
-            if (chat is not null)
-            {
-                _chatId = chat.Id;
-                _isChatSaved = true;
-                _knowledgeFiles = knowledgeFiles;
-                var loadedAt = DateTimeOffset.UtcNow;
-                _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
-
-                // Continuing a chat must not silently change who answers it.
-                _selectedModel = FindLastModel() ?? _catalog.Default;
-            }
+            return;
         }
 
+        if (chat is not null)
+        {
+            _chatId = chat.Id;
+            _isChatSaved = true;
+            _knowledgeFiles = knowledgeFiles;
+            var loadedAt = DateTimeOffset.UtcNow;
+            _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
+
+            // Continuing a chat must not silently change who answers it.
+            _selectedModel = FindLastModel() ?? _catalog.Default;
+        }
+
+        Notify();
+    }
+
+    public async Task StartNewChatAsync()
+    {
+        var viewVersion = ++_viewVersion;
+        await StopTurnForLeaveAsync();
+        if (!OwnsView(viewVersion))
+        {
+            return;
+        }
+
+        ClearView();
         Notify();
     }
 
@@ -295,8 +306,8 @@ public sealed class ChatSession : IAsyncDisposable
         }
         finally
         {
-            // Nested so a throwing StateChanged subscriber can't leave LoadAsync
-            // waiting on this turn forever.
+            // Nested so a throwing StateChanged subscriber can't leave the next
+            // navigation waiting on this turn forever.
             try
             {
                 if (OwnsView(viewVersion))

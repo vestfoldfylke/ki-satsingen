@@ -41,20 +41,20 @@ public sealed class ChatSessionKnowledgeFilesTests
         var chat = StoreChat(harness);
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
     }
 
     [Fact]
-    public async Task Opening_a_new_chat_empties_the_list()
+    public async Task Starting_a_new_chat_empties_the_list()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
-        await harness.Session.LoadAsync(null);
+        await harness.Session.StartNewChatAsync();
 
         Assert.Empty(harness.Session.KnowledgeFiles);
     }

@@ -106,7 +106,7 @@ public sealed class ChatSessionNavigationTests
 
         var sending = harness.Session.SendAsync("hei");
         await creating.Task.WaitAsync(TurnWindDownLimit);
-        var leaving = harness.Session.LoadAsync(other.Id);
+        var leaving = harness.Session.OpenChatAsync(other.Id);
         createReleased.SetResult();
         await leaving.WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
@@ -120,7 +120,7 @@ public sealed class ChatSessionNavigationTests
     {
         await using var harness = new ChatSessionHarness();
         var existing = StoreEmptyChat(harness);
-        await harness.Session.LoadAsync(existing.Id);
+        await harness.Session.OpenChatAsync(existing.Id);
         var announcements = 0;
         harness.Session.ChatCreated += _ => announcements++;
 
@@ -135,7 +135,7 @@ public sealed class ChatSessionNavigationTests
         await using var harness = new ChatSessionHarness();
         var (sending, askedIn) = await StartStalledAnswer(harness);
 
-        await harness.Session.LoadAsync(null).WaitAsync(TurnWindDownLimit);
+        await harness.Session.StartNewChatAsync().WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
         Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
@@ -151,7 +151,7 @@ public sealed class ChatSessionNavigationTests
         var other = StoreEmptyChat(harness);
         var (sending, _) = await StartStalledAnswer(harness);
 
-        await harness.Session.LoadAsync(other.Id).WaitAsync(TurnWindDownLimit);
+        await harness.Session.OpenChatAsync(other.Id).WaitAsync(TurnWindDownLimit);
 
         Assert.False(harness.Session.IsBusy);
         await sending.WaitAsync(TurnWindDownLimit);
@@ -173,7 +173,7 @@ public sealed class ChatSessionNavigationTests
             }
         };
 
-        await harness.Session.LoadAsync(other.Id).WaitAsync(TurnWindDownLimit);
+        await harness.Session.OpenChatAsync(other.Id).WaitAsync(TurnWindDownLimit);
 
         Assert.Equal(other.Id, harness.Session.ChatId);
         await Assert.ThrowsAsync<InvalidOperationException>(() => sending.WaitAsync(TurnWindDownLimit));
@@ -188,8 +188,8 @@ public sealed class ChatSessionNavigationTests
         var firstReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         harness.Repository.BeforeGetChat = chatId => chatId == first.Id ? firstReleased.Task : Task.CompletedTask;
 
-        var loadingFirst = harness.Session.LoadAsync(first.Id);
-        await harness.Session.LoadAsync(second.Id).WaitAsync(TurnWindDownLimit);
+        var loadingFirst = harness.Session.OpenChatAsync(first.Id);
+        await harness.Session.OpenChatAsync(second.Id).WaitAsync(TurnWindDownLimit);
         firstReleased.SetResult();
         await loadingFirst.WaitAsync(TurnWindDownLimit);
 
@@ -211,7 +211,7 @@ public sealed class ChatSessionNavigationTests
     {
         var (sending, askedIn) = await StartStalledAnswer(harness);
 
-        await harness.Session.LoadAsync(destination).WaitAsync(TurnWindDownLimit);
+        await harness.Session.OpenChatAsync(destination).WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
         return askedIn;

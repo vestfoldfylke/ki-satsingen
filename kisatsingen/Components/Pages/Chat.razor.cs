@@ -53,9 +53,18 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             _stateWired = true;
         }
 
-        if (Session.ChatId != ChatId)
+        if (Session.ChatId == ChatId)
         {
-            await Session.LoadAsync(ChatId);
+            return;
+        }
+
+        if (ChatId is Guid chatId)
+        {
+            await Session.OpenChatAsync(chatId);
+        }
+        else
+        {
+            await Session.StartNewChatAsync();
         }
     }
 
