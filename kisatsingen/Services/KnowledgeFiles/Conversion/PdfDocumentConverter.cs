@@ -111,10 +111,6 @@ public static class VestfoldPdfConverter
 
             return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString(), pageCount));
         }
-        catch (ArgumentNullException ex)
-        {
-            return Task.FromResult(PdfConversionResult.Failure(ex.Message));
-        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             return Task.FromResult(PdfConversionResult.Failure(ex.Message));
