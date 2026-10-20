@@ -106,7 +106,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         assistant.Property(a => a.OwnerId).HasMaxLength(128).IsRequired();
         assistant.Property(a => a.Name).HasMaxLength(Assistant.MaxNameLength).IsRequired();
         assistant.Property(a => a.Description).HasMaxLength(Assistant.MaxDescriptionLength);
-        assistant.Property(a => a.Instructions).HasColumnType("text").IsRequired();
+        assistant.Property(a => a.Instructions).HasColumnType("text");
+        assistant.Property(a => a.Visibility).HasConversion<string>().HasMaxLength(32).IsRequired();
         assistant.HasIndex(a => new { a.OwnerId, a.UpdatedAt });
 
         // SetNull, not Cascade: deleting an assistant must not delete the

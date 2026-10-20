@@ -1,0 +1,10 @@
+.assistant-page {
+    box-sizing: border-box;
+    padding: 0.5rem 1rem;
+    max-width: 64rem;
+    width: 100%;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-6);
+}

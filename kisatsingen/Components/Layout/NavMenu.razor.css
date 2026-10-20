@@ -51,7 +51,7 @@
     overflow-y: auto;
 }
 
-.chat-sidebar-new-chat-button {
+.nav-primary-button {
     width: 100%;
     justify-content: left;
     padding-left: .3rem;

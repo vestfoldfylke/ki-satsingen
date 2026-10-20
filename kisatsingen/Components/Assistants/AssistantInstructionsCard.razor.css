@@ -1,0 +1,21 @@
+/* The heading on the left, editing to the right. */
+.assistant-instructions-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ds-size-2);
+}
+
+.assistant-instructions {
+    white-space: pre-wrap;
+}
+
+/* The first lines only; the dialog shows them all. */
+.assistant-instructions-preview {
+    white-space: pre-wrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+    overflow: hidden;
+}

@@ -9,7 +9,6 @@ public sealed class Chat
     public required string Title { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
-    public string? SystemPrompt { get; set; }
 
     // Nulled rather than cascaded when the assistant is deleted, so the transcript
     // survives; the assistant's knowledge files do not.
