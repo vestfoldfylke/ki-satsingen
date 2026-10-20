@@ -22,19 +22,20 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         string? assistantNameSnapshot = null;
 
         // The foreign key only proves the assistant exists; unchecked, this would
-        // hand the caller another owner's instructions and files. The same query
-        // fetches the name for Chat.AssistantNameSnapshot.
+        // hand the caller the instructions and files of an assistant they may not
+        // use. The same query fetches the name for Chat.AssistantNameSnapshot.
         if (assistantId is Guid resolvedAssistantId)
         {
             assistantNameSnapshot = await db.Assistants
-                .Where(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId)
+                .Where(AssistantAccess.UsableBy(ownerId))
+                .Where(a => a.Id == resolvedAssistantId)
                 .Select(a => a.Name)
                 .SingleOrDefaultAsync(ct);
 
             if (assistantNameSnapshot is null)
             {
                 throw new InvalidOperationException(
-                    $"Assistant {resolvedAssistantId} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.");
+                    $"Assistant {resolvedAssistantId} is not available to this user. Re-list assistants and retry, or create the chat without an assistant.");
             }
         }
 
@@ -60,7 +61,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             // Deleted between the pre-check and the insert. Translated so callers see
             // the same exception as when the pre-check itself finds it gone.
             throw new InvalidOperationException(
-                $"Assistant {assistantId!.Value} is not available to this owner. Re-list assistants and retry, or create the chat without an assistant.", ex);
+                $"Assistant {assistantId!.Value} is not available to this user. Re-list assistants and retry, or create the chat without an assistant.", ex);
         }
 
         return chat;

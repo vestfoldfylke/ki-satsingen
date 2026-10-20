@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Identity.Web;
 
 namespace kisatsingen.Services;
 
@@ -37,8 +38,7 @@ public class AuthenticationService : IAuthenticationService
             return null;
         }
 
-        var objectIdClaim = user.Claims.FirstOrDefault(claim => claim.Type == "http://schemas.microsoft.com/identity/claims/objectidentifier");
-        return objectIdClaim?.Value;
+        return user.GetObjectId();
     }
 
     public async Task<string> RequireUserObjectIdentifierAsync()

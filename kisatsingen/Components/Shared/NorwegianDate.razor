@@ -1,0 +1,10 @@
+@* The date as it is in Norway, not on the server: the server runs in UTC, so a
+   time just after midnight in Oslo would otherwise show as the day before. *@
+<time datetime="@Value.ToString("o")">@TimeZoneInfo.ConvertTime(Value, Oslo).ToString("d. MMM yyyy")</time>
+
+@code {
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
+
+    [Parameter, EditorRequired]
+    public required DateTimeOffset Value { get; set; }
+}

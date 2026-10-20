@@ -3,7 +3,7 @@
 @using kisatsingen.Components.Usage
 @using kisatsingen.Components.Usage.Charts
 @using kisatsingen.Data.Entities
-@attribute [Authorize(Policy = "IsAdministrator")]
+@attribute [Authorize(Policy = AuthorizationPolicies.IsAdministrator)]
 
 <div class="usage-page">
     <div class="usage-range-selector">

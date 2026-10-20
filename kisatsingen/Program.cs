@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.Authorization;
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
@@ -9,6 +10,7 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -129,13 +131,16 @@ var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
                   ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleUser is not configured. Set it via environment variables.");
 
 builder.Services.AddAuthorizationBuilder()
-    .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
-    .AddPolicy("CanReadMetrics", policy => policy
+    .AddDefaultPolicy(AuthorizationPolicies.CanUseApp, policy => policy.RequireRole(userRole, contributorRole, administratorRole))
+    .AddPolicy(AuthorizationPolicies.IsAdministrator, policy => policy.RequireRole(administratorRole))
+    .AddPolicy(AuthorizationPolicies.CanContributeOrganizationWide, policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy(AuthorizationPolicies.CanEditAssistant, policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
+    .AddPolicy(AuthorizationPolicies.CanReadMetrics, policy => policy
         .AddAuthenticationSchemes(CookieOrBearerScheme)
         .RequireAuthenticatedUser()
         .RequireRole(metricsRole));
+
+builder.Services.AddSingleton<IAuthorizationHandler, CanEditAssistantHandler>();
 
 // ─── Application configuration ─────────────────────────
 // No default IChatClient in the container: every caller picks a model by key.
@@ -331,7 +336,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
-app.MapMetrics().RequireAuthorization("CanReadMetrics");
+app.MapMetrics().RequireAuthorization(AuthorizationPolicies.CanReadMetrics);
 app.MapStaticAssets();
 
 // Root has no page of its own — every visit funnels straight into the new-chat

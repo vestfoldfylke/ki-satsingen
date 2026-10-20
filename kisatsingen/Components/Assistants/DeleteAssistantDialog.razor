@@ -1,0 +1,24 @@
+<ModalDialog Id="@Id" Heading="Slett assistent">
+    @if (_isNotFound)
+    {
+        <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
+    }
+    else
+    {
+        <div class="form-fields">
+            @if (_refusal is not null)
+            {
+                <div class="ds-alert" data-color="danger" role="alert">
+                    <p class="ds-paragraph">@_refusal</p>
+                </div>
+            }
+
+            <p class="ds-paragraph">Vil du slette «@Assistant.Name»? Dette kan ikke angres. Samtaler med assistenten blir ikke slettet.</p>
+
+            <div class="form-actions">
+                <button type="button" class="ds-button" data-variant="primary" data-color="danger" @onclick="DeleteAsync">Ja, slett</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
+            </div>
+        </div>
+    }
+</ModalDialog>

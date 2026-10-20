@@ -39,6 +39,20 @@ html {
     font-size: var(--ds-body-sm-font-size);
 }
 
+/* Designsystemet's fields add no space between each other. Global because
+   EditForm renders the <form> as a child component, which scoped CSS cannot
+   reach. */
+.form-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-6);
+}
+
+.form-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--ds-size-2);
+}
 /* Hidden from sight but not from the keyboard or screen readers, which
    display:none would take it out of. Global because it is also used on child
    components, which a component's scoped CSS cannot reach. */

@@ -1,0 +1,22 @@
+@page "/assistants/{AssistantId:guid}"
+@using kisatsingen.Components.Assistants
+@attribute [Authorize]
+
+<PageTitle>@(_assistant?.Name ?? "Assistent")</PageTitle>
+
+<div class="assistant-page">
+    @if (_isLoading)
+    {
+        <p class="ds-paragraph">Laster …</p>
+    }
+    else if (_assistant is null)
+    {
+        <h1 class="ds-heading" data-size="md">Fant ikke assistenten</h1>
+        <p class="ds-paragraph">Den er slettet, eller du har ikke tilgang til den.</p>
+    }
+    else
+    {
+        <AssistantDetails Assistant="_assistant" OnChanged="LoadAsync" />
+        <AssistantInstructionsCard Assistant="_assistant" OnChanged="LoadAsync" />
+    }
+</div>
