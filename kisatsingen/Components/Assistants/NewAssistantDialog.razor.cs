@@ -26,7 +26,7 @@ public sealed partial class NewAssistantDialog : ComponentBase
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
-    // With the new assistant's id, so the caller can show it.
+    // Raised with the new assistant's id once it is created.
     [Parameter]
     public EventCallback<Guid> OnCreated { get; set; }
 

@@ -29,7 +29,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     [Parameter, EditorRequired]
     public required Assistant Assistant { get; set; }
 
-    // After the instructions are saved, so the caller can show the change.
+    // Raised once the instructions are saved.
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
