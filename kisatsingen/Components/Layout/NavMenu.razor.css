@@ -46,8 +46,20 @@
 
 @media (max-width: 640px) {
     .sidebar-top {
-        display: grid;
         grid-template-columns: 1fr auto 1fr;
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: var(--topbar-height);
+        display: flex;
+        align-items: center;
+    }
+
+    .sidebar-top > .ds-button {
+        top: 0;
+        left: 0;
+        height: var(--topbar-height);
+        display: flex;
         align-items: center;
     }
 
