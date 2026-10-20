@@ -22,10 +22,9 @@ public sealed partial class AssistantPage : ComponentBase
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    // Also for reloading after a save. Not shown as loading then: the current content
-    // stays until the new arrives, rather than flickering away and back.
     private async Task LoadAsync()
     {
+        // No _isLoading true here, current stays until new arrives, to avoid flicker
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
         _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
         _isLoading = false;
