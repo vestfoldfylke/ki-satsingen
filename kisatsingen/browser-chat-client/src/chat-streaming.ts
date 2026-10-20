@@ -59,6 +59,11 @@ const md = new MarkdownIt({
     typographer: false,
 });
 
+// linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
+// model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
+// linking those as before.
+md.linkify.set({ fuzzyLink: true });
+
 interface StreamState {
     id: string;
     buffer: string;
