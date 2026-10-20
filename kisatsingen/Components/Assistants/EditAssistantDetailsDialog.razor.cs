@@ -25,66 +25,47 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
     [Parameter, EditorRequired]
-    public required Guid AssistantId { get; set; }
+    public required Assistant Assistant { get; set; }
 
-    // After a save, so the caller can show the change.
+    // Raised once the details are saved.
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
-    private string DialogId => $"edit-assistant-details-{AssistantId}";
+    private string DialogId => $"edit-assistant-details-{Assistant.Id}";
 
     private AssistantDetailsForm Form { get; set; } = new();
 
-    private Assistant? _assistant;
-    private bool _isLoading;
     private bool _isNotFound;
     private string? _refusal;
 
     private int _dialogKey;
 
-    private async Task OpenAsync()
+    private void OpenDialog()
     {
         _refusal = null;
         _isNotFound = false;
-
-        _isLoading = true;
-        var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
-        _isLoading = false;
-
-        if (_assistant is null)
-        {
-            _isNotFound = true;
-            return;
-        }
-
-        Form = AssistantDetailsForm.From(_assistant);
+        Form = AssistantDetailsForm.From(Assistant);
     }
 
     private async Task SaveAsync()
     {
-        if (_assistant is null)
-        {
-            return;
-        }
-
         var user = (await AuthenticationState).User;
 
         if (Form.Visibility == AssistantVisibility.Organization
             && !(await AuthorizationService.AuthorizeAsync(user, "CanContributeOrganizationWide")).Succeeded)
         {
-            _refusal = "Du har ikke tilgang til å lage organisasjons-delte assistenter.";
+            _refusal = "Assistenten er felles for hele organisasjonen, og du har ikke tilgang til å endre felles assistenter. Kontakt en administrator.";
             return;
         }
 
-        if (!(await AuthorizationService.AuthorizeAsync(user, _assistant, "CanEditAssistant")).Succeeded)
+        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
         {
             _refusal = "Du har ikke tilgang til å redigere denne assistenten.";
             return;
         }
 
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        if (!await AssistantRepository.UpdateAssistantDetailsAsync(userId, _assistant.Id, Form.Name, Form.Description, Form.Visibility))
+        if (!await AssistantRepository.UpdateAssistantDetailsAsync(userId, Assistant.Id, Form.Name, Form.Description, Form.Visibility))
         {
             _isNotFound = true;
             return;

@@ -23,7 +23,7 @@
 
     <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
         <div class="assistant-details-actions">
-            <EditAssistantDetailsDialog AssistantId="Assistant.Id" OnChanged="OnChanged" />
+            <EditAssistantDetailsDialog Assistant="Assistant" OnChanged="OnChanged" />
 
             <button type="button" class="ds-button" data-variant="tertiary" data-color="danger" data-icon="true"
                     popovertarget="@DeletePopoverId" data-tooltip="Slett assistenten" aria-label="Slett assistenten">

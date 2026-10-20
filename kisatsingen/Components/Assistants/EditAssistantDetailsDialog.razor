@@ -1,7 +1,7 @@
 @using kisatsingen.Data.Entities
 
 <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
-        command="show-modal" commandfor="@DialogId" @onclick="OpenAsync"
+        command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
         data-tooltip="Rediger detaljer" aria-label="Rediger detaljer">
     <span class="material-symbols-outlined" aria-hidden="true">edit</span>
 </button>
@@ -15,15 +15,11 @@
     </div>
 
     <div class="ds-dialog__block">
-        @if (_isLoading)
-        {
-            <p class="ds-paragraph">Laster …</p>
-        }
-        else if (_isNotFound)
+        @if (_isNotFound)
         {
             <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
         }
-        else if (_assistant is not null)
+        else
         {
             <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
                 <DataAnnotationsValidator />

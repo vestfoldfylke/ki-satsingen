@@ -32,7 +32,7 @@ public sealed partial class AssistantDetails : ComponentBase
     [Parameter, EditorRequired]
     public required Assistant Assistant { get; set; }
 
-    // After its details are saved, so the caller can show the change.
+    // Raised once the details are saved.
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
