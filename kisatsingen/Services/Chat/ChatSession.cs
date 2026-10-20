@@ -84,7 +84,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid ChatId => _chatId;
 
-    public bool IsNewChat => !_isChatSaved && _turns.Count == 0;
+    // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
+    public bool IsChatNotFound { get; private set; }
+
+    public bool IsNewChat => !_isChatSaved && _turns.Count == 0 && !IsChatNotFound;
 
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
@@ -150,7 +153,6 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    // A chat the user can't open shows as a new chat.
     public async Task OpenChatAsync(Guid chatId, CancellationToken ct = default)
     {
         var viewVersion = ++_viewVersion;
@@ -175,17 +177,23 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        if (chat is not null)
+        // The session keeps its own new chat id rather than taking chatId: chatId
+        // comes from the URL, and no chat may be created under it.
+        if (chat is null)
         {
-            _chatId = chat.Id;
-            _isChatSaved = true;
-            _knowledgeFiles = knowledgeFiles;
-            var loadedAt = DateTimeOffset.UtcNow;
-            _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
-
-            // Continuing a chat must not silently change who answers it.
-            _selectedModel = FindLastModel() ?? _catalog.Default;
+            IsChatNotFound = true;
+            Notify();
+            return;
         }
+
+        _chatId = chat.Id;
+        _isChatSaved = true;
+        _knowledgeFiles = knowledgeFiles;
+        var loadedAt = DateTimeOffset.UtcNow;
+        _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
+
+        // Continuing a chat must not silently change who answers it.
+        _selectedModel = FindLastModel() ?? _catalog.Default;
 
         Notify();
     }
@@ -251,6 +259,7 @@ public sealed class ChatSession : IAsyncDisposable
         _liveTurnId = null;
         _chatId = Guid.NewGuid();
         _isChatSaved = false;
+        IsChatNotFound = false;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 

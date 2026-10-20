@@ -98,6 +98,40 @@ public sealed class ChatSessionNavigationTests
     }
 
     [Fact]
+    public async Task Opening_a_chat_that_does_not_exist_reports_it_as_not_found()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
+
+        Assert.True(harness.Session.IsChatNotFound);
+    }
+
+    // The id comes from the URL; a message sent from there must not create a
+    // chat under it.
+    [Fact]
+    public async Task A_chat_that_was_not_found_does_not_take_the_id_it_was_asked_for()
+    {
+        await using var harness = new ChatSessionHarness();
+        var requestedId = Guid.NewGuid();
+
+        await harness.Session.OpenChatAsync(requestedId);
+
+        Assert.NotEqual(requestedId, harness.Session.ChatId);
+    }
+
+    // So a start page replaces it, rather than keep a view that says not found.
+    [Fact]
+    public async Task A_chat_that_was_not_found_is_not_a_new_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
+
+        Assert.False(harness.Session.IsNewChat);
+    }
+
+    [Fact]
     public async Task A_chat_created_after_the_user_left_is_not_shown()
     {
         await using var harness = new ChatSessionHarness();

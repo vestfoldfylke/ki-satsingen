@@ -22,9 +22,10 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required IJSRuntime JS { get; set; }
 
     [Parameter]
-    public Guid ChatId { get; set; }
+    public Guid ChatIdFromUrl { get; set; }
 
     private bool _stateWired;
+    private Guid? _previousChatIdFromUrl;
     private Guid? _lastInitChatId;
     private bool _isFilesPanelOpen;
 
@@ -44,12 +45,17 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             Manager.ChatListChanged += OnSessionChanged;
             _stateWired = true;
         }
-
-        // The session may already hold this chat, with a turn running in it.
-        // Opening the chat again would stop that turn.
-        if (Session.ChatId != ChatId)
+        
+        if (ChatIdFromUrl == _previousChatIdFromUrl)
         {
-            await Session.OpenChatAsync(ChatId);
+            return;
+        }
+
+        _previousChatIdFromUrl = ChatIdFromUrl;
+
+        if (Session.ChatId != ChatIdFromUrl)
+        {
+            await Session.OpenChatAsync(ChatIdFromUrl);
         }
     }
 

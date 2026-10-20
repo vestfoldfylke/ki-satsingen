@@ -1,50 +1,63 @@
-@page "/chat/{ChatId:guid}"
+@page "/chat/{ChatIdFromUrl:guid}"
 @rendermode InteractiveServer
 @using kisatsingen.Components.Chat
 
-<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
+@if (Session.IsChatNotFound)
+{
+    <PageTitle>Fant ikke samtalen</PageTitle>
 
-<div class="chat-layout">
-    <ChatHeader Title="@Title"
-                FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
-                IsFilesPanelOpen="_isFilesPanelOpen"
-                OnToggleFiles="ToggleFilesPanel" />
+    <div class="page-padded">
+        <h1 class="ds-heading" data-size="md">Fant ikke samtalen</h1>
+        <p class="ds-paragraph">Den er slettet, eller du har ikke tilgang til den.</p>
+        <p class="ds-paragraph"><a class="ds-link" href="/new">Start en ny samtale</a></p>
+    </div>
+}
+else
+{
+    <PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
-    <div class="chat-body">
-        <div class="chat-page">
-            <div class="chat-log" role="log" aria-live="polite">
-                <div class="chat-log-inner">
-                    @foreach (var view in Session.Transcript)
-                    {
-                        <TranscriptTurn @key="view.Turn.Id" View="view" />
-                    }
-                    @if (Session.HasLiveTurn)
-                    {
-                        @* The spacer rule and chat-scroll.ts key off this: its
-                           removal is how the page learns the turn has ended. *@
-                        <div class="assistant-streaming" aria-hidden="true"></div>
-                    }
-                    <div class="chat-log-spacer" aria-hidden="true"></div>
-                    <button type="button" class="chat-jump-latest" hidden aria-label="Gå til nyeste melding" data-tooltip="Gå til nyeste melding">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                            <line x1="12" y1="5" x2="12" y2="19"/>
-                            <polyline points="19 12 12 19 5 12"/>
-                        </svg>
-                    </button>
-                </div>
+    <div class="chat-layout">
+        <ChatHeader Title="@Title"
+                    FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
+                    IsFilesPanelOpen="_isFilesPanelOpen"
+                    OnToggleFiles="ToggleFilesPanel" />
 
-                <div class="chat-tail">
-                    <ChatComposer />
+        <div class="chat-body">
+            <div class="chat-page">
+                <div class="chat-log" role="log" aria-live="polite">
+                    <div class="chat-log-inner">
+                        @foreach (var view in Session.Transcript)
+                        {
+                            <TranscriptTurn @key="view.Turn.Id" View="view" />
+                        }
+                        @if (Session.HasLiveTurn)
+                        {
+                            @* The spacer rule and chat-scroll.ts key off this: its
+                               removal is how the page learns the turn has ended. *@
+                            <div class="assistant-streaming" aria-hidden="true"></div>
+                        }
+                        <div class="chat-log-spacer" aria-hidden="true"></div>
+                        <button type="button" class="chat-jump-latest" hidden aria-label="Gå til nyeste melding" data-tooltip="Gå til nyeste melding">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="12" y1="5" x2="12" y2="19"/>
+                                <polyline points="19 12 12 19 5 12"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="chat-tail">
+                        <ChatComposer />
+                    </div>
                 </div>
             </div>
-        </div>
 
-        @if (_isFilesPanelOpen)
-        {
-            <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
-                            Attachments="Attachments.All"
-                            OnRemove="Attachments.Remove"
-                            OnClose="ToggleFilesPanel" />
-        }
+            @if (_isFilesPanelOpen)
+            {
+                <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
+                                Attachments="Attachments.All"
+                                OnRemove="Attachments.Remove"
+                                OnClose="ToggleFilesPanel" />
+            }
+        </div>
     </div>
-</div>
+}
