@@ -46,7 +46,7 @@
         height: var(--topbar-height);
     }
 
-    .sidebar-header > .ds-button {
+    .sidebar-panel-open {
         height: var(--topbar-height);
     }
 
