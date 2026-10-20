@@ -17,10 +17,6 @@
     margin-bottom: 1rem;
 }
 
-.chat-list-new-chat-button > span.material-symbols-outlined {
-   font-size: 1.1rem;
-}
-
 @media (min-width: 641px) {
     .sidebar-panel {
         display: flex;
@@ -99,6 +95,16 @@
     }
 }
 
+.sidebar-new-chat-button {
+    width: 100%;
+    justify-content: left;
+    padding-left: .3rem;
+}
+
+.sidebar-new-chat-button > span.material-symbols-outlined {
+    font-size: 1.1rem;
+}
+
 .nav-primary {
     flex-shrink: 0;
     padding-top: 1rem;
@@ -110,16 +116,6 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-}
-
-.chat-list-new-chat-button {
-    width: 100%;
-    justify-content: left;
-    padding-left: .3rem;
-}
-
-.user {
-    flex-shrink: 0;
 }
 
 .chat-list-header {
@@ -145,15 +141,14 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
 }
 
 .chat-list-items > li {
     margin-top: 0.1rem;
 }
 
-.chat-list-item, .chat-sidebar-item {
-    display:flex;
+.chat-list-item, .user-menu-item {
+    display: flex;
     align-items: center;
     gap: 0.25rem;
     padding: 0.2rem 0 0.2rem 0.5rem;
@@ -162,7 +157,7 @@
     overflow: hidden;
 }
 
-.chat-list-item:hover {
+.chat-list-item:hover, .user-menu-item:hover {
     background: #eef2f6;
 }
 
@@ -204,7 +199,7 @@
     padding: 0;
 }
 
-.chat-list-item-option-dropdown-menu ul > li > a {
+.chat-list-item-option-dropdown-menu ul > li > button {
     font-size: .925rem;
 }
 
@@ -217,14 +212,18 @@
     color: inherit;
 }
 
-.chat-list-title, .chat-sidebar-title {
+.chat-list-title, .user-menu-button-title {
     font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.chat-sidebar-user-button {
+.user-menu {
+    flex-shrink: 0;
+}
+
+.user-menu-button {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
@@ -232,11 +231,11 @@
     background: transparent;
 }
 
-.chat-list-user-button .chat-list-title {
+.user-menu-button-title {
     flex: 1;
     text-align: left;
 }
 
-.chat-list-user-button .ds-avatar {
+.user-menu-button .ds-avatar {
     --dsc-avatar-size: 1.7rem;
 }
