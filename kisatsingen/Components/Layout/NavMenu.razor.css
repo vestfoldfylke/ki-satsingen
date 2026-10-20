@@ -33,45 +33,34 @@
         padding: 0;
         background: transparent;
         border: 0;
-        inset: auto;
         width: auto;
         height: auto;
     }
 
-    .sidebar-top > .ds-button,
+    .sidebar-panel-open,
     .sidebar-panel-close {
         display: none;
     }
 }
 
 @media (max-width: 640px) {
-    .sidebar-top {
-        grid-template-columns: 1fr auto 1fr;
+    .sidebar-header {
         position: absolute;
         top: 0;
         left: 0;
         height: var(--topbar-height);
-        display: flex;
-        align-items: center;
     }
 
-    .sidebar-top > .ds-button {
-        top: 0;
-        left: 0;
+    .sidebar-header > .ds-button {
         height: var(--topbar-height);
-        display: flex;
-        align-items: center;
     }
 
     .sidebar-panel {
-        position: fixed;
         display: flex;
         flex-direction: column;
-        inset: 0 auto 0 0;
         margin: 0;
         height: auto;
         width: min(85vw, 20rem);
-        background: var(--chat-surface, #fff);
         transform: translateX(-100%);
         visibility: hidden;
         transition: transform .3s ease-in-out, visibility .3s, box-shadow .3s;
@@ -103,20 +92,28 @@
     }
 }
 
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-panel,
+    .sidebar-panel:popover-open::backdrop {
+        transition: none;
+        animation: none;
+    }
+}
+
 .nav-primary {
     flex-shrink: 0;
     padding-top: 1rem;
     padding-bottom: 2rem;
 }
 
-.chat-sidebar {
+.chat-list {
     padding: 0;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
-.chat-sidebar-new-chat-button {
+.chat-list-new-chat-button {
     width: 100%;
     justify-content: left;
     padding-left: .3rem;
@@ -126,25 +123,25 @@
     flex-shrink: 0;
 }
 
-.chat-sidebar-header {
+.chat-list-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.5rem;
 }
 
-.chat-sidebar-header h2 {
+.chat-list-header h2 {
     font-size: 1rem;
     margin: 0;
 }
 
-.chat-sidebar-empty {
+.chat-list-empty {
     opacity: 0.6;
     font-size: 0.85rem;
     margin: 0.5rem 0 0;
 }
 
-.chat-sidebar-list {
+.chat-list-list {
     list-style: none;
     padding: 0;
     display: flex;
@@ -152,11 +149,11 @@
     gap: 0;
 }
 
-.chat-sidebar-list > li {
+.chat-list-list > li {
     margin-top: 0.1rem;
 }
 
-.chat-sidebar-item {
+.chat-list-item {
     display:flex;
     align-items: center;
     gap: 0.25rem;
@@ -166,20 +163,20 @@
     overflow: hidden;
 }
 
-.chat-sidebar-item:hover {
+.chat-list-item:hover {
     background: #eef2f6;
 }
 
-.chat-sidebar-item:hover .chat-sidebar-item-option-button {
+.chat-list-item:hover .chat-list-item-option-button {
     opacity: 1;
     transition: opacity 0.02s ease-in-out;
 }
 
-.chat-sidebar-item-active {
+.chat-list-item-active {
     background: #e0eaff;
 }
 
-.chat-sidebar-item-option-button {
+.chat-list-item-option-button {
     --dsc-button-size: 1.7rem;
     flex: 0 0 auto;
     display: flex;
@@ -190,11 +187,11 @@
     opacity: 0;
 }
 
-.chat-sidebar-item-option-button > span.material-symbols-outlined {
+.chat-list-item-option-button > span.material-symbols-outlined {
     font-size: 1.3rem;
 }
 
-.chat-sidebar-item-option-dropdown-menu {
+.chat-list-item-option-dropdown-menu {
     --dsc-dropdown-padding: 0.25rem;
     --dsc-dropdown-item-size: 1rem;
     --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem .3rem;
@@ -202,17 +199,17 @@
     width: max-content;
 }
 
-.chat-sidebar-item-option-dropdown-menu ul {
+.chat-list-item-option-dropdown-menu ul {
     width: auto;
     margin: 0;
     padding: 0;
 }
 
-.chat-sidebar-item-option-dropdown-menu ul > li > a {
+.chat-list-item-option-dropdown-menu ul > li > a {
     font-size: .925rem;
 }
 
-.chat-sidebar-link {
+.chat-list-link {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -221,14 +218,14 @@
     color: inherit;
 }
 
-.chat-sidebar-title {
+.chat-list-title {
     font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.chat-sidebar-user-button {
+.chat-list-user-button {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
@@ -236,11 +233,11 @@
     background: transparent;
 }
 
-.chat-sidebar-user-button .chat-sidebar-title {
+.chat-list-user-button .chat-list-title {
     flex: 1;
     text-align: left;
 }
 
-.chat-sidebar-user-button .ds-avatar {
+.chat-list-user-button .ds-avatar {
     --dsc-avatar-size: 1.7rem;
 }

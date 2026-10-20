@@ -11,7 +11,7 @@
 }
 
 .chat-header-title {
-    margin: 0;
+    margin: 1rem;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -27,6 +27,7 @@
     }
 
     .chat-header-title {
+        margin: 0;
         grid-column: 2;
         text-align: center;
     }
@@ -36,5 +37,4 @@
         grid-column: 3;
         justify-self: end;
     }
-
 }
