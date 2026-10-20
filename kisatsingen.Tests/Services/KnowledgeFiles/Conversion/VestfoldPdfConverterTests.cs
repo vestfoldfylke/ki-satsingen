@@ -95,6 +95,33 @@ public sealed class VestfoldPdfConverterTests
             markdown);
     }
 
+    // A heading is short. A lead paragraph in the heading's font size shares
+    // its size, but not its role.
+    [Fact]
+    public async Task A_paragraph_of_more_than_three_lines_in_a_heading_font_size_is_not_a_heading()
+    {
+        const double leadFontSize = 18;
+        const double leadSpacing = leadFontSize * 1.2;
+        var pdf = TestPdf.Page(
+        [
+            new PlacedLine("Innledning", TopY + 200, FontSize: leadFontSize),
+            new PlacedLine("Ingressen er", TopY + 140, FontSize: leadFontSize),
+            new PlacedLine("skrevet i samme", TopY + 140 - leadSpacing, FontSize: leadFontSize),
+            new PlacedLine("store skrift som", TopY + 140 - leadSpacing * 2, FontSize: leadFontSize),
+            new PlacedLine("overskriften.", TopY + 140 - leadSpacing * 3, FontSize: leadFontSize),
+            .. BodyLines(TopY, SingleSpacing, "Brødteksten er det meste av teksten", "i dokumentet, og den fortsetter", "over flere linjer enn ingressen.")
+        ]);
+
+        var markdown = await ConvertToMarkdownAsync(pdf);
+
+        Assert.Equal(
+            Paragraphs(
+                "# Innledning",
+                "Ingressen er skrevet i samme store skrift som overskriften.",
+                "Brødteksten er det meste av teksten i dokumentet, og den fortsetter over flere linjer enn ingressen."),
+            markdown);
+    }
+
     [Fact]
     public async Task A_bold_line_slightly_larger_than_the_body_text_becomes_a_heading()
     {
