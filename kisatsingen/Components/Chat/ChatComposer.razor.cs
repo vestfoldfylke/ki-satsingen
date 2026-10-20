@@ -4,8 +4,6 @@ using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Chat;
 
-// The composer for the open chat: it reads and drives the chat session and its
-// attachments itself, so a page only decides where it goes.
 public sealed partial class ChatComposer : ComponentBase, IDisposable
 {
     private ElementReference _textarea;

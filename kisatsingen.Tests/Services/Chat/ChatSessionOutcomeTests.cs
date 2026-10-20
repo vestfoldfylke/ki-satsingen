@@ -276,7 +276,7 @@ public sealed class ChatSessionOutcomeTests
 
         await harness.Session.SendAsync("hei igjen");
 
-        Assert.Equal(chatId, harness.Repository.Writes[^1].ChatId);
+        Assert.Equal([chatId, chatId], harness.Repository.CreatedChatIds);
     }
 
     [Fact]

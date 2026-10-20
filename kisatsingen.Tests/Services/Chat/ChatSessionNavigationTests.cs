@@ -6,8 +6,8 @@ using ChatEntity = kisatsingen.Data.Entities.Chat;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// Navigation mid-answer: the turn stays with its chat. A new chat has its id
-// before it is saved, since a start page moves to the chat as it sends.
+// Moving between chats: the turn stays with its chat, and the session holds the
+// chat it was last asked for, a new chat included.
 public sealed class ChatSessionNavigationTests
 {
     // A turn that isn't stopped by navigation stalls forever; fail instead of hanging.
@@ -131,26 +131,22 @@ public sealed class ChatSessionNavigationTests
         Assert.False(harness.Session.IsNewChat);
     }
 
+    // So a start page opened meanwhile starts a chat of its own instead of keeping
+    // one that the load is about to fill.
     [Fact]
-    public async Task A_chat_created_after_the_user_left_is_not_shown()
+    public async Task A_chat_that_is_still_loading_is_not_a_new_chat()
     {
         await using var harness = new ChatSessionHarness();
-        var other = StoreEmptyChat(harness);
-        var creating = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var createReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        harness.Repository.BeforeCreateChat = async () =>
-        {
-            creating.SetResult();
-            await createReleased.Task;
-        };
-        var sending = harness.Session.SendAsync("hei");
-        await creating.Task.WaitAsync(TurnWindDownLimit);
-        var leaving = harness.Session.OpenChatAsync(other.Id);
-        createReleased.SetResult();
-        await leaving.WaitAsync(TurnWindDownLimit);
-        await sending.WaitAsync(TurnWindDownLimit);
+        var chat = StoreEmptyChat(harness);
+        var loadReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Repository.BeforeGetChat = _ => loadReleased.Task;
 
-        Assert.Equal(other.Id, harness.Session.ChatId);
+        var opening = harness.Session.OpenChatAsync(chat.Id);
+        var isNewChatWhileLoading = harness.Session.IsNewChat;
+        loadReleased.SetResult();
+        await opening.WaitAsync(TurnWindDownLimit);
+
+        Assert.False(isNewChatWhileLoading);
     }
 
     [Fact]

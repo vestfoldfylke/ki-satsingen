@@ -137,6 +137,8 @@ internal sealed class FakeChatRepository : IChatRepository
 
     public List<TurnWrite> Writes { get; } = [];
 
+    public List<Guid> CreatedChatIds { get; } = [];
+
     private int _updateCalls;
     private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
 
@@ -163,6 +165,7 @@ internal sealed class FakeChatRepository : IChatRepository
             throw CreateChatFailure;
         }
 
+        CreatedChatIds.Add(chatId);
         return new ChatEntity
         {
             Id = chatId,

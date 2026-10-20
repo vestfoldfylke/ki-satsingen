@@ -45,7 +45,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             Manager.ChatListChanged += OnSessionChanged;
             _stateWired = true;
         }
-        
+
         if (ChatIdFromUrl == _previousChatIdFromUrl)
         {
             return;

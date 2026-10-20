@@ -32,7 +32,18 @@ public sealed class ChatSession : IAsyncDisposable
     // from the start and is saved with its first turn; if that turn was stopped
     // or failed before saving, the next message saves it under the same id.
     private Guid _chatId = Guid.NewGuid();
-    private bool _isChatSaved;
+    private ChatState _chatState = ChatState.New;
+
+    private enum ChatState
+    {
+        New,
+
+        // A chat is being loaded: the view is neither a new chat nor that chat yet.
+        Opening,
+
+        Saved,
+        NotFound
+    }
 
     // Loaded with the chat. Every file a turn makes available is added as it
     // becomes available, while the view is still that turn's. A file another
@@ -85,9 +96,9 @@ public sealed class ChatSession : IAsyncDisposable
     public Guid ChatId => _chatId;
 
     // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
-    public bool IsChatNotFound { get; private set; }
+    public bool IsChatNotFound => _chatState == ChatState.NotFound;
 
-    public bool IsNewChat => !_isChatSaved && _turns.Count == 0 && !IsChatNotFound;
+    public bool IsNewChat => _chatState == ChatState.New && _turns.Count == 0;
 
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
@@ -166,6 +177,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
 
         ClearView();
+        _chatState = ChatState.Opening;
 
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
         var chat = await _repo.GetChatAsync(userObjectId, chatId, ct);
@@ -177,17 +189,17 @@ public sealed class ChatSession : IAsyncDisposable
             return;
         }
 
-        // The session keeps its own new chat id rather than taking chatId: chatId
-        // comes from the URL, and no chat may be created under it.
+        // The view keeps its own new id rather than taking chatId: a chat is only
+        // ever created under an id the session made itself.
         if (chat is null)
         {
-            IsChatNotFound = true;
+            _chatState = ChatState.NotFound;
             Notify();
             return;
         }
 
         _chatId = chat.Id;
-        _isChatSaved = true;
+        _chatState = ChatState.Saved;
         _knowledgeFiles = knowledgeFiles;
         var loadedAt = DateTimeOffset.UtcNow;
         _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
@@ -237,8 +249,9 @@ public sealed class ChatSession : IAsyncDisposable
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // A turn stops when the session is asked to show another chat, never when a
-    // route without a chat is opened: there it finishes and is waiting on return.
+    // A turn stops when the session is asked to show another chat, a new one
+    // included. Pages that show no chat leave it running, and it is waiting on
+    // return.
     public Task StopTurnForLeaveAsync()
     {
         _turnCancellation?.CancelForLeave();
@@ -250,8 +263,7 @@ public sealed class ChatSession : IAsyncDisposable
         _turns.Clear();
         _liveTurnId = null;
         _chatId = Guid.NewGuid();
-        _isChatSaved = false;
-        IsChatNotFound = false;
+        _chatState = ChatState.New;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 
@@ -286,7 +298,7 @@ public sealed class ChatSession : IAsyncDisposable
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, Instructions, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _chatId, _isChatSaved, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -334,7 +346,7 @@ public sealed class ChatSession : IAsyncDisposable
     {
         if (OwnsView(viewVersion))
         {
-            _isChatSaved = true;
+            _chatState = ChatState.Saved;
         }
     }
 
