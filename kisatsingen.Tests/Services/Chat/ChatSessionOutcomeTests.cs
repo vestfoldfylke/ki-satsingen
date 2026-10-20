@@ -264,18 +264,19 @@ public sealed class ChatSessionOutcomeTests
         Assert.Single(harness.Repository.DeletedChatIds);
     }
 
-    // Announced, the URL would name a chat that no longer exists.
+    // The page already shows the chat's id, so the next message saves it there.
     [Fact]
-    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_never_announced()
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_saved_under_the_same_id_by_the_next_message()
     {
         await using var harness = new ChatSessionHarness();
+        var chatId = harness.Session.ChatId;
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
-        var announcements = 0;
-        harness.Session.ChatCreated += _ => announcements++;
-
         await harness.Session.SendAsync("hei");
+        harness.Repository.InsertTurnFailure = null;
 
-        Assert.Equal((0, (Guid?)null), (announcements, harness.Session.ChatId));
+        await harness.Session.SendAsync("hei igjen");
+
+        Assert.Equal(chatId, harness.Repository.Writes[^1].ChatId);
     }
 
     [Fact]

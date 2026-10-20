@@ -38,23 +38,6 @@ public partial class NavMenu : ComponentBase, IDisposable
         await Manager.EnsureLoadedAsync();
     }
 
-    private async Task StartNewChatAsync()
-    {
-        Logger.LogInformation("New chat started");
-
-        // Started here, not left to the page: until the first message has created
-        // its chat the URL is still /new, and navigating to /new changes no
-        // parameter, so the page would never start one and that answer would carry on.
-        await Session.StartNewChatAsync();
-
-        // Pushed: leaving a chat is a real navigation, and back should return to it.
-        // Skipped on /new itself, where it would only stack duplicate entries.
-        if (Navigation.ToBaseRelativePath(Navigation.Uri) != NewChatPath)
-        {
-            Navigation.NavigateTo($"/{NewChatPath}");
-        }
-    }
-
     private async Task RenameChatAsync(Guid id, string currentTitle)
     {
         var input = await JS.InvokeAsync<string?>("prompt", "New name:", currentTitle);

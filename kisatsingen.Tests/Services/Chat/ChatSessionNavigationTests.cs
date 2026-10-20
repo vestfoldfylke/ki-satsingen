@@ -6,8 +6,8 @@ using ChatEntity = kisatsingen.Data.Entities.Chat;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// Navigation mid-answer: the turn stays with its chat, and the URL names the chat
-// as soon as it exists.
+// Navigation mid-answer: the turn stays with its chat. A new chat has its id
+// before it is saved, since a start page moves to the chat as it sends.
 public sealed class ChatSessionNavigationTests
 {
     // A turn that isn't stopped by navigation stalls forever; fail instead of hanging.
@@ -72,25 +72,33 @@ public sealed class ChatSessionNavigationTests
         Assert.Empty(harness.Session.Transcript);
     }
 
-    // So the URL names the chat before the answer ends, and "New chat" or the
-    // sidebar entry navigate away from it rather than to where the user already is.
+    // The page has moved to the chat's id before the chat is saved.
     [Fact]
-    public async Task A_first_message_announces_its_new_chat_before_the_answer_has_finished()
+    public async Task A_new_chat_is_saved_under_the_id_it_had_before_its_first_message()
     {
         await using var harness = new ChatSessionHarness();
-        Guid? announced = null;
-        harness.Session.ChatCreated += chatId => announced = chatId;
+        var idBeforeSending = harness.Session.ChatId;
 
-        var (sending, askedIn) = await StartStalledAnswer(harness);
-        var announcedMidAnswer = announced;
-        harness.Session.Cancel();
-        await sending.WaitAsync(TurnWindDownLimit);
+        await harness.Session.SendAsync("hei");
 
-        Assert.Equal(askedIn, announcedMidAnswer);
+        Assert.Equal(idBeforeSending, harness.Repository.Writes[^1].ChatId);
+    }
+
+    // What lets a start page keep a session that already is a new chat, and
+    // replace one that has anything in it.
+    [Fact]
+    public async Task A_first_message_that_could_not_be_saved_still_ends_the_new_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.False(harness.Session.IsNewChat);
     }
 
     [Fact]
-    public async Task A_chat_created_after_the_user_left_is_neither_announced_nor_shown()
+    public async Task A_chat_created_after_the_user_left_is_not_shown()
     {
         await using var harness = new ChatSessionHarness();
         var other = StoreEmptyChat(harness);
@@ -101,9 +109,6 @@ public sealed class ChatSessionNavigationTests
             creating.SetResult();
             await createReleased.Task;
         };
-        var announcements = 0;
-        harness.Session.ChatCreated += _ => announcements++;
-
         var sending = harness.Session.SendAsync("hei");
         await creating.Task.WaitAsync(TurnWindDownLimit);
         var leaving = harness.Session.OpenChatAsync(other.Id);
@@ -111,22 +116,25 @@ public sealed class ChatSessionNavigationTests
         await leaving.WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
-        Assert.Equal(0, announcements);
         Assert.Equal(other.Id, harness.Session.ChatId);
     }
 
     [Fact]
-    public async Task A_message_in_an_existing_chat_announces_no_new_chat()
+    public async Task A_message_in_an_existing_chat_creates_no_chat()
     {
         await using var harness = new ChatSessionHarness();
         var existing = StoreEmptyChat(harness);
         await harness.Session.OpenChatAsync(existing.Id);
-        var announcements = 0;
-        harness.Session.ChatCreated += _ => announcements++;
+        var creates = 0;
+        harness.Repository.BeforeCreateChat = () =>
+        {
+            creates++;
+            return Task.CompletedTask;
+        };
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(0, announcements);
+        Assert.Equal(0, creates);
     }
 
     [Fact]
@@ -140,7 +148,7 @@ public sealed class ChatSessionNavigationTests
 
         Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
         Assert.Equal(askedIn, harness.Repository.Writes[^1].ChatId);
-        Assert.Null(harness.Session.ChatId);
+        Assert.True(harness.Session.IsNewChat);
     }
 
     // Checked before awaiting the send: once it has returned, IsBusy is false anyway.
@@ -204,7 +212,7 @@ public sealed class ChatSessionNavigationTests
         var sending = harness.Session.SendAsync("hei");
         await reached.Task;
 
-        return (sending, harness.Session.ChatId!.Value);
+        return (sending, harness.Session.ChatId);
     }
 
     private static async Task<Guid> LeaveMidAnswer(ChatSessionHarness harness, Guid destination)

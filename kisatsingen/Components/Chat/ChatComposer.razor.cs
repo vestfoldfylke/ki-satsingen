@@ -47,17 +47,17 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
         }
     }
 
-    // Subscribed here, not left to the page: with no parameters, this component
-    // is not re-rendered when its page is.
+    // Raised just before a message is sent to the chat session.
+    [Parameter]
+    public EventCallback OnSending { get; set; }
+
+    // Re-renders itself when the session or the attachments change: the composer
+    // reads their state directly rather than receiving it as parameters.
     protected override void OnInitialized()
     {
         Session.StateChanged += OnStateChanged;
         Attachments.Changed += OnStateChanged;
     }
-
-    // The page's switch from empty state to transcript layout rebuilds this DOM
-    // and drops the caret; it calls this to restore focus.
-    public ValueTask FocusAsync() => _textarea.FocusAsync();
 
     private async Task SendAsync()
     {
@@ -80,6 +80,8 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
             {
                 return;
             }
+
+            await OnSending.InvokeAsync();
 
             await Session.SendAsync(text);
         }

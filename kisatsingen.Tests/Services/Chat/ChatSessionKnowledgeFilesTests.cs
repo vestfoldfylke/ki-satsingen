@@ -107,7 +107,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
-        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
 
         await harness.Session.SendAsync("Hva står i notatet?");
@@ -120,7 +120,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
-        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
         await harness.Session.SendAsync("Hva står i notatet?");
 

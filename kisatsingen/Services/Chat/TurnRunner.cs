@@ -8,9 +8,8 @@ using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
 
-// ChatPersisted fires mid-turn so a new chat's id can reach the URL before the answer ends.
 internal sealed record TurnObserver(
-    Action<Guid> ChatPersisted,
+    Action TurnSaved,
     Action<Turn> Changed,
     Action<KnowledgeFileMetadata> KnowledgeFileAvailable);
 
@@ -192,7 +191,7 @@ internal sealed class TurnRunner
         }
     }
 
-    // Sets row.Inserted before announcing the chat, so a listener that throws
+    // Sets row.Inserted before reporting the turn saved, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
     private async Task<InsertedTurn> InsertAsync(TurnRow row, string ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
@@ -209,8 +208,8 @@ internal sealed class TurnRunner
         {
             await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);
         }
-        // A new chat whose first question did not save would open empty, so it goes.
-        // Announced only after this, so neither the URL nor the view ever held it.
+        // A new chat whose first message did not save would open empty, so it is
+        // deleted. The next message creates the chat again under the same id.
         catch (Exception) when (isNewChat)
         {
             await DiscardChatAsync(row.ChatId);
@@ -219,7 +218,7 @@ internal sealed class TurnRunner
 
         var inserted = new InsertedTurn(ownerId, row.ChatId);
         row.Inserted = inserted;
-        observer.ChatPersisted(row.ChatId);
+        observer.TurnSaved();
         return inserted;
     }
 

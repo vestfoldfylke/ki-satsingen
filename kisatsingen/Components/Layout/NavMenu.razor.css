@@ -15,10 +15,6 @@
     }
 }
 
-.nav-item > button > span.material-symbols-outlined {
-   font-size: 1.1rem;
-}
-
 .nav-scrollable {
     display: none;
     padding: .2rem .4rem .4rem .4rem;

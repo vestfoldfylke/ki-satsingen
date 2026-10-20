@@ -54,9 +54,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     public event Action? StateChanged;
 
-    // Mid-turn, so the page can put a new chat's id in the URL before the answer ends.
-    public event Action<Guid>? ChatCreated;
-
     public ChatSession(
         IAuthenticationService authenticationService,
         IChatModelCatalog catalog,
@@ -85,11 +82,12 @@ public sealed class ChatSession : IAsyncDisposable
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 
-    // Null until the chat is saved: a page treats null as a new chat.
-    public Guid? ChatId => _isChatSaved ? _chatId : null;
+    public Guid ChatId => _chatId;
+
+    public bool IsNewChat => !_isChatSaved && _turns.Count == 0;
+
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _turns.Count > 0;
     public bool HasLiveTurn => _liveTurnId is not null;
 
     public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId);
@@ -282,7 +280,6 @@ public sealed class ChatSession : IAsyncDisposable
         // The turn keeps writing to its own chat after the user moves on; only the
         // page stops following it.
         var viewVersion = _viewVersion;
-        var isNewChat = !_isChatSaved;
 
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
@@ -297,7 +294,7 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                ChatPersisted: chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
+                TurnSaved: () => OnTurnSaved(viewVersion),
                 Changed: snapshot => ShowSnapshot(viewVersion, snapshot),
                 KnowledgeFileAvailable: file => AddKnowledgeFile(viewVersion, file));
 
@@ -332,17 +329,11 @@ public sealed class ChatSession : IAsyncDisposable
 
     private bool ChatHasKnowledgeFiles() => _knowledgeFiles.Count > 0;
 
-    private void OnChatPersisted(int viewVersion, Guid chatId, bool isNewChat)
+    private void OnTurnSaved(int viewVersion)
     {
-        if (!OwnsView(viewVersion))
+        if (OwnsView(viewVersion))
         {
-            return;
-        }
-
-        _isChatSaved = true;
-        if (isNewChat)
-        {
-            ChatCreated?.Invoke(chatId);
+            _isChatSaved = true;
         }
     }
 
