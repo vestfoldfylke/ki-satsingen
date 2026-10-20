@@ -1,12 +1,6 @@
 @using kisatsingen.Data.Entities
 
-<button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
-        command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
-        data-tooltip="Rediger detaljer" aria-label="Rediger detaljer">
-    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-</button>
-
-<ModalDialog @ref="_dialog" Id="@DialogId" Heading="Rediger assistent">
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Rediger detaljer">
     @if (_isNotFound)
     {
         <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
@@ -53,7 +47,7 @@
 
             <div class="form-actions">
                 <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
-                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@DialogId">Avbryt</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
             </div>
         </EditForm>
     }

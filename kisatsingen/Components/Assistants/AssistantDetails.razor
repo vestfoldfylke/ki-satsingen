@@ -22,25 +22,30 @@
     </div>
 
     <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
-        <div class="assistant-details-actions">
-            <EditAssistantDetailsDialog Assistant="Assistant" OnChanged="OnChanged" />
-
-            <button type="button" class="ds-button" data-variant="tertiary" data-color="danger" data-icon="true"
-                    popovertarget="@DeletePopoverId" data-tooltip="Slett assistenten" aria-label="Slett assistenten">
-                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-            </button>
-            <div class="ds-popover" id="@DeletePopoverId" popover="manual" data-placement="top" data-color="danger">
-                <p class="ds-paragraph">Vil du slette «@Assistant.Name»? Samtaler med den beholdes, men dette kan ikke angres.</p>
-                @if (_deleteFailure is not null)
-                {
-                    <p class="ds-paragraph" role="alert">@_deleteFailure</p>
-                }
-                <div class="assistant-details-actions">
-                    <button type="button" class="ds-button" data-size="sm" @onclick="DeleteAsync">Ja, slett</button>
-                    <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
-                            popovertarget="@DeletePopoverId" popovertargetaction="hide">Avbryt</button>
-                </div>
-            </div>
+        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
+                popovertarget="@MenuId" data-tooltip="Valg for assistenten" aria-label="Valg for assistenten">
+            <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+        </button>
+        <div class="ds-dropdown" id="@MenuId" popover data-placement="bottom-end">
+            <ul>
+                <li>
+                    <button type="button" class="ds-button" data-variant="tertiary"
+                            command="show-modal" commandfor="@EditDialogId" @onclick="() => _editDialog?.ResetForm()">
+                        <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                        Rediger detaljer
+                    </button>
+                </li>
+                <li>
+                    <button type="button" class="ds-button" data-variant="tertiary" data-color="danger"
+                            command="show-modal" commandfor="@DeleteDialogId">
+                        <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                        Slett assistent
+                    </button>
+                </li>
+            </ul>
         </div>
+
+        <EditAssistantDetailsDialog @ref="_editDialog" Id="@EditDialogId" Assistant="Assistant" OnChanged="OnChanged" />
+        <DeleteAssistantDialog Id="@DeleteDialogId" Assistant="Assistant" />
     </AuthorizeView>
 </div>

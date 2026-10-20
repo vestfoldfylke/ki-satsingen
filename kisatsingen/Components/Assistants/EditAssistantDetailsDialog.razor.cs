@@ -8,9 +8,11 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace kisatsingen.Components.Assistants;
 
-// Edits an assistant's name, description and visibility. Saving checks the
-// policies again, since a dialog that was allowed when it rendered may no
-// longer be.
+// Edits an assistant's name, description and visibility. It has no button of
+// its own: open it with a command="show-modal" button whose commandfor is Id,
+// and call ResetForm on that click so the form starts from the saved details.
+// Saving checks the policies again, since a dialog that was allowed when it
+// rendered may no longer be.
 public sealed partial class EditAssistantDetailsDialog : ComponentBase
 {
     [Inject]
@@ -32,7 +34,8 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
     [Parameter]
     public EventCallback OnChanged { get; set; }
 
-    private string DialogId => $"edit-assistant-details-{Assistant.Id}";
+    [Parameter, EditorRequired]
+    public required string Id { get; set; }
 
     private AssistantDetailsForm Form { get; set; } = new();
 
@@ -41,11 +44,12 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
 
     private ModalDialog? _dialog;
 
-    private void OpenDialog()
+    public void ResetForm()
     {
         _refusal = null;
         _isNotFound = false;
         Form = AssistantDetailsForm.From(Assistant);
+        StateHasChanged();
     }
 
     private async Task SaveAsync()

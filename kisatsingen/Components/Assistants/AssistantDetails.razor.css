@@ -1,4 +1,4 @@
-/* Name and description on the left, editing to the top right. */
+/* Name and description on the left, the menu to the top right. */
 .assistant-details {
     display: flex;
     justify-content: space-between;
@@ -17,11 +17,4 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--ds-size-1);
-}
-
-.assistant-details-actions {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--ds-size-2);
 }
