@@ -141,7 +141,7 @@
     margin: 0.5rem 0 0;
 }
 
-.chat-list-list {
+.chat-list-items {
     list-style: none;
     padding: 0;
     display: flex;
@@ -149,7 +149,7 @@
     gap: 0;
 }
 
-.chat-list-list > li {
+.chat-list-items > li {
     margin-top: 0.1rem;
 }
 
