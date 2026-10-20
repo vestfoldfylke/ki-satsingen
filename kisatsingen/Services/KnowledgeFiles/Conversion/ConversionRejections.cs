@@ -26,7 +26,7 @@ internal static class ConversionRejections
         $"Bildet er for stort ({width} x {height} piksler). Last opp en mindre versjon.";
 
     public const string ErrorParsingPdf =
-        "PDF-filen kunne ikke leses. Den kan være skadet, vil bruke for mange tokens eller passordbeskyttet. Fjern passordet, eller lagre den på nytt som PDF og prøv igjen.";
+        "PDF-filen kunne ikke leses. Den kan være skadet eller passordbeskyttet. Fjern passordet, eller lagre den på nytt som PDF og prøv igjen.";
 
     public const string EmptyPdf =
         "Fant ingen tekst i PDF-filen. Den er trolig skannet. Bruk en PDF med tekst, for eksempel eksportert fra Word.";

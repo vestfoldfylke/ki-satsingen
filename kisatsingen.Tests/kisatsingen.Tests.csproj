@@ -34,4 +34,10 @@
         <None Include="..\local-db-init\*.sql" Link="local-db-init\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
+    <!-- Embedded in test PDFs, since PdfPig's built-in fonts cannot draw "å".
+         Noto Sans, SIL Open Font License 1.1 (Fonts/OFL.txt). -->
+    <ItemGroup>
+        <None Include="Fonts\NotoSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

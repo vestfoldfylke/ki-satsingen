@@ -22,13 +22,24 @@ public class PdfDocumentConverter : IDocumentConverter
         var result = await VestfoldPdfConverter.ConvertAsync(request.Content, request.MaxEstimatedTokens, ct);
         if (!result.Success)
         {
-            _logger.LogError(
-                "Failed to convert PDF file '{Filename}' with ContentType '{ContentType}' to Markdown. ErrorMessage: {ErrorMessage}",
+            if (!result.ExceededMaxEstimatedTokens)
+            {
+                _logger.LogError(
+                    "Failed to convert PDF file '{Filename}' with ContentType '{ContentType}' to Markdown. ErrorMessage: {ErrorMessage}",
+                    request.FileName,
+                    request.ContentType,
+                    result.ErrorMessage
+                );
+                return new ConversionResult.Rejected(ConversionRejections.ErrorParsingPdf);
+            }
+
+            _logger.LogWarning(
+                "Converting PDF file '{Filename}' with ContentType '{ContentType}' to Markdown exceeded the limit for MaxEstimatedTokens ({MaxEstimatedTokens}).",
                 request.FileName,
                 request.ContentType,
-                result.ErrorMessage
+                request.MaxEstimatedTokens
             );
-            return new ConversionResult.Rejected(ConversionRejections.ErrorParsingPdf);
+            return new ConversionResult.Rejected(ConversionRejections.TooManyTokens(request.MaxEstimatedTokens));
         }
 
         if (result.Markdown.Length == 0)
@@ -66,7 +77,6 @@ public static class VestfoldPdfConverter
             using var document = PdfDocument.Open(fileStream);
             var sb = new StringBuilder();
             var pageCount = document.NumberOfPages;
-            long totalEstimatedTokens = 0;
 
             for (var i = 1; i <= pageCount; i++)
             {
@@ -74,30 +84,31 @@ public static class VestfoldPdfConverter
 
                 var page = document.GetPage(i);
 
-                if (i > 1 && !string.IsNullOrWhiteSpace(page.Text))
-                {
-                    sb.AppendLine();
-                    sb.AppendLine("---");
-                    sb.AppendLine();
-                }
-
                 var pageMarkdown = ExtractPageMarkdown(page);
                 if (string.IsNullOrWhiteSpace(pageMarkdown))
                 {
                     continue;
                 }
 
-                var trimmedPageMarkdown = pageMarkdown.TrimEnd();
-                sb.AppendLine(trimmedPageMarkdown);
-
-                totalEstimatedTokens += ContextTokenEstimator.EstimateGenerated(new TextSegment(Guid.Empty, i, trimmedPageMarkdown));
-                if (totalEstimatedTokens >= maxEstimatedTokens)
+                // ENDRET: skilletegn bare mellom sider med tekst, så en side uten tekst først
+                // (f.eks. skannet forside) ikke gir "---" øverst.
+                if (sb.Length > 0)
                 {
-                    return Task.FromResult(PdfConversionResult.Failure($"PDF-filen overskrider maksimalt estimert antall tokens. Estimert: {totalEstimatedTokens}. Maks tillatt tokens: {maxEstimatedTokens}"));
+                    sb.AppendLine();
+                    sb.AppendLine("---");
+                    sb.AppendLine();
                 }
+
+                sb.AppendLine(pageMarkdown.TrimEnd());
             }
 
-            return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString().TrimEnd(), pageCount));
+            var markdown = sb.ToString().TrimEnd();
+
+            var estimatedTokens = ContextTokenEstimator.EstimateGenerated(new TextSegment(Guid.Empty, pageCount, markdown));
+            return Task.FromResult(estimatedTokens > maxEstimatedTokens
+                ? PdfConversionResult.ExceededMaxTokens()
+                : PdfConversionResult.Succeeded(markdown, pageCount)
+            );
         }
         catch (ArgumentNullException ex)
         {
@@ -411,18 +422,22 @@ public class PdfConversionResult
 {
     public string Markdown { get; }
     public bool Success { get; }
+    public bool ExceededMaxEstimatedTokens { get; }
     public string? ErrorMessage { get; }
     public int? PageCount { get; }
 
-    private PdfConversionResult(string markdown, bool success, string? errorMessage, int? pageCount)
+    private PdfConversionResult(string markdown, bool success, string? errorMessage, int? pageCount, bool exceededMaxEstimatedTokens)
     {
         Markdown = markdown;
         Success = success;
         ErrorMessage = errorMessage;
         PageCount = pageCount;
+        ExceededMaxEstimatedTokens = exceededMaxEstimatedTokens;
     }
 
-    public static PdfConversionResult Succeeded(string markdown, int? pageCount = null) => new(markdown, true, null, pageCount);
+    public static PdfConversionResult Succeeded(string markdown, int? pageCount = null) => new(markdown, true, null, pageCount, false);
 
-    public static PdfConversionResult Failure(string error) => new("", false, error, null);
+    public static PdfConversionResult Failure(string error) => new("", false, error, null, false);
+
+    public static PdfConversionResult ExceededMaxTokens() => new("", false, null, null, true);
 }
