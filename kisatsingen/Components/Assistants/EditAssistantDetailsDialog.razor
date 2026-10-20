@@ -1,0 +1,54 @@
+@using kisatsingen.Data.Entities
+
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Rediger detaljer">
+    @if (_isNotFound)
+    {
+        <p class="ds-paragraph">Fant ikke assistenten. Den er slettet, eller du har ikke lenger tilgang til den.</p>
+    }
+    else
+    {
+        <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
+            <DataAnnotationsValidator />
+
+            @if (_refusal is not null)
+            {
+                <div class="ds-alert" data-color="danger" role="alert">
+                    <p class="ds-paragraph">@_refusal</p>
+                </div>
+            }
+
+            <ds-field class="ds-field">
+                <label class="ds-label">Navn</label>
+                <InputText class="ds-input" @bind-Value="Form.Name" maxlength="@Assistant.MaxNameLength" />
+                <DesignsystemetValidationMessage For="() => Form.Name" />
+            </ds-field>
+
+            <ds-field class="ds-field">
+                <label class="ds-label">Beskrivelse (valgfri)</label>
+                <InputTextArea class="ds-input" rows="2" @bind-Value="Form.Description" maxlength="@Assistant.MaxDescriptionLength" />
+                <DesignsystemetValidationMessage For="() => Form.Description" />
+            </ds-field>
+
+            <AuthorizeView Policy="@AuthorizationPolicies.CanContributeOrganizationWide" Context="organizationWideAuthenticationState">
+                <fieldset class="ds-fieldset">
+                    <legend class="ds-label">Hvem kan bruke assistenten?</legend>
+                    <InputRadioGroup @bind-Value="Form.Visibility">
+                        <ds-field class="ds-field">
+                            <InputRadio class="ds-input" Value="AssistantVisibility.Private" />
+                            <label class="ds-label">Privat</label>
+                        </ds-field>
+                        <ds-field class="ds-field">
+                            <InputRadio class="ds-input" Value="AssistantVisibility.Organization" />
+                            <label class="ds-label">Felles for hele organisasjonen</label>
+                        </ds-field>
+                    </InputRadioGroup>
+                </fieldset>
+            </AuthorizeView>
+
+            <div class="form-actions">
+                <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
+            </div>
+        </EditForm>
+    }
+</ModalDialog>

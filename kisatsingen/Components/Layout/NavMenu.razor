@@ -22,7 +22,7 @@
                     <span>KI-satsingen</span>
                 </div>
                 <button
-                    class="ds-button sidebar-new-chat-button"
+                    class="ds-button nav-primary-button"
                     type="button"
                     data-variant="tertiary"
                     data-color="accent"
@@ -33,6 +33,12 @@
                     <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
                     Ny samtale
                 </button>
+                <div class="nav-item">
+                    <a class="ds-button nav-primary-button" href="/assistants" data-variant="tertiary" data-color="accent">
+                        <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
+                        Assistenter
+                    </a>
+                </div>
             </nav>
 
             <button
@@ -154,7 +160,7 @@
                                 </li>
                             </ul>
 
-                            <AuthorizeView Policy="IsAdministrator" Context="adminContext">
+                            <AuthorizeView Policy="@AuthorizationPolicies.IsAdministrator" Context="adminContext">
                                 <hr aria-hidden="true" class="ds-divider"/>
                                 <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
                                 <ul aria-labelledby="admin-menu-heading">

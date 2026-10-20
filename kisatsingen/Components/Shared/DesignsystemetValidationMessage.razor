@@ -1,0 +1,10 @@
+@using System.Linq.Expressions
+@typeparam TValue
+
+@* data-field="validation" is what lets ds-field link the message to its input. *@
+<ValidationMessage For="For" class="ds-validation-message" data-field="validation" />
+
+@code {
+    [Parameter, EditorRequired]
+    public required Expression<Func<TValue>> For { get; set; }
+}

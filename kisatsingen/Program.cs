@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.Authorization;
 using kisatsingen.Components;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
@@ -9,6 +10,7 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -101,13 +103,13 @@ builder.Services
     .AddAuthentication()
     .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("EntraAuthConfiguration"));
 
-const string CookieOrBearerScheme = "CookieOrBearer";
+const string cookieOrBearerScheme = "CookieOrBearer";
 
 // Policy scheme used only by /metrics: bearer if there's a bearer header, OIDC otherwise.
 // ForwardDefaultSelector covers authenticate, challenge, and forbid — no other wiring needed.
 builder.Services
     .AddAuthentication()
-    .AddPolicyScheme(CookieOrBearerScheme, CookieOrBearerScheme, options =>
+    .AddPolicyScheme(cookieOrBearerScheme, cookieOrBearerScheme, options =>
     {
         options.ForwardDefaultSelector = ctx =>
             ctx.Request.Headers.Authorization.ToString()
@@ -129,13 +131,16 @@ var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
                   ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleUser is not configured. Set it via environment variables.");
 
 builder.Services.AddAuthorizationBuilder()
-    .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
-    .AddPolicy("CanContributeAppWide", policy => policy.RequireRole(administratorRole, contributorRole))
-    .AddPolicy("CanReadMetrics", policy => policy
-        .AddAuthenticationSchemes(CookieOrBearerScheme)
+    .AddDefaultPolicy(AuthorizationPolicies.CanUseApp, policy => policy.RequireRole(userRole, contributorRole, administratorRole))
+    .AddPolicy(AuthorizationPolicies.IsAdministrator, policy => policy.RequireRole(administratorRole))
+    .AddPolicy(AuthorizationPolicies.CanContributeOrganizationWide, policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy(AuthorizationPolicies.CanEditAssistant, policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
+    .AddPolicy(AuthorizationPolicies.CanReadMetrics, policy => policy
+        .AddAuthenticationSchemes(cookieOrBearerScheme)
         .RequireAuthenticatedUser()
         .RequireRole(metricsRole));
+
+builder.Services.AddSingleton<IAuthorizationHandler, CanEditAssistantHandler>();
 
 // ─── Application configuration ─────────────────────────
 // No default IChatClient in the container: every caller picks a model by key.
@@ -209,6 +214,7 @@ builder.Services.AddSingleton(pipelineOptions);
 // swapping its registration here for one that calls that service.
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
+builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();
@@ -235,6 +241,11 @@ var app = builder.Build();
 // Resolved eagerly because building the catalogue validates it: a bad catalogue
 // must stop startup, not surface later as a failed turn.
 _ = app.Services.GetRequiredService<IChatModelCatalog>();
+
+// ─── One-time startup: document converters ─────────────
+// Resolved eagerly because building the registry validates it: two converters
+// for one type must stop startup, not surface later as a failed upload.
+_ = app.Services.GetRequiredService<DocumentConverterRegistry>();
 
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a
@@ -274,11 +285,11 @@ app.UseForwardedHeaders();
 // ─── Culture ───────────────────────────────────────────
 // Fixed, not negotiated: the app is Norwegian only. A circuit keeps the culture
 // of the request that opened it.
-const string AppCulture = "nb-NO";
+const string appCulture = "nb-NO";
 app.UseRequestLocalization(new RequestLocalizationOptions()
-    .SetDefaultCulture(AppCulture)
-    .AddSupportedCultures(AppCulture)
-    .AddSupportedUICultures(AppCulture));
+    .SetDefaultCulture(appCulture)
+    .AddSupportedCultures(appCulture)
+    .AddSupportedUICultures(appCulture));
 
 // ─── Security response headers (apply to every response) ───
 var scriptSrc = app.Environment.IsDevelopment()
@@ -326,7 +337,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
-app.MapMetrics().RequireAuthorization("CanReadMetrics");
+app.MapMetrics().RequireAuthorization(AuthorizationPolicies.CanReadMetrics);
 app.MapStaticAssets();
 
 // Root has no page of its own — every visit funnels straight into the new-chat

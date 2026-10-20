@@ -1,0 +1,71 @@
+@page "/assistants"
+@using kisatsingen.Components.Assistants
+@using kisatsingen.Data.Entities
+@attribute [Authorize]
+
+<PageTitle>Assistenter</PageTitle>
+
+<div class="assistants-page">
+    <h1 class="ds-heading" data-size="md">Assistenter</h1>
+
+    <div class="assistants-actions">
+        <fieldset class="ds-toggle-group" data-variant="primary" focusgroup="radiogroup" aria-label="Vis assistenter">
+            <label class="ds-button" data-variant="tertiary">
+                <input type="radio" name="assistant-filter" value="mine"
+                       checked="@(_filter == AssistantFilter.Mine)" @onchange="() => _filter = AssistantFilter.Mine" />
+                Mine
+            </label>
+            <label class="ds-button" data-variant="tertiary">
+                <input type="radio" name="assistant-filter" value="organization-wide"
+                       checked="@(_filter == AssistantFilter.OrganizationWide)" @onchange="() => _filter = AssistantFilter.OrganizationWide" />
+                Felles
+            </label>
+        </fieldset>
+
+        <NewAssistantDialog OnCreated="OpenAssistant" />
+    </div>
+
+    @if (ShownAssistants.Count == 0)
+    {
+        <p class="ds-paragraph">@(_filter == AssistantFilter.Mine ? "Du har ingen assistenter ennå." : "Ingen felles assistenter ennå.")</p>
+    }
+    else
+    {
+        @AssistantCards(ShownAssistants)
+    }
+</div>
+
+@code {
+    @* role="list": Stupid Safari drops a list's semantics once its bullets are removed. *@
+    private RenderFragment AssistantCards(IReadOnlyList<AssistantSummary> assistants) => @<ul class="assistant-cards" role="list">
+        @foreach (var assistant in assistants)
+        {
+            <li @key="assistant.Id">
+                <div class="ds-card" data-color="accent" data-clickdelegatefor="@($"assistant-link-{assistant.Id}")">
+                    <div class="ds-card__block">
+                        <div class="assistant-card-title">
+                            <h2 class="ds-heading" data-size="xs">
+                                <a id="@($"assistant-link-{assistant.Id}")" class="ds-link" href="@($"/assistants/{assistant.Id}")">@assistant.Name</a>
+                            </h2>
+                            @if (assistant.Visibility == AssistantVisibility.Private)
+                            {
+                                <span class="material-symbols-outlined" aria-hidden="true">lock_person</span>
+                                <span class="visually-hidden">Privat</span>
+                            }
+                            else
+                            {
+                                <span class="material-symbols-outlined" aria-hidden="true">public</span>
+                                <span class="visually-hidden">Felles for hele organisasjonen</span>
+                            }
+                        </div>
+                        @if (assistant.Description is string description)
+                        {
+                            <p class="ds-paragraph" data-size="sm">@description</p>
+                        }
+                        <p class="ds-paragraph assistant-card-date" data-size="xs"><NorwegianDate Value="assistant.UpdatedAt" /></p>
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>;
+}

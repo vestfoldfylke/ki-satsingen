@@ -14,9 +14,10 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Markdig" Version="1.4.0" />
-      <PackageReference Include="Radzen.Blazor" Version="12.0.6" />
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
+      <PackageReference Include="Markdig" Version="1.4.2" />
+      <PackageReference Include="PdfPig" Version="0.1.16" />
+      <PackageReference Include="Radzen.Blazor" Version="12.1.5" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         <PrivateAssets>all</PrivateAssets>
       </PackageReference>
@@ -24,16 +25,16 @@
            tooling with PrivateAssets=all, so the runtime EF version must not
            depend on it being present. ChatRepository uses BeginTransactionAsync.
            Keep in step with the test project. -->
-      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.11" />
-      <PackageReference Include="Microsoft.Extensions.AI" Version="10.9.0" />
-      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.9.0" />
+      <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.13" />
+      <PackageReference Include="Microsoft.Extensions.AI" Version="10.11.0" />
+      <PackageReference Include="Microsoft.Extensions.AI.OpenAI" Version="10.11.0" />
       <PackageReference Include="Microsoft.Identity.Web" Version="4.16.1" />
       <PackageReference Include="MudBlazor.FontIcons.MaterialSymbols" Version="1.5.0" />
       <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
       <!-- Remove below when Microsoft.Identity.Web have patched it -->
       <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
-      <PackageReference Include="Vestfold.Extensions.Logging" Version="3.4.1" />
-      <PackageReference Include="Vestfold.Extensions.Metrics" Version="1.0.2" />
+      <PackageReference Include="Vestfold.Extensions.Logging" Version="4.0.1" />
+      <PackageReference Include="Vestfold.Extensions.Metrics" Version="2.0.0" />
     </ItemGroup>
 
     <!-- The chat core's pure internals (TurnBuilder, TranscriptRequest, ...) were

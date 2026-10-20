@@ -95,14 +95,10 @@
     }
 }
 
-.sidebar-new-chat-button {
+.nav-primary-button {
     width: 100%;
     justify-content: left;
     padding-left: .3rem;
-}
-
-.sidebar-new-chat-button > span.material-symbols-outlined {
-    font-size: 1.1rem;
 }
 
 .nav-primary {

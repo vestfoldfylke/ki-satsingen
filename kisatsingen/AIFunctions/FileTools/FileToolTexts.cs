@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 
 namespace kisatsingen.AIFunctions.FileTools;
@@ -33,13 +32,5 @@ internal static class FileToolTexts
     public static string LineCutMarker(int shownCharacters, int totalCharacters) =>
         $" […linjen er kuttet: {shownCharacters} av {totalCharacters} tegn vises]";
 
-    // How far to trust the text, from how it was obtained. Exact text gets no
-    // note. An origin this build does not know gets the most cautious one.
-    public static string? OriginNote(ContentOrigin? origin) => origin switch
-    {
-        ContentOrigin.TextFile => null,
-        ContentOrigin.ImagePlaceholder => "Innholdet i bildet er ikke tolket.",
-        null => "Det er ukjent hvordan teksten ble hentet ut, så den kan være unøyaktig.",
-        _ => throw new UnreachableException($"ContentOrigin {origin} has no origin note. Add one here in the same change that adds the value.")
-    };
+    public static string? OriginNote(ContentOrigin? origin) => ContentOriginNotes.For(origin);
 }

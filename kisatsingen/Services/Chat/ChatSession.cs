@@ -12,8 +12,6 @@ namespace kisatsingen.Services.Chat;
 // What the page shows of the open chat. Running a turn is TurnRunner's job.
 public sealed class ChatSession : IAsyncDisposable
 {
-    private const string DefaultSystemPrompt = "You are a concise, helpful assistant. Use tools when they help.";
-
     private static readonly string MetricPrefix = $"{MetricConstants.MetricsAppPrefix}_chat_session";
 
     private readonly IAuthenticationService _authenticationService;
@@ -32,7 +30,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Identity only; ChatManager owns the chat's metadata.
     private Guid? _currentChatId;
-    private string _effectiveSystemPrompt = DefaultSystemPrompt;
 
     // Loaded with the chat. Every file a turn makes available is added as it
     // becomes available, while the view is still that turn's. A file another
@@ -124,12 +121,16 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    // The one place the prompt for the next turn is chosen, so what is sent and
+    // what is estimated can never differ.
+    private static string Instructions => ChatInstructions.ForPlainChat;
+
     // Estimated from the request we would send, not from usage: usage sums every
     // tool round trip. Right for cost (see ConversationUsage), wrong for size.
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
-            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), _effectiveSystemPrompt);
+            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), Instructions);
 
     public MessageUsage? ConversationUsage
     {
@@ -176,7 +177,6 @@ public sealed class ChatSession : IAsyncDisposable
             if (chat is not null)
             {
                 _currentChatId = chat.Id;
-                _effectiveSystemPrompt = chat.SystemPrompt ?? DefaultSystemPrompt;
                 _knowledgeFiles = knowledgeFiles;
                 var loadedAt = DateTimeOffset.UtcNow;
                 _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
@@ -236,7 +236,6 @@ public sealed class ChatSession : IAsyncDisposable
         _turns.Clear();
         _liveTurnId = null;
         _currentChatId = null;
-        _effectiveSystemPrompt = DefaultSystemPrompt;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;
 
@@ -268,10 +267,10 @@ public sealed class ChatSession : IAsyncDisposable
         var viewVersion = _viewVersion;
         var isNewChat = _currentChatId is null;
 
-        // A turn that started on one model and prompt must finish on them.
+        // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, _effectiveSystemPrompt, sentAttachments.FileNames);
+        var turn = Turn.Start(text.Trim(), model, Instructions, sentAttachments.FileNames);
         var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);

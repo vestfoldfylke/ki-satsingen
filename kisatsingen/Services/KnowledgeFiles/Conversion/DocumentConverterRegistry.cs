@@ -2,8 +2,6 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 
-// Which converter handles which content type is decided by what is registered
-// in DI, so moving a type elsewhere is a registration change.
 public sealed class DocumentConverterRegistry
 {
     private readonly Dictionary<string, IDocumentConverter> _byContentType = new(StringComparer.OrdinalIgnoreCase);
