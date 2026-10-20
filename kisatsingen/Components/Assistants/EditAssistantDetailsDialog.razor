@@ -29,7 +29,7 @@
                 <DesignsystemetValidationMessage For="() => Form.Description" />
             </ds-field>
 
-            <AuthorizeView Policy="CanContributeOrganizationWide" Context="organizationWideAuthenticationState">
+            <AuthorizeView Policy="@AuthorizationPolicies.CanContributeOrganizationWide" Context="organizationWideAuthenticationState">
                 <fieldset class="ds-fieldset">
                     <legend class="ds-label">Hvem kan bruke assistenten?</legend>
                     <InputRadioGroup @bind-Value="Form.Visibility">

@@ -1,3 +1,4 @@
+using kisatsingen.Authorization;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -42,7 +43,7 @@ public sealed partial class DeleteAssistantDialog : ComponentBase
     private async Task DeleteAsync()
     {
         var user = (await AuthenticationState).User;
-        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
+        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, AuthorizationPolicies.CanEditAssistant)).Succeeded)
         {
             _refusal = "Du har ikke tilgang til å slette denne assistenten.";
             return;

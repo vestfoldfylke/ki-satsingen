@@ -4,7 +4,7 @@
     <div class="ds-card__block">
         <div class="assistant-instructions-header">
             <h2 class="ds-heading" data-size="xs">Instruksjoner</h2>
-            <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+            <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
                 <Authorized>
                     <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
                             command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
@@ -43,7 +43,7 @@
     }
     else
     {
-        <AuthorizeView Policy="CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+        <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
             <Authorized>
                 <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
                     <DataAnnotationsValidator />

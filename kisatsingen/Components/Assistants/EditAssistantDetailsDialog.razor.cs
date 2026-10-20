@@ -1,3 +1,4 @@
+using kisatsingen.Authorization;
 using kisatsingen.Components.Shared;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -57,13 +58,13 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
         var user = (await AuthenticationState).User;
 
         if (Form.Visibility == AssistantVisibility.Organization
-            && !(await AuthorizationService.AuthorizeAsync(user, "CanContributeOrganizationWide")).Succeeded)
+            && !(await AuthorizationService.AuthorizeAsync(user, AuthorizationPolicies.CanContributeOrganizationWide)).Succeeded)
         {
             _refusal = "Assistenten er felles for hele organisasjonen, og du har ikke tilgang til å endre felles assistenter. Kontakt en administrator.";
             return;
         }
 
-        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
+        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, AuthorizationPolicies.CanEditAssistant)).Succeeded)
         {
             _refusal = "Du har ikke tilgang til å redigere denne assistenten.";
             return;

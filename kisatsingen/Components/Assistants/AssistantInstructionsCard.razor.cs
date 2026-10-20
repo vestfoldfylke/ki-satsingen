@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using kisatsingen.Authorization;
 using kisatsingen.Components.Shared;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -53,7 +54,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     private async Task SaveAsync()
     {
         var user = (await AuthenticationState).User;
-        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, "CanEditAssistant")).Succeeded)
+        if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, AuthorizationPolicies.CanEditAssistant)).Succeeded)
         {
             _refusal = "Du har ikke lenger tilgang til å redigere denne assistenten.";
             return;

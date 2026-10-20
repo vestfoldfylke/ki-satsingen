@@ -131,11 +131,11 @@ var userRole = builder.Configuration["EntraAuthConfiguration:AppRoleUser"]
                   ?? throw new InvalidOperationException("EntraAuthConfiguration:AppRoleUser is not configured. Set it via environment variables.");
 
 builder.Services.AddAuthorizationBuilder()
-    .AddDefaultPolicy("CanUseApp", policy => policy.RequireRole(userRole, contributorRole, administratorRole))
-    .AddPolicy("IsAdministrator", policy => policy.RequireRole(administratorRole))
-    .AddPolicy("CanContributeOrganizationWide", policy => policy.RequireRole(administratorRole, contributorRole))
-    .AddPolicy("CanEditAssistant", policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
-    .AddPolicy("CanReadMetrics", policy => policy
+    .AddDefaultPolicy(AuthorizationPolicies.CanUseApp, policy => policy.RequireRole(userRole, contributorRole, administratorRole))
+    .AddPolicy(AuthorizationPolicies.IsAdministrator, policy => policy.RequireRole(administratorRole))
+    .AddPolicy(AuthorizationPolicies.CanContributeOrganizationWide, policy => policy.RequireRole(administratorRole, contributorRole))
+    .AddPolicy(AuthorizationPolicies.CanEditAssistant, policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
+    .AddPolicy(AuthorizationPolicies.CanReadMetrics, policy => policy
         .AddAuthenticationSchemes(CookieOrBearerScheme)
         .RequireAuthenticatedUser()
         .RequireRole(metricsRole));
@@ -336,7 +336,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 // ─── Endpoints ─────────────────────────────────────────
-app.MapMetrics().RequireAuthorization("CanReadMetrics");
+app.MapMetrics().RequireAuthorization(AuthorizationPolicies.CanReadMetrics);
 app.MapStaticAssets();
 
 // Root has no page of its own — every visit funnels straight into the new-chat

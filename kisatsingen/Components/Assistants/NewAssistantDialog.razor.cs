@@ -1,3 +1,4 @@
+using kisatsingen.Authorization;
 using kisatsingen.Components.Shared;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -47,7 +48,7 @@ public sealed partial class NewAssistantDialog : ComponentBase
     {
         var user = (await AuthenticationState).User;
         if (Form.Visibility == AssistantVisibility.Organization
-            && !(await AuthorizationService.AuthorizeAsync(user, "CanContributeOrganizationWide")).Succeeded)
+            && !(await AuthorizationService.AuthorizeAsync(user, AuthorizationPolicies.CanContributeOrganizationWide)).Succeeded)
         {
             _refusal = "Du har ikke tilgang til å lage organisasjons-delte assistenter.";
             return;

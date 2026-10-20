@@ -131,7 +131,7 @@
                                 </li>
                             </ul>
 
-                            <AuthorizeView Policy="IsAdministrator" Context="adminContext">
+                            <AuthorizeView Policy="@AuthorizationPolicies.IsAdministrator" Context="adminContext">
                                 <hr aria-hidden="true" class="ds-divider"/>
                                 <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
                                 <ul aria-labelledby="admin-menu-heading">
