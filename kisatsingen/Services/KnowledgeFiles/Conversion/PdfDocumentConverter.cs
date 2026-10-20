@@ -1,6 +1,5 @@
 using System.Text;
 using kisatsingen.Services.Attachments;
-using kisatsingen.Services.Chat;
 using UglyToad.PdfPig;
 using UglyToad.PdfPig.Content;
 
@@ -100,15 +99,14 @@ public static class VestfoldPdfConverter
                 }
 
                 sb.AppendLine(pageMarkdown.TrimEnd());
+
+                if (TokenEstimate.FromCharacters(sb.Length) > maxEstimatedTokens)
+                {
+                    return Task.FromResult(PdfConversionResult.ExceededMaxTokens());
+                }
             }
 
-            var markdown = sb.ToString().TrimEnd();
-
-            var estimatedTokens = ContextTokenEstimator.EstimateGenerated(new TextSegment(Guid.Empty, pageCount, markdown));
-            return Task.FromResult(estimatedTokens > maxEstimatedTokens
-                ? PdfConversionResult.ExceededMaxTokens()
-                : PdfConversionResult.Succeeded(markdown, pageCount)
-            );
+            return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString().TrimEnd(), pageCount));
         }
         catch (ArgumentNullException ex)
         {
