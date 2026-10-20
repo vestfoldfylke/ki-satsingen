@@ -143,6 +143,21 @@ public sealed class PdfDocumentConverterTests
         Assert.IsType<ConversionResult.Converted>(result);
     }
 
+    // The pipeline checks the finished Markdown against the same cap, so the
+    // converter must not refuse a file the pipeline would accept. Eleven
+    // characters are three tokens; one more character, like a line break left
+    // at the end while converting, would make four.
+    [Fact]
+    public async Task A_pdf_the_pipeline_would_accept_is_not_refused_for_its_size()
+    {
+        const string elevenCharacters = "abcdefghijk";
+        var pdf = TestPdf.Pages(new TextPage(elevenCharacters));
+
+        var result = await ConvertAsync(pdf, maxEstimatedTokens: ThreeTokens);
+
+        Assert.Equal(elevenCharacters, Assert.IsType<ConversionResult.Converted>(result).Markdown);
+    }
+
     // Each page alone is under the cap; only the document as a whole is over.
     [Fact]
     public async Task The_token_cap_applies_to_the_text_of_all_pages_together()

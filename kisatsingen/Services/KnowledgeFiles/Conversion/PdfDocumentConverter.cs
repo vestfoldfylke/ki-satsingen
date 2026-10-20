@@ -94,11 +94,14 @@ public static class VestfoldPdfConverter
                 if (sb.Length > 0)
                 {
                     sb.AppendLine();
+                    sb.AppendLine();
                     sb.AppendLine("---");
                     sb.AppendLine();
                 }
 
-                sb.AppendLine(pageMarkdown.TrimEnd());
+                // ENDRET: uten linjeskift etter siden, så tokensjekken teller det samme som
+                // pipelinen sjekker i ferdig Markdown.
+                sb.Append(pageMarkdown.TrimEnd());
 
                 if (TokenEstimate.FromCharacters(sb.Length) > maxEstimatedTokens)
                 {
@@ -106,7 +109,7 @@ public static class VestfoldPdfConverter
                 }
             }
 
-            return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString().TrimEnd(), pageCount));
+            return Task.FromResult(PdfConversionResult.Succeeded(sb.ToString(), pageCount));
         }
         catch (ArgumentNullException ex)
         {
