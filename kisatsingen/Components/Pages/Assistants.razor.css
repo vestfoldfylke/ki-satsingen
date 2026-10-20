@@ -40,3 +40,21 @@
     flex: 0 1 calc((100% - 2rem) / 3);
     min-width: 12rem;
 }
+
+.assistant-cards .ds-card {
+    height: 100%;
+}
+
+/* A column filling the card, so the date can sit at its bottom. */
+.assistant-cards .ds-card__block {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Pushed to the bottom by margin, kept apart from the text above by padding,
+   which the auto margin cannot take. */
+.assistant-card-date {
+    margin-top: auto;
+    padding-top: var(--ds-size-2);
+}
