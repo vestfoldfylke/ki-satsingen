@@ -5,46 +5,91 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: .2rem;
-    .logo-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-weight: 600;
-        flex-shrink: 0;
-    }
+    padding: 0 .5rem;
 }
 
-.nav-scrollable {
-    display: none;
-    padding: .2rem .4rem .4rem .4rem;
+.logo-container {
+    font-weight: 600;
+    font-size: 2rem;
+    padding: 1rem 1rem 1rem .5rem;
 }
 
-/* Fixed-size top (nav-primary) and bottom (user) rows; .chat-sidebar is the
-   sole flexible, scrolling middle — so it (not this container) owns
-   flex:1/min-height:0/overflow-y:auto. No margin-top:auto needed on .user:
-   .chat-sidebar's flex-grow already claims all leftover space. */
 @media (min-width: 641px) {
-    .nav-scrollable {
-        /* Never collapse the sidebar for wide screens */
+    .sidebar-panel {
         display: flex;
         flex-direction: column;
         flex: 1;
         min-height: 0;
+        position: static;
+        margin: 0;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        width: auto;
+        height: auto;
+    }
+
+    .sidebar-panel-open,
+    .sidebar-panel-close {
+        display: none;
     }
 }
 
-.nav-primary {
-    flex-shrink: 0;
-    padding-top: 1rem;
-    padding-bottom: 2rem;
+@media (max-width: 640px) {
+    .sidebar-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: var(--topbar-height);
+    }
+
+    .sidebar-panel-open {
+        height: var(--topbar-height);
+    }
+
+    .sidebar-panel {
+        display: flex;
+        flex-direction: column;
+        margin: 0;
+        height: auto;
+        width: min(85vw, 20rem);
+        transform: translateX(-100%);
+        visibility: hidden;
+        transition: transform .3s ease-in-out, visibility .3s, box-shadow .3s;
+        padding: .2rem .4rem .4rem .4rem;
+        border-radius: 0 1rem 1rem 0;
+        border: none;
+        z-index: 100;
+    }
+
+    .sidebar-panel:popover-open {
+        box-shadow: 0 0 2rem rgba(0, 0, 0, 0.25);
+        transform: translateX(0);
+        visibility: visible;
+    }
+
+    .sidebar-panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+    }
+
+    .sidebar-panel::backdrop {
+        background: rgba(0, 0, 0, .25);
+    }
+
+    .sidebar-panel-close {
+        padding: 1rem;
+        margin: 1.2rem 0;
+    }
 }
 
-.chat-sidebar {
-    padding: 0;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
+@media (prefers-reduced-motion: reduce) {
+    .sidebar-panel,
+    .sidebar-panel:popover-open::backdrop {
+        transition: none;
+        animation: none;
+    }
 }
 
 .nav-primary-button {
@@ -53,42 +98,49 @@
     padding-left: .3rem;
 }
 
-.user {
+.nav-primary {
     flex-shrink: 0;
+    padding-bottom: 2rem;
 }
 
-.chat-sidebar-header {
+.chat-list {
+    padding: 0 .5rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.chat-list-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     margin-bottom: 0.5rem;
 }
 
-.chat-sidebar-header h2 {
+.chat-list-header h2 {
     font-size: 1rem;
     margin: 0;
 }
 
-.chat-sidebar-empty {
+.chat-list-empty {
     opacity: 0.6;
     font-size: 0.85rem;
     margin: 0.5rem 0 0;
 }
 
-.chat-sidebar-list {
+.chat-list-items {
     list-style: none;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0;
 }
 
-.chat-sidebar-list > li {
+.chat-list-items > li {
     margin-top: 0.1rem;
 }
 
-.chat-sidebar-item {
-    display:flex;
+.chat-list-item, .user-menu-item {
+    display: flex;
     align-items: center;
     gap: 0.25rem;
     padding: 0.2rem 0 0.2rem 0.5rem;
@@ -97,20 +149,20 @@
     overflow: hidden;
 }
 
-.chat-sidebar-item:hover {
+.chat-list-item:hover, .user-menu-item:hover {
     background: #eef2f6;
 }
 
-.chat-sidebar-item:hover .chat-sidebar-item-option-button {
+.chat-list-item:hover .chat-list-item-option-button {
     opacity: 1;
     transition: opacity 0.02s ease-in-out;
 }
 
-.chat-sidebar-item-active {
+.chat-list-item-active {
     background: #e0eaff;
 }
 
-.chat-sidebar-item-option-button {
+.chat-list-item-option-button {
     --dsc-button-size: 1.7rem;
     flex: 0 0 auto;
     display: flex;
@@ -121,11 +173,11 @@
     opacity: 0;
 }
 
-.chat-sidebar-item-option-button > span.material-symbols-outlined {
+.chat-list-item-option-button > span.material-symbols-outlined {
     font-size: 1.3rem;
 }
 
-.chat-sidebar-item-option-dropdown-menu {
+.chat-list-item-option-dropdown-menu {
     --dsc-dropdown-padding: 0.25rem;
     --dsc-dropdown-item-size: 1rem;
     --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem .3rem;
@@ -133,17 +185,17 @@
     width: max-content;
 }
 
-.chat-sidebar-item-option-dropdown-menu ul {
+.chat-list-item-option-dropdown-menu ul {
     width: auto;
     margin: 0;
     padding: 0;
 }
 
-.chat-sidebar-item-option-dropdown-menu ul > li > a {
+.chat-list-item-option-dropdown-menu ul > li > button {
     font-size: .925rem;
 }
 
-.chat-sidebar-link {
+.chat-list-link {
     flex: 1;
     min-width: 0;
     display: flex;
@@ -152,14 +204,18 @@
     color: inherit;
 }
 
-.chat-sidebar-title {
+.chat-list-title, .user-menu-button-title {
     font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.chat-sidebar-user-button {
+.user-menu {
+    flex-shrink: 0;
+}
+
+.user-menu-button {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
@@ -167,11 +223,11 @@
     background: transparent;
 }
 
-.chat-sidebar-user-button .chat-sidebar-title {
+.user-menu-button-title {
     flex: 1;
     text-align: left;
 }
 
-.chat-sidebar-user-button .ds-avatar {
+.user-menu-button .ds-avatar {
     --dsc-avatar-size: 1.7rem;
 }
