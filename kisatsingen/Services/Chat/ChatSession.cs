@@ -32,14 +32,14 @@ public sealed class ChatSession : IAsyncDisposable
     // Identity only; ChatManager owns the chat's metadata. A new chat has its id
     // from the start and is saved with its first turn; if that turn was stopped
     // or failed before saving, the next message saves it under the same id.
-    private Guid _chatId = Guid.NewGuid();
+    private Guid _chatId;
     private ChatState _chatState = ChatState.New;
 
     private enum ChatState
     {
         New,
 
-        // A chat is being loaded: the view is neither a new chat nor that chat yet.
+        // A chat is being loaded: the session holds neither a new chat nor that chat yet.
         Opening,
 
         Saved,
@@ -56,8 +56,12 @@ public sealed class ChatSession : IAsyncDisposable
 
     private Task _turnCompletion = Task.CompletedTask;
 
-    // Increased by every call to OpenChatAsync and StartNewChatAsync.
+    // Increased by every chat request (see RequestChat).
     private int _chatRequestCount;
+
+    // The chat asked for last: shown, still loading, or not found. Unlike _chatId,
+    // it is set as soon as the chat is asked for, and it is never used as a chat's id.
+    private Guid _requestedChatId;
 
     public event Action? StateChanged;
 
@@ -78,6 +82,8 @@ public sealed class ChatSession : IAsyncDisposable
         _authenticationService = authenticationService;
         _catalog = catalog;
         _selectedModel = catalog.Default;
+        _chatId = Guid.NewGuid();
+        _requestedChatId = _chatId;
         _repo = repo;
         _attachments = attachments;
         _knowledgeFileRepository = knowledgeFileRepository;
@@ -162,29 +168,34 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    public async Task OpenChatAsync(Guid chatId, CancellationToken ct = default)
+    public async Task OpenChatAsync(Guid chatId)
     {
-        var requestNumber = ++_chatRequestCount;
+        // Already asked for: opening the chat again would stop the answer being
+        // written in it, or look up a missing chat again.
+        if (chatId == _requestedChatId)
+        {
+            return;
+        }
+
+        var requestNumber = RequestChat(chatId);
         await StopTurnForLeaveAsync();
         if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        ResetToNewChat();
+        ResetToNewChat(Guid.NewGuid());
         _chatState = ChatState.Opening;
 
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.GetChatAsync(userObjectId, chatId, ct);
-        var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId, ct);
+        var chat = await _repo.GetChatAsync(userObjectId, chatId);
+        var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId);
 
         if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        // chatId comes from outside, so it is not used as the id here: a new chat
-        // must never get an id that someone else chose.
         if (chat is null)
         {
             _chatState = ChatState.NotFound;
@@ -206,15 +217,23 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task StartNewChatAsync()
     {
-        var requestNumber = ++_chatRequestCount;
+        var newChatId = Guid.NewGuid();
+        var requestNumber = RequestChat(newChatId);
         await StopTurnForLeaveAsync();
         if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        ResetToNewChat();
+        ResetToNewChat(newChatId);
         Notify();
+    }
+
+    // Returns the request's number, for HasAnotherChatBeenRequestedSince.
+    private int RequestChat(Guid chatId)
+    {
+        _requestedChatId = chatId;
+        return ++_chatRequestCount;
     }
 
     // A slow load then stops instead of replacing a chat the user opened after it.
@@ -246,22 +265,21 @@ public sealed class ChatSession : IAsyncDisposable
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // Stops the answer that is being written, and returns a task that completes
-    // when the turn has fully ended. OpenChatAsync and StartNewChatAsync wait for
-    // that task before they clear what is shown, so a turn only ever updates the
-    // chat it was sent in. Pages that show no chat don't call this, so the answer
-    // keeps going while the user is there.
+    // Stops the answer that is being written, recorded as the user leaving the
+    // chat, and returns a task that completes when the turn has fully ended.
     public Task StopTurnForLeaveAsync()
     {
         _turnCancellation?.CancelForLeave();
         return _turnCompletion;
     }
 
-    private void ResetToNewChat()
+    // Only called once StopTurnForLeaveAsync has completed, so no turn is running
+    // and a turn only ever updates the chat it was sent in.
+    private void ResetToNewChat(Guid newChatId)
     {
         _turns.Clear();
         _liveTurnId = null;
-        _chatId = Guid.NewGuid();
+        _chatId = newChatId;
         _chatState = ChatState.New;
         _knowledgeFiles = [];
         _selectedModel = _catalog.Default;

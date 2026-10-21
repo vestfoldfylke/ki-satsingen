@@ -93,7 +93,7 @@ export function hidePopover(popover: HTMLElement): void {
 // Reads and clears the textarea in one call. Read-then-clear as two separate
 // interop round trips would leave a window where a second rapid send reads
 // the same not-yet-cleared value; C# owns the actual re-entrancy guard
-// (Chat.razor.cs's _isSending) that stops a second call from getting this far
+// (ChatComposer.razor.cs's _isSending) that stops a second call from getting this far
 // at all, but this still keeps the state this module owns internally
 // consistent within a single call.
 export function takeComposerValue(): string {

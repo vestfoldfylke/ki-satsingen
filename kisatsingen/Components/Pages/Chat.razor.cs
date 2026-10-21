@@ -22,10 +22,9 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required IJSRuntime JS { get; set; }
 
     [Parameter]
-    public Guid ChatIdFromUrl { get; set; }
+    public Guid ChatId { get; set; }
 
     private bool _stateWired;
-    private Guid? _previousChatIdFromUrl;
     private Guid? _lastInitChatId;
     private bool _isFilesPanelOpen;
 
@@ -46,17 +45,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
             _stateWired = true;
         }
 
-        if (ChatIdFromUrl == _previousChatIdFromUrl)
-        {
-            return;
-        }
-
-        _previousChatIdFromUrl = ChatIdFromUrl;
-
-        if (Session.ChatId != ChatIdFromUrl)
-        {
-            await Session.OpenChatAsync(ChatIdFromUrl);
-        }
+        await Session.OpenChatAsync(ChatId);
     }
 
     private void OnSessionChanged() => InvokeAsync(StateHasChanged);
