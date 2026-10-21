@@ -3,12 +3,6 @@
 // doesn't round-trip over SignalR just to ask "was that Enter" or "is this
 // still empty." The textarea is otherwise uncontrolled from Blazor's side;
 // its content only reaches the server once, at send (see takeComposerValue).
-//
-// Wiring is idempotent, driven by Blazor's OnAfterRenderAsync (gated on
-// firstRender — see ChatComposer.razor.cs), same pattern as chat-scroll.ts's
-// initChatLog: comparing DOM identity is how we'd notice the empty-state /
-// transcript layout swap recreating the composer, though in practice a fresh
-// ChatComposer instance only ever calls this once, on its own firstRender.
 
 const SELECTOR_TEXTAREA = '#chat-textarea';
 const SELECTOR_SEND_BUTTON = '#composer-send-button';

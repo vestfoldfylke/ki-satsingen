@@ -63,8 +63,10 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
         // Enter racing a click) is rejected here at zero network cost, rather
         // than after a wasted round trip to read the composer's text.
         // Uploading is checked too: the browser holds send while it lasts, and
-        // this is the guard that does not trust it.
-        if (_isSending || Attachments.IsUploading)
+        // this is the guard that does not trust it. Session.CanSend is checked here
+        // as well, so a message the session would refuse stays in the composer and
+        // the page does not move to the chat.
+        if (_isSending || Attachments.IsUploading || !Session.CanSend)
         {
             return;
         }

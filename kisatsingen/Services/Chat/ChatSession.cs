@@ -100,6 +100,8 @@ public sealed class ChatSession : IAsyncDisposable
 
     public bool IsNewChat => _chatState == ChatState.New && _turns.Count == 0;
 
+    public bool CanSend => !IsBusy && _chatState is ChatState.New or ChatState.Saved;
+
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
     public bool HasLiveTurn => _liveTurnId is not null;
@@ -275,7 +277,7 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task SendAsync(string text)
     {
-        if (IsBusy || string.IsNullOrWhiteSpace(text))
+        if (!CanSend || string.IsNullOrWhiteSpace(text))
         {
             return;
         }

@@ -149,6 +149,24 @@ public sealed class ChatSessionNavigationTests
         Assert.False(isNewChatWhileLoading);
     }
 
+    // While a chat is loading there is no chat to send the message in yet, so the
+    // message would end up in a new chat instead of the one being opened.
+    [Fact]
+    public async Task A_message_sent_while_a_chat_is_loading_is_not_sent()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreEmptyChat(harness);
+        var loadReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        harness.Repository.BeforeGetChat = _ => loadReleased.Task;
+        var opening = harness.Session.OpenChatAsync(chat.Id);
+
+        await harness.Session.SendAsync("hei").WaitAsync(TurnWindDownLimit);
+        loadReleased.SetResult();
+        await opening.WaitAsync(TurnWindDownLimit);
+
+        Assert.Empty(harness.Repository.CreatedChatIds);
+    }
+
     [Fact]
     public async Task A_message_in_an_existing_chat_creates_no_chat()
     {
