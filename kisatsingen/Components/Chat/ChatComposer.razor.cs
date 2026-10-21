@@ -59,13 +59,12 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
 
     private async Task SendAsync()
     {
-        // Synchronous, checked before any await: a rapid double-trigger (e.g.
-        // Enter racing a click) is rejected here at zero network cost, rather
-        // than after a wasted round trip to read the composer's text.
-        // Uploading is checked too: the browser holds send while it lasts, and
-        // this is the guard that does not trust it. Session.CanSend is checked here
-        // as well, so a message the session would refuse stays in the composer and
-        // the page does not move to the chat.
+        // Checked before any await, so a quick double send (e.g. Enter and a click
+        // at the same time) is turned away before the text is read from the browser.
+        // Uploading is checked here even though the browser already blocks sending
+        // during an upload, since the browser's check can't be relied on.
+        // Session.CanSend is checked so that a message the session would refuse
+        // stays in the composer and OnSending is not raised.
         if (_isSending || Attachments.IsUploading || !Session.CanSend)
         {
             return;
