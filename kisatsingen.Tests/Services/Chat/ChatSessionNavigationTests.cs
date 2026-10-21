@@ -72,7 +72,6 @@ public sealed class ChatSessionNavigationTests
         Assert.Empty(harness.Session.Transcript);
     }
 
-    // The page has moved to the chat's id before the chat is saved.
     [Fact]
     public async Task A_new_chat_is_saved_under_the_id_it_had_before_its_first_message()
     {
@@ -84,10 +83,8 @@ public sealed class ChatSessionNavigationTests
         Assert.Equal(idBeforeSending, harness.Repository.Writes[^1].ChatId);
     }
 
-    // What lets a start page keep a session that already is a new chat, and
-    // replace one that has anything in it.
     [Fact]
-    public async Task A_first_message_that_could_not_be_saved_still_ends_the_new_chat()
+    public async Task A_chat_whose_first_message_could_not_be_saved_is_no_longer_a_new_chat()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
@@ -107,20 +104,29 @@ public sealed class ChatSessionNavigationTests
         Assert.True(harness.Session.IsChatNotFound);
     }
 
-    // The id comes from the URL; a message sent from there must not create a
-    // chat under it.
+    [Fact]
+    public async Task A_chat_that_was_not_found_cannot_be_sent_in()
+    {
+        await using var harness = new ChatSessionHarness();
+
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
+
+        Assert.False(harness.Session.CanSend);
+    }
+
+    // The id asked for comes from the URL, and a chat is only ever created under
+    // an id the session made itself.
     [Fact]
     public async Task A_chat_that_was_not_found_does_not_take_the_id_it_was_asked_for()
     {
         await using var harness = new ChatSessionHarness();
-        var requestedId = Guid.NewGuid();
+        var requestedChatId = Guid.NewGuid();
 
-        await harness.Session.OpenChatAsync(requestedId);
+        await harness.Session.OpenChatAsync(requestedChatId);
 
-        Assert.NotEqual(requestedId, harness.Session.ChatId);
+        Assert.NotEqual(requestedChatId, harness.Session.ChatId);
     }
 
-    // So a start page replaces it, rather than keep a view that says not found.
     [Fact]
     public async Task A_chat_that_was_not_found_is_not_a_new_chat()
     {
@@ -131,8 +137,6 @@ public sealed class ChatSessionNavigationTests
         Assert.False(harness.Session.IsNewChat);
     }
 
-    // So a start page opened meanwhile starts a chat of its own instead of keeping
-    // one that the load is about to fill.
     [Fact]
     public async Task A_chat_that_is_still_loading_is_not_a_new_chat()
     {
@@ -173,16 +177,10 @@ public sealed class ChatSessionNavigationTests
         await using var harness = new ChatSessionHarness();
         var existing = StoreEmptyChat(harness);
         await harness.Session.OpenChatAsync(existing.Id);
-        var creates = 0;
-        harness.Repository.BeforeCreateChat = () =>
-        {
-            creates++;
-            return Task.CompletedTask;
-        };
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(0, creates);
+        Assert.Empty(harness.Repository.CreatedChatIds);
     }
 
     [Fact]
@@ -233,6 +231,58 @@ public sealed class ChatSessionNavigationTests
 
         Assert.Equal(other.Id, harness.Session.ChatId);
         await Assert.ThrowsAsync<InvalidOperationException>(() => sending.WaitAsync(TurnWindDownLimit));
+    }
+
+    [Fact]
+    public async Task Opening_the_chat_that_was_asked_for_last_leaves_its_answer_running()
+    {
+        await using var harness = new ChatSessionHarness();
+        var (sending, chatId) = await StartStalledAnswer(harness);
+
+        await harness.Session.OpenChatAsync(chatId).WaitAsync(TurnWindDownLimit);
+        var isStillAnswering = harness.Session.IsBusy;
+        harness.Session.Cancel();
+        await sending.WaitAsync(TurnWindDownLimit);
+
+        Assert.True(isStillAnswering);
+    }
+
+    [Fact]
+    public async Task A_chat_that_was_not_found_is_not_looked_up_again()
+    {
+        await using var harness = new ChatSessionHarness();
+        var lookups = 0;
+        harness.Repository.BeforeGetChat = _ =>
+        {
+            lookups++;
+            return Task.CompletedTask;
+        };
+        var missingChatId = Guid.NewGuid();
+
+        await harness.Session.OpenChatAsync(missingChatId);
+        await harness.Session.OpenChatAsync(missingChatId);
+
+        Assert.Equal(1, lookups);
+    }
+
+    // StartNewChatAsync waits for the running answer to end before it empties the
+    // session, so until then the session still holds the stored chat. Opening the
+    // stored chat in that time must still open it.
+    [Fact]
+    public async Task A_chat_opened_while_a_new_one_is_still_being_started_is_opened()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreEmptyChat(harness);
+        await harness.Session.OpenChatAsync(chat.Id);
+        var (sending, _) = await StartStalledAnswer(harness);
+
+        var startingNewChat = harness.Session.StartNewChatAsync();
+        var openingChatAgain = harness.Session.OpenChatAsync(chat.Id);
+        await startingNewChat.WaitAsync(TurnWindDownLimit);
+        await openingChatAgain.WaitAsync(TurnWindDownLimit);
+        await sending.WaitAsync(TurnWindDownLimit);
+
+        Assert.Equal(chat.Id, harness.Session.ChatId);
     }
 
     [Fact]

@@ -199,17 +199,18 @@ internal sealed class TurnRunner
         ct.ThrowIfCancellationRequested();
 
         var isNewChat = !row.IsChatSaved;
-        if (isNewChat)
-        {
-            await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, ct);
-        }
 
         try
         {
+            if (isNewChat)
+            {
+                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, ct);
+            }
+
             await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);
         }
-        // A new chat whose first message did not save would open empty, so it is
-        // deleted. The next message creates the chat again under the same id.
+        // If saving the first message fails at any step, the new chat is deleted, so it
+        // never opens empty. The next message creates the chat again under the same id.
         catch (Exception) when (isNewChat)
         {
             await DiscardChatAsync(row.ChatId);
@@ -231,7 +232,7 @@ internal sealed class TurnRunner
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not delete chat {ChatId} after its first question failed to save. It will show as an empty chat.", chatId);
+            _logger.LogWarning(ex, "Could not delete chat {ChatId} after its first message failed to save. If the chat was created, it will show as an empty chat.", chatId);
         }
     }
 

@@ -264,6 +264,20 @@ public sealed class ChatSessionOutcomeTests
         Assert.Single(harness.Repository.DeletedChatIds);
     }
 
+    // Creating the chat can fail after its row was written, and a row left behind
+    // would make every later message in the chat fail on its id.
+    [Fact]
+    public async Task A_new_chat_that_could_not_be_created_is_deleted()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chatId = harness.Session.ChatId;
+        harness.Repository.CreateChatFailure = new InvalidOperationException("connection lost after the write");
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal([chatId], harness.Repository.DeletedChatIds);
+    }
+
     // The page already shows the chat's id, so the next message saves it there.
     [Fact]
     public async Task A_new_chat_whose_first_question_cannot_be_saved_is_saved_under_the_same_id_by_the_next_message()
