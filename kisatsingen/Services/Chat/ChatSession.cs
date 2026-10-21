@@ -25,7 +25,8 @@ public sealed class ChatSession : IAsyncDisposable
 
     private readonly List<Turn> _turns = [];
 
-    // Not derivable from status: a Running turn may have been loaded that way.
+    // Not derived from the turns' status: a turn opened from the database can be
+    // Running because another tab is still answering it.
     private Guid? _liveTurnId;
 
     // Identity only; ChatManager owns the chat's metadata. A new chat has its id
@@ -45,10 +46,6 @@ public sealed class ChatSession : IAsyncDisposable
         NotFound
     }
 
-    // Loaded with the chat. Every file a turn makes available is added as it
-    // becomes available, while the view is still that turn's. A file another
-    // tab saves shows once the chat is opened again; that lag is safe, since
-    // duplicates are checked against the database.
     private IReadOnlyList<KnowledgeFileMetadata> _knowledgeFiles = [];
 
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
@@ -59,9 +56,8 @@ public sealed class ChatSession : IAsyncDisposable
 
     private Task _turnCompletion = Task.CompletedTask;
 
-    // Bumped whenever the view switches chat. Anything that awaited across a bump
-    // no longer owns the view and must leave it alone.
-    private int _viewVersion;
+    // Increased by every call to OpenChatAsync and StartNewChatAsync.
+    private int _chatRequestCount;
 
     public event Action? StateChanged;
 
@@ -168,31 +164,27 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task OpenChatAsync(Guid chatId, CancellationToken ct = default)
     {
-        var viewVersion = ++_viewVersion;
-
-        // Leaving a chat stops its turn, and the turn winds down into its own chat
-        // before this one is shown.
+        var requestNumber = ++_chatRequestCount;
         await StopTurnForLeaveAsync();
-        if (!OwnsView(viewVersion))
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        ClearView();
+        ResetToNewChat();
         _chatState = ChatState.Opening;
 
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
         var chat = await _repo.GetChatAsync(userObjectId, chatId, ct);
         var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId, ct);
 
-        // A later navigation that finished first must not be overwritten.
-        if (!OwnsView(viewVersion))
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        // The view keeps its own new id rather than taking chatId: a chat is only
-        // ever created under an id the session made itself.
+        // chatId comes from outside, so it is not used as the id here: a new chat
+        // must never get an id that someone else chose.
         if (chat is null)
         {
             _chatState = ChatState.NotFound;
@@ -214,16 +206,19 @@ public sealed class ChatSession : IAsyncDisposable
 
     public async Task StartNewChatAsync()
     {
-        var viewVersion = ++_viewVersion;
+        var requestNumber = ++_chatRequestCount;
         await StopTurnForLeaveAsync();
-        if (!OwnsView(viewVersion))
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
             return;
         }
 
-        ClearView();
+        ResetToNewChat();
         Notify();
     }
+
+    // A slow load then stops instead of replacing a chat the user opened after it.
+    private bool HasAnotherChatBeenRequestedSince(int requestNumber) => requestNumber != _chatRequestCount;
 
     // No turns, a blank key and a removed model all mean "no previous model".
     private ChatModel? FindLastModel()
@@ -251,16 +246,18 @@ public sealed class ChatSession : IAsyncDisposable
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // A turn stops when the session is asked to show another chat, a new one
-    // included. Pages that show no chat leave it running, and it is waiting on
-    // return.
+    // Stops the answer that is being written, and returns a task that completes
+    // when the turn has fully ended. OpenChatAsync and StartNewChatAsync wait for
+    // that task before they clear what is shown, so a turn only ever updates the
+    // chat it was sent in. Pages that show no chat don't call this, so the answer
+    // keeps going while the user is there.
     public Task StopTurnForLeaveAsync()
     {
         _turnCancellation?.CancelForLeave();
         return _turnCompletion;
     }
 
-    private void ClearView()
+    private void ResetToNewChat()
     {
         _turns.Clear();
         _liveTurnId = null;
@@ -272,8 +269,6 @@ public sealed class ChatSession : IAsyncDisposable
         // Attached to the chat being left, not the one being opened.
         _attachments.Reset();
     }
-
-    private bool OwnsView(int viewVersion) => viewVersion == _viewVersion;
 
     public async Task SendAsync(string text)
     {
@@ -292,10 +287,6 @@ public sealed class ChatSession : IAsyncDisposable
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _turnCompletion = completion.Task;
 
-        // The turn keeps writing to its own chat after the user moves on; only the
-        // page stops following it.
-        var viewVersion = _viewVersion;
-
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
@@ -309,23 +300,20 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                TurnSaved: () => OnTurnSaved(viewVersion),
-                Changed: snapshot => ShowSnapshot(viewVersion, snapshot),
-                KnowledgeFileAvailable: file => AddKnowledgeFile(viewVersion, file));
+                TurnSaved: () => _chatState = ChatState.Saved,
+                Changed: ShowSnapshot,
+                KnowledgeFileAvailable: AddKnowledgeFile);
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
-            Replace(viewVersion, ended);
+            UpdateTurn(ended);
         }
         finally
         {
             // Nested so a throwing StateChanged subscriber can't leave the next
-            // navigation waiting on this turn forever.
+            // chat request waiting on this turn forever.
             try
             {
-                if (OwnsView(viewVersion))
-                {
-                    _liveTurnId = null;
-                }
+                _liveTurnId = null;
                 IsBusy = false;
 
                 // The only place it is disposed. Nulled first, so a Cancel() arriving
@@ -344,18 +332,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     private bool ChatHasKnowledgeFiles() => _knowledgeFiles.Count > 0;
 
-    private void OnTurnSaved(int viewVersion)
-    {
-        if (OwnsView(viewVersion))
-        {
-            _chatState = ChatState.Saved;
-        }
-    }
-
     // By id, since a turn reports a file it reused, which may already be listed.
-    private void AddKnowledgeFile(int viewVersion, KnowledgeFileMetadata file)
+    private void AddKnowledgeFile(KnowledgeFileMetadata file)
     {
-        if (!OwnsView(viewVersion) || _knowledgeFiles.Any(known => known.Id == file.Id))
+        if (_knowledgeFiles.Any(known => known.Id == file.Id))
         {
             return;
         }
@@ -364,30 +344,16 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    private void ShowSnapshot(int viewVersion, Turn snapshot)
+    private void ShowSnapshot(Turn snapshot)
     {
-        if (Replace(viewVersion, snapshot))
-        {
-            Notify();
-        }
+        UpdateTurn(snapshot);
+        Notify();
     }
 
-    // By id: a view that has moved on no longer holds the turn, so nothing matches.
-    private bool Replace(int viewVersion, Turn turn)
+    private void UpdateTurn(Turn latest)
     {
-        if (!OwnsView(viewVersion))
-        {
-            return false;
-        }
-
-        var index = _turns.FindIndex(candidate => candidate.Id == turn.Id);
-        if (index < 0)
-        {
-            return false;
-        }
-
-        _turns[index] = turn;
-        return true;
+        var index = _turns.FindIndex(turn => turn.Id == latest.Id);
+        _turns[index] = latest;
     }
 
     private void Notify() => StateChanged?.Invoke();
