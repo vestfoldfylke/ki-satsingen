@@ -53,6 +53,10 @@ Host on Linux. Windows works for local development, but hosting on Windows is no
   // "KnowledgeFilePipeline": {
   //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
   //   "ConversionTimeout": "00:02:00"
+  // },
+  // "Graph": {
+  //   "BaseUrl": "https://graph.microsoft.com/v1.0",
+  //   "Scope": "https://graph.microsoft.com/.default"
   // }
 }
 ```
