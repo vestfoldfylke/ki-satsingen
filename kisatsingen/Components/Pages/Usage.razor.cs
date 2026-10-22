@@ -14,6 +14,9 @@ public partial class Usage : ComponentBase, IDisposable
     [Inject]
     public required ILogger<Usage> Logger { get; init; }
 
+    [Inject]
+    public required IUserUsageResolver UserUsageResolver { get; init; }
+
     private const int TopUserCount = 5;
 
     private UsageRange Range { get; set; } = UsageRange.Last7Days;
@@ -25,21 +28,21 @@ public partial class Usage : ComponentBase, IDisposable
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ModelBreakdown { get; set; } = [];
-    private IReadOnlyList<UsageByKey<string>> TopUsersByTurns { get; set; } = [];
-    private IReadOnlyList<UsageByKey<string>> UsagePerUser { get; set; } = [];
+    private IReadOnlyList<UserUsage> TopUsersByTurns { get; set; } = [];
+    private IReadOnlyList<UserUsage> UsagePerUser { get; set; } = [];
 
 
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.InputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByInputTokens =>
+        UsagePerUser.OrderByDescending(u => u.Usage.InputTokens).Take(TopUserCount);
 
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.OutputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByOutputTokens =>
+        UsagePerUser.OrderByDescending(u => u.Usage.OutputTokens).Take(TopUserCount);
 
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.EstimatedInputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedInputTokens =>
+        UsagePerUser.OrderByDescending(u => u.Usage.EstimatedInputTokens).Take(TopUserCount);
 
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.EstimatedOutputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedOutputTokens =>
+        UsagePerUser.OrderByDescending(u => u.Usage.EstimatedOutputTokens).Take(TopUserCount);
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -84,8 +87,9 @@ public partial class Usage : ComponentBase, IDisposable
             StatusBreakdown = await statusTask;
             ProviderBreakdown = await providerTask;
             ModelBreakdown = await modelTask;
-            TopUsersByTurns = await topUsersTask;
-            UsagePerUser = await perUserTask;
+            
+            TopUsersByTurns = await UserUsageResolver.ResolveAsync(await topUsersTask, ct);
+            UsagePerUser = await UserUsageResolver.ResolveAsync(await perUserTask, ct);
         }
         catch (OperationCanceledException)
         {
