@@ -1,3 +1,4 @@
+using kisatsingen.Components.Shared;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
@@ -7,8 +8,23 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
+    private const int MaxTitleLength = kisatsingen.Data.Entities.Chat.MaxTitleLength;
+    
     private const string NewChatPath = "new";
     private const string SidebarPanelId = "sidebar-panel";
+
+    private const string DeleteDialogId = "delete-chat-dialog";
+
+    private const string RenameDialogId = "rename-chat-dialog";
+
+    private ChatListEntry? _chatToRename;
+    private ModalDialog? _renameDialog;
+    private string? _renameTitle;
+    private string? _renameError;
+
+    private ChatListEntry? _chatToDelete;
+    private ModalDialog? _deleteDialog;
+    private string? _deleteError;
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -80,32 +96,61 @@ public partial class NavMenu : ComponentBase, IDisposable
         }
     }
 
-    private async Task RenameChatAsync(Guid id, string currentTitle)
+    private void OpenRenameDialog(ChatListEntry entry)
     {
-        var input = await JS.InvokeAsync<string?>("prompt", "New name:", currentTitle);
-        if (string.IsNullOrWhiteSpace(input) || input.Trim() == currentTitle)
-        {
-            return;
-        }
-
-        try
-        {
-            await Manager.RenameAsync(id, input.Trim(), CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", id);
-        }
+        _chatToRename = entry;
+        _renameTitle = entry.Title;
+        _renameError = null;
     }
 
-    private async Task DeleteChatAsync(Guid id)
+    private async Task RenameChatAsync()
     {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this chat?");
-        if (!confirmed)
+        if (_chatToRename is not {} chat || ChatList.All(e => e.Id != chat.Id))
         {
+            _renameDialog?.Close();
             return;
         }
 
+        var title = _renameTitle?.Trim();
+        if (string.IsNullOrEmpty(title))
+        {
+            _renameError = "Navnet kan ikke være tomt.";
+            return;
+        }
+
+        if (title != chat.Title)
+        {
+            try
+            {
+                await Manager.RenameAsync(chat.Id, title, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to rename chat {ChatId}", chat.Id);
+                _renameError = "Kunne ikke endre navnet. Prøv igjen.";
+                return;
+            }
+        }
+
+        _chatToRename = null;
+        _renameDialog?.Close();
+    }
+
+    private void OpenDeleteDialog(ChatListEntry entry)
+    {
+        _chatToDelete = entry;
+        _deleteError = null;
+    }
+
+    private async Task DeleteChatAsync()
+    {
+        if (_chatToDelete is not { } chat || ChatList.All(e => e.Id != chat.Id))
+        {
+            _deleteDialog?.Close();
+            return;
+        }
+
+        var id = chat.Id;
         var wasActive = Session.ChatId == id;
 
         // Before the delete, so the turn's tail can't append to a row that is gone.
@@ -121,8 +166,12 @@ public partial class NavMenu : ComponentBase, IDisposable
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to delete chat {ChatId}", id);
+            _deleteError = "Kunne ikke slette samtalen. Prøv igjen.";
             return;
         }
+
+        _chatToDelete = null;
+        _deleteDialog?.Close();
 
         if (wasActive)
         {
