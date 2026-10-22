@@ -7,7 +7,6 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
-    private const string NewChatPath = "new";
     private const string SidebarPanelId = "sidebar-panel";
 
     [Inject]
@@ -110,7 +109,7 @@ public partial class NavMenu : ComponentBase, IDisposable
         if (wasActive)
         {
             // Replaced: back must not lead to the deleted chat.
-            Navigation.NavigateTo($"/{NewChatPath}", replace: true);
+            Navigation.NavigateTo("/new", replace: true);
         }
     }
 

@@ -169,6 +169,7 @@ public sealed class ChatSessionNavigationTests
         await opening.WaitAsync(TurnWindDownLimit);
 
         Assert.Empty(harness.Repository.CreatedChatIds);
+        Assert.Empty(harness.Repository.Writes);
     }
 
     [Fact]
