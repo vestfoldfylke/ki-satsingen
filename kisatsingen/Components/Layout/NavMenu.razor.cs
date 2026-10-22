@@ -8,7 +8,10 @@ namespace kisatsingen.Components.Layout;
 public partial class NavMenu : ComponentBase, IDisposable
 {
     private const string NewChatPath = "new";
+
     private const string SidebarPanelId = "sidebar-panel";
+    private const string UserMenuId = "user-menu-dropdown";
+    private static readonly string[] PopoverIds = [SidebarPanelId, UserMenuId];
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -28,20 +31,23 @@ public partial class NavMenu : ComponentBase, IDisposable
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
-    private async Task HideSidebarPanelAsync()
+    private async Task HidePopoversAsync()
     {
-        try
+        foreach (var popoverId in PopoverIds)
         {
-            await using var sidebarPanel = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", SidebarPanelId);
-            await sidebarPanel.InvokeVoidAsync("hidePopover");
-        }
-        catch (JSDisconnectedException)
-        {
-            // The circuit is gone, so there is no page left to hide the panel on.
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to hide {SidebarPanelId} after navigation; the mobile drawer stays open", SidebarPanelId);
+            try
+            {
+                await using var popover = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", popoverId);
+                await popover.InvokeVoidAsync("hidePopover");
+            }
+            catch (JSDisconnectedException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to hide {PopoverId} after navigation; it stays open", popoverId);
+            }
         }
     }
 
@@ -60,7 +66,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        await HideSidebarPanelAsync();
+        await HidePopoversAsync();
     }
 
     private async Task StartNewChatAsync()
