@@ -1,6 +1,7 @@
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Authorization;
 using kisatsingen.Components;
+using kisatsingen.Components.Usage;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -170,6 +171,9 @@ if (maxKnowledgeFileTokens <= 0)
 }
 
 // ─── Application services ──────────────────────────────
+builder.Services.AddSingleton<IGraphService, GraphService>();
+builder.Services.AddSingleton<IUserInfoCache, UserInfoCache>();
+builder.Services.AddSingleton<IUserUsageResolver, UserUsageResolver>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
