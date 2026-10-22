@@ -95,7 +95,7 @@ public sealed class ChatSessionModelSelectionTests
         await using var harness = new ChatSessionHarness();
         await harness.Session.SelectModelAsync(FakeChatModelCatalog.AlternativeKey);
 
-        await harness.Session.LoadAsync(Guid.NewGuid());
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }

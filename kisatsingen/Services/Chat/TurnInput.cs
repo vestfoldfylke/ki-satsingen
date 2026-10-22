@@ -7,7 +7,8 @@ namespace kisatsingen.Services.Chat;
 // attachment line needs each saved file's id.
 internal sealed record TurnInput(
     Turn Turn,
-    Guid? ExistingChatId,
+    Guid ChatId,
+    bool IsChatSaved,
     IReadOnlyList<Turn> EarlierTurns,
     ChatModel Model,
     SentAttachments SentAttachments,

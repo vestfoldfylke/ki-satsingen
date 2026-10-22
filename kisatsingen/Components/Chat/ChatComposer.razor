@@ -14,43 +14,43 @@
         </div>
 
         <div class="chat-composer">
-            <ComposerAttachments Attachments="Attachments"
-                                 Notice="@AttachmentNotice"
-                                 OnRemove="OnRemoveAttachment" />
+            <ComposerAttachments Attachments="Attachments.All"
+                                 Notice="@Attachments.SelectionNotice"
+                                 OnRemove="Attachments.Remove" />
 
             <textarea @ref="_textarea"
                       id="chat-textarea"
                       class="ds-input chat-textarea"
                       placeholder="Spør om hva som helst..."
-                      disabled="@IsBusy"></textarea>
+                      disabled="@Session.IsBusy"></textarea>
 
             <div class="chat-composer-actions">
                 <div class="composer-actions-left">
                     <ComposerAddMenu IsFilePickerDisabled="IsPickerDisabled"
-                                     OnFilesSelected="OnFilesSelected" />
+                                     OnFilesSelected="Attachments.AttachAsync" />
 
-                    @if (EstimatedContextTokens is { } contextTokens && SelectedModel is { } contextModel)
+                    @if (Session.EstimatedContextTokens is { } contextTokens)
                     {
-                        <ContextUsagePopover Model="contextModel"
+                        <ContextUsagePopover Model="Session.SelectedModel"
                                              EstimatedContextTokens="contextTokens"
-                                             Usage="ConversationUsage" />
+                                             Usage="Session.ConversationUsage" />
                     }
 
                     @* One model is no choice, so no picker. *@
-                    @if (Models.Count > 1 && SelectedModel is not null)
+                    @if (Session.AvailableModels.Count > 1)
                     {
-                        <ModelPicker Models="Models"
-                                     Selected="SelectedModel"
-                                     OnSelect="OnSelectModel"
-                                     IsBusy="IsBusy"
-                                     EstimatedContextTokens="EstimatedContextTokens" />
+                        <ModelPicker Models="Session.AvailableModels"
+                                     Selected="Session.SelectedModel"
+                                     OnSelect="Session.SelectModelAsync"
+                                     IsBusy="Session.IsBusy"
+                                     EstimatedContextTokens="Session.EstimatedContextTokens" />
                     }
                 </div>
 
                 <div class="composer-actions-right">
                     @* Stop is Blazor's: IsBusy is its only input. Send is JS's, because its
                     disabled state also depends on the textarea being empty. *@
-                    @if (IsBusy)
+                    @if (Session.IsBusy)
                     {
                         <button id="composer-stop-button"
                                 class="ds-button"
@@ -60,7 +60,7 @@
                                 data-icon="true"
                                 aria-label="Stopp generering"
                                 data-tooltip="Stopp generering"
-                                @onclick="OnStop">
+                                @onclick="Session.Cancel">
                             <span class="material-symbols-outlined" aria-hidden="true">stop</span>
                         </button>
                     }
@@ -74,7 +74,7 @@
                             aria-label="Send melding"
                             data-tooltip="Send melding"
                             disabled
-                            @onclick="OnSend">
+                            @onclick="SendAsync">
                         <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
                     </button>
                 </div>

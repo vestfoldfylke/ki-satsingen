@@ -3,12 +3,6 @@
 // doesn't round-trip over SignalR just to ask "was that Enter" or "is this
 // still empty." The textarea is otherwise uncontrolled from Blazor's side;
 // its content only reaches the server once, at send (see takeComposerValue).
-//
-// Wiring is idempotent, driven by Blazor's OnAfterRenderAsync (gated on
-// firstRender — see ChatComposer.razor.cs), same pattern as chat-scroll.ts's
-// initChatLog: comparing DOM identity is how we'd notice the empty-state /
-// transcript layout swap recreating the composer, though in practice a fresh
-// ChatComposer instance only ever calls this once, on its own firstRender.
 
 const SELECTOR_TEXTAREA = '#chat-textarea';
 const SELECTOR_SEND_BUTTON = '#composer-send-button';
@@ -99,7 +93,7 @@ export function hidePopover(popover: HTMLElement): void {
 // Reads and clears the textarea in one call. Read-then-clear as two separate
 // interop round trips would leave a window where a second rapid send reads
 // the same not-yet-cleared value; C# owns the actual re-entrancy guard
-// (Chat.razor.cs's _isSending) that stops a second call from getting this far
+// (ChatComposer.razor.cs's _isSending) that stops a second call from getting this far
 // at all, but this still keeps the state this module owns internally
 // consistent within a single call.
 export function takeComposerValue(): string {

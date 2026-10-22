@@ -36,7 +36,7 @@ public sealed class ChatSessionAttachmentTests
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", UploadBytes.Text));
 
-        await harness.Session.LoadAsync(Guid.NewGuid());
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
 
         Assert.Empty(harness.Attachments.All);
         Assert.Empty(harness.AttachmentEnvironment.FilesOnDisk);
@@ -333,7 +333,7 @@ public sealed class ChatSessionAttachmentTests
                 }
             ]
         });
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         await harness.Session.SendAsync("Og så?");
 
@@ -353,7 +353,7 @@ public sealed class ChatSessionAttachmentTests
             UpdatedAt = DateTimeOffset.UtcNow
         });
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         await harness.Session.SendAsync("Hva sto i notatet?");
 
