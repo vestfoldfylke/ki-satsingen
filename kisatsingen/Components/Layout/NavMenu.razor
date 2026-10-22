@@ -66,17 +66,12 @@
                     @foreach (var entry in ChatList)
                     {
                         var menuId = $"chat-menu-{entry.Id}";
-                        <li>
+                        <li @key="entry.Id">
                             <div class="chat-list-item @(entry.Id == Session.ChatId ? "chat-list-item-active" : null)">
-                                <a
-                                    class="ds-link chat-list-link"
-                                    href="@($"/chat/{entry.Id}")"
-                                    onmouseover="
-                                        const chatListTitle = this.firstElementChild;
-                                        this.toggleAttribute('data-tooltip', chatListTitle.scrollWidth > chatListTitle.clientWidth)
-                                        && this.setAttribute('data-tooltip', chatListTitle.textContent)
-                                ">
-                                    <span class="chat-list-title">@entry.Title</span>
+                                <a class="ds-link chat-list-link" href="@($"/chat/{entry.Id}")">
+                                    <span class="chat-list-title" data-tooltip="@(entry.Title.Length > MaxVisibleTitleLength ? entry.Title : null)">
+                                        @entry.Title
+                                    </span>
                                 </a>
                                 <button
                                     type="button"
