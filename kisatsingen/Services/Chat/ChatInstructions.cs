@@ -54,4 +54,9 @@ internal static class ChatInstructions
         """;
 
     public const string ForPlainChat = Base + "\n\n" + PlainChatAddition;
+
+    public static string ForAssistant(string name, string? instructions) =>
+        instructions is null
+            ? Base
+            : $"{Base}\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}";
 }
