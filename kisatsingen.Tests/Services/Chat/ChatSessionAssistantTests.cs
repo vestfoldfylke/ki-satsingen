@@ -100,6 +100,64 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
+    public async Task An_opened_chat_shows_its_assistants_current_name()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id, nameSnapshot: "Gammelt navn").Id);
+
+        Assert.Equal("Saksbehandler", harness.Session.AssistantName);
+    }
+
+    [Fact]
+    public async Task An_opened_chat_whose_assistant_is_no_longer_usable_shows_the_name_it_was_saved_with()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.Assistants.RemoveAccess(assistant.Id);
+
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id, nameSnapshot: "Gammelt navn").Id);
+
+        Assert.Equal("Gammelt navn", harness.Session.AssistantName);
+    }
+
+    [Fact]
+    public async Task An_opened_chat_links_to_its_assistant()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id).Id);
+
+        Assert.Equal(assistant.Id, harness.Session.AssistantId);
+    }
+
+    [Fact]
+    public async Task An_opened_chat_whose_assistant_is_no_longer_usable_does_not_link_to_it()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.Assistants.RemoveAccess(assistant.Id);
+
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id).Id);
+
+        Assert.Null(harness.Session.AssistantId);
+    }
+
+    [Fact]
+    public async Task A_new_chat_shows_no_name_from_the_chat_before_it()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.Assistants.RemoveAccess(assistant.Id);
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id, nameSnapshot: "Gammelt navn").Id);
+
+        await harness.Session.StartNewChatAsync(assistant: null);
+
+        Assert.Null(harness.Session.AssistantName);
+    }
+
+    [Fact]
     public async Task The_estimated_context_counts_the_assistants_instructions()
     {
         await using var plainChat = new ChatSessionHarness();
@@ -121,12 +179,13 @@ public sealed class ChatSessionAssistantTests
         Visibility = AssistantVisibility.Private
     };
 
-    private static ChatEntity StoreChatWith(ChatSessionHarness harness, Guid assistantId) =>
+    private static ChatEntity StoreChatWith(ChatSessionHarness harness, Guid assistantId, string nameSnapshot = "Saksbehandler") =>
         harness.Repository.Store(new ChatEntity
         {
             Id = Guid.NewGuid(),
             OwnerId = ChatSessionHarness.OwnerUnderTest,
             AssistantId = assistantId,
+            AssistantNameSnapshot = nameSnapshot,
             Title = "stored",
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow

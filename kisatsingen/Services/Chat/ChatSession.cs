@@ -54,6 +54,9 @@ public sealed class ChatSession : IAsyncDisposable
     // whose assistant the user can no longer use, which goes on as a plain chat.
     private Assistant? _assistant;
 
+    // The name the chat was saved with, shown once its assistant is no longer usable.
+    private string? _assistantNameSnapshot;
+
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
 
@@ -110,6 +113,12 @@ public sealed class ChatSession : IAsyncDisposable
 
     public bool IsNewChatWith(Guid? assistantId) =>
         _chatState == ChatState.New && _turns.Count == 0 && _assistant?.Id == assistantId;
+
+    // Null for a chat that never had an assistant.
+    public string? AssistantName => _assistant?.Name ?? _assistantNameSnapshot;
+
+    // Null when the chat has no assistant the user can use.
+    public Guid? AssistantId => _assistant?.Id;
 
     public bool CanSend => !IsBusy && _chatState is ChatState.New or ChatState.Saved;
 
@@ -222,6 +231,7 @@ public sealed class ChatSession : IAsyncDisposable
         _chatState = ChatState.Saved;
         _knowledgeFiles = knowledgeFiles;
         _assistant = assistant;
+        _assistantNameSnapshot = chat.AssistantNameSnapshot;
         var loadedAt = DateTimeOffset.UtcNow;
         _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
 
@@ -313,6 +323,7 @@ public sealed class ChatSession : IAsyncDisposable
         _chatState = ChatState.New;
         _knowledgeFiles = [];
         _assistant = null;
+        _assistantNameSnapshot = null;
         _selectedModel = _catalog.Default;
 
         // Attached to the chat being left, not the one being opened.

@@ -1,8 +1,19 @@
 <header class="chat-header">
-    @if (Title is { } title)
-    {
-        <h1 class="ds-heading chat-header-title" data-size="xs">@title</h1>
-    }
+    <h1 class="ds-heading chat-header-title" data-size="2xs">
+        @if (AssistantName is string assistantName)
+        {
+            if (AssistantId is Guid assistantId)
+            {
+                <a class="ds-link assistant-link" href="/assistants/@assistantId">@assistantName</a>
+            }
+            else
+            {
+                @assistantName
+            }
+            <span aria-hidden="true"> / </span>
+        }
+        @(Title ?? UntitledChat)
+    </h1>
 
     <button type="button"
             class="ds-button chat-header-files"
@@ -16,9 +27,19 @@
 </header>
 
 @code {
-    // Null for a chat that has no title yet, which shows nothing.
+    private const string UntitledChat = "Samtale";
+
+    // Null for a chat that has no title yet.
     [Parameter]
     public string? Title { get; set; }
+
+    // Null for a chat without an assistant, which shows nothing.
+    [Parameter]
+    public string? AssistantName { get; set; }
+
+    // Null when the assistant can't be opened; the name then shows without a link.
+    [Parameter]
+    public Guid? AssistantId { get; set; }
 
     [Parameter]
     public int FileCount { get; set; }

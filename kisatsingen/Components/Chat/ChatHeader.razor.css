@@ -11,11 +11,15 @@
 }
 
 .chat-header-title {
-    margin: 1rem;
+    margin: .5rem;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.assistant-link {
+    text-decoration: none;
 }
 
 @media (max-width: 640px) {
