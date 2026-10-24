@@ -246,6 +246,19 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
+    // Ignored unless the chat is with this assistant, so an edit never gives a chat
+    // an assistant it was not saved with.
+    public void UpdateAssistant(Assistant assistant)
+    {
+        if (_assistant?.Id != assistant.Id)
+        {
+            return;
+        }
+
+        _assistant = assistant;
+        Notify();
+    }
+
     // Returns the request's number, for HasAnotherChatBeenRequestedSince.
     private int RequestChat(Guid chatId)
     {

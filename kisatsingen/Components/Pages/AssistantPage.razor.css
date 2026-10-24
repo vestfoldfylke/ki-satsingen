@@ -8,3 +8,18 @@
     flex-direction: column;
     gap: var(--ds-size-6);
 }
+
+.assistant-body {
+    display: flex;
+    gap: var(--ds-size-4);
+    flex-wrap: wrap;
+}
+
+.assistant-chat {
+    flex: 2;
+    min-width: min(30rem, 100%);
+}
+
+.assistant-config {
+    flex: 1;
+}

@@ -75,6 +75,31 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
+    public async Task A_chat_is_sent_the_instructions_of_its_assistant_as_updated()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = NewAssistant();
+        await harness.Session.StartNewChatAsync(assistant);
+        harness.Session.UpdateAssistant(NewAssistant(instructions: "Svar på nynorsk.", id: assistant.Id));
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.EndsWith("Svar på nynorsk.", harness.Client.LastOptions?.Instructions);
+    }
+
+    [Fact]
+    public async Task A_chat_without_an_assistant_is_not_given_the_one_that_was_updated()
+    {
+        await using var harness = new ChatSessionHarness();
+        await harness.Session.StartNewChatAsync(assistant: null);
+        harness.Session.UpdateAssistant(NewAssistant());
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(ChatInstructions.ForPlainChat, harness.Client.LastOptions?.Instructions);
+    }
+
+    [Fact]
     public async Task The_estimated_context_counts_the_assistants_instructions()
     {
         await using var plainChat = new ChatSessionHarness();
@@ -87,9 +112,9 @@ public sealed class ChatSessionAssistantTests
         Assert.True(assistantChat.Session.EstimatedContextTokens > plainChat.Session.EstimatedContextTokens);
     }
 
-    private static Assistant NewAssistant(string instructions = AssistantInstructions) => new()
+    private static Assistant NewAssistant(string instructions = AssistantInstructions, Guid? id = null) => new()
     {
-        Id = Guid.NewGuid(),
+        Id = id ?? Guid.NewGuid(),
         OwnerId = ChatSessionHarness.OwnerUnderTest,
         Name = "Saksbehandler",
         Instructions = instructions,
