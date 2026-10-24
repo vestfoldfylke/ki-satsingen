@@ -33,21 +33,6 @@ public sealed class ChatSessionAssistantTests
         Assert.Equal(assistant.Id, Assert.Single(harness.Repository.CreatedChats).AssistantId);
     }
 
-    // The assistant page keeps an unsent chat with its assistant, and /new only
-    // an unsent chat without one.
-    [Fact]
-    public async Task A_new_chat_with_an_assistant_is_new_only_for_that_assistant()
-    {
-        await using var harness = new ChatSessionHarness();
-        var assistant = NewAssistant();
-
-        await harness.Session.StartNewChatAsync(assistant);
-
-        Assert.Equal(
-            (true, false),
-            (harness.Session.IsNewChatWith(assistant.Id), harness.Session.IsNewChatWith(assistantId: null)));
-    }
-
     [Fact]
     public async Task An_opened_chat_with_an_assistant_is_sent_the_assistants_instructions()
     {

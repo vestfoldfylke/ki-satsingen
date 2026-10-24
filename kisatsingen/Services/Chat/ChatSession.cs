@@ -49,9 +49,9 @@ public sealed class ChatSession : IAsyncDisposable
 
     private IReadOnlyList<KnowledgeFileMetadata> _knowledgeFiles = [];
 
-    // Read when the chat is opened or started, so an edit to the assistant applies
-    // the next time the chat is opened. Null for a plain chat, and for a chat
-    // whose assistant the user can no longer use, which goes on as a plain chat.
+    // Read when the chat is opened or started, and replaced by UpdateAssistant.
+    // Null for a plain chat, and for a chat whose assistant the user can no
+    // longer use, which goes on as a plain chat.
     private Assistant? _assistant;
 
     // The name the chat was saved with, shown once its assistant is no longer usable.
@@ -110,9 +110,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
     public bool IsChatNotFound => _chatState == ChatState.NotFound;
-
-    public bool IsNewChatWith(Guid? assistantId) =>
-        _chatState == ChatState.New && _turns.Count == 0 && _assistant?.Id == assistantId;
 
     // Null for a chat that never had an assistant.
     public string? AssistantName => _assistant?.Name ?? _assistantNameSnapshot;

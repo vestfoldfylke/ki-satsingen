@@ -31,10 +31,12 @@ public sealed partial class AssistantPage : ComponentBase
     {
         await LoadAsync();
 
-        if (_assistant is not null && !Session.IsNewChatWith(_assistant.Id))
+        if (_assistant is null)
         {
-            await Session.StartNewChatAsync(_assistant);
+            return;
         }
+
+        await Session.StartNewChatAsync(_assistant);
     }
 
     private async Task ApplyEditAsync()
