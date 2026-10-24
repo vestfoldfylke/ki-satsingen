@@ -13,9 +13,9 @@ public sealed partial class NewChat : ComponentBase
 
     protected override async Task OnInitializedAsync()
     {
-        if (!Session.IsNewChat)
+        if (!Session.IsNewChatWith(assistantId: null))
         {
-            await Session.StartNewChatAsync();
+            await Session.StartNewChatAsync(assistant: null);
         }
     }
 

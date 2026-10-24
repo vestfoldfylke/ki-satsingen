@@ -91,7 +91,7 @@ public sealed class ChatSessionNavigationTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.False(harness.Session.IsNewChat);
+        Assert.False(harness.Session.IsNewChatWith(assistantId: null));
     }
 
     [Fact]
@@ -134,7 +134,7 @@ public sealed class ChatSessionNavigationTests
 
         await harness.Session.OpenChatAsync(Guid.NewGuid());
 
-        Assert.False(harness.Session.IsNewChat);
+        Assert.False(harness.Session.IsNewChatWith(assistantId: null));
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public sealed class ChatSessionNavigationTests
         harness.Repository.BeforeGetChat = _ => loadReleased.Task;
 
         var opening = harness.Session.OpenChatAsync(chat.Id);
-        var isNewChatWhileLoading = harness.Session.IsNewChat;
+        var isNewChatWhileLoading = harness.Session.IsNewChatWith(assistantId: null);
         loadReleased.SetResult();
         await opening.WaitAsync(TurnWindDownLimit);
 
@@ -190,12 +190,12 @@ public sealed class ChatSessionNavigationTests
         await using var harness = new ChatSessionHarness();
         var (sending, askedIn) = await StartStalledAnswer(harness);
 
-        await harness.Session.StartNewChatAsync().WaitAsync(TurnWindDownLimit);
+        await harness.Session.StartNewChatAsync(assistant: null).WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
         Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
         Assert.Equal(askedIn, harness.Repository.Writes[^1].ChatId);
-        Assert.True(harness.Session.IsNewChat);
+        Assert.True(harness.Session.IsNewChatWith(assistantId: null));
     }
 
     // Checked before awaiting the send: once it has returned, IsBusy is false anyway.
@@ -277,7 +277,7 @@ public sealed class ChatSessionNavigationTests
         await harness.Session.OpenChatAsync(chat.Id);
         var (sending, _) = await StartStalledAnswer(harness);
 
-        var startingNewChat = harness.Session.StartNewChatAsync();
+        var startingNewChat = harness.Session.StartNewChatAsync(assistant: null);
         var openingChatAgain = harness.Session.OpenChatAsync(chat.Id);
         await startingNewChat.WaitAsync(TurnWindDownLimit);
         await openingChatAgain.WaitAsync(TurnWindDownLimit);
