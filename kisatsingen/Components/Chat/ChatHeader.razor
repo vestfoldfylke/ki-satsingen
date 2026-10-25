@@ -12,7 +12,7 @@
             }
             <span aria-hidden="true"> / </span>
         }
-        @(Title ?? UntitledChat)
+        @(Title ?? LoadingTitle)
     </h1>
 
     <button type="button"
@@ -27,9 +27,9 @@
 </header>
 
 @code {
-    private const string UntitledChat = "Samtale";
+    private const string LoadingTitle = "Laster …";
 
-    // Null for a chat that has no title yet.
+    // Null while the chat or its title is still loading.
     [Parameter]
     public string? Title { get; set; }
 
