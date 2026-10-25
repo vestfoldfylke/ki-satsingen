@@ -1,6 +1,6 @@
 namespace kisatsingen.Services.Chat;
 
-// An instruction should be static inside one chat, to be able to utilize prompt-caching 
+// An instruction should be static inside one chat, to be able to utilize prompt-caching.
 internal static class ChatInstructions
 {
     // Nothing about a particular tool: each tool's description covers it, and
