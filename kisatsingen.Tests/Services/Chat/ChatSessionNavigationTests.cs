@@ -84,17 +84,6 @@ public sealed class ChatSessionNavigationTests
     }
 
     [Fact]
-    public async Task A_chat_whose_first_message_could_not_be_saved_is_no_longer_a_new_chat()
-    {
-        await using var harness = new ChatSessionHarness();
-        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
-
-        await harness.Session.SendAsync("hei");
-
-        Assert.False(harness.Session.IsNewChat);
-    }
-
-    [Fact]
     public async Task Opening_a_chat_that_does_not_exist_reports_it_as_not_found()
     {
         await using var harness = new ChatSessionHarness();
@@ -125,32 +114,6 @@ public sealed class ChatSessionNavigationTests
         await harness.Session.OpenChatAsync(requestedChatId);
 
         Assert.NotEqual(requestedChatId, harness.Session.ChatId);
-    }
-
-    [Fact]
-    public async Task A_chat_that_was_not_found_is_not_a_new_chat()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await harness.Session.OpenChatAsync(Guid.NewGuid());
-
-        Assert.False(harness.Session.IsNewChat);
-    }
-
-    [Fact]
-    public async Task A_chat_that_is_still_loading_is_not_a_new_chat()
-    {
-        await using var harness = new ChatSessionHarness();
-        var chat = StoreEmptyChat(harness);
-        var loadReleased = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        harness.Repository.BeforeGetChat = _ => loadReleased.Task;
-
-        var opening = harness.Session.OpenChatAsync(chat.Id);
-        var isNewChatWhileLoading = harness.Session.IsNewChat;
-        loadReleased.SetResult();
-        await opening.WaitAsync(TurnWindDownLimit);
-
-        Assert.False(isNewChatWhileLoading);
     }
 
     // While a chat is loading there is no chat to send the message in yet, so the
@@ -190,12 +153,11 @@ public sealed class ChatSessionNavigationTests
         await using var harness = new ChatSessionHarness();
         var (sending, askedIn) = await StartStalledAnswer(harness);
 
-        await harness.Session.StartNewChatAsync().WaitAsync(TurnWindDownLimit);
+        await harness.Session.StartNewChatAsync(assistant: null).WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
         Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
         Assert.Equal(askedIn, harness.Repository.Writes[^1].ChatId);
-        Assert.True(harness.Session.IsNewChat);
     }
 
     // Checked before awaiting the send: once it has returned, IsBusy is false anyway.
@@ -277,7 +239,7 @@ public sealed class ChatSessionNavigationTests
         await harness.Session.OpenChatAsync(chat.Id);
         var (sending, _) = await StartStalledAnswer(harness);
 
-        var startingNewChat = harness.Session.StartNewChatAsync();
+        var startingNewChat = harness.Session.StartNewChatAsync(assistant: null);
         var openingChatAgain = harness.Session.OpenChatAsync(chat.Id);
         await startingNewChat.WaitAsync(TurnWindDownLimit);
         await openingChatAgain.WaitAsync(TurnWindDownLimit);

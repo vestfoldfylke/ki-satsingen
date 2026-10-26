@@ -110,7 +110,7 @@ internal sealed class TurnRunner
             row.OwnerId = ownerId;
 
             stage = TurnStage.SavingMessage;
-            var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
+            var inserted = await InsertAsync(row, ownerId, turn, input.AssistantId, observer, cancellation.Token);
 
             stage = TurnStage.ProcessingAttachments;
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
@@ -193,7 +193,7 @@ internal sealed class TurnRunner
 
     // Sets row.Inserted before reporting the turn saved, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
-    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
+    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, Guid? assistantId, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
@@ -204,7 +204,7 @@ internal sealed class TurnRunner
         {
             if (isNewChat)
             {
-                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, ct);
+                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, assistantId, ct);
             }
 
             await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);

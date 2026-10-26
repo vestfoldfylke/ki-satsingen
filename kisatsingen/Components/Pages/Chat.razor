@@ -17,9 +17,11 @@ else
 
     <div class="chat-layout">
         <ChatHeader Title="@Title"
-                    FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
-                    IsFilesPanelOpen="_isFilesPanelOpen"
-                    OnToggleFiles="ToggleFilesPanel" />
+            AssistantName="@Session.AssistantName"
+            AssistantId="Session.AssistantId"
+            FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
+            IsFilesPanelOpen="_isFilesPanelOpen"
+            OnToggleFiles="ToggleFilesPanel" />
 
         <div class="chat-body">
             <div class="chat-page">
@@ -53,9 +55,9 @@ else
             @if (_isFilesPanelOpen)
             {
                 <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
-                                Attachments="Attachments.All"
-                                OnRemove="Attachments.Remove"
-                                OnClose="ToggleFilesPanel" />
+                    Attachments="Attachments.All"
+                    OnRemove="Attachments.Remove"
+                    OnClose="ToggleFilesPanel" />
             }
         </div>
     </div>

@@ -54,7 +54,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.OpenChatAsync(chat.Id);
 
-        await harness.Session.StartNewChatAsync();
+        await harness.Session.StartNewChatAsync(assistant: null);
 
         Assert.Empty(harness.Session.KnowledgeFiles);
     }

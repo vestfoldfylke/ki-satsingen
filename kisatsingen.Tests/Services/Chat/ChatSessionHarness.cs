@@ -32,6 +32,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
+    public FakeAssistantRepository Assistants { get; } = new();
     public FakeUserTokenUsageRepository UserTokenUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
@@ -66,7 +67,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             UserTokenUsageRepository,
             KnowledgeFiles,
             CreatePipeline(),
-            new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()));
+            new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
+            Assistants);
     }
 
     private KnowledgeFilePipeline CreatePipeline()
@@ -137,7 +139,9 @@ internal sealed class FakeChatRepository : IChatRepository
 
     public List<TurnWrite> Writes { get; } = [];
 
-    public List<Guid> CreatedChatIds { get; } = [];
+    public List<ChatEntity> CreatedChats { get; } = [];
+
+    public IReadOnlyList<Guid> CreatedChatIds => CreatedChats.Select(chat => chat.Id).ToList();
 
     private int _updateCalls;
     private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
@@ -165,8 +169,7 @@ internal sealed class FakeChatRepository : IChatRepository
             throw CreateChatFailure;
         }
 
-        CreatedChatIds.Add(chatId);
-        return new ChatEntity
+        var chat = new ChatEntity
         {
             Id = chatId,
             OwnerId = ownerId,
@@ -175,6 +178,8 @@ internal sealed class FakeChatRepository : IChatRepository
             CreatedAt = DateTimeOffset.UtcNow,
             UpdatedAt = DateTimeOffset.UtcNow
         };
+        CreatedChats.Add(chat);
+        return chat;
     }
 
     public async Task<ChatEntity?> GetChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
