@@ -6,7 +6,7 @@ namespace kisatsingen.Services;
 
 public interface IGraphService
 {
-    Task<List<User>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken);
+    Task<List<User>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken);
 }
 
 public class GraphService : IGraphService
@@ -42,7 +42,7 @@ public class GraphService : IGraphService
         _graphClient = new GraphServiceClient(tokenCredential, [graphScope], _graphBaseUrl);
     }
 
-    public async Task<List<User>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken)
+    public async Task<List<User>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken)
     {
         List<User> allUsers = [];
 

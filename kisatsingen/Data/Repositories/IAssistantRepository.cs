@@ -10,24 +10,24 @@ public interface IAssistantRepository
 {
     // Without instructions: they are written afterwards. Private unless asked:
     // forgetting the visibility must never share an assistant.
-    Task<Assistant> CreateAssistantAsync(string ownerId, string name, string? description, AssistantVisibility visibility = AssistantVisibility.Private, CancellationToken ct = default);
+    Task<Assistant> CreateAssistantAsync(Guid ownerId, string name, string? description, AssistantVisibility visibility = AssistantVisibility.Private, CancellationToken ct = default);
 
     // Without its files: each holds a document's whole text, so they are listed
     // through IKnowledgeFileRepository, which never loads it.
-    Task<Assistant?> GetAssistantAsync(string userId, Guid assistantId, CancellationToken ct = default);
+    Task<Assistant?> GetAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(string userId, CancellationToken ct = default);
+    Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(Guid userId, CancellationToken ct = default);
 
     // The details and the instructions are saved apart, so saving one never
     // overwrites a change someone else made to the other. Both return false
     // when the assistant is gone or the user may not use it.
 
     // Visibility has no default here: one would quietly unshare an assistant.
-    Task<bool> UpdateAssistantDetailsAsync(string userId, Guid assistantId, string name, string? description, AssistantVisibility visibility, CancellationToken ct = default);
+    Task<bool> UpdateAssistantDetailsAsync(Guid userId, Guid assistantId, string name, string? description, AssistantVisibility visibility, CancellationToken ct = default);
 
     // Blank clears them.
-    Task<bool> UpdateAssistantInstructionsAsync(string userId, Guid assistantId, string? instructions, CancellationToken ct = default);
+    Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, CancellationToken ct = default);
 
     // Knowledge files cascade; chats survive with AssistantId nulled.
-    Task<bool> DeleteAssistantAsync(string userId, Guid assistantId, CancellationToken ct = default);
+    Task<bool> DeleteAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default);
 }

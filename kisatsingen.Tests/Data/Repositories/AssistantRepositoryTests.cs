@@ -9,8 +9,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
-    private const string OtherOwnerId = "SomebodyElse";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 

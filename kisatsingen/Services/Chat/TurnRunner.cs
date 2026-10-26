@@ -194,7 +194,7 @@ internal sealed class TurnRunner
 
     // Sets row.Inserted before announcing the chat, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
-    private async Task<InsertedTurn> InsertAsync(TurnRow row, string ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
+    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
@@ -370,7 +370,7 @@ internal sealed class TurnRunner
         public Guid? ExistingChatId { get; } = existingChatId;
 
         // Null until sign-in is confirmed.
-        public string? OwnerId { get; set; }
+        public Guid? OwnerId { get; set; }
 
         // Null until the turn's row is written.
         public InsertedTurn? Inserted { get; set; }
@@ -380,5 +380,5 @@ internal sealed class TurnRunner
     }
 
     // Where the turn's row is, once it is written.
-    private sealed record InsertedTurn(string OwnerId, Guid ChatId);
+    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId);
 }

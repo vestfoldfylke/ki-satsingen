@@ -11,11 +11,11 @@ internal sealed class FakeGraphService : IGraphService
 {
     public List<User> Users { get; } = [];
 
-    public List<string[]> Calls { get; } = [];
+    public List<Guid[]> Calls { get; } = [];
 
     public Exception? FailWith { get; set; }
 
-    public Task<List<User>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken)
+    public Task<List<User>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken)
     {
         Calls.Add(objectIds);
 
@@ -24,15 +24,15 @@ internal sealed class FakeGraphService : IGraphService
             throw FailWith;
         }
 
-        return Task.FromResult(Users.Where(user => objectIds.Contains(user.Id)).ToList());
+        return Task.FromResult(Users.Where(user => objectIds.Contains(Guid.Parse(user.Id!))).ToList());
     }
 
-    public static User CreateUser(string id, string displayName) => new()
+    public static User CreateUser(Guid id, string displayName) => new()
     {
-        Id = id,
+        Id = id.ToString(),
         DisplayName = displayName,
         CompanyName = "Vestfold fylkeskommune",
         Department = "Digitalisering",
-        UserPrincipalName = $"{id}@vestfoldfylke.no"
+        UserPrincipalName = $"{displayName.ToLowerInvariant()}@vestfoldfylke.no"
     };
 }

@@ -9,7 +9,7 @@ public interface IUserUsageResolver
     /// Pairs each usage row with the owner's user info. Names are cosmetic, so a failed lookup
     /// is logged and every row is returned without user info, falling back to the object id.
     /// </summary>
-    Task<IReadOnlyList<UserUsage>> ResolveAsync(IReadOnlyList<UsageByKey<string>> usagePerOwner, CancellationToken cancellationToken);
+    Task<IReadOnlyList<UserUsage>> ResolveAsync(IReadOnlyList<UsageByKey<Guid>> usagePerOwner, CancellationToken cancellationToken);
 }
 
 public class UserUsageResolver : IUserUsageResolver
@@ -23,9 +23,9 @@ public class UserUsageResolver : IUserUsageResolver
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<UserUsage>> ResolveAsync(IReadOnlyList<UsageByKey<string>> usagePerOwner, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<UserUsage>> ResolveAsync(IReadOnlyList<UsageByKey<Guid>> usagePerOwner, CancellationToken cancellationToken)
     {
-        Dictionary<string, UserInfo> userInfoById = [];
+        Dictionary<Guid, UserInfo> userInfoById = [];
 
         try
         {

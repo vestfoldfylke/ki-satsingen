@@ -7,7 +7,7 @@ namespace kisatsingen.AIFunctions.FileTools;
 // can widen what they reach: a file outside the chat is simply not found.
 public sealed class FileToolFactory(IKnowledgeFileReader reader, FileToolOptions options)
 {
-    public IReadOnlyList<AITool> CreateForChat(string ownerId, Guid chatId) =>
+    public IReadOnlyList<AITool> CreateForChat(Guid ownerId, Guid chatId) =>
     [
         ListFilesTool.Create(reader, ownerId, chatId),
         GetOutlineTool.Create(reader, options, ownerId, chatId),

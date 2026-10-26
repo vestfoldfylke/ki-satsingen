@@ -22,11 +22,11 @@ public interface IOrganizationTokenUsageRepository
         DateTimeOffset? since,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(
+    Task<IReadOnlyList<UsageByKey<Guid>>> GetUsagePerUserAsync(
         DateTimeOffset? since,
         CancellationToken ct = default);
 
-    Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(
+    Task<IReadOnlyList<UsageByKey<Guid>>> GetTopUsersByTurnsAsync(
         DateTimeOffset? since,
         int topN,
         CancellationToken ct = default);

@@ -11,12 +11,12 @@ public sealed class AttachmentStorageTests : IDisposable
 
     public void Dispose() => _environment.Dispose();
 
-    private const string Owner = "owner";
-    private const string OtherOwner = "someone-else";
+    private static readonly Guid Owner = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwner = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-    private TempFile CreateFile(string owner = Owner, long size = 0)
+    private TempFile CreateFile(Guid? owner = null, long size = 0)
     {
-        var (file, stream) = _environment.Storage.CreateFile(owner, Guid.NewGuid());
+        var (file, stream) = _environment.Storage.CreateFile(owner ?? Owner, Guid.NewGuid());
         using (stream)
         {
             stream.SetLength(size);
@@ -43,14 +43,14 @@ public sealed class AttachmentStorageTests : IDisposable
     public void A_new_file_is_named_as_uploading_after_its_attachment_and_never_shows_the_owner_id()
     {
         var attachmentId = Guid.NewGuid();
-        var (file, stream) = _environment.Storage.CreateFile("user-object-id", attachmentId);
+        var (file, stream) = _environment.Storage.CreateFile(Owner, attachmentId);
         stream.Dispose();
 
         var fileName = Path.GetFileName(file.Path);
 
         Assert.StartsWith("uploading-", fileName);
         Assert.EndsWith(attachmentId.ToString("N"), fileName);
-        Assert.DoesNotContain("user-object-id", fileName);
+        Assert.DoesNotContain(Owner.ToString(), fileName);
     }
 
     [Fact]

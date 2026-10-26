@@ -16,8 +16,8 @@ namespace kisatsingen.Tests.AIFunctions.FileTools;
 [Collection(PostgresCollection.Name)]
 public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
-    private const string OtherOwnerId = "SomebodyElse";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private const string Budget = "# Budsjett\n\nInnledning.\n\n## Drift\n\n| Post | Beløp |\n|---|---|\n| Lønn | 100 |\n";
 
     private KnowledgeFileRepository Files => new(fixture.Factory, maxEstimatedTokenCount: 500_000);
@@ -112,16 +112,16 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         Assert.Empty(result.GetProperty("files").EnumerateArray());
     }
 
-    private async Task<Guid> CreateChatAsync(string ownerId) =>
+    private async Task<Guid> CreateChatAsync(Guid ownerId) =>
         (await Chats.CreateChatAsync(ownerId, "hello", assistantId: null)).Id;
 
-    private async Task<Guid> SaveAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile)
+    private async Task<Guid> SaveAsync(Guid ownerId, Guid chatId, NewKnowledgeFile newFile)
     {
         var result = await Files.CreateFileForChatAsync(ownerId, chatId, newFile);
         return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File.Id;
     }
 
-    private async Task<JsonElement> InvokeAsync(string ownerId, Guid chatId, string toolName, AIFunctionArguments arguments)
+    private async Task<JsonElement> InvokeAsync(Guid ownerId, Guid chatId, string toolName, AIFunctionArguments arguments)
     {
         var tools = new FileToolFactory(new KnowledgeFileReader(Files), new FileToolOptions()).CreateForChat(ownerId, chatId);
         var tool = tools.Cast<AIFunction>().Single(tool => tool.Name == toolName);

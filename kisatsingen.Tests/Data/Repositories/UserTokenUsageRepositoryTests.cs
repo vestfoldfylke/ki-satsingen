@@ -10,8 +10,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
-    private const string OtherOwnerId = "SomebodyElse";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -124,12 +124,11 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     [Fact]
     public async Task Accepts_string_fields_at_their_max_lengths()
     {
-        var maxOwner = new string('o', TokenUsage.MaxOwnerIdLength);
         var maxProvider = new string('p', TokenUsage.MaxProviderLength);
         var maxModel = new string('m', TokenUsage.MaxModelIdLength);
 
         await Repo.InsertTokenUsageAsync(
-            maxOwner,
+            OwnerId,
             maxProvider,
             maxModel,
             inputTokens: 1,
@@ -140,7 +139,6 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.TokenUsages.SingleAsync();
-        Assert.Equal(maxOwner, stored.OwnerId);
         Assert.Equal(maxProvider, stored.Provider);
         Assert.Equal(maxModel, stored.ModelId);
     }
@@ -153,25 +151,6 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         await Assert.ThrowsAsync<DbUpdateException>(() => Repo.InsertTokenUsageAsync(
             OwnerId,
             tooLong,
-            "gpt-5-mini",
-            inputTokens: 1,
-            outputTokens: 1,
-            estimatedInputTokens: null,
-            estimatedOutputTokens: null,
-            TurnStatus.Completed));
-
-        await using var db = await Factory.CreateDbContextAsync();
-        Assert.Empty(await db.TokenUsages.ToListAsync());
-    }
-
-    [Fact]
-    public async Task Throws_when_the_owner_id_is_too_long()
-    {
-        var tooLong = new string('a', TokenUsage.MaxOwnerIdLength + 1);
-
-        await Assert.ThrowsAsync<DbUpdateException>(() => Repo.InsertTokenUsageAsync(
-            tooLong,
-            "openai",
             "gpt-5-mini",
             inputTokens: 1,
             outputTokens: 1,
@@ -292,7 +271,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     // query tests below need rows backdated past the `since` cutoff, which the
     // repo's InsertTokenUsageAsync (always Now) can't produce.
     private async Task SeedRowAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset timestamp,
         string provider = "openai",
         string modelId = "gpt-5-mini",

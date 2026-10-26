@@ -14,7 +14,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     private const string OsloTz = "Europe/Oslo";
 
     public async Task InsertTokenUsageAsync(
-        string ownerId,
+        Guid ownerId,
         string provider,
         string modelId,
         long? inputTokens,
@@ -44,7 +44,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
     
     public async Task<TokenUsageSummary> GetTotalsAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -68,7 +68,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
     
     public async Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         UsageBucket bucket,
         CancellationToken ct = default)
@@ -95,7 +95,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
     
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -120,7 +120,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
     
     public async Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -153,7 +153,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
     
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {

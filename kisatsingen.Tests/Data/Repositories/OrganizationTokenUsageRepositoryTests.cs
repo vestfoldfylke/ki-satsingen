@@ -10,8 +10,11 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
-    private const string OtherOwnerId = "SomebodyElse";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid AliceId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+    private static readonly Guid BobId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+    private static readonly Guid CarolId = Guid.Parse("55555555-5555-5555-5555-555555555555");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -24,7 +27,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     // Seeds a row straight through the DbContext: this repo has no insert path,
     // and the aggregation queries need rows at specific timestamps/owners/models.
     private async Task SeedRowAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset timestamp,
         string provider = "openai",
         string modelId = "gpt-5-mini",
@@ -118,20 +121,20 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         var now = DateTimeOffset.UtcNow;
         for (var i = 0; i < 3; i++)
         {
-            await SeedRowAsync("alice", now);
+            await SeedRowAsync(AliceId, now);
         }
         for (var i = 0; i < 5; i++)
         {
-            await SeedRowAsync("bob", now);
+            await SeedRowAsync(BobId, now);
         }
-        await SeedRowAsync("carol", now);
+        await SeedRowAsync(CarolId, now);
 
         var top = await Repo.GetTopUsersByTurnsAsync(since: null, topN: 2);
 
         Assert.Equal(2, top.Count);
-        Assert.Equal("bob", top[0].Key);
+        Assert.Equal(BobId, top[0].Key);
         Assert.Equal(5, top[0].TurnCount);
-        Assert.Equal("alice", top[1].Key);
+        Assert.Equal(AliceId, top[1].Key);
         Assert.Equal(3, top[1].TurnCount);
     }
 

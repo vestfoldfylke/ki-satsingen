@@ -14,7 +14,7 @@ namespace kisatsingen.Tests.AIFunctions.FileTools;
 // state the configured limits.
 public sealed class FileToolContractTests
 {
-    private const string OwnerId = "Whatever";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid ChatId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid FileId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private const string Markdown = "# Notat\n\nHei.\n";

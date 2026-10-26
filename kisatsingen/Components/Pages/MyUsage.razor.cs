@@ -22,7 +22,7 @@ public partial class MyUsage : ComponentBase, IDisposable
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;
 
-    private string? _ownerId;
+    private Guid? _ownerId;
 
     private TokenUsageSummary Totals { get; set; } = new(0, 0, 0, 0, 0);
     private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
@@ -33,7 +33,7 @@ public partial class MyUsage : ComponentBase, IDisposable
     protected override async Task OnInitializedAsync()
     {
         _ownerId = await AuthenticationService.GetUserObjectIdentifierAsync();
-        if (string.IsNullOrWhiteSpace(_ownerId))
+        if (_ownerId is null)
         {
             throw new UnauthorizedAccessException();
         }
@@ -49,7 +49,7 @@ public partial class MyUsage : ComponentBase, IDisposable
 
     private async Task ReloadAsync()
     {
-        if (string.IsNullOrWhiteSpace(_ownerId))
+        if (_ownerId is not { } ownerId)
         {
             return;
         }
@@ -70,11 +70,11 @@ public partial class MyUsage : ComponentBase, IDisposable
             var since = Range.Since();
             var bucket = Range.Bucket();
 
-            var totalsTask = UserTokenUsageRepository.GetTotalsAsync(_ownerId, since, ct);
-            var timeSeriesTask = UserTokenUsageRepository.GetTimeSeriesAsync(_ownerId, since, bucket, ct);
-            var statusTask = UserTokenUsageRepository.GetUsageByStatusAsync(_ownerId, since, ct);
-            var providerTask = UserTokenUsageRepository.GetUsageByProviderAsync(_ownerId, since, ct);
-            var modelTask = UserTokenUsageRepository.GetUsageByModelAsync(_ownerId, since, ct);
+            var totalsTask = UserTokenUsageRepository.GetTotalsAsync(ownerId, since, ct);
+            var timeSeriesTask = UserTokenUsageRepository.GetTimeSeriesAsync(ownerId, since, bucket, ct);
+            var statusTask = UserTokenUsageRepository.GetUsageByStatusAsync(ownerId, since, ct);
+            var providerTask = UserTokenUsageRepository.GetUsageByProviderAsync(ownerId, since, ct);
+            var modelTask = UserTokenUsageRepository.GetUsageByModelAsync(ownerId, since, ct);
 
             await Task.WhenAll(totalsTask, timeSeriesTask, statusTask, providerTask, modelTask);
 

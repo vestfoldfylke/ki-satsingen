@@ -5,7 +5,7 @@ namespace kisatsingen.Services;
 
 public interface IUserInfoCache
 {
-    Task<List<UserInfo>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken);
+    Task<List<UserInfo>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken);
 }
 
 public sealed class UserInfoCache : IUserInfoCache, IDisposable
@@ -24,10 +24,10 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
         _graphService = graphService;
     }
 
-    public async Task<List<UserInfo>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken)
+    public async Task<List<UserInfo>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken)
     {
         List<UserInfo> users = [];
-        List<string> objectIdsToFetch = [];
+        List<Guid> objectIdsToFetch = [];
 
         foreach (var objectId in objectIds.Distinct())
         {
@@ -47,10 +47,13 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
         }
 
         var usersFromGraph = await _graphService.GetUsersByObjectIds([.. objectIdsToFetch], cancellationToken);
+        var usersFromGraphById = usersFromGraph
+            .Where(u => Guid.TryParse(u.Id, out _))
+            .ToDictionary(u => Guid.Parse(u.Id!));
+
         foreach (var objectId in objectIdsToFetch)
         {
-            var userFromGraph = usersFromGraph.FirstOrDefault(u => u.Id == objectId);
-            if (userFromGraph?.Id is null)
+            if (!usersFromGraphById.TryGetValue(objectId, out var userFromGraph))
             {
                 var notFoundUserInfo = new UserInfo
                 {
@@ -64,14 +67,14 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
 
             var userInfo = new UserInfo
             {
-                Id = userFromGraph.Id,
+                Id = objectId,
                 Company = userFromGraph.CompanyName,
                 Department = userFromGraph.Department,
                 Name = userFromGraph.DisplayName,
                 Username = userFromGraph.UserPrincipalName
             };
 
-            _userInfoMemoryCache.Set(GetCacheKey(userFromGraph.Id), userInfo, absoluteExpirationRelativeToNow: _cacheDuration);
+            _userInfoMemoryCache.Set(GetCacheKey(objectId), userInfo, absoluteExpirationRelativeToNow: _cacheDuration);
             users.Add(userInfo);
         }
 
@@ -83,5 +86,5 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
         _userInfoMemoryCache.Dispose();
     }
 
-    private string GetCacheKey(string objectId) => $"{UserInfoMemoryCacheKey}_{objectId}";
+    private string GetCacheKey(Guid objectId) => $"{UserInfoMemoryCacheKey}_{objectId}";
 }

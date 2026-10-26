@@ -114,13 +114,13 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
             r.TurnCount))];
     }
 
-    public async Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(
+    public async Task<IReadOnlyList<UsageByKey<Guid>>> GetUsagePerUserAsync(
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        return await db.Database.SqlQuery<UsageByKey<string>>(
+        return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
                  "OwnerId" AS "Key",
@@ -136,14 +136,14 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
         ).ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(
+    public async Task<IReadOnlyList<UsageByKey<Guid>>> GetTopUsersByTurnsAsync(
         DateTimeOffset? since,
         int topN,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        return await db.Database.SqlQuery<UsageByKey<string>>(
+        return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
                  "OwnerId" AS "Key",

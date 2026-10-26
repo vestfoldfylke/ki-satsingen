@@ -28,7 +28,7 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
     // Before any bytes move, so an honest file that cannot fit is refused at
     // once. Only a hint: the declared size comes from the browser, and another
     // tab may start at the same moment, so MarkReadyIfFits decides.
-    public QuotaCheck CheckDeclaredSizeFits(string ownerId, long declaredSizeBytes)
+    public QuotaCheck CheckDeclaredSizeFits(Guid ownerId, long declaredSizeBytes)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(declaredSizeBytes);
 
@@ -44,7 +44,7 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
     // the same lock, so the next upload to finish already counts it: two
     // uploads finishing together cannot both slip past a limit, nor both be
     // refused when one would fit. A refused file is deleted here.
-    public QuotaCheck MarkReadyIfFits(string ownerId, UploadOutcome.Stored stored)
+    public QuotaCheck MarkReadyIfFits(Guid ownerId, UploadOutcome.Stored stored)
     {
         lock (_markReadyLock)
         {

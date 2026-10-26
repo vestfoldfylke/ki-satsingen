@@ -23,7 +23,7 @@ public sealed class AttachmentStorageUnixTests : IDisposable
     [UnixOnlyFact]
     public void A_created_file_is_readable_and_writable_by_its_owner_only()
     {
-        var (file, stream) = _environment.Storage.CreateFile("owner", Guid.NewGuid());
+        var (file, stream) = _environment.Storage.CreateFile(Guid.NewGuid(), Guid.NewGuid());
         stream.Dispose();
 
         Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(file.Path));

@@ -28,7 +28,7 @@ namespace kisatsingen.Tests.Services.Chat;
 // than a mocking library, so each test reads as the scenario it describes.
 internal sealed class ChatSessionHarness : IAsyncDisposable
 {
-    public const string OwnerUnderTest = "owner-under-test";
+    public static readonly Guid OwnerUnderTest = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
@@ -108,12 +108,12 @@ internal sealed class FakeAuthenticationService : IAuthenticationService
 {
     public Exception? Failure { get; set; }
 
-    public Task<string?> GetUserObjectIdentifierAsync() =>
-        Task.FromResult<string?>(ChatSessionHarness.OwnerUnderTest);
+    public Task<Guid?> GetUserObjectIdentifierAsync() =>
+        Task.FromResult<Guid?>(ChatSessionHarness.OwnerUnderTest);
 
-    public Task<string> RequireUserObjectIdentifierAsync() =>
+    public Task<Guid> RequireUserObjectIdentifierAsync() =>
         Failure is not null
-            ? Task.FromException<string>(Failure)
+            ? Task.FromException<Guid>(Failure)
             : Task.FromResult(ChatSessionHarness.OwnerUnderTest);
 }
 
@@ -151,7 +151,7 @@ internal sealed class FakeChatRepository : IChatRepository
         return chat;
     }
 
-    public async Task<ChatEntity> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    public async Task<ChatEntity> CreateChatAsync(Guid ownerId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         if (BeforeCreateChat is not null)
         {
@@ -174,7 +174,7 @@ internal sealed class FakeChatRepository : IChatRepository
         };
     }
 
-    public async Task<ChatEntity?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<ChatEntity?> GetChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         if (BeforeGetChat is not null)
         {
@@ -184,10 +184,10 @@ internal sealed class FakeChatRepository : IChatRepository
         return _storedChats.GetValueOrDefault(chatId);
     }
 
-    public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(Guid ownerId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<ChatSummary>>([]);
 
-    public Task InsertTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    public Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         if (InsertTurnFailure is not null)
         {
@@ -198,7 +198,7 @@ internal sealed class FakeChatRepository : IChatRepository
         return Task.CompletedTask;
     }
 
-    public Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    public Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         var isFirst = ++_updateCalls == 1;
         if (isFirst)
@@ -216,12 +216,12 @@ internal sealed class FakeChatRepository : IChatRepository
         return Task.CompletedTask;
     }
 
-    public Task RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default) =>
+    public Task RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default) =>
         Task.CompletedTask;
 
     public List<Guid> DeletedChatIds { get; } = [];
 
-    public Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public Task<bool> DeleteChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         DeletedChatIds.Add(chatId);
         return Task.FromResult(true);
@@ -240,7 +240,7 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
     public Exception? InsertFailure { get; set; }
 
     public Task InsertTokenUsageAsync(
-        string ownerId,
+        Guid ownerId,
         string provider,
         string modelId,
         long? inputTokens,
@@ -261,24 +261,24 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 
     // Chat-session tests only exercise the insert path; the owner-scoped query
     // methods are stubbed so the fake still satisfies the interface.
-    public Task<TokenUsageSummary> GetTotalsAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<TokenUsageSummary> GetTotalsAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
 
-    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(string ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(string ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 }
 
 internal sealed record TokenUsageInsert(
-    string OwnerId,
+    Guid OwnerId,
     string Provider,
     string ModelId,
     long? InputTokens,
