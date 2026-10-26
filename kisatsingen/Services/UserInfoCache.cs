@@ -8,7 +8,7 @@ public interface IUserInfoCache
     Task<List<UserInfo>> GetUsersByObjectIds(string[] objectIds, CancellationToken cancellationToken);
 }
 
-public class UserInfoCache : IUserInfoCache, IDisposable
+public sealed class UserInfoCache : IUserInfoCache, IDisposable
 {
     private readonly IMemoryCache _userInfoMemoryCache;
     private readonly IGraphService _graphService;
@@ -80,7 +80,6 @@ public class UserInfoCache : IUserInfoCache, IDisposable
 
     public void Dispose()
     {
-        GC.SuppressFinalize(this);
         _userInfoMemoryCache.Dispose();
     }
 
