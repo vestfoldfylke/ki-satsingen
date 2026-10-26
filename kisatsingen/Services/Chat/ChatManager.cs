@@ -51,10 +51,10 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    public async Task CreateChatAsync(Guid chatId, string firstMessageText, CancellationToken ct)
+    public async Task CreateChatAsync(Guid chatId, string firstMessageText, Guid? assistantId, CancellationToken ct)
     {
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.CreateChatAsync(ownerId, chatId, BuildTitle(firstMessageText), assistantId: null, ct);
+        var chat = await _repo.CreateChatAsync(ownerId, chatId, BuildTitle(firstMessageText), assistantId, ct);
 
         _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
         RaiseChanged();

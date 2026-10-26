@@ -9,6 +9,7 @@ internal sealed record TurnInput(
     Turn Turn,
     Guid ChatId,
     bool IsChatSaved,
+    Guid? AssistantId,
     IReadOnlyList<Turn> EarlierTurns,
     ChatModel Model,
     SentAttachments SentAttachments,

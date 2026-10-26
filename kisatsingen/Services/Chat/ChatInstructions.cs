@@ -1,8 +1,6 @@
 namespace kisatsingen.Services.Chat;
 
-// Nothing here may depend on the user, the chat or the time: a provider caches
-// only an identical start of the request, so a date or a name would make every
-// request start differently.
+// An instruction should be static inside one chat, to be able to utilize prompt-caching.
 internal static class ChatInstructions
 {
     // Nothing about a particular tool: each tool's description covers it, and
@@ -54,4 +52,9 @@ internal static class ChatInstructions
         """;
 
     public const string ForPlainChat = Base + "\n\n" + PlainChatAddition;
+
+    public static string ForAssistant(string name, string? instructions) =>
+        instructions is null
+            ? Base
+            : $"{Base}\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}";
 }

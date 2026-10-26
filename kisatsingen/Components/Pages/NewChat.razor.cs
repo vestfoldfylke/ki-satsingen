@@ -11,13 +11,7 @@ public sealed partial class NewChat : ComponentBase
     [Inject]
     public required NavigationManager Navigation { get; set; }
 
-    protected override async Task OnInitializedAsync()
-    {
-        if (!Session.IsNewChat)
-        {
-            await Session.StartNewChatAsync();
-        }
-    }
+    protected override Task OnInitializedAsync() => Session.StartNewChatAsync(assistant: null);
 
     private void OpenChat() => Navigation.NavigateTo($"/chat/{Session.ChatId}");
 }
