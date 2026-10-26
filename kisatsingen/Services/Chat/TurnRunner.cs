@@ -8,9 +8,8 @@ using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
 
-// ChatPersisted fires mid-turn so a new chat's id can reach the URL before the answer ends.
 internal sealed record TurnObserver(
-    Action<Guid> ChatPersisted,
+    Action TurnSaved,
     Action<Turn> Changed,
     Action<KnowledgeFileMetadata> KnowledgeFileAvailable);
 
@@ -64,7 +63,7 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var row = new TurnRow(input.ExistingChatId);
+        var row = new TurnRow(input.ChatId, input.IsChatSaved);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
         // Starts as Failed so an exception nothing classified lands in the alerted bucket.
@@ -176,7 +175,7 @@ internal sealed class TurnRunner
     {
         if (attempt is { Failure: { } error, Turn.FailedAt: { } stage })
         {
-            _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.KnownChatId);
+            _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
         }
     }
 
@@ -192,31 +191,35 @@ internal sealed class TurnRunner
         }
     }
 
-    // Sets row.Inserted before announcing the chat, so a listener that throws
+    // Sets row.Inserted before reporting the turn saved, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
     private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
 
-        var isNewChat = row.ExistingChatId is null;
-        var chatId = await _chatManager.EnsurePersistedAsync(row.ExistingChatId, turn.Prompt, ct);
+        var isNewChat = !row.IsChatSaved;
 
         try
         {
-            await _repo.InsertTurnAsync(ownerId, chatId, ChatTurnMapper.ToEntity(turn), ct);
+            if (isNewChat)
+            {
+                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, ct);
+            }
+
+            await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);
         }
-        // A new chat whose first question did not save would open empty, so it goes.
-        // Announced only after this, so neither the URL nor the view ever held it.
+        // If saving the first message fails at any step, the new chat is deleted, so it
+        // never opens empty. The next message creates the chat again under the same id.
         catch (Exception) when (isNewChat)
         {
-            await DiscardChatAsync(chatId);
+            await DiscardChatAsync(row.ChatId);
             throw;
         }
 
-        var inserted = new InsertedTurn(ownerId, chatId);
+        var inserted = new InsertedTurn(ownerId, row.ChatId);
         row.Inserted = inserted;
-        observer.ChatPersisted(chatId);
+        observer.TurnSaved();
         return inserted;
     }
 
@@ -229,7 +232,7 @@ internal sealed class TurnRunner
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Could not delete chat {ChatId} after its first question failed to save. It will show as an empty chat.", chatId);
+            _logger.LogWarning(ex, "Could not delete chat {ChatId} after its first message failed to save. If the chat was created, it will show as an empty chat.", chatId);
         }
     }
 
@@ -348,7 +351,7 @@ internal sealed class TurnRunner
                 ex,
                 "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}",
                 attempt.Turn.Id,
-                row.KnownChatId,
+                row.ChatId,
                 attempt.Turn.Status);
         }
     }
@@ -365,18 +368,18 @@ internal sealed class TurnRunner
 
     // What is known of the turn's row so far; a turn that ends early may never
     // learn the rest.
-    private sealed class TurnRow(Guid? existingChatId)
+    private sealed class TurnRow(Guid chatId, bool isChatSaved)
     {
-        public Guid? ExistingChatId { get; } = existingChatId;
+        public Guid ChatId { get; } = chatId;
+
+        // False for a new chat: it is saved with this turn.
+        public bool IsChatSaved { get; } = isChatSaved;
 
         // Null until sign-in is confirmed.
         public Guid? OwnerId { get; set; }
 
         // Null until the turn's row is written.
         public InsertedTurn? Inserted { get; set; }
-
-        // For logs: the chat the turn is in, as far as it is known yet.
-        public Guid? KnownChatId => Inserted?.ChatId ?? ExistingChatId;
     }
 
     // Where the turn's row is, once it is written.

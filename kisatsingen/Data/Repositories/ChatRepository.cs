@@ -12,7 +12,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     // mistranslated as an assistant lookup failure.
     private const string ChatAssistantForeignKeyName = "FK_Chats_Assistants_AssistantId";
 
-    public async Task<Chat> CreateChatAsync(Guid ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    public async Task<Chat> CreateChatAsync(Guid ownerId, Guid chatId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         var normalisedTitle = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
 
@@ -41,7 +41,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
         var chat = new Chat
         {
-            Id = Guid.NewGuid(),
+            Id = chatId,
             OwnerId = ownerId,
             AssistantId = assistantId,
             AssistantNameSnapshot = assistantNameSnapshot,

@@ -137,6 +137,8 @@ internal sealed class FakeChatRepository : IChatRepository
 
     public List<TurnWrite> Writes { get; } = [];
 
+    public List<Guid> CreatedChatIds { get; } = [];
+
     private int _updateCalls;
     private readonly Dictionary<Guid, ChatEntity> _storedChats = [];
 
@@ -151,7 +153,7 @@ internal sealed class FakeChatRepository : IChatRepository
         return chat;
     }
 
-    public async Task<ChatEntity> CreateChatAsync(Guid ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    public async Task<ChatEntity> CreateChatAsync(Guid ownerId, Guid chatId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         if (BeforeCreateChat is not null)
         {
@@ -163,9 +165,10 @@ internal sealed class FakeChatRepository : IChatRepository
             throw CreateChatFailure;
         }
 
+        CreatedChatIds.Add(chatId);
         return new ChatEntity
         {
-            Id = Guid.NewGuid(),
+            Id = chatId,
             OwnerId = ownerId,
             AssistantId = assistantId,
             Title = title,

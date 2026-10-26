@@ -67,7 +67,7 @@ public sealed class ChatSessionDuplicateAttachmentTests
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
-        var savedElsewhere = harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
+        var savedElsewhere = harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, ("notat.md", NoteBytes));
 
         await harness.Session.SendAsync("Hva står i notatet?");

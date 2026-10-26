@@ -1,53 +1,71 @@
 ﻿<div class="navbar">
-    <div class="logo-container">
-        <img src="favicon-32x32.png" alt="Vestfold fylke logo" />
-        <span>KI-satsingen</span>
+    <div class="sidebar-header">
+        <button
+            type="button"
+            class="ds-button sidebar-panel-open"
+            data-variant="tertiary"
+            data-size="sm"
+            data-icon="true"
+            aria-label="Åpne meny"
+            aria-controls="@SidebarPanelId"
+            popovertarget="@SidebarPanelId"
+        >
+            <span class="material-symbols-outlined" aria-hidden="true">menu</span>
+        </button>
     </div>
 
-    <div class="nav-scrollable">
-        <nav class="nav-primary">
-            <div class="nav-item">
-                <button
-                    class="ds-button nav-primary-button"
-                    type="button"
-                    data-variant="tertiary"
-                    data-color="accent"
-                    @onclick="StartNewChatAsync"
-                >
+    <div id="@SidebarPanelId" class="sidebar-panel" popover="auto">
+        <div class="sidebar-panel-header">
+            <nav class="nav-primary">
+                <div class="logo-container ds-paragraph">
+                    vfKI
+                </div>
+                <a class="ds-button nav-primary-button" href="/new" data-variant="tertiary" data-color="accent">
                     <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
                     Ny samtale
-                </button>
-            </div>
-            <div class="nav-item">
+                </a>
                 <a class="ds-button nav-primary-button" href="/assistants" data-variant="tertiary" data-color="accent">
                     <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
                     Assistenter
                 </a>
-            </div>
-        </nav>
+            </nav>
 
-        <aside class="chat-sidebar" aria-label="Samtaler">
-            <div class="chat-sidebar-header">
+            <button
+                type="button"
+                class="ds-button sidebar-panel-close"
+                data-variant="tertiary"
+                data-size="sm"
+                data-icon="true"
+                aria-label="Lukk meny"
+                popovertarget="@SidebarPanelId"
+                popovertargetaction="hide"
+            >
+                <span class="material-symbols-outlined" aria-hidden="true">close</span>
+            </button>
+        </div>
+
+        <aside class="chat-list" aria-label="Samtaler">
+            <div class="chat-list-header">
                 <h2 class="ds-heading" data-size="sm">Samtaler</h2>
             </div>
             @if (ChatList.Count == 0)
             {
-                <p class="ds-paragraph chat-sidebar-empty">Ingen samtaler enda</p>
+                <p class="ds-paragraph chat-list-empty">Ingen samtaler enda</p>
             }
             else
             {
-                <ul class="ds-list chat-sidebar-list">
+                <ul class="ds-list chat-list-items">
                     @foreach (var entry in ChatList)
                     {
                         var menuId = $"chat-menu-{entry.Id}";
                         <li>
-                            <div class="chat-sidebar-item @(entry.Id == Session.ChatId ? "chat-sidebar-item-active" : null)">
-                                <a class="ds-link chat-sidebar-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
-                                    <span class="chat-sidebar-title">@entry.Title</span>
+                            <div class="chat-list-item @(entry.Id == Session.ChatId ? "chat-list-item-active" : null)">
+                                <a class="ds-link chat-list-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
+                                    <span class="chat-list-title">@entry.Title</span>
                                 </a>
                                 <button
                                     type="button"
-                                    class="ds-button chat-sidebar-item-option-button"
+                                    class="ds-button chat-list-item-option-button"
                                     data-variant="tertiary"
                                     data-size="sm"
                                     data-icon="true"
@@ -57,7 +75,7 @@
                                 >
                                     <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                                 </button>
-                                <div class="ds-dropdown chat-sidebar-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
+                                <div class="ds-dropdown chat-list-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
                                     <ul>
                                         <li>
                                             <button
@@ -90,12 +108,12 @@
             }
         </aside>
 
-        <div class="user">
+        <div class="user-menu">
             <AuthorizeView>
                 <Authorized>
                     <hr aria-hidden="true" class="ds-divider"/>
-                    <div class="chat-sidebar-item">
-                        <button class="ds-button chat-sidebar-user-button"
+                    <div class="user-menu-item">
+                        <button class="ds-button user-menu-button"
                             type="button"
                             data-variant="tertiary"
                             data-color="neutral"
@@ -108,7 +126,7 @@
                                 data-size="xs"
                                 data-color="accent"
                             ></span>
-                            <span class="ds-paragraph chat-sidebar-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
+                            <span class="ds-paragraph user-menu-button-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
                             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
                         </button>
 
