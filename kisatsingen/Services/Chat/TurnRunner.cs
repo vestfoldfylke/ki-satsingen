@@ -3,7 +3,6 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
-using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
