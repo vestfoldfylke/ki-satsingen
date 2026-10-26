@@ -1,5 +1,6 @@
 using kisatsingen.Components.Usage;
 using kisatsingen.Data.Entities;
+using kisatsingen.Services;
 using Xunit;
 
 namespace kisatsingen.Tests.Components.Usage;

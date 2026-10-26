@@ -1,4 +1,3 @@
-using kisatsingen.Data.Entities;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace kisatsingen.Services;
@@ -87,4 +86,13 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
     }
 
     private string GetCacheKey(Guid objectId) => $"{UserInfoMemoryCacheKey}_{objectId}";
+}
+
+public sealed class UserInfo
+{
+    public required Guid Id { get; init; }
+    public string? Company { get; init; }
+    public string? Department { get; init; }
+    public string? Name { get; init; }
+    public string? Username { get; init; }
 }
