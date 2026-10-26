@@ -32,7 +32,7 @@ public class UserUsageResolver : IUserUsageResolver
             var userInfos = await _userInfoCache.GetUsersByObjectIds([.. usagePerOwner.Select(u => u.Key)], cancellationToken);
             userInfoById = userInfos.ToDictionary(userInfo => userInfo.Id);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             _logger.LogError(ex, "Failed to fill user info for {UserCount} users. Some or all user infos might be missing. Falling back to objectId", usagePerOwner.Count);
         }
