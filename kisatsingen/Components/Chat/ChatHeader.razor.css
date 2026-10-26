@@ -11,7 +11,7 @@
 }
 
 .chat-header-title {
-    margin: .5rem;
+    margin: 0.5rem;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
