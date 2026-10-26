@@ -90,7 +90,7 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    public async Task RenameAsync(Guid chatId, string title, CancellationToken ct = default)
+    public async Task<bool> RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
         // Clearing the rename box means cancel, not "name it nothing" — a UI
         // intention, which is why it is handled here and not by the repository,
@@ -98,11 +98,19 @@ public sealed class ChatManager
         var trimmed = title.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
-            return;
+            return false;
         }
 
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        await _repo.RenameChatAsync(ownerId, chatId, trimmed, ct);
+        var renamed = await _repo.RenameChatAsync(ownerId, chatId, trimmed, ct);
+
+        if (!renamed)
+        {
+            _logger.LogWarning("Attempted to rename chat {ChatId} but no row was affected. Removing from entries as this chat does not exist for this user.", chatId);
+            _entries.RemoveAll(e => e.Id == chatId);
+            RaiseChanged();
+            return renamed;
+        }
 
         var index = _entries.FindIndex(e => e.Id == chatId);
         if (index >= 0)
@@ -110,6 +118,7 @@ public sealed class ChatManager
             _entries[index] = _entries[index] with { Title = trimmed, UpdatedAt = DateTimeOffset.UtcNow };
         }
         RaiseChanged();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(Guid chatId, CancellationToken ct = default)
@@ -120,7 +129,6 @@ public sealed class ChatManager
         if (!deleted)
         {
             _logger.LogWarning("Attempted to delete chat {ChatId} but no row was affected.", chatId);
-            return deleted;
         }
 
         _entries.RemoveAll(e => e.Id == chatId);

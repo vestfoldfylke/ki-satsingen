@@ -86,29 +86,28 @@
                                 <div class="ds-dropdown chat-list-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
                                     <ul>
                                         <li>
-                                            <button
-                                                type="button"
-                                                data-size="sm"
-                                                class="ds-button"
-                                                data-variant="tertiary"
-                                                commandfor="@RenameDialogId"
-                                                command="show-modal"
-                                                @onclick="() => OpenRenameDialog(entry)">
+                                            <button type="button"
+                                                    class="ds-button"
+                                                    data-variant="tertiary"
+                                                    command="show-modal"
+                                                    commandfor="rename-chat-dialog"
+                                                    @onclick="() => _renameDialog?.Load(entry)"
+                                            >
                                                 <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                                Endre
+                                                Endre tittel
                                             </button>
                                         </li>
                                         <li>
-                                            <button
-                                                type="button"
-                                                data-size="sm"
-                                                class="ds-button"
-                                                data-variant="tertiary"
-                                                commandfor="@DeleteDialogId"
-                                                command="show-modal"
-                                                @onclick="() => OpenDeleteDialog(entry)">
+                                            <button type="button"
+                                                    class="ds-button"
+                                                    data-variant="tertiary"
+                                                    data-color="danger"
+                                                    command="show-modal"
+                                                    commandfor="delete-chat-dialog"
+                                                    @onclick="() => _deleteDialog?.Load(entry)"
+                                            >
                                                 <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                                                Slett
+                                                Slett samtale
                                             </button>
                                         </li>
                                     </ul>
@@ -119,44 +118,8 @@
                 </ul>
             }
 
-            <ModalDialog @ref="_renameDialog" Id="@RenameDialogId" Heading="Endre navn">
-                <form class="form-fields" @onsubmit="RenameChatAsync">
-                    @if (_renameError is not null)
-                    {
-                        <div class="ds-alert" data-color="danger" role="alert">
-                            <p class="ds-paragraph">@_renameError</p>
-                        </div>
-                    }
-
-                    <ds-field class="ds-field">
-                        <label class="ds-label">Navn</label>
-                        <input class="ds-input" @bind="_renameTitle" @bind:event="oninput" maxlength="@MaxTitleLength" />
-                    </ds-field>
-
-                    <div class="form-actions">
-                        <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
-                        <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@RenameDialogId">Avbryt</button>
-                    </div>
-                </form>
-            </ModalDialog>
-
-            <ModalDialog @ref="_deleteDialog" Id="@DeleteDialogId" Heading="Slett samtale">
-                <div class="form-fields">
-                    @if (_deleteError is not null)
-                    {
-                        <div class="ds-alert" data-color="danger" role="alert">
-                            <p class="ds-paragraph">@_deleteError</p>
-                        </div>
-                    }
-
-                    <p class="ds-paragraph">Vil du slette samtalen <strong>@_chatToDelete?.Title</strong>? Dette kan ikke angres.</p>
-
-                    <div class="form-actions">
-                        <button type="button" class="ds-button" data-variant="primary" data-color="danger" @onclick="DeleteChatAsync">Ja, slett</button>
-                        <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@DeleteDialogId">Avbryt</button>
-                    </div>
-                </div>
-            </ModalDialog>
+            <RenameChatDialog @ref="_renameDialog" Id="rename-chat-dialog" />
+            <DeleteChatDialog @ref="_deleteDialog" Id="delete-chat-dialog" />
         </aside>
 
         <div class="user-menu">

@@ -1,0 +1,13 @@
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Slett samtale">
+    @if (Chat is not null)
+    {
+        <div class="form-fields">
+            <p class="ds-paragraph">Vil du slette @(Chat.Title)? Dette kan ikke angres.</p>
+
+            <div class="form-actions">
+                <button type="button" class="ds-button" data-variant="primary" data-color="danger" @onclick="DeleteAsync">Ja, slett</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
+            </div>
+        </div>
+    }
+</ModalDialog>
