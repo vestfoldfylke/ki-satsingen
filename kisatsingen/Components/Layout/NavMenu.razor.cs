@@ -7,7 +7,6 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
-    private const string NewChatPath = "new";
     private const string SidebarPanelId = "sidebar-panel";
 
     [Inject]
@@ -64,23 +63,6 @@ public partial class NavMenu : ComponentBase, IDisposable
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         await HideSidebarPanelAsync();
-    }
-
-    private async Task StartNewChatAsync()
-    {
-        Logger.LogInformation("New chat started");
-
-        // Loaded here, not left to the page: until the first message has created
-        // its chat the URL is still /new, and navigating to /new changes no
-        // parameter, so the page would never load and that answer would carry on.
-        await Session.LoadAsync(null);
-
-        // Pushed: leaving a chat is a real navigation, and back should return to it.
-        // Skipped on /new itself, where it would only stack duplicate entries.
-        if (Navigation.ToBaseRelativePath(Navigation.Uri) != NewChatPath)
-        {
-            Navigation.NavigateTo($"/{NewChatPath}");
-        }
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);

@@ -62,7 +62,6 @@ public sealed partial class DeleteChatDialog : ComponentBase
         // tries to create a new chat while deletion is in progress
         if (Session.ChatId == chat.Id)
         {
-            Session.Reset();
             Navigation.NavigateTo($"/{NewChatPath}", replace: true);
         }
     }
