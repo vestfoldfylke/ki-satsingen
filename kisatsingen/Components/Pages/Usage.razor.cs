@@ -29,20 +29,11 @@ public partial class Usage : ComponentBase, IDisposable
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ModelBreakdown { get; set; } = [];
     private IReadOnlyList<UserUsage> TopUsersByTurns { get; set; } = [];
-    private IReadOnlyList<UserUsage> UsagePerUser { get; set; } = [];
 
-
-    private IEnumerable<UserUsage> TopTokenUsageByInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.Usage.InputTokens).Take(TopUserCount);
-
-    private IEnumerable<UserUsage> TopTokenUsageByOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.Usage.OutputTokens).Take(TopUserCount);
-
-    private IEnumerable<UserUsage> TopTokenUsageByEstimatedInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.Usage.EstimatedInputTokens).Take(TopUserCount);
-
-    private IEnumerable<UserUsage> TopTokenUsageByEstimatedOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.Usage.EstimatedOutputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByInputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByOutputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedInputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedOutputTokens { get; set; } = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -76,20 +67,28 @@ public partial class Usage : ComponentBase, IDisposable
             var providerTask = OrganizationTokenUsageRepository.GetUsageByProviderAsync(since, ct);
             var modelTask = OrganizationTokenUsageRepository.GetUsageByModelAsync(since, ct);
             var topUsersTask = OrganizationTokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
-            var perUserTask = OrganizationTokenUsageRepository.GetUsagePerUserAsync(since, ct);
+            var topTokenUsageByInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.InputTokens, TopUserCount, ct);
+            var topTokenUsageByOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.OutputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedInputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedOutputTokens, TopUserCount, ct);
 
             await Task.WhenAll(
                 totalsTask, timeSeriesTask, statusTask, providerTask,
-                modelTask, topUsersTask, perUserTask);
+                modelTask, topUsersTask, topTokenUsageByInputTokensTask,
+                topTokenUsageByOutputTokensTask, topTokenUsageByEstimatedInputTokensTask,
+                topTokenUsageByEstimatedOutputTokensTask);
 
             Totals = await totalsTask;
             TimeSeries = await timeSeriesTask;
             StatusBreakdown = await statusTask;
             ProviderBreakdown = await providerTask;
             ModelBreakdown = await modelTask;
-            
+
             TopUsersByTurns = await UserUsageResolver.ResolveAsync(await topUsersTask, ct);
-            UsagePerUser = await UserUsageResolver.ResolveAsync(await perUserTask, ct);
+            TopTokenUsageByInputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByInputTokensTask, ct);
+            TopTokenUsageByOutputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByOutputTokensTask, ct);
+            TopTokenUsageByEstimatedInputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByEstimatedInputTokensTask, ct);
+            TopTokenUsageByEstimatedOutputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByEstimatedOutputTokensTask, ct);
         }
         catch (OperationCanceledException)
         {
