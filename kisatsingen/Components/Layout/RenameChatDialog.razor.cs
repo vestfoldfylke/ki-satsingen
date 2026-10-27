@@ -12,9 +12,6 @@ public sealed partial class RenameChatDialog : ComponentBase
     [Inject]
     public required ILogger<RenameChatDialog> Logger { get; set; }
 
-    [Parameter]
-    public EventCallback OnChanged { get; set; }
-
     [Parameter, EditorRequired]
     public required string Id { get; set; }
 
@@ -61,6 +58,5 @@ public sealed partial class RenameChatDialog : ComponentBase
         }
 
         _dialog?.Close();
-        await OnChanged.InvokeAsync();
     }
 }
