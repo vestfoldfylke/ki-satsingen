@@ -1,5 +1,11 @@
 <ModalDialog @ref="_dialog" Id="@Id" Heading="Slett samtale">
-    @if (Chat is not null)
+    @if (_errorMessage is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@_errorMessage</p>
+        </div>
+    }
+    else if (Chat is not null)
     {
         <div class="form-fields">
             <p class="ds-paragraph">Vil du slette @(Chat.Title)? Dette kan ikke angres.</p>

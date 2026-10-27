@@ -83,14 +83,7 @@ public sealed class ChatManager
 
     public async Task<bool> RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
-        // Clearing the rename box means cancel, not "name it nothing" — a UI
-        // intention, which is why it is handled here and not by the repository,
-        // where a blank title is an error.
         var trimmed = title.Trim();
-        if (string.IsNullOrEmpty(trimmed))
-        {
-            return true;
-        }
 
         if (_entries.Find(e => e.Id == chatId) is { } entry && entry.Title == trimmed)
         {

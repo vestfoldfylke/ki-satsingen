@@ -6,7 +6,6 @@ namespace kisatsingen.Components.Layout;
 
 public sealed partial class RenameChatDialog : ComponentBase
 {
-
     [Inject]
     public required ChatManager Manager { get; set; }
 
@@ -20,6 +19,7 @@ public sealed partial class RenameChatDialog : ComponentBase
     public required string Id { get; set; }
 
     private bool _isNotFound;
+    private string? _errorMessage;
 
     private ChatListEntry? Chat { get; set; }
 
@@ -32,19 +32,22 @@ public sealed partial class RenameChatDialog : ComponentBase
         Chat = chat;
         Form = RenameChatForm.FromChat(chat);
         _isNotFound = false;
+        _errorMessage = null;
         StateHasChanged();
     }
 
     private async Task SaveAsync()
     {
-        if (Chat is null)
+        _errorMessage = null;
+
+        if (Chat is not { } chat)
         {
             return;
         }
 
         try
-        {
-            if(!await Manager.RenameAsync(Chat.Id, Form.Title, CancellationToken.None))
+        {   
+            if (!await Manager.RenameAsync(chat.Id, Form.Title, CancellationToken.None))
             {
                 _isNotFound = true;
                 return;
@@ -52,7 +55,8 @@ public sealed partial class RenameChatDialog : ComponentBase
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", Chat.Id);
+            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", chat.Id);
+            _errorMessage = "Kunne ikke endre navn. Prøv igjen senere.";
             return;
         }
 

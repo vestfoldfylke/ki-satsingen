@@ -5,6 +5,12 @@
             <p class="ds-paragraph">Denne samtalen er slettet eller du har ikke tilgang lenger.</p>
         </div>
     }
+    else if (_errorMessage is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@_errorMessage</p>
+        </div>
+    }
     else
     {
         <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
@@ -22,5 +28,4 @@
             </div>
         </EditForm>
     }
-         
 </ModalDialog>

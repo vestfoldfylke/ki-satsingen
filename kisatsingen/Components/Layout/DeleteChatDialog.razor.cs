@@ -10,6 +10,8 @@ public sealed partial class DeleteChatDialog : ComponentBase
 
     private ModalDialog? _dialog;
 
+    private string? _errorMessage;
+
     private ChatListEntry? Chat { get; set; }
 
     [Inject]
@@ -29,18 +31,21 @@ public sealed partial class DeleteChatDialog : ComponentBase
 
     public void Load(ChatListEntry chat)
     {
+        _errorMessage = null;
         Chat = chat;
         StateHasChanged();
     }
 
     private async Task DeleteAsync()
     {
+        _errorMessage = null;
+
         if (Chat is not { } chat)
         {
             return;
         }
 
-        // Stopping active turn if the active chat is currently open
+        // Stop before delete, so the turn cannot try to save to a deleted chat.
         if (Session.ChatId == chat.Id)
         {
             await Session.StopTurnForLeaveAsync();
@@ -53,13 +58,14 @@ public sealed partial class DeleteChatDialog : ComponentBase
         catch (Exception ex)
         {
             Logger.LogWarning(ex, "Failed to delete chat {ChatId}", chat.Id);
+            _errorMessage = "Kunne ikke slette samtale. Prøv igjen senere.";
             return;
         }
 
         _dialog?.Close();
 
-        // Edge case: checking again after deletion incase the user
-        // tries to create a new chat while deletion is in progress
+        // Same check again: the user can navigate with back/forward while the delete runs.
+        // Replaced, so back doesn't lead to the deleted chat.
         if (Session.ChatId == chat.Id)
         {
             Navigation.NavigateTo($"/{NewChatPath}", replace: true);
