@@ -46,7 +46,7 @@ public sealed partial class RenameChatDialog : ComponentBase
         }
 
         try
-        {   
+        {
             if (!await Manager.RenameAsync(chat.Id, Form.Title, CancellationToken.None))
             {
                 _isNotFound = true;
