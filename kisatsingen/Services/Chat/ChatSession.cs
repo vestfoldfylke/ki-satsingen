@@ -21,21 +21,41 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly TurnRunner _runner;
     private readonly ChatAttachments _attachments;
     private readonly IKnowledgeFileRepository _knowledgeFileRepository;
+    private readonly IAssistantRepository _assistantRepository;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<Turn> _turns = [];
 
-    // Not derivable from status: a Running turn may have been loaded that way.
+    // Not derived from the turns' status: a turn opened from the database can be
+    // Running because another tab is still answering it.
     private Guid? _liveTurnId;
 
-    // Identity only; ChatManager owns the chat's metadata.
-    private Guid? _currentChatId;
+    // Identity only; ChatManager owns the chat's metadata. A new chat has its id
+    // from the start and is saved with its first turn; if that turn was stopped
+    // or failed before saving, the next message saves it under the same id.
+    private Guid _chatId;
+    private ChatState _chatState = ChatState.New;
 
-    // Loaded with the chat. Every file a turn makes available is added as it
-    // becomes available, while the view is still that turn's. A file another
-    // tab saves shows once the chat is opened again; that lag is safe, since
-    // duplicates are checked against the database.
+    private enum ChatState
+    {
+        New,
+
+        // A chat is being loaded: the session holds neither a new chat nor that chat yet.
+        Opening,
+
+        Saved,
+        NotFound
+    }
+
     private IReadOnlyList<KnowledgeFileMetadata> _knowledgeFiles = [];
+
+    // Read when the chat is opened or started, and replaced by UpdateAssistant.
+    // Null for a plain chat, and for a chat whose assistant the user can no
+    // longer use, which goes on as a plain chat.
+    private Assistant? _assistant;
+
+    // The name the chat was saved with, shown once its assistant is no longer usable.
+    private string? _assistantNameSnapshot;
 
     // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
@@ -45,14 +65,14 @@ public sealed class ChatSession : IAsyncDisposable
 
     private Task _turnCompletion = Task.CompletedTask;
 
-    // Bumped whenever the view switches chat. Anything that awaited across a bump
-    // no longer owns the view and must leave it alone.
-    private int _viewVersion;
+    // Increased by every chat request (see RequestChat).
+    private int _chatRequestCount;
+
+    // The chat asked for last: shown, still loading, or not found. Unlike _chatId,
+    // it is set as soon as the chat is asked for, and it is never used as a chat's id.
+    private Guid _requestedChatId;
 
     public event Action? StateChanged;
-
-    // Mid-turn, so the page can put a new chat's id in the URL before the answer ends.
-    public event Action<Guid>? ChatCreated;
 
     public ChatSession(
         IAuthenticationService authenticationService,
@@ -66,14 +86,18 @@ public sealed class ChatSession : IAsyncDisposable
         IUserTokenUsageRepository userTokenUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
         KnowledgeFilePipeline knowledgeFilePipeline,
-        FileToolFactory fileTools)
+        FileToolFactory fileTools,
+        IAssistantRepository assistantRepository)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
         _selectedModel = catalog.Default;
+        _chatId = Guid.NewGuid();
+        _requestedChatId = _chatId;
         _repo = repo;
         _attachments = attachments;
         _knowledgeFileRepository = knowledgeFileRepository;
+        _assistantRepository = assistantRepository;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
@@ -82,10 +106,21 @@ public sealed class ChatSession : IAsyncDisposable
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 
-    public Guid? ChatId => _currentChatId;
+    public Guid ChatId => _chatId;
+
+    // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
+    public bool IsChatNotFound => _chatState == ChatState.NotFound;
+
+    // Null for a chat that never had an assistant.
+    public string? AssistantName => _assistant?.Name ?? _assistantNameSnapshot;
+
+    // Null when the chat has no assistant the user can use.
+    public Guid? AssistantId => _assistant?.Id;
+
+    public bool CanSend => !IsBusy && _chatState is ChatState.New or ChatState.Saved;
+
     public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
     public bool IsBusy { get; private set; }
-    public bool HasVisibleMessages => _turns.Count > 0;
     public bool HasLiveTurn => _liveTurnId is not null;
 
     public IReadOnlyList<TurnView> Transcript => TranscriptView.Build(_turns, _liveTurnId);
@@ -105,7 +140,7 @@ public sealed class ChatSession : IAsyncDisposable
         {
             _logger.LogWarning(
                 "Refused to switch chat {ChatId} to model {ModelKey}: not in this user's available models.",
-                _currentChatId,
+                _chatId,
                 key);
             return Task.CompletedTask;
         }
@@ -123,14 +158,17 @@ public sealed class ChatSession : IAsyncDisposable
 
     // The one place the prompt for the next turn is chosen, so what is sent and
     // what is estimated can never differ.
-    private static string Instructions => ChatInstructions.ForPlainChat;
+    private string SystemPrompt =>
+        _assistant is Assistant assistant
+            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions)
+            : ChatInstructions.ForPlainChat;
 
     // Estimated from the request we would send, not from usage: usage sums every
     // tool round trip. Right for cost (see ConversationUsage), wrong for size.
     public long? EstimatedContextTokens =>
         _turns.Count == 0
             ? null
-            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), Instructions);
+            : ContextTokenEstimator.Estimate(TranscriptRequest.Build(_turns), SystemPrompt);
 
     public MessageUsage? ConversationUsage
     {
@@ -148,46 +186,95 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    public async Task LoadAsync(Guid? chatId, CancellationToken ct = default)
+    public async Task OpenChatAsync(Guid chatId)
     {
-        var viewVersion = ++_viewVersion;
-
-        // Leaving a chat stops its turn, and the turn winds down into its own chat
-        // before this one is shown.
-        await StopTurnForLeaveAsync();
-        if (!OwnsView(viewVersion))
+        // Already asked for: opening the chat again would stop the answer being
+        // written in it, or look up a missing chat again.
+        if (chatId == _requestedChatId)
         {
             return;
         }
 
-        ClearView();
-
-        if (chatId is Guid id)
+        var requestNumber = RequestChat(chatId);
+        await StopTurnForLeaveAsync();
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
-            var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
-            var chat = await _repo.GetChatAsync(userObjectId, id, ct);
-            var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, id, ct);
-
-            // A later navigation that finished first must not be overwritten.
-            if (!OwnsView(viewVersion))
-            {
-                return;
-            }
-
-            if (chat is not null)
-            {
-                _currentChatId = chat.Id;
-                _knowledgeFiles = knowledgeFiles;
-                var loadedAt = DateTimeOffset.UtcNow;
-                _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
-
-                // Continuing a chat must not silently change who answers it.
-                _selectedModel = FindLastModel() ?? _catalog.Default;
-            }
+            return;
         }
+
+        ResetToNewChat(Guid.NewGuid());
+        _chatState = ChatState.Opening;
+
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+        var chat = await _repo.GetChatAsync(userObjectId, chatId);
+        var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId);
+        var assistant = chat?.AssistantId is Guid assistantId
+            ? await _assistantRepository.GetAssistantAsync(userObjectId, assistantId)
+            : null;
+
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
+        {
+            return;
+        }
+
+        if (chat is null)
+        {
+            _chatState = ChatState.NotFound;
+            Notify();
+            return;
+        }
+
+        _chatId = chat.Id;
+        _chatState = ChatState.Saved;
+        _knowledgeFiles = knowledgeFiles;
+        _assistant = assistant;
+        _assistantNameSnapshot = chat.AssistantNameSnapshot;
+        var loadedAt = DateTimeOffset.UtcNow;
+        _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
+
+        // Continuing a chat must not silently change who answers it.
+        _selectedModel = FindLastModel() ?? _catalog.Default;
 
         Notify();
     }
+
+    public async Task StartNewChatAsync(Assistant? assistant)
+    {
+        var newChatId = Guid.NewGuid();
+        var requestNumber = RequestChat(newChatId);
+        await StopTurnForLeaveAsync();
+        if (HasAnotherChatBeenRequestedSince(requestNumber))
+        {
+            return;
+        }
+
+        ResetToNewChat(newChatId);
+        _assistant = assistant;
+        Notify();
+    }
+
+    // Ignored unless the chat is with this assistant, so an edit never gives a chat
+    // an assistant it was not saved with.
+    public void UpdateAssistant(Assistant assistant)
+    {
+        if (_assistant?.Id != assistant.Id)
+        {
+            return;
+        }
+
+        _assistant = assistant;
+        Notify();
+    }
+
+    // Returns the request's number, for HasAnotherChatBeenRequestedSince.
+    private int RequestChat(Guid chatId)
+    {
+        _requestedChatId = chatId;
+        return ++_chatRequestCount;
+    }
+
+    // A slow load then stops instead of replacing a chat the user opened after it.
+    private bool HasAnotherChatBeenRequestedSince(int requestNumber) => requestNumber != _chatRequestCount;
 
     // No turns, a blank key and a removed model all mean "no previous model".
     private ChatModel? FindLastModel()
@@ -204,7 +291,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _logger.LogInformation(
             "Chat {ChatId} was last used with model {ModelKey}, which is no longer in the catalogue. Falling back to {DefaultModelKey}.",
-            _currentChatId,
+            _chatId,
             storedKey,
             _catalog.Default.Key);
 
@@ -215,39 +302,34 @@ public sealed class ChatSession : IAsyncDisposable
     private string ResolveModelName(ChatModelKey key) =>
         _catalog.TryGet(key, out var model) ? model.DisplayName : key.Value;
 
-    // For when the open chat was just deleted: there is nothing to load.
-    public void Reset()
-    {
-        _viewVersion++;
-        ClearView();
-        Notify();
-    }
-
-    // A turn stops when the session is asked to show another chat, never when a
-    // route without a chat is opened: there it finishes and is waiting on return.
+    // Stops the answer that is being written, recorded as the user leaving the
+    // chat, and returns a task that completes when the turn has fully ended.
     public Task StopTurnForLeaveAsync()
     {
         _turnCancellation?.CancelForLeave();
         return _turnCompletion;
     }
 
-    private void ClearView()
+    // Only called once StopTurnForLeaveAsync has completed, so no turn is running
+    // and a turn only ever updates the chat it was sent in.
+    private void ResetToNewChat(Guid newChatId)
     {
         _turns.Clear();
         _liveTurnId = null;
-        _currentChatId = null;
+        _chatId = newChatId;
+        _chatState = ChatState.New;
         _knowledgeFiles = [];
+        _assistant = null;
+        _assistantNameSnapshot = null;
         _selectedModel = _catalog.Default;
 
         // Attached to the chat being left, not the one being opened.
         _attachments.Reset();
     }
 
-    private bool OwnsView(int viewVersion) => viewVersion == _viewVersion;
-
     public async Task SendAsync(string text)
     {
-        if (IsBusy || string.IsNullOrWhiteSpace(text))
+        if (!CanSend || string.IsNullOrWhiteSpace(text))
         {
             return;
         }
@@ -262,16 +344,11 @@ public sealed class ChatSession : IAsyncDisposable
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _turnCompletion = completion.Task;
 
-        // The turn keeps writing to its own chat after the user moves on; only the
-        // page stops following it.
-        var viewVersion = _viewVersion;
-        var isNewChat = _currentChatId is null;
-
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, Instructions, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _currentChatId, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
+        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames);
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -280,23 +357,20 @@ public sealed class ChatSession : IAsyncDisposable
         try
         {
             var observer = new TurnObserver(
-                ChatPersisted: chatId => OnChatPersisted(viewVersion, chatId, isNewChat),
-                Changed: snapshot => ShowSnapshot(viewVersion, snapshot),
-                KnowledgeFileAvailable: file => AddKnowledgeFile(viewVersion, file));
+                TurnSaved: () => _chatState = ChatState.Saved,
+                Changed: ShowSnapshot,
+                KnowledgeFileAvailable: AddKnowledgeFile);
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
-            Replace(viewVersion, ended);
+            UpdateTurn(ended);
         }
         finally
         {
-            // Nested so a throwing StateChanged subscriber can't leave LoadAsync
-            // waiting on this turn forever.
+            // Nested so a throwing StateChanged subscriber can't leave the next
+            // chat request waiting on this turn forever.
             try
             {
-                if (OwnsView(viewVersion))
-                {
-                    _liveTurnId = null;
-                }
+                _liveTurnId = null;
                 IsBusy = false;
 
                 // The only place it is disposed. Nulled first, so a Cancel() arriving
@@ -315,24 +389,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     private bool ChatHasKnowledgeFiles() => _knowledgeFiles.Count > 0;
 
-    private void OnChatPersisted(int viewVersion, Guid chatId, bool isNewChat)
-    {
-        if (!OwnsView(viewVersion))
-        {
-            return;
-        }
-
-        _currentChatId = chatId;
-        if (isNewChat)
-        {
-            ChatCreated?.Invoke(chatId);
-        }
-    }
-
     // By id, since a turn reports a file it reused, which may already be listed.
-    private void AddKnowledgeFile(int viewVersion, KnowledgeFileMetadata file)
+    private void AddKnowledgeFile(KnowledgeFileMetadata file)
     {
-        if (!OwnsView(viewVersion) || _knowledgeFiles.Any(known => known.Id == file.Id))
+        if (_knowledgeFiles.Any(known => known.Id == file.Id))
         {
             return;
         }
@@ -341,30 +401,16 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    private void ShowSnapshot(int viewVersion, Turn snapshot)
+    private void ShowSnapshot(Turn snapshot)
     {
-        if (Replace(viewVersion, snapshot))
-        {
-            Notify();
-        }
+        UpdateTurn(snapshot);
+        Notify();
     }
 
-    // By id: a view that has moved on no longer holds the turn, so nothing matches.
-    private bool Replace(int viewVersion, Turn turn)
+    private void UpdateTurn(Turn latest)
     {
-        if (!OwnsView(viewVersion))
-        {
-            return false;
-        }
-
-        var index = _turns.FindIndex(candidate => candidate.Id == turn.Id);
-        if (index < 0)
-        {
-            return false;
-        }
-
-        _turns[index] = turn;
-        return true;
+        var index = _turns.FindIndex(turn => turn.Id == latest.Id);
+        _turns[index] = latest;
     }
 
     private void Notify() => StateChanged?.Invoke();

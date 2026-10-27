@@ -78,7 +78,7 @@ internal static class ReadyAttachments
     // A real temp file in the environment's storage, so tests can see it deleted.
     public static ReadyAttachment From(AttachmentTestEnvironment environment, byte[] content, AttachmentType type, string fileName = "fil.md")
     {
-        var (file, stream) = environment.Storage.CreateFile("pipeline-test-owner", Guid.NewGuid());
+        var (file, stream) = environment.Storage.CreateFile(Guid.NewGuid(), Guid.NewGuid());
         using (stream)
         {
             stream.Write(content);

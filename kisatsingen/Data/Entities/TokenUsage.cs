@@ -4,13 +4,12 @@ namespace kisatsingen.Data.Entities;
 
 public sealed class TokenUsage
 {
-    public const int MaxOwnerIdLength = 128;
     public const int MaxProviderLength = 64;
     public const int MaxModelIdLength = 128;
     public const int MaxStatusLength = 32;
 
     public Guid Id { get; init; }
-    public required string OwnerId { get; init; }
+    public required Guid OwnerId { get; init; }
     public DateTimeOffset Timestamp { get; init; }
     public required string Provider { get; init; }
     public required string ModelId { get; init; }

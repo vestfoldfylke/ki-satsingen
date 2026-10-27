@@ -1,0 +1,23 @@
+@page "/new"
+@using kisatsingen.Components.Chat
+
+@inject IWebHostEnvironment Env
+
+<PageTitle>Ny chat</PageTitle>
+
+<div class="new-chat">
+    <div class="chat-greeting">
+        @if (Env.IsDevelopment())
+        {
+            <span class="chat-greeting-emoji" aria-hidden="true">🖕</span>
+            <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
+        }
+        else
+        {
+            <span class="chat-greeting-emoji" aria-hidden="true">👋</span>
+            <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
+        }
+    </div>
+
+    <ChatComposer OnSending="OpenChat" />
+</div>

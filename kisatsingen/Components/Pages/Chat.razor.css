@@ -22,9 +22,6 @@
     --chat-surface: #fff;
     --chat-surface-fade: rgb(255 255 255 / 0);
     --chat-fade-height: 2rem;
-    /* The transcript, the composer and the empty state must share one column
-       width or the composer stops lining up with the messages above it. */
-    --chat-column-width: 44rem;
 
     display: flex;
     flex-direction: column;
@@ -105,22 +102,6 @@
     );
 }
 
-/* Empty state: greeting + composer as one vertically centered group. Nothing
-   scrolls here, so there's no scroll container, no sticky and no fade. */
-.chat-intro {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    flex: 1;
-    min-height: 0;
-    gap: 1.5rem;
-    width: 100%;
-    max-width: var(--chat-column-width);
-    margin: 0 auto;
-    padding: 0 0.75rem 1.5rem;
-    box-sizing: border-box;
-}
-
 .chat-log-spacer {
     flex-shrink: 0;
     pointer-events: none;
@@ -154,24 +135,4 @@
 
 .chat-jump-latest[hidden] {
     display: none;
-}
-
-.chat-greeting {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 2.5rem 0 1rem;
-}
-
-.chat-greeting-emoji {
-    font-size: 2.5rem;
-    line-height: 1;
-}
-
-.chat-greeting-text {
-    margin: 0;
-    font-size: 1.75rem;
-    font-weight: 600;
-    text-align: center;
 }

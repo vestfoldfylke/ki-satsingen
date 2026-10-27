@@ -31,16 +31,16 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
     private static readonly Func<KnowledgeFile, KnowledgeFileMetadata> ToMetadata = MetadataProjection.Compile();
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default)
         => CreateAsync(ownerId, assistantId, chatId: null, newFile, ct);
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
         => CreateAsync(ownerId, assistantId: null, chatId, newFile, ct);
 
     // The single write path, and the only place the nullable scope pair exists.
     // Every stored text passes through here, so this is where the guarantees
     // the read tools depend on are enforced, whatever converter produced it.
-    private async Task<KnowledgeFileSaveResult> CreateAsync(string ownerId, Guid? assistantId, Guid? chatId, NewKnowledgeFile newFile, CancellationToken ct)
+    private async Task<KnowledgeFileSaveResult> CreateAsync(Guid ownerId, Guid? assistantId, Guid? chatId, NewKnowledgeFile newFile, CancellationToken ct)
     {
         var normalisedFileName = BoundedText.RequireTrimmed(newFile.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
         var normalisedContentType = BoundedText.RequireTrimmed(newFile.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
@@ -192,7 +192,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     // Verifies the parent is the caller's and bumps its UpdatedAt. Unlike
     // ChatRepository.TouchChatAsync this is not also a concurrency guard —
     // files carry no shared ordering sequence to serialise on.
-    private static async Task TouchScopeAsync(AppDbContext db, string ownerId, Guid? assistantId, Guid? chatId, DateTimeOffset updatedAt, CancellationToken ct)
+    private static async Task TouchScopeAsync(AppDbContext db, Guid ownerId, Guid? assistantId, Guid? chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         if (assistantId is Guid resolvedAssistantId)
         {
@@ -219,7 +219,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         }
     }
 
-    public async Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default)
+    public async Task<KnowledgeFileMetadata?> GetFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.KnowledgeFiles
@@ -228,7 +228,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<KnowledgeFileText?> GetChatFileTextAsync(string ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
+    public async Task<KnowledgeFileText?> GetChatFileTextAsync(Guid ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var file = await db.KnowledgeFiles
@@ -239,7 +239,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     }
 
     // Normalised the way saving does, so the two can never disagree.
-    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(string ownerId, Guid chatId, string sha256, CancellationToken ct = default)
+    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(Guid ownerId, Guid chatId, string sha256, CancellationToken ct = default)
     {
         var normalisedSha256 = NormaliseSha256(sha256);
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -249,13 +249,13 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(Guid ownerId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await ListMetadata(db.KnowledgeFiles.Where(f => f.AssistantId == assistantId && f.OwnerId == ownerId)).ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await ListMetadata(db.KnowledgeFiles.Where(f => f.ChatId == chatId && f.OwnerId == ownerId)).ToListAsync(ct);
@@ -266,7 +266,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             .OrderBy(f => f.CreatedAt)
             .Select(MetadataProjection);
 
-    public async Task<bool> DeleteFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default)
+    public async Task<bool> DeleteFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var deletedCount = await db.KnowledgeFiles

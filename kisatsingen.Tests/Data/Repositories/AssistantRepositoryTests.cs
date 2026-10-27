@@ -9,8 +9,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
-    private const string OtherOwnerId = "SomebodyElse";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -211,7 +211,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     public async Task Deleting_an_assistant_leaves_its_chats_alive_without_the_link()
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
-        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistant.Id);
 
         await Repo.DeleteAssistantAsync(OwnerId, assistant.Id);
 
@@ -226,7 +226,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id));
+            () => ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistant.Id));
     }
 
     [Fact]
@@ -234,7 +234,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     {
         var assistant = await Repo.CreateAssistantAsync(OtherOwnerId, "OrganizationWide", null, AssistantVisibility.Organization);
 
-        var chat = await ChatRepo.CreateChatAsync(OwnerId, "hello", assistant.Id);
+        var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistant.Id);
 
         Assert.Equal(assistant.Id, chat.AssistantId);
     }

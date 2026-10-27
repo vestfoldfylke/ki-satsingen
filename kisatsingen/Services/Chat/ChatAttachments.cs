@@ -19,7 +19,7 @@ public sealed class ChatAttachments(
 {
     private readonly List<ComposerAttachment> _attachments = [];
 
-    private string? _ownerId;
+    private Guid? _ownerId;
 
     public event Action? Changed;
 
@@ -108,7 +108,7 @@ public sealed class ChatAttachments(
     // Never throws: this runs in a UI event handler, where an exception would
     // end the circuit. Announces the upload starting and its progress; the
     // outcome is announced by the loop that runs it.
-    private async Task AttachOneAsync(string ownerId, ComposerAttachment attachment, IBrowserFile file, AttachmentType type)
+    private async Task AttachOneAsync(Guid ownerId, ComposerAttachment attachment, IBrowserFile file, AttachmentType type)
     {
         // Removed, or the view moved on, while it waited for its turn.
         if (!_attachments.Contains(attachment))
@@ -177,7 +177,7 @@ public sealed class ChatAttachments(
     // Takes the file in every case: marked ready when the attachment is still
     // here, is no duplicate and fits the quota; deleted otherwise. A file the
     // quota refuses is already deleted by the quota.
-    private void MarkReadyIfAccepted(string ownerId, ComposerAttachment attachment, AttachmentType type, UploadOutcome.Stored stored)
+    private void MarkReadyIfAccepted(Guid ownerId, ComposerAttachment attachment, AttachmentType type, UploadOutcome.Stored stored)
     {
         if (!_attachments.Contains(attachment))
         {
@@ -276,7 +276,7 @@ public sealed class ChatAttachments(
         attachment.Ready?.File.Dispose();
     }
 
-    private async Task<string> EnsureOwnerAsync() =>
+    private async Task<Guid> EnsureOwnerAsync() =>
         _ownerId ??= await authenticationService.RequireUserObjectIdentifierAsync();
 
     // Progress<T> posts each report to the thread pool, so reports could land

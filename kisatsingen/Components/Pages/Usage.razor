@@ -63,12 +63,12 @@
 </div>
 
 @code {
-    private RenderFragment<IEnumerable<UsageByKey<string>>> TopTokenUsage => topTokenUsage =>
+    private RenderFragment<IEnumerable<UserUsage>> TopTokenUsage => topTokenUsage =>
         @<div class="usage-table-scroll">
             <table class="ds-table">
                 <thead>
                     <tr>
-                        <th>OwnerId</th>
+                        <th>Name</th>
                         <th>Input tokens</th>
                         <th>Output tokens</th>
                         <th>Estimated input tokens</th>
@@ -79,11 +79,11 @@
                     @foreach (var row in topTokenUsage)
                     {
                         <tr>
-                            <td>@row.Key</td>
-                            <td>@TokenCountFormat.Format(row.InputTokens)</td>
-                            <td>@TokenCountFormat.Format(row.OutputTokens)</td>
-                            <td>@TokenCountFormat.Format(row.EstimatedInputTokens)</td>
-                            <td>@TokenCountFormat.Format(row.EstimatedOutputTokens)</td>
+                            <td>@row.DisplayName</td>
+                            <td>@TokenCountFormat.Format(row.Usage.InputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.Usage.OutputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.Usage.EstimatedInputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.Usage.EstimatedOutputTokens)</td>
                         </tr>
                     }
                 </tbody>

@@ -108,7 +108,7 @@ public sealed class AttachmentStorage
     // The attachment ID in the name lets the Debug logs follow one attachment.
     // CreateNew, so a name that somehow already exists fails instead of being
     // overwritten.
-    public (TempFile File, FileStream Stream) CreateFile(string ownerId, Guid attachmentId)
+    public (TempFile File, FileStream Stream) CreateFile(Guid ownerId, Guid attachmentId)
     {
         var path = Path.Combine(Folder, UploadingPrefix + OwnerPart(ownerId) + attachmentId.ToString("N"));
         var streamOptions = new FileStreamOptions
@@ -173,9 +173,9 @@ public sealed class AttachmentStorage
         }
     }
 
-    public StorageUsage UsageOf(string ownerId) => Measure("*-" + OwnerPart(ownerId) + "*");
+    public StorageUsage UsageOf(Guid ownerId) => Measure("*-" + OwnerPart(ownerId) + "*");
 
-    public StorageUsage ReadyUsageOf(string ownerId) => Measure(ReadyPrefix + OwnerPart(ownerId) + "*");
+    public StorageUsage ReadyUsageOf(Guid ownerId) => Measure(ReadyPrefix + OwnerPart(ownerId) + "*");
 
     public StorageUsage TotalUsage() => Measure("*");
 
@@ -205,8 +205,8 @@ public sealed class AttachmentStorage
 
     // A hash rather than the owner ID itself: safe in a file name whatever the
     // ID looks like, the same length for everyone, and no user ID on disk.
-    private static string OwnerPart(string ownerId) =>
-        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(ownerId))) + "-";
+    private static string OwnerPart(Guid ownerId) =>
+        Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(ownerId.ToString()))) + "-";
 
     // Returns how many entries it wiped. Starting on top of old files would
     // break the promise that no upload outlives a restart, so a failed wipe

@@ -1,22 +1,30 @@
-@page "/new"
-@page "/chat/{ChatId:guid?}"
-@rendermode InteractiveServer
+@page "/chat/{ChatId:guid}"
 @using kisatsingen.Components.Chat
 
-@inject IWebHostEnvironment Env
+@if (Session.IsChatNotFound)
+{
+    <PageTitle>Fant ikke samtalen</PageTitle>
 
-<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
+    <div class="page-padded">
+        <h1 class="ds-heading" data-size="md">Fant ikke samtalen</h1>
+        <p class="ds-paragraph">Den er slettet, eller du har ikke tilgang til den.</p>
+        <p class="ds-paragraph"><a class="ds-link" href="/new">Start en ny samtale</a></p>
+    </div>
+}
+else
+{
+    <PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
-<div class="chat-layout">
-    <ChatHeader Title="@Title"
-                FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
-                IsFilesPanelOpen="_isFilesPanelOpen"
-                OnToggleFiles="ToggleFilesPanel" />
+    <div class="chat-layout">
+        <ChatHeader Title="@Title"
+            AssistantName="@Session.AssistantName"
+            AssistantId="Session.AssistantId"
+            FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
+            IsFilesPanelOpen="_isFilesPanelOpen"
+            OnToggleFiles="ToggleFilesPanel" />
 
-    <div class="chat-body">
-        <div class="chat-page">
-            @if (Session.HasVisibleMessages)
-            {
+        <div class="chat-body">
+            <div class="chat-page">
                 <div class="chat-log" role="log" aria-live="polite">
                     <div class="chat-log-inner">
                         @foreach (var view in Session.Transcript)
@@ -39,61 +47,18 @@
                     </div>
 
                     <div class="chat-tail">
-                        <ChatComposer @ref="_composer"
-                                      IsBusy="Session.IsBusy"
-                                      OnSend="SendAsync"
-                                      OnStop="Stop"
-                                      Models="Session.AvailableModels"
-                                      SelectedModel="Session.SelectedModel"
-                                      EstimatedContextTokens="Session.EstimatedContextTokens"
-                                      ConversationUsage="Session.ConversationUsage"
-                                      OnSelectModel="SelectModelAsync"
-                                      Attachments="Attachments.All"
-                                      AttachmentNotice="@Attachments.SelectionNotice"
-                                      IsUploading="Attachments.IsUploading"
-                                      OnFilesSelected="Attachments.AttachAsync"
-                                      OnRemoveAttachment="Attachments.Remove" />
+                        <ChatComposer />
                     </div>
                 </div>
-            }
-            else
-            {
-                <div class="chat-intro">
-                    <div class="chat-greeting">
-                        @if (Env.IsDevelopment())
-                        {
-                            <span class="chat-greeting-emoji" aria-hidden="true">🖕</span>
-                            <h1 class="chat-greeting-text">Skjer a din pikk!</h1>
-                        }
-                        else
-                        {
-                            <span class="chat-greeting-emoji" aria-hidden="true">👋</span>
-                            <h1 class="chat-greeting-text">Hva kan jeg hjelpe til med i dag?</h1>
-                        }
-                    </div>
+            </div>
 
-                    <ChatComposer @ref="_composer"
-                                  IsBusy="Session.IsBusy"
-                                  OnSend="SendAsync"
-                                  OnStop="Stop"
-                                  Models="Session.AvailableModels"
-                                  SelectedModel="Session.SelectedModel"
-                                  OnSelectModel="SelectModelAsync"
-                                  Attachments="Attachments.All"
-                                  AttachmentNotice="@Attachments.SelectionNotice"
-                                  IsUploading="Attachments.IsUploading"
-                                  OnFilesSelected="Attachments.AttachAsync"
-                                  OnRemoveAttachment="Attachments.Remove" />
-                </div>
+            @if (_isFilesPanelOpen)
+            {
+                <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
+                    Attachments="Attachments.All"
+                    OnRemove="Attachments.Remove"
+                    OnClose="ToggleFilesPanel" />
             }
         </div>
-
-        @if (_isFilesPanelOpen)
-        {
-            <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
-                            Attachments="Attachments.All"
-                            OnRemove="Attachments.Remove"
-                            OnClose="ToggleFilesPanel" />
-        }
     </div>
-</div>
+}
