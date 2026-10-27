@@ -4,6 +4,14 @@ using Microsoft.EntityFrameworkCore;
 
 namespace kisatsingen.Data.Repositories;
 
+public enum TopUsersByTokenUsageType
+{
+    InputTokens,
+    OutputTokens,
+    EstimatedInputTokens,
+    EstimatedOutputTokens
+}
+
 public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbContext> factory) : IOrganizationTokenUsageRepository
 {
     // All bucketed/time-based queries project the row's UTC Timestamp into
@@ -114,13 +122,15 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
             r.TurnCount))];
     }
 
-    public async Task<IReadOnlyList<UsageByKey<string>>> GetUsagePerUserAsync(
+    public async Task<IReadOnlyList<UsageByKey<Guid>>> GetTopUsersByTokenUsageAsync(
         DateTimeOffset? since,
+        TopUsersByTokenUsageType topUsersByTokenUsageType,
+        int topN,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        return await db.Database.SqlQuery<UsageByKey<string>>(
+        return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
                  "OwnerId" AS "Key",
@@ -132,18 +142,25 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
              FROM "TokenUsages"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "OwnerId"
+             ORDER BY CASE {topUsersByTokenUsageType.ToString()}
+                 WHEN {nameof(TopUsersByTokenUsageType.InputTokens)}             THEN SUM("InputTokens")
+                 WHEN {nameof(TopUsersByTokenUsageType.OutputTokens)}            THEN SUM("OutputTokens")
+                 WHEN {nameof(TopUsersByTokenUsageType.EstimatedInputTokens)}    THEN SUM("EstimatedInputTokens")
+                 WHEN {nameof(TopUsersByTokenUsageType.EstimatedOutputTokens)}   THEN SUM("EstimatedOutputTokens")
+             END DESC NULLS LAST
+             LIMIT {topN}
              """
         ).ToListAsync(ct);
     }
 
-    public async Task<IReadOnlyList<UsageByKey<string>>> GetTopUsersByTurnsAsync(
+    public async Task<IReadOnlyList<UsageByKey<Guid>>> GetTopUsersByTurnsAsync(
         DateTimeOffset? since,
         int topN,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        return await db.Database.SqlQuery<UsageByKey<string>>(
+        return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
                  "OwnerId" AS "Key",

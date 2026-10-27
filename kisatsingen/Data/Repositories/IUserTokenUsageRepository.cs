@@ -6,7 +6,7 @@ namespace kisatsingen.Data.Repositories;
 public interface IUserTokenUsageRepository
 {
     Task InsertTokenUsageAsync(
-        string ownerId,
+        Guid ownerId,
         string provider,
         string modelId,
         long? inputTokens,
@@ -17,28 +17,28 @@ public interface IUserTokenUsageRepository
         CancellationToken ct = default);
 
     Task<TokenUsageSummary> GetTotalsAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         UsageBucket bucket,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
-        string ownerId,
+        Guid ownerId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 }

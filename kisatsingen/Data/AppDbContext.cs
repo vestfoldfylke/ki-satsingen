@@ -69,7 +69,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     {
         var chat = modelBuilder.Entity<Chat>();
         chat.HasKey(c => c.Id);
-        chat.Property(c => c.OwnerId).HasMaxLength(128);
         chat.Property(c => c.Title).HasMaxLength(Chat.MaxTitleLength).IsRequired();
         chat.Property(c => c.AssistantNameSnapshot).HasMaxLength(Assistant.MaxNameLength);
         chat.HasIndex(c => new { c.OwnerId, c.UpdatedAt });
@@ -103,7 +102,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var assistant = modelBuilder.Entity<Assistant>();
         assistant.HasKey(a => a.Id);
-        assistant.Property(a => a.OwnerId).HasMaxLength(128).IsRequired();
         assistant.Property(a => a.Name).HasMaxLength(Assistant.MaxNameLength).IsRequired();
         assistant.Property(a => a.Description).HasMaxLength(Assistant.MaxDescriptionLength);
         assistant.Property(a => a.Instructions).HasColumnType("text");
@@ -120,7 +118,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var knowledgeFile = modelBuilder.Entity<KnowledgeFile>();
         knowledgeFile.HasKey(f => f.Id);
-        knowledgeFile.Property(f => f.OwnerId).HasMaxLength(128).IsRequired();
         knowledgeFile.Property(f => f.FileName).HasMaxLength(KnowledgeFile.MaxFileNameLength).IsRequired();
         knowledgeFile.Property(f => f.ContentType).HasMaxLength(KnowledgeFile.MaxContentTypeLength).IsRequired();
         knowledgeFile.Property(f => f.Sha256).HasMaxLength(KnowledgeFile.Sha256HexLength).IsRequired();
@@ -163,7 +160,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var tokenUsage = modelBuilder.Entity<TokenUsage>();
         tokenUsage.HasKey(u => u.Id);
-        tokenUsage.Property(u => u.OwnerId).HasMaxLength(TokenUsage.MaxOwnerIdLength).IsRequired();
         tokenUsage.Property(u => u.Provider).HasMaxLength(TokenUsage.MaxProviderLength).IsRequired();
         tokenUsage.Property(u => u.ModelId).HasMaxLength(TokenUsage.MaxModelIdLength).IsRequired();
         tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength).IsRequired();

@@ -12,7 +12,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     // mistranslated as an assistant lookup failure.
     private const string ChatAssistantForeignKeyName = "FK_Chats_Assistants_AssistantId";
 
-    public async Task<Chat> CreateChatAsync(string ownerId, string title, Guid? assistantId, CancellationToken ct = default)
+    public async Task<Chat> CreateChatAsync(Guid ownerId, Guid chatId, string title, Guid? assistantId, CancellationToken ct = default)
     {
         var normalisedTitle = BoundedText.RequireTrimmed(title, "Chat title", Chat.MaxTitleLength);
 
@@ -41,7 +41,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
 
         var chat = new Chat
         {
-            Id = Guid.NewGuid(),
+            Id = chatId,
             OwnerId = ownerId,
             AssistantId = assistantId,
             AssistantNameSnapshot = assistantNameSnapshot,
@@ -72,7 +72,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             && pg.SqlState == PostgresErrorCodes.ForeignKeyViolation
             && pg.ConstraintName == ChatAssistantForeignKeyName;
 
-    public async Task<Chat?> GetChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<Chat?> GetChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         // As one JOIN, the chat row, system prompt included, would repeat per turn.
@@ -83,7 +83,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .FirstOrDefaultAsync(c => c.Id == chatId && c.OwnerId == ownerId, ct);
     }
 
-    public async Task<IReadOnlyList<ChatSummary>> ListChatsAsync(string ownerId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<ChatSummary>> ListChatsAsync(Guid ownerId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.Chats
@@ -93,7 +93,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .ToListAsync(ct);
     }
 
-    public async Task InsertTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    public async Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -107,7 +107,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     }
 
     // Identity, prompt and ordering are fixed at insert, so only the ending is written.
-    public async Task UpdateTurnAsync(string ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    public async Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -145,7 +145,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
     // commit. The lock orders inserts: Seq is drawn at insert but visible only at
     // commit, so two concurrent inserts could otherwise commit out of Seq order and
     // drop a turn into a transcript a reader has already seen. Keep it ahead of the insert.
-    private static async Task TouchChatAsync(AppDbContext db, string ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
+    private static async Task TouchChatAsync(AppDbContext db, Guid ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedChatCount = await db.Chats
             .Where(c => c.Id == chatId && c.OwnerId == ownerId)
@@ -157,7 +157,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         }
     }
 
-    public async Task<bool> RenameChatAsync(string ownerId, Guid chatId, string title, CancellationToken ct = default)
+    public async Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
         // Refused rather than a no-op: a rename that quietly does nothing looks
         // identical to one that worked.
@@ -174,7 +174,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         return updatedChatCount > 0;
     }
 
-    public async Task<bool> DeleteChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public async Task<bool> DeleteChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         var deletedCount = await db.Chats

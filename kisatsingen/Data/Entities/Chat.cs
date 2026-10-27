@@ -5,7 +5,7 @@ public sealed class Chat
     public const int MaxTitleLength = 200;
 
     public Guid Id { get; init; }
-    public required string OwnerId { get; init; }
+    public required Guid OwnerId { get; init; }
     public required string Title { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
