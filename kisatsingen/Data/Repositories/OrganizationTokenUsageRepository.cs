@@ -150,7 +150,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
              END DESC NULLS LAST
              LIMIT {topN}
              """
-         ).ToListAsync(ct);
+        ).ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<UsageByKey<Guid>>> GetTopUsersByTurnsAsync(
