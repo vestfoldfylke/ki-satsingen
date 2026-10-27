@@ -40,15 +40,14 @@ public sealed partial class DeleteChatDialog : ComponentBase
             return;
         }
 
-        var wasActive = Session.ChatId == chat.Id;
+        // Stopping active turn if the active chat is currently open
+        if (Session.ChatId == chat.Id)
+        {
+            await Session.StopTurnForLeaveAsync();
+        }
 
         try
-        {  
-            if(wasActive)
-            {
-                await Session.StopTurnForLeaveAsync();
-            }
-
+        {
             await Manager.DeleteAsync(chat.Id, CancellationToken.None);
         }
         catch (Exception ex)
@@ -58,12 +57,13 @@ public sealed partial class DeleteChatDialog : ComponentBase
         }
 
         _dialog?.Close();
-        Chat = null;
 
-        if (wasActive && Session.ChatId == chat.Id)
+        // Edge case: checking again after deletion incase the user
+        // tries to create a new chat while deletion is in progress
+        if (Session.ChatId == chat.Id)
         {
             Session.Reset();
-            Navigation.NavigateTo($"/{NewChatPath}", replace: true);   
+            Navigation.NavigateTo($"/{NewChatPath}", replace: true);
         }
     }
 }

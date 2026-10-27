@@ -6,11 +6,12 @@ namespace kisatsingen.Components.Layout;
 
 public sealed partial class RenameChatDialog : ComponentBase
 {
-    [Inject]
-    public required ChatSession Session { get; set; }
 
     [Inject]
     public required ChatManager Manager { get; set; }
+
+    [Inject]
+    public required ILogger<RenameChatDialog> Logger { get; set; }
 
     [Parameter]
     public EventCallback OnChanged { get; set; }
@@ -41,14 +42,21 @@ public sealed partial class RenameChatDialog : ComponentBase
             return;
         }
 
-        if(!await Manager.RenameAsync(Chat.Id, Form.Title, CancellationToken.None))
+        try
         {
-            _isNotFound = true;
+            if(!await Manager.RenameAsync(Chat.Id, Form.Title, CancellationToken.None))
+            {
+                _isNotFound = true;
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", Chat.Id);
             return;
         }
 
         _dialog?.Close();
-        Chat = null;
         await OnChanged.InvokeAsync();
     }
 }

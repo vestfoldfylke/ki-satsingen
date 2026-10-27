@@ -98,7 +98,12 @@ public sealed class ChatManager
         var trimmed = title.Trim();
         if (string.IsNullOrEmpty(trimmed))
         {
-            return false;
+            return true;
+        }
+
+        if (_entries.Find(e => e.Id == chatId) is { } entry && entry.Title == trimmed)
+        {
+            return true;
         }
 
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();

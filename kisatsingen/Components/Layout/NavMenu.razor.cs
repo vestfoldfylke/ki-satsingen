@@ -1,4 +1,3 @@
-using kisatsingen.Components.Shared;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
@@ -7,7 +6,7 @@ using Microsoft.JSInterop;
 namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
-{   
+{
     private const string NewChatPath = "new";
     private const string SidebarPanelId = "sidebar-panel";
 
