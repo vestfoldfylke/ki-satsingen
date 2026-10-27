@@ -3,7 +3,6 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
-using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
@@ -193,7 +192,7 @@ internal sealed class TurnRunner
 
     // Sets row.Inserted before reporting the turn saved, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
-    private async Task<InsertedTurn> InsertAsync(TurnRow row, string ownerId, Turn turn, Guid? assistantId, TurnObserver observer, CancellationToken ct)
+    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, Guid? assistantId, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
@@ -376,12 +375,12 @@ internal sealed class TurnRunner
         public bool IsChatSaved { get; } = isChatSaved;
 
         // Null until sign-in is confirmed.
-        public string? OwnerId { get; set; }
+        public Guid? OwnerId { get; set; }
 
         // Null until the turn's row is written.
         public InsertedTurn? Inserted { get; set; }
     }
 
     // Where the turn's row is, once it is written.
-    private sealed record InsertedTurn(string OwnerId, Guid ChatId);
+    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId);
 }

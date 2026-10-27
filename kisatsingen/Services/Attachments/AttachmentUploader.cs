@@ -25,7 +25,7 @@ public sealed class AttachmentUploader(AttachmentStorage storage)
 
     public async Task<UploadOutcome> UploadAsync(
         Stream uploadStream,
-        string ownerId,
+        Guid ownerId,
         Guid attachmentId,
         AttachmentType type,
         long maxBytes,

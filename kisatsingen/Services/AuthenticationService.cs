@@ -6,10 +6,10 @@ namespace kisatsingen.Services;
 
 public interface IAuthenticationService
 {
-    Task<string?> GetUserObjectIdentifierAsync();
+    Task<Guid?> GetUserObjectIdentifierAsync();
 
-    /// <exception cref="UserNotAuthenticatedException">No authenticated user or objectidentifier claim found.</exception>
-    Task<string> RequireUserObjectIdentifierAsync();
+    /// <exception cref="UserNotAuthenticatedException">No authenticated user or valid objectidentifier claim found.</exception>
+    Task<Guid> RequireUserObjectIdentifierAsync();
 }
 
 public class AuthenticationService : IAuthenticationService
@@ -29,7 +29,7 @@ public class AuthenticationService : IAuthenticationService
         return authState.User;
     }
 
-    public async Task<string?> GetUserObjectIdentifierAsync()
+    public async Task<Guid?> GetUserObjectIdentifierAsync()
     {
         var user = await GetUserAsync();
         if (user.Identity?.IsAuthenticated != true)
@@ -38,14 +38,19 @@ public class AuthenticationService : IAuthenticationService
             return null;
         }
 
-        return user.GetObjectId();
+        var objectIdClaim = user.GetObjectId();
+        if (!Guid.TryParse(objectIdClaim, out var objectId))
+        {
+            _logger.LogWarning("The objectidentifier claim is missing or not a GUID: {ObjectIdClaim}. The user is treated as not authenticated", objectIdClaim);
+            return null;
+        }
+
+        return objectId;
     }
 
-    public async Task<string> RequireUserObjectIdentifierAsync()
+    public async Task<Guid> RequireUserObjectIdentifierAsync()
     {
         var userObjectId = await GetUserObjectIdentifierAsync();
-        return string.IsNullOrEmpty(userObjectId)
-            ? throw new UserNotAuthenticatedException()
-            : userObjectId;
+        return userObjectId ?? throw new UserNotAuthenticatedException();
     }
 }

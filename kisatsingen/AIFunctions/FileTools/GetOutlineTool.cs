@@ -30,7 +30,7 @@ internal static class GetOutlineTool
 
     // fileId is a string, not a Guid, so a malformed id gets the same answer
     // as an unknown one, which points the model to list_files.
-    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, string ownerId, Guid chatId) =>
+    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, Guid ownerId, Guid chatId) =>
         FileToolFunction.Create(Name, Description(options), (
             [Description("The file's fileId, from the attachment line or list_files.")] string fileId,
             [Description("First line of the range to outline. Defaults to the first line."), Range(1, int.MaxValue)] int? start = null,
@@ -41,7 +41,7 @@ internal static class GetOutlineTool
     private static async Task<object> OutlineAsync(
         IKnowledgeFileReader reader,
         FileToolOptions options,
-        string ownerId,
+        Guid ownerId,
         Guid chatId,
         string? fileIdText,
         int? start,

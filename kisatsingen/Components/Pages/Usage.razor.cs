@@ -14,6 +14,9 @@ public partial class Usage : ComponentBase, IDisposable
     [Inject]
     public required ILogger<Usage> Logger { get; init; }
 
+    [Inject]
+    public required IUserUsageResolver UserUsageResolver { get; init; }
+
     private const int TopUserCount = 5;
 
     private UsageRange Range { get; set; } = UsageRange.Last7Days;
@@ -25,21 +28,12 @@ public partial class Usage : ComponentBase, IDisposable
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ModelBreakdown { get; set; } = [];
-    private IReadOnlyList<UsageByKey<string>> TopUsersByTurns { get; set; } = [];
-    private IReadOnlyList<UsageByKey<string>> UsagePerUser { get; set; } = [];
+    private IReadOnlyList<UserUsage> TopUsersByTurns { get; set; } = [];
 
-
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.InputTokens).Take(TopUserCount);
-
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.OutputTokens).Take(TopUserCount);
-
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedInputTokens =>
-        UsagePerUser.OrderByDescending(u => u.EstimatedInputTokens).Take(TopUserCount);
-
-    private IEnumerable<UsageByKey<string>> TopTokenUsageByEstimatedOutputTokens =>
-        UsagePerUser.OrderByDescending(u => u.EstimatedOutputTokens).Take(TopUserCount);
+    private IEnumerable<UserUsage> TopTokenUsageByInputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByOutputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedInputTokens { get; set; } = [];
+    private IEnumerable<UserUsage> TopTokenUsageByEstimatedOutputTokens { get; set; } = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -73,19 +67,28 @@ public partial class Usage : ComponentBase, IDisposable
             var providerTask = OrganizationTokenUsageRepository.GetUsageByProviderAsync(since, ct);
             var modelTask = OrganizationTokenUsageRepository.GetUsageByModelAsync(since, ct);
             var topUsersTask = OrganizationTokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
-            var perUserTask = OrganizationTokenUsageRepository.GetUsagePerUserAsync(since, ct);
+            var topTokenUsageByInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.InputTokens, TopUserCount, ct);
+            var topTokenUsageByOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.OutputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedInputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedOutputTokens, TopUserCount, ct);
 
             await Task.WhenAll(
                 totalsTask, timeSeriesTask, statusTask, providerTask,
-                modelTask, topUsersTask, perUserTask);
+                modelTask, topUsersTask, topTokenUsageByInputTokensTask,
+                topTokenUsageByOutputTokensTask, topTokenUsageByEstimatedInputTokensTask,
+                topTokenUsageByEstimatedOutputTokensTask);
 
             Totals = await totalsTask;
             TimeSeries = await timeSeriesTask;
             StatusBreakdown = await statusTask;
             ProviderBreakdown = await providerTask;
             ModelBreakdown = await modelTask;
-            TopUsersByTurns = await topUsersTask;
-            UsagePerUser = await perUserTask;
+
+            TopUsersByTurns = await UserUsageResolver.ResolveAsync(await topUsersTask, ct);
+            TopTokenUsageByInputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByInputTokensTask, ct);
+            TopTokenUsageByOutputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByOutputTokensTask, ct);
+            TopTokenUsageByEstimatedInputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByEstimatedInputTokensTask, ct);
+            TopTokenUsageByEstimatedOutputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByEstimatedOutputTokensTask, ct);
         }
         catch (OperationCanceledException)
         {

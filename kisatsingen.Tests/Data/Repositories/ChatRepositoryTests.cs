@@ -13,7 +13,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private const string OwnerId = "Whatever";
+    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -320,7 +321,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     {
         var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
 
-        var reloaded = await Repo.GetChatAsync("someone-else", chat.Id);
+        var reloaded = await Repo.GetChatAsync(OtherOwnerId, chat.Id);
 
         Assert.Null(reloaded);
     }
@@ -331,7 +332,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.InsertTurnAsync("someone-else", chat.Id, Row("hi")));
+            () => Repo.InsertTurnAsync(OtherOwnerId, chat.Id, Row("hi")));
     }
 
     [Fact]
@@ -342,7 +343,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         await Repo.InsertTurnAsync(OwnerId, chat.Id, turn);
 
         await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.UpdateTurnAsync("someone-else", chat.Id, Row("hi", id: turn.Id, status: "Completed")));
+            () => Repo.UpdateTurnAsync(OtherOwnerId, chat.Id, Row("hi", id: turn.Id, status: "Completed")));
     }
 
     [Fact]
