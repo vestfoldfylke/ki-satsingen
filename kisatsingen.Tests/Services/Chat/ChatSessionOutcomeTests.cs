@@ -264,18 +264,33 @@ public sealed class ChatSessionOutcomeTests
         Assert.Single(harness.Repository.DeletedChatIds);
     }
 
-    // Announced, the URL would name a chat that no longer exists.
+    // Creating the chat can fail after its row was written, and a row left behind
+    // would make every later message in the chat fail on its id.
     [Fact]
-    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_never_announced()
+    public async Task A_new_chat_that_could_not_be_created_is_deleted()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
-        var announcements = 0;
-        harness.Session.ChatCreated += _ => announcements++;
+        var chatId = harness.Session.ChatId;
+        harness.Repository.CreateChatFailure = new InvalidOperationException("connection lost after the write");
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal((0, (Guid?)null), (announcements, harness.Session.ChatId));
+        Assert.Equal([chatId], harness.Repository.DeletedChatIds);
+    }
+
+    // The page already shows the chat's id, so the next message saves it there.
+    [Fact]
+    public async Task A_new_chat_whose_first_question_cannot_be_saved_is_saved_under_the_same_id_by_the_next_message()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chatId = harness.Session.ChatId;
+        harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
+        await harness.Session.SendAsync("hei");
+        harness.Repository.InsertTurnFailure = null;
+
+        await harness.Session.SendAsync("hei igjen");
+
+        Assert.Equal([chatId, chatId], harness.Repository.CreatedChatIds);
     }
 
     [Fact]
@@ -288,7 +303,7 @@ public sealed class ChatSessionOutcomeTests
             OwnerId = ChatSessionHarness.OwnerUnderTest,
             Title = "stored"
         });
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
@@ -333,7 +348,7 @@ public sealed class ChatSessionOutcomeTests
             ]
         });
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal("Svaret ble ikke fullført", harness.VisibleNotice);
     }

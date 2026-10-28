@@ -74,7 +74,7 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 // wait, as a slow query does, until released or cancelled.
 internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
 {
-    private sealed record StoredFile(string OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
+    private sealed record StoredFile(Guid OwnerId, Guid ChatId, KnowledgeFileMetadata File, string Markdown);
 
     private static readonly TimeSpan HeldLookupTimeout = TimeSpan.FromSeconds(5);
 
@@ -99,7 +99,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     public void ReleaseLookup() => _lookupReleased?.TrySetResult();
 
     // A file saved outside this session: in an earlier one, or from another tab.
-    public KnowledgeFileMetadata SaveElsewhere(string ownerId, Guid chatId, string fileName, byte[] content)
+    public KnowledgeFileMetadata SaveElsewhere(Guid ownerId, Guid chatId, string fileName, byte[] content)
     {
         var now = DateTimeOffset.UtcNow;
         var file = new KnowledgeFileMetadata(
@@ -144,7 +144,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(string ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
     {
         if (FileNamesThatFailToSave.Contains(newFile.FileName))
         {
@@ -175,7 +175,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         return Task.FromResult<KnowledgeFileSaveResult>(new KnowledgeFileSaveResult.Saved(file));
     }
 
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(string ownerId, Guid chatId, CancellationToken ct = default)
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
     {
         lock (_files)
         {
@@ -184,7 +184,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(string ownerId, Guid chatId, string sha256, CancellationToken ct = default)
+    public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(Guid ownerId, Guid chatId, string sha256, CancellationToken ct = default)
     {
         if (FailLookup)
         {
@@ -209,7 +209,7 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileText?> GetChatFileTextAsync(string ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
+    public Task<KnowledgeFileText?> GetChatFileTextAsync(Guid ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         lock (_files)
         {
@@ -218,15 +218,15 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(string ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
-    public Task<KnowledgeFileMetadata?> GetFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
+    public Task<KnowledgeFileMetadata?> GetFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions do not look files up by id.");
 
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(string ownerId, Guid assistantId, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(Guid ownerId, Guid assistantId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
-    public Task<bool> DeleteFileAsync(string ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
+    public Task<bool> DeleteFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions do not delete files.");
 }

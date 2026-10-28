@@ -6,6 +6,14 @@
 ## Hosting
 Host on Linux. Windows works for local development, but hosting on Windows is not tested or supported: the attachment temp folder relies on Unix file permissions and on one app process per temp folder.
 
+## Entra App Registration permissions
+
+This app requires the following `Microsoft Graph` permissions:
+- Delegated
+  - User.Read
+- Application
+  - User.Read.All
+
 ## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json
@@ -53,6 +61,10 @@ Host on Linux. Windows works for local development, but hosting on Windows is no
   // "KnowledgeFilePipeline": {
   //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
   //   "ConversionTimeout": "00:02:00"
+  // },
+  // "Graph": {
+  //   "BaseUrl": "https://graph.microsoft.com/v1.0",
+  //   "Scope": "https://graph.microsoft.com/.default"
   // }
 }
 ```

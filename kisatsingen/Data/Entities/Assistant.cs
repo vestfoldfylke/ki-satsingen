@@ -10,7 +10,7 @@ public sealed class Assistant
     // ExecuteUpdateAsync and reads are AsNoTracking, so a setter would
     // advertise a mutation path that does not exist.
     public Guid Id { get; init; }
-    public required string OwnerId { get; init; }
+    public required Guid OwnerId { get; init; }
     public required string Name { get; init; }
     public string? Description { get; init; }
     public required AssistantVisibility Visibility { get; init; }

@@ -25,7 +25,7 @@ public sealed class ChatSessionModelPersistenceTests
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(ChatLastUsedWith(FakeChatModelCatalog.AlternativeKey.Value));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.AlternativeKey, harness.Session.SelectedModel.Key);
     }
@@ -37,7 +37,7 @@ public sealed class ChatSessionModelPersistenceTests
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(ChatLastUsedWith("a-model-that-was-removed"));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
@@ -51,7 +51,7 @@ public sealed class ChatSessionModelPersistenceTests
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(ChatLastUsedWith(modelKey));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal(FakeChatModelCatalog.DefaultKey, harness.Session.SelectedModel.Key);
     }
@@ -62,7 +62,7 @@ public sealed class ChatSessionModelPersistenceTests
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(ChatLastUsedWith("a-model-that-was-removed"));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal("a-model-that-was-removed", harness.VisibleTurn.ModelDisplayName);
     }

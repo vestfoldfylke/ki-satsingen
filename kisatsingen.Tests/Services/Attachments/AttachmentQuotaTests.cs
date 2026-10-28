@@ -8,8 +8,8 @@ namespace kisatsingen.Tests.Services.Attachments;
 // uploads still in progress.
 public sealed class AttachmentQuotaTests : IDisposable
 {
-    private const string Owner = "owner";
-    private const string OtherOwner = "someone-else";
+    private static readonly Guid Owner = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherOwner = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private const long Kilobyte = 1024;
 
     private readonly AttachmentTestEnvironment _environment = new(new AttachmentOptions
@@ -23,7 +23,7 @@ public sealed class AttachmentQuotaTests : IDisposable
 
     private AttachmentQuota Quota => _environment.Quota;
 
-    private UploadOutcome.Stored CreateUploadingFile(string owner, long size)
+    private UploadOutcome.Stored CreateUploadingFile(Guid owner, long size)
     {
         var (file, stream) = _environment.Storage.CreateFile(owner, Guid.NewGuid());
         using (stream)
@@ -34,7 +34,7 @@ public sealed class AttachmentQuotaTests : IDisposable
         return new UploadOutcome.Stored(file, size, Sha256: "not read by the quota");
     }
 
-    private TempFile CreateReadyFile(string owner, long size)
+    private TempFile CreateReadyFile(Guid owner, long size)
     {
         var stored = CreateUploadingFile(owner, size);
         _environment.Storage.TryMarkReady(stored.File);

@@ -41,20 +41,20 @@ public sealed class ChatSessionKnowledgeFilesTests
         var chat = StoreChat(harness);
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
 
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
         Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
     }
 
     [Fact]
-    public async Task Opening_a_new_chat_empties_the_list()
+    public async Task Starting_a_new_chat_empties_the_list()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
-        await harness.Session.LoadAsync(chat.Id);
+        await harness.Session.OpenChatAsync(chat.Id);
 
-        await harness.Session.LoadAsync(null);
+        await harness.Session.StartNewChatAsync(assistant: null);
 
         Assert.Empty(harness.Session.KnowledgeFiles);
     }
@@ -107,7 +107,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
-        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
 
         await harness.Session.SendAsync("Hva står i notatet?");
@@ -120,7 +120,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
-        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId!.Value, "fra-annen-fane.md", NoteBytes);
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, "fra-annen-fane.md", NoteBytes);
         await AttachAsync(harness, "notat.md");
         await harness.Session.SendAsync("Hva står i notatet?");
 
@@ -142,25 +142,5 @@ public sealed class ChatSessionKnowledgeFilesTests
         await sending;
 
         Assert.Equal(["rask.md"], KnowledgeFileNames(harness));
-    }
-
-    // Reset is what deleting the open chat does: it moves the view on without
-    // stopping the turn, so the file is saved after the view stopped being the
-    // turn's.
-    [Fact]
-    public async Task A_file_saved_after_the_view_moved_on_stays_out_of_the_list()
-    {
-        await using var harness = new ChatSessionHarness();
-        harness.TextConverter.Hold("notat.md");
-        await AttachAsync(harness, "notat.md");
-        var sending = harness.Session.SendAsync("Hva står i notatet?");
-        await harness.TextConverter.WaitUntilStartedAsync("notat.md");
-
-        harness.Session.Reset();
-        harness.TextConverter.Release("notat.md");
-        await sending;
-
-        Assert.Single(harness.KnowledgeFiles.Saved);
-        Assert.Empty(harness.Session.KnowledgeFiles);
     }
 }

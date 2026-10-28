@@ -51,22 +51,13 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    // No-op when the chat is already open, so Session can call this on every
-    // turn without a branch of its own.
-    public async Task<Guid> EnsurePersistedAsync(Guid? existingChatId, string firstMessageText, CancellationToken ct)
+    public async Task CreateChatAsync(Guid chatId, string firstMessageText, Guid? assistantId, CancellationToken ct)
     {
-        if (existingChatId is Guid id)
-        {
-            return id;
-        }
-
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.CreateChatAsync(ownerId, BuildTitle(firstMessageText), assistantId: null, ct);
+        var chat = await _repo.CreateChatAsync(ownerId, chatId, BuildTitle(firstMessageText), assistantId, ct);
 
         _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
         RaiseChanged();
-
-        return chat.Id;
     }
 
     // Called after a turn commits, to move the just-touched chat back to the top

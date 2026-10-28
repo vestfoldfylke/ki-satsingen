@@ -8,10 +8,10 @@ namespace kisatsingen.Services.KnowledgeFiles.Reading;
 // token cap allows.
 public sealed class KnowledgeFileReader(IKnowledgeFileRepository repository) : IKnowledgeFileReader
 {
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(string ownerId, Guid chatId, CancellationToken ct)
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(Guid ownerId, Guid chatId, CancellationToken ct)
         => repository.ListFilesForChatAsync(ownerId, chatId, ct);
 
-    public async Task<KnowledgeFileDocument?> OpenChatFileAsync(string ownerId, Guid chatId, Guid fileId, CancellationToken ct)
+    public async Task<KnowledgeFileDocument?> OpenChatFileAsync(Guid ownerId, Guid chatId, Guid fileId, CancellationToken ct)
     {
         var text = await repository.GetChatFileTextAsync(ownerId, chatId, fileId, ct);
 

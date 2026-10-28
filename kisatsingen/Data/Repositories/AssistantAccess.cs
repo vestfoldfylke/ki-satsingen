@@ -7,6 +7,6 @@ namespace kisatsingen.Data.Repositories;
 // place, so every query that touches assistants applies the same rule.
 internal static class AssistantAccess
 {
-    public static Expression<Func<Assistant, bool>> UsableBy(string userId) =>
+    public static Expression<Func<Assistant, bool>> UsableBy(Guid userId) =>
         assistant => assistant.OwnerId == userId || assistant.Visibility == AssistantVisibility.Organization;
 }
