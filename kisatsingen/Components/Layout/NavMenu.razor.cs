@@ -29,7 +29,10 @@ public partial class NavMenu : ComponentBase, IDisposable
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
-    private async Task HidePopoversAsync()
+    private RenameChatDialog? _renameDialog;
+    private DeleteChatDialog? _deleteDialog;
+
+    private async Task HideSidebarPanelAsync()
     {
         foreach (var popoverId in PopoverIds)
         {
@@ -66,57 +69,6 @@ public partial class NavMenu : ComponentBase, IDisposable
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         await HidePopoversAsync();
-    }
-
-    private async Task RenameChatAsync(Guid id, string currentTitle)
-    {
-        var input = await JS.InvokeAsync<string?>("prompt", "New name:", currentTitle);
-        if (string.IsNullOrWhiteSpace(input) || input.Trim() == currentTitle)
-        {
-            return;
-        }
-
-        try
-        {
-            await Manager.RenameAsync(id, input.Trim(), CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to rename chat {ChatId}", id);
-        }
-    }
-
-    private async Task DeleteChatAsync(Guid id)
-    {
-        var confirmed = await JS.InvokeAsync<bool>("confirm", "Delete this chat?");
-        if (!confirmed)
-        {
-            return;
-        }
-
-        var wasActive = Session.ChatId == id;
-
-        // Before the delete, so the turn's tail can't append to a row that is gone.
-        if (wasActive)
-        {
-            await Session.StopTurnForLeaveAsync();
-        }
-
-        try
-        {
-            await Manager.DeleteAsync(id, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to delete chat {ChatId}", id);
-            return;
-        }
-
-        if (wasActive)
-        {
-            // Replaced: back must not lead to the deleted chat.
-            Navigation.NavigateTo("/new", replace: true);
-        }
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);

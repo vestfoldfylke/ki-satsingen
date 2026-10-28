@@ -15,7 +15,7 @@ public interface IChatRepository
     Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
     Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
 
-    Task RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default);
+    Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default);
 
     // Owner filter is defence in depth — the caller has already resolved
     // identity. Turns cascade via the FK.
