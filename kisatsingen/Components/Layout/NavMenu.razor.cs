@@ -68,7 +68,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        await HidePopoversAsync();
+        await HideSidebarPanelAsync();
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
