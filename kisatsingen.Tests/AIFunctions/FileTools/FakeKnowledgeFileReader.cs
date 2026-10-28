@@ -7,7 +7,7 @@ namespace kisatsingen.Tests.AIFunctions.FileTools;
 
 // One file, readable only through the owner and chat it was given, so the
 // contract tests need no database.
-internal sealed class FakeKnowledgeFileReader(string ownerId, Guid chatId, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
+internal sealed class FakeKnowledgeFileReader(Guid ownerId, Guid chatId, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
 {
     private static readonly DateTimeOffset SavedAt = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
@@ -26,13 +26,13 @@ internal sealed class FakeKnowledgeFileReader(string ownerId, Guid chatId, Guid 
         SavedAt,
         SavedAt);
 
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(string owner, Guid chat, CancellationToken ct) =>
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(Guid owner, Guid chat, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>(IsScope(owner, chat) ? [Metadata] : []);
 
-    public Task<KnowledgeFileDocument?> OpenChatFileAsync(string owner, Guid chat, Guid file, CancellationToken ct) =>
+    public Task<KnowledgeFileDocument?> OpenChatFileAsync(Guid owner, Guid chat, Guid file, CancellationToken ct) =>
         Task.FromResult(IsScope(owner, chat) && file == fileId
             ? new KnowledgeFileDocument(Metadata, DocumentLines.Split(markdown), DocumentOutline.Build(markdown))
             : null);
 
-    private bool IsScope(string owner, Guid chat) => owner == ownerId && chat == chatId;
+    private bool IsScope(Guid owner, Guid chat) => owner == ownerId && chat == chatId;
 }

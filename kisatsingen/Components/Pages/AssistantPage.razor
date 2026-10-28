@@ -1,5 +1,6 @@
 @page "/assistants/{AssistantId:guid}"
 @using kisatsingen.Components.Assistants
+@using kisatsingen.Components.Chat
 @attribute [Authorize]
 
 <PageTitle>@(_assistant?.Name ?? "Assistent")</PageTitle>
@@ -16,7 +17,14 @@
     }
     else
     {
-        <AssistantDetails Assistant="_assistant" OnChanged="LoadAsync" />
-        <AssistantInstructionsCard Assistant="_assistant" OnChanged="LoadAsync" />
+        <AssistantDetails Assistant="_assistant" OnChanged="ApplyEditAsync" />
+        <div class="assistant-body">
+            <div class="assistant-chat">
+                <ChatComposer OnSending="OpenChat" />
+            </div>
+            <div class="assistant-config">
+                <AssistantInstructionsCard Assistant="_assistant" OnChanged="ApplyEditAsync" />
+            </div>
+        </div>
     }
 </div>

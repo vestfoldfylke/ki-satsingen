@@ -1,0 +1,31 @@
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Endre tittel">
+    @if (_isNotFound)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">Denne samtalen er slettet eller du har ikke tilgang lenger.</p>
+        </div>
+    }
+    else if (_errorMessage is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@_errorMessage</p>
+        </div>
+    }
+    else
+    {
+        <EditForm Model="Form" OnValidSubmit="SaveAsync" Context="editContext" class="form-fields">
+            <DataAnnotationsValidator />
+
+            <ds-field class="ds-field">
+                <label class="ds-label">Tittel</label>
+                <InputText class="ds-input" @bind-Value="Form.Title" maxlength="@kisatsingen.Data.Entities.Chat.MaxTitleLength" />
+                <DesignsystemetValidationMessage For="() => Form.Title" />
+            </ds-field>
+
+            <div class="form-actions">
+                <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
+            </div>
+        </EditForm>
+    }
+</ModalDialog>

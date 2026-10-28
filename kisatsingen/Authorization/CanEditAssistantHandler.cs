@@ -20,7 +20,7 @@ public sealed class CanEditAssistantHandler : AuthorizationHandler<CanEditAssist
         CanEditAssistantRequirement requirement,
         Assistant assistant)
     {
-        var isOwner = context.User.GetObjectId() == assistant.OwnerId;
+        var isOwner = Guid.TryParse(context.User.GetObjectId(), out var userId) && userId == assistant.OwnerId;
         var isAdministratorOfOrganizationWide =
             assistant.Visibility == AssistantVisibility.Organization && context.User.IsInRole(requirement.AdministratorRole);
 

@@ -1,6 +1,18 @@
 root = true
 
+[*]
+# Fjerner alt unødvendig mellomrom på slutten av alle linjer
+trim_trailing_whitespace = true
+
+# Sørger for at alle filer har nøyaktig én tom linje helt nederst
+insert_final_newline = true
+
 [*.cs]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+
 # A call that can take a CancellationToken must be given one, so a stop or a
 # timeout reaches every await. Converters depend on it most.
 dotnet_diagnostic.CA2016.severity = error

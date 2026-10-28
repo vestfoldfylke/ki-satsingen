@@ -51,22 +51,13 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    // No-op when the chat is already open, so Session can call this on every
-    // turn without a branch of its own.
-    public async Task<Guid> EnsurePersistedAsync(Guid? existingChatId, string firstMessageText, CancellationToken ct)
+    public async Task CreateChatAsync(Guid chatId, string firstMessageText, Guid? assistantId, CancellationToken ct)
     {
-        if (existingChatId is Guid id)
-        {
-            return id;
-        }
-
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        var chat = await _repo.CreateChatAsync(ownerId, BuildTitle(firstMessageText), assistantId: null, ct);
+        var chat = await _repo.CreateChatAsync(ownerId, chatId, BuildTitle(firstMessageText), assistantId, ct);
 
         _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
         RaiseChanged();
-
-        return chat.Id;
     }
 
     // Called after a turn commits, to move the just-touched chat back to the top
@@ -90,19 +81,25 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
-    public async Task RenameAsync(Guid chatId, string title, CancellationToken ct = default)
+    public async Task<bool> RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
-        // Clearing the rename box means cancel, not "name it nothing" — a UI
-        // intention, which is why it is handled here and not by the repository,
-        // where a blank title is an error.
         var trimmed = title.Trim();
-        if (string.IsNullOrEmpty(trimmed))
+
+        if (_entries.Find(e => e.Id == chatId) is { } entry && entry.Title == trimmed)
         {
-            return;
+            return true;
         }
 
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
-        await _repo.RenameChatAsync(ownerId, chatId, trimmed, ct);
+        var renamed = await _repo.RenameChatAsync(ownerId, chatId, trimmed, ct);
+
+        if (!renamed)
+        {
+            _logger.LogWarning("Attempted to rename chat {ChatId} but no row was affected. Removing from entries as this chat does not exist for this user.", chatId);
+            _entries.RemoveAll(e => e.Id == chatId);
+            RaiseChanged();
+            return renamed;
+        }
 
         var index = _entries.FindIndex(e => e.Id == chatId);
         if (index >= 0)
@@ -110,6 +107,7 @@ public sealed class ChatManager
             _entries[index] = _entries[index] with { Title = trimmed, UpdatedAt = DateTimeOffset.UtcNow };
         }
         RaiseChanged();
+        return true;
     }
 
     public async Task<bool> DeleteAsync(Guid chatId, CancellationToken ct = default)
@@ -120,7 +118,6 @@ public sealed class ChatManager
         if (!deleted)
         {
             _logger.LogWarning("Attempted to delete chat {ChatId} but no row was affected.", chatId);
-            return deleted;
         }
 
         _entries.RemoveAll(e => e.Id == chatId);

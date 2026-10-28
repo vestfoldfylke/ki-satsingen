@@ -17,7 +17,7 @@ internal sealed class TurnAttachmentProcessor(
 {
     // Releases the file once it settles: it then stops counting against the
     // owner's quota, while the answer may stream for minutes.
-    public async Task<TurnAttachmentResult> ProcessAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
+    public async Task<TurnAttachmentResult> ProcessAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
         try
         {
@@ -34,7 +34,7 @@ internal sealed class TurnAttachmentProcessor(
     // A failed lookup only loses the reuse: the file is processed as new, and
     // the unique index refuses a twin's save. A stop is not a failure, so it
     // propagates.
-    private async Task<KnowledgeFileMetadata?> FindSavedFileAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
+    private async Task<KnowledgeFileMetadata?> FindSavedFileAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
         try
         {
@@ -48,7 +48,7 @@ internal sealed class TurnAttachmentProcessor(
     }
 
     // A converter bug is that file's reason, not the turn's failure.
-    private async Task<TurnAttachmentResult> ProcessAsNewAsync(string ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
+    private async Task<TurnAttachmentResult> ProcessAsNewAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
     {
         KnowledgeFilePipelineResult result;
         try
@@ -75,7 +75,7 @@ internal sealed class TurnAttachmentProcessor(
     // CancellationToken.None: a processed file is saved even if stop comes
     // now. A failed save is that file's reason, not the turn's failure; only
     // the save is caught, so a bug below still fails the turn.
-    private async Task<TurnAttachmentResult> SaveAsync(string ownerId, Guid chatId, ReadyAttachment attachment, NewKnowledgeFile newFile)
+    private async Task<TurnAttachmentResult> SaveAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, NewKnowledgeFile newFile)
     {
         KnowledgeFileSaveResult saveResult;
         try

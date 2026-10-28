@@ -24,7 +24,7 @@ public sealed class KnowledgeFile
     // Denormalised from the owning assistant or chat so repository queries can
     // filter by owner without a join. Safe only while nothing transfers
     // ownership of an assistant or a chat.
-    public required string OwnerId { get; init; }
+    public required Guid OwnerId { get; init; }
 
     // Exactly one is set — see the check constraint in AppDbContext.
     public Guid? AssistantId { get; init; }

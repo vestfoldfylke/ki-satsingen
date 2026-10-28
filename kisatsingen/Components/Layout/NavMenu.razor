@@ -12,11 +12,10 @@
                 <div class="logo-container ds-paragraph">
                     vfKI
                 </div>
-                <button class="ds-button nav-primary-button" type="button" data-variant="tertiary" data-color="accent"
-                        popovertarget="@SidebarPanelId" popovertargetaction="hide" @onclick="StartNewChatAsync">
+                <a class="ds-button nav-primary-button" href="/new" data-variant="tertiary" data-color="accent">
                     <span class="material-symbols-outlined" aria-hidden="true">edit_square</span>
                     Ny samtale
-                </button>
+                </a>
                 <a class="ds-button nav-primary-button" href="/assistants" data-variant="tertiary" data-color="accent">
                     <span class="material-symbols-outlined" aria-hidden="true">smart_toy</span>
                     Assistenter
@@ -61,17 +60,18 @@
                                      id="@menuId" popover>
                                     <ul>
                                         <li>
-                                            <button type="button" data-size="sm" class="ds-button" data-variant="tertiary"
-                                                    @onclick="() => RenameChatAsync(entry.Id, entry.Title)">
+                                            <button type="button" class="ds-button" data-variant="tertiary" command="show-modal"
+                                                    commandfor="rename-chat-dialog" @onclick="() => _renameDialog?.Load(entry)">
                                                 <span class="material-symbols-outlined" aria-hidden="true">edit</span>
-                                                Endre
+                                                Endre navn
                                             </button>
                                         </li>
                                         <li>
-                                            <button type="button" data-size="sm" class="ds-button" data-variant="tertiary"
-                                                    @onclick="() => DeleteChatAsync(entry.Id)">
+                                            <button type="button" class="ds-button" data-variant="tertiary" data-color="danger"
+                                                    command="show-modal" commandfor="delete-chat-dialog"
+                                                    @onclick="() => _deleteDialog?.Load(entry)">
                                                 <span class="material-symbols-outlined" aria-hidden="true">delete</span>
-                                                Slett
+                                                Slett samtale
                                             </button>
                                         </li>
                                     </ul>
@@ -81,6 +81,9 @@
                     }
                 </ul>
             }
+
+            <RenameChatDialog @ref="_renameDialog" Id="rename-chat-dialog" />
+            <DeleteChatDialog @ref="_deleteDialog" Id="delete-chat-dialog" />
         </aside>
 
         <div class="user-menu">
