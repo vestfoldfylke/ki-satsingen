@@ -221,15 +221,9 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
-    public Task<KnowledgeFileMetadata?> GetFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
-        throw new NotSupportedException("Chat sessions do not look files up by id.");
-
     public Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 
     public Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default) =>
-        throw new NotSupportedException("Chat sessions do not delete files.");
-
-    public Task<bool> DeleteFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions do not delete files.");
 }

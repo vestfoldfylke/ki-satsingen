@@ -7,9 +7,8 @@ using Xunit;
 
 namespace kisatsingen.Tests.Data.Repositories;
 
-// An assistant's files are reached through who may use the assistant, not
-// through who owns the file: an organization-wide assistant's files are its
-// owner's, and everyone uses them.
+// An assistant's files are reached through who may use the assistant, so
+// everyone reads an organization-wide assistant's files.
 [Collection(PostgresCollection.Name)]
 public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
@@ -51,13 +50,14 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
 
     // As when an administrator adds a file to someone else's assistant.
     [Fact]
-    public async Task A_file_added_to_someone_elses_organization_wide_assistant_is_owned_by_the_assistants_owner()
+    public async Task A_file_added_to_someone_elses_organization_wide_assistant_is_listed_for_its_owner()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Felles", null, AssistantVisibility.Organization);
 
-        var added = await AddAsync(OtherUserId, assistant.Id, "rundskriv.md");
+        await AddAsync(OtherUserId, assistant.Id, "rundskriv.md");
 
-        Assert.Equal(OwnerId, await StoredOwnerIdAsync(added.Id));
+        var listed = await Repo.ListFilesForAssistantAsync(OwnerId, assistant.Id);
+        Assert.Equal(["rundskriv.md"], listed.Select(file => file.FileName));
     }
 
     [Fact]
@@ -173,12 +173,6 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
     // Distinct content, so no file is a duplicate of another.
     private static NewKnowledgeFile NumberedFile(int number) =>
         KnowledgeFileFactory.NewFile($"fil-{number}.md", $"# Fil {number}\n");
-
-    private async Task<Guid> StoredOwnerIdAsync(Guid fileId)
-    {
-        await using var db = await Factory.CreateDbContextAsync();
-        return await db.KnowledgeFiles.Where(f => f.Id == fileId).Select(f => f.OwnerId).SingleAsync();
-    }
 
     private async Task<int> CountFilesAsync()
     {

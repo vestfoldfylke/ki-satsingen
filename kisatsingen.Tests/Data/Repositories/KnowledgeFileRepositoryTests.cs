@@ -38,9 +38,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
 
         var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
-        var found = await Repo.GetFileAsync(OwnerId, saved.Id);
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
 
-        Assert.Equal(saved, found);
+        Assert.Equal(saved, Assert.Single(listed));
     }
 
     [Fact]
@@ -247,14 +247,25 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task GetFileAsync_returns_null_for_another_owners_file()
+    public async Task Another_owners_chat_files_are_never_listed()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
+        await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
 
-        var found = await Repo.GetFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
 
-        Assert.Null(found);
+        Assert.Empty(listed);
+    }
+
+    [Fact]
+    public async Task Another_owners_chat_file_is_never_read()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
+        var saved = Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"))).File;
+
+        var text = await Repo.GetChatFileTextAsync(OwnerId, chat.Id, saved.Id);
+
+        Assert.Null(text);
     }
 
     [Fact]
@@ -317,29 +328,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         Assert.Equal(0, await CountFilesAsync());
     }
 
-    [Fact]
-    public async Task DeleteFileAsync_removes_the_file()
-    {
-        var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
-
-        var deleted = await Repo.DeleteFileAsync(OwnerId, saved.Id);
-
-        Assert.True(deleted);
-        Assert.Equal(0, await CountFilesAsync());
-    }
-
-    [Fact]
-    public async Task DeleteFileAsync_reports_false_for_another_owners_file()
-    {
-        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
-
-        var deleted = await Repo.DeleteFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
-
-        Assert.False(deleted);
-    }
-
     // Reaches past the repository, whose two create methods cannot express these
     // states, to prove the database refuses them anyway.
     [Fact]
@@ -387,13 +375,12 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         await db.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO "KnowledgeFiles"
-                ("Id", "OwnerId", "AssistantId", "ChatId", "FileName", "ContentType", "SizeBytes", "Sha256",
+                ("Id", "AssistantId", "ChatId", "FileName", "ContentType", "SizeBytes", "Sha256",
                  "Markdown", "LineCount", "EstimatedTokenCount", "ContentOrigin", "Version", "CreatedAt", "UpdatedAt")
-            VALUES (@id, @ownerId, @assistantId, @chatId, 'notat.md', 'text/markdown', 1024, 'abc',
+            VALUES (@id, @assistantId, @chatId, 'notat.md', 'text/markdown', 1024, 'abc',
                     'tekst', 1, 1, @contentOrigin, 1, now(), now())
             """,
             new NpgsqlParameter("id", Guid.NewGuid()),
-            new NpgsqlParameter("ownerId", OwnerId),
             new NpgsqlParameter("contentOrigin", contentOrigin),
             UuidParameter("assistantId", assistantId),
             UuidParameter("chatId", chatId));
