@@ -1,3 +1,3 @@
 namespace kisatsingen.Data.Entities;
 
-public sealed record ChatSummary(Guid Id, string Title, DateTimeOffset UpdatedAt);
+public sealed record ChatSummary(Guid Id, string Title, Guid? AssistantId, DateTimeOffset UpdatedAt);
