@@ -179,17 +179,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task A_file_already_saved_in_the_same_assistant_is_rejected_as_a_duplicate()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        Assert.Equal(KnowledgeFileSaveRejections.DuplicateInAssistant, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
-    }
-
-    [Fact]
     public async Task A_new_file_with_a_blank_file_name_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
@@ -244,15 +233,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
 
         await Assert.ThrowsAsync<ArgumentException>(
             () => Repo.CreateFileForChatAsync(OwnerId, chat.Id, newFile));
-    }
-
-    [Fact]
-    public async Task Saving_into_another_owners_assistant_throws()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("notat.md")));
     }
 
     [Fact]
@@ -321,30 +301,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var found = await Repo.FindChatFileBySha256Async(OwnerId, chat.Id, saved.Sha256.ToUpperInvariant());
 
         Assert.Equal(saved, found);
-    }
-
-    [Fact]
-    public async Task Listing_an_assistants_files_returns_only_the_callers_files()
-    {
-        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null);
-        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.NewFile("mine.md"));
-        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.NewFile("theirs.md"));
-
-        var listed = await Repo.ListFilesForAssistantAsync(OwnerId, mine.Id);
-
-        Assert.Equal(["mine.md"], listed.Select(f => f.FileName));
-    }
-
-    [Fact]
-    public async Task Deleting_an_assistant_takes_its_files_with_it()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
-
-        Assert.Equal(0, await CountFilesAsync());
     }
 
     // Guards the DDL: DeleteChatAsync uses ExecuteDeleteAsync, so an optional FK

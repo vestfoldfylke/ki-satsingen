@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Linq.Expressions;
 using kisatsingen.Data.Entities;
 using kisatsingen.Services;
@@ -31,20 +32,20 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
     private static readonly Func<KnowledgeFile, KnowledgeFileMetadata> ToMetadata = MetadataProjection.Compile();
 
-    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default)
-        => CreateAsync(ownerId, assistantId, chatId: null, newFile, ct);
+    public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default)
+        => CreateAsync(userId, assistantId, chatId: null, newFile, ct);
 
-    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid ownerId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
-        => CreateAsync(ownerId, assistantId: null, chatId, newFile, ct);
+    public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid userId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default)
+        => CreateAsync(userId, assistantId: null, chatId, newFile, ct);
 
     // The single write path, and the only place the nullable scope pair exists.
     // Every stored text passes through here, so this is where the guarantees
     // the read tools depend on are enforced, whatever converter produced it.
-    private async Task<KnowledgeFileSaveResult> CreateAsync(Guid ownerId, Guid? assistantId, Guid? chatId, NewKnowledgeFile newFile, CancellationToken ct)
+    private async Task<KnowledgeFileSaveResult> CreateAsync(Guid userId, Guid? assistantId, Guid? chatId, NewKnowledgeFile newFile, CancellationToken ct)
     {
         var normalisedFileName = BoundedText.RequireTrimmed(newFile.FileName, "Knowledge file name", KnowledgeFile.MaxFileNameLength);
         var normalisedContentType = BoundedText.RequireTrimmed(newFile.ContentType, "Knowledge file content type", KnowledgeFile.MaxContentTypeLength);
-        var normalisedSha256 = NormaliseSha256(newFile.Sha256);
+        var normalisedSha256 = KnowledgeFileSha256.Normalise(newFile.Sha256);
         var normalisedSummary = BoundedText.TrimToNullable(newFile.Summary, "Knowledge file summary", KnowledgeFile.MaxSummaryLength);
 
         if (newFile.SizeBytes <= 0)
@@ -88,6 +89,29 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         }
 
         var now = TruncateToMicroseconds(DateTimeOffset.UtcNow);
+
+        await using var db = await factory.CreateDbContextAsync(ct);
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        Guid ownerId;
+        switch (assistantId, chatId)
+        {
+            case (Guid resolvedAssistantId, null):
+                ownerId = await LockAssistantForNewFileAsync(db, userId, resolvedAssistantId, now, ct);
+
+                // After the lock: two files added at once are counted one after the other.
+                if (await IsAssistantFullAsync(db, resolvedAssistantId, ct))
+                {
+                    return new KnowledgeFileSaveResult.Rejected(KnowledgeFileSaveRejections.AssistantFull);
+                }
+                break;
+            case (null, Guid resolvedChatId):
+                ownerId = await TouchChatForNewFileAsync(db, userId, resolvedChatId, now, ct);
+                break;
+            default:
+                throw new UnreachableException("A knowledge file is created for an assistant or a chat; the public methods pass exactly one.");
+        }
+
         var file = new KnowledgeFile
         {
             Id = Guid.NewGuid(),
@@ -108,11 +132,6 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             CreatedAt = now,
             UpdatedAt = now
         };
-
-        await using var db = await factory.CreateDbContextAsync(ct);
-        await using var transaction = await db.Database.BeginTransactionAsync(ct);
-
-        await TouchScopeAsync(db, ownerId, assistantId, chatId, now, ct);
 
         db.KnowledgeFiles.Add(file);
 
@@ -158,65 +177,53 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         };
     }
 
-    // Exactly 64 hex chars, normalised to lowercase so the DB representation is
-    // canonical regardless of which pipeline produced it — which the unique
-    // indexes depend on.
-    private static string NormaliseSha256(string sha256)
+    // Checks only that the user may use the assistant: whether they may add
+    // files to it (CanEditAssistant) is authorized before the repository is
+    // called. Locks the assistant's row until the transaction ends by bumping
+    // UpdatedAt. Returns the assistant's owner: the file belongs to the
+    // assistant's owner even when someone else, such as an administrator,
+    // adds it.
+    private static async Task<Guid> LockAssistantForNewFileAsync(AppDbContext db, Guid userId, Guid assistantId, DateTimeOffset updatedAt, CancellationToken ct)
     {
-        if (sha256.Length != KnowledgeFile.Sha256HexLength || !IsLowerableHex(sha256))
+        var updatedCount = await db.Assistants
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.UpdatedAt, updatedAt), ct);
+
+        if (updatedCount == 0)
         {
-            // Truncate the offending input in the message so a caller passing a
-            // multi-megabyte blob does not push that whole payload into logs.
-            const int previewLength = 16;
-            var preview = sha256.Length <= previewLength ? sha256 : sha256[..previewLength] + "…";
-            throw new ArgumentException(
-                $"SHA-256 must be exactly {KnowledgeFile.Sha256HexLength} hexadecimal characters (got {sha256.Length}: '{preview}').",
-                nameof(sha256));
+            throw new InvalidOperationException(
+                $"Assistant {assistantId} is not available to this user, so no file can be added to it. Re-list the user's assistants and retry.");
         }
-        return sha256.ToLowerInvariant();
+
+        return await db.Assistants
+            .Where(a => a.Id == assistantId)
+            .Select(a => a.OwnerId)
+            .SingleAsync(ct);
     }
 
-    private static bool IsLowerableHex(string value)
+    private static async Task<bool> IsAssistantFullAsync(AppDbContext db, Guid assistantId, CancellationToken ct)
     {
-        foreach (var c in value)
-        {
-            var isHex = (c is >= '0' and <= '9') || (c is >= 'a' and <= 'f') || (c is >= 'A' and <= 'F');
-            if (!isHex)
-            {
-                return false;
-            }
-        }
-        return true;
+        var fileCount = await db.KnowledgeFiles.CountAsync(f => f.AssistantId == assistantId, ct);
+        return fileCount >= Assistant.MaxKnowledgeFiles;
     }
 
-    // Verifies the parent is the caller's and bumps its UpdatedAt. Unlike
+    // Verifies the chat is the user's and bumps its UpdatedAt. Unlike
     // ChatRepository.TouchChatAsync this is not also a concurrency guard —
-    // files carry no shared ordering sequence to serialise on.
-    private static async Task TouchScopeAsync(AppDbContext db, Guid ownerId, Guid? assistantId, Guid? chatId, DateTimeOffset updatedAt, CancellationToken ct)
+    // files carry no shared ordering sequence to serialise on. Returns the
+    // user, who owns every file in their chat.
+    private static async Task<Guid> TouchChatForNewFileAsync(AppDbContext db, Guid userId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
-        if (assistantId is Guid resolvedAssistantId)
-        {
-            var updatedCount = await db.Assistants
-                .Where(a => a.Id == resolvedAssistantId && a.OwnerId == ownerId)
-                .ExecuteUpdateAsync(s => s.SetProperty(a => a.UpdatedAt, updatedAt), ct);
-
-            if (updatedCount == 0)
-            {
-                throw new InvalidOperationException($"Assistant {resolvedAssistantId} was not found for the specified owner.");
-            }
-
-            return;
-        }
-
-        var resolvedChatId = chatId!.Value;
-        var updatedChatCount = await db.Chats
-            .Where(c => c.Id == resolvedChatId && c.OwnerId == ownerId)
+        var updatedCount = await db.Chats
+            .Where(c => c.Id == chatId && c.OwnerId == userId)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.UpdatedAt, updatedAt), ct);
 
-        if (updatedChatCount == 0)
+        if (updatedCount == 0)
         {
-            throw new InvalidOperationException($"Chat {resolvedChatId} was not found for the specified owner.");
+            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
         }
+
+        return userId;
     }
 
     public async Task<KnowledgeFileMetadata?> GetFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default)
@@ -241,7 +248,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
     // Normalised the way saving does, so the two can never disagree.
     public async Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(Guid ownerId, Guid chatId, string sha256, CancellationToken ct = default)
     {
-        var normalisedSha256 = NormaliseSha256(sha256);
+        var normalisedSha256 = KnowledgeFileSha256.Normalise(sha256);
         await using var db = await factory.CreateDbContextAsync(ct);
         return await db.KnowledgeFiles
             .Where(f => f.ChatId == chatId && f.Sha256 == normalisedSha256 && f.OwnerId == ownerId)
@@ -249,10 +256,11 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             .FirstOrDefaultAsync(ct);
     }
 
-    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(Guid ownerId, Guid assistantId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        return await ListMetadata(db.KnowledgeFiles.Where(f => f.AssistantId == assistantId && f.OwnerId == ownerId)).ToListAsync(ct);
+        var usableAssistants = db.Assistants.Where(AssistantAccess.UsableBy(userId));
+        return await ListMetadata(db.KnowledgeFiles.Where(f => f.AssistantId == assistantId && usableAssistants.Any(a => a.Id == assistantId))).ToListAsync(ct);
     }
 
     public async Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)
@@ -265,6 +273,16 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         => files
             .OrderBy(f => f.CreatedAt)
             .Select(MetadataProjection);
+
+    public async Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var usableAssistants = db.Assistants.Where(AssistantAccess.UsableBy(userId));
+        var deletedCount = await db.KnowledgeFiles
+            .Where(f => f.Id == knowledgeFileId && f.AssistantId == assistantId && usableAssistants.Any(a => a.Id == assistantId))
+            .ExecuteDeleteAsync(ct);
+        return deletedCount > 0;
+    }
 
     public async Task<bool> DeleteFileAsync(Guid ownerId, Guid knowledgeFileId, CancellationToken ct = default)
     {
