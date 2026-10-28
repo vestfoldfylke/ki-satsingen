@@ -157,7 +157,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         }
     }
 
-    public async Task RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default)
+    public async Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default)
     {
         // Refused rather than a no-op: a rename that quietly does nothing looks
         // identical to one that worked.
@@ -171,10 +171,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
                 .SetProperty(c => c.Title, trimmed)
                 .SetProperty(c => c.UpdatedAt, DateTimeOffset.UtcNow), ct);
 
-        if (updatedChatCount == 0)
-        {
-            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
-        }
+        return updatedChatCount > 0;
     }
 
     public async Task<bool> DeleteChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default)

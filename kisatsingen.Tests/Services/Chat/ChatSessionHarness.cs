@@ -224,8 +224,8 @@ internal sealed class FakeChatRepository : IChatRepository
         return Task.CompletedTask;
     }
 
-    public Task RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default) =>
-        Task.CompletedTask;
+    public Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default) =>
+        Task.FromResult(true);
 
     public List<Guid> DeletedChatIds { get; } = [];
 
