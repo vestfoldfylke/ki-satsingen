@@ -38,9 +38,9 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
 
         var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
-        var found = await Repo.GetFileAsync(OwnerId, saved.Id);
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
 
-        Assert.Equal(saved, found);
+        Assert.Equal(saved, Assert.Single(listed));
     }
 
     [Fact]
@@ -179,17 +179,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task A_file_already_saved_in_the_same_assistant_is_rejected_as_a_duplicate()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        Assert.Equal(KnowledgeFileSaveRejections.DuplicateInAssistant, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
-    }
-
-    [Fact]
     public async Task A_new_file_with_a_blank_file_name_is_refused()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
@@ -247,15 +236,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task Saving_into_another_owners_assistant_throws()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
-
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("notat.md")));
-    }
-
-    [Fact]
     public async Task Saving_into_another_owners_chat_throws_and_leaves_nothing_behind()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
@@ -267,14 +247,25 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     }
 
     [Fact]
-    public async Task GetFileAsync_returns_null_for_another_owners_file()
+    public async Task Another_owners_chat_files_are_never_listed()
     {
         var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
+        await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
 
-        var found = await Repo.GetFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
+        var listed = await Repo.ListFilesForChatAsync(OwnerId, chat.Id);
 
-        Assert.Null(found);
+        Assert.Empty(listed);
+    }
+
+    [Fact]
+    public async Task Another_owners_chat_file_is_never_read()
+    {
+        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
+        var saved = Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"))).File;
+
+        var text = await Repo.GetChatFileTextAsync(OwnerId, chat.Id, saved.Id);
+
+        Assert.Null(text);
     }
 
     [Fact]
@@ -323,30 +314,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         Assert.Equal(saved, found);
     }
 
-    [Fact]
-    public async Task Listing_an_assistants_files_returns_only_the_callers_files()
-    {
-        var mine = await AssistantRepo.CreateAssistantAsync(OwnerId, "Mine", null);
-        var theirs = await AssistantRepo.CreateAssistantAsync(OtherOwnerId, "Theirs", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, mine.Id, KnowledgeFileFactory.NewFile("mine.md"));
-        await Repo.CreateFileForAssistantAsync(OtherOwnerId, theirs.Id, KnowledgeFileFactory.NewFile("theirs.md"));
-
-        var listed = await Repo.ListFilesForAssistantAsync(OwnerId, mine.Id);
-
-        Assert.Equal(["mine.md"], listed.Select(f => f.FileName));
-    }
-
-    [Fact]
-    public async Task Deleting_an_assistant_takes_its_files_with_it()
-    {
-        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
-        await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
-
-        await AssistantRepo.DeleteAssistantAsync(OwnerId, assistant.Id);
-
-        Assert.Equal(0, await CountFilesAsync());
-    }
-
     // Guards the DDL: DeleteChatAsync uses ExecuteDeleteAsync, so an optional FK
     // left at EF's default would emit SET NULL and break the check constraint.
     [Fact]
@@ -359,29 +326,6 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
 
         Assert.True(deleted);
         Assert.Equal(0, await CountFilesAsync());
-    }
-
-    [Fact]
-    public async Task DeleteFileAsync_removes_the_file()
-    {
-        var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
-        var saved = await SaveIntoChatAsync(chat.Id, KnowledgeFileFactory.NewFile("notat.md"));
-
-        var deleted = await Repo.DeleteFileAsync(OwnerId, saved.Id);
-
-        Assert.True(deleted);
-        Assert.Equal(0, await CountFilesAsync());
-    }
-
-    [Fact]
-    public async Task DeleteFileAsync_reports_false_for_another_owners_file()
-    {
-        var chat = await ChatRepo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
-        var saved = await Repo.CreateFileForChatAsync(OtherOwnerId, chat.Id, KnowledgeFileFactory.NewFile("hemmelig.md"));
-
-        var deleted = await Repo.DeleteFileAsync(OwnerId, Assert.IsType<KnowledgeFileSaveResult.Saved>(saved).File.Id);
-
-        Assert.False(deleted);
     }
 
     // Reaches past the repository, whose two create methods cannot express these
@@ -431,13 +375,12 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
         await db.Database.ExecuteSqlRawAsync(
             """
             INSERT INTO "KnowledgeFiles"
-                ("Id", "OwnerId", "AssistantId", "ChatId", "FileName", "ContentType", "SizeBytes", "Sha256",
+                ("Id", "AssistantId", "ChatId", "FileName", "ContentType", "SizeBytes", "Sha256",
                  "Markdown", "LineCount", "EstimatedTokenCount", "ContentOrigin", "Version", "CreatedAt", "UpdatedAt")
-            VALUES (@id, @ownerId, @assistantId, @chatId, 'notat.md', 'text/markdown', 1024, 'abc',
+            VALUES (@id, @assistantId, @chatId, 'notat.md', 'text/markdown', 1024, 'abc',
                     'tekst', 1, 1, @contentOrigin, 1, now(), now())
             """,
             new NpgsqlParameter("id", Guid.NewGuid()),
-            new NpgsqlParameter("ownerId", OwnerId),
             new NpgsqlParameter("contentOrigin", contentOrigin),
             UuidParameter("assistantId", assistantId),
             UuidParameter("chatId", chatId));
