@@ -98,7 +98,14 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             case (Guid resolvedAssistantId, null):
                 await LockAssistantForNewFileAsync(db, userId, resolvedAssistantId, now, ct);
 
-                // After the lock: two files added at once are counted one after the other.
+                // Before the full check, so a file the assistant already has is
+                // reported as a duplicate even when the assistant is full.
+                if (await HasAssistantFileAsync(db, resolvedAssistantId, normalisedSha256, ct))
+                {
+                    return new KnowledgeFileSaveResult.Rejected(KnowledgeFileSaveRejections.DuplicateInAssistant);
+                }
+
+                // After the lock, so files added at once are counted one at a time.
                 if (await IsAssistantFullAsync(db, resolvedAssistantId, ct))
                 {
                     return new KnowledgeFileSaveResult.Rejected(KnowledgeFileSaveRejections.AssistantFull);
@@ -175,10 +182,7 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         };
     }
 
-    // Checks only that the user may use the assistant: whether they may add
-    // files to it (CanEditAssistant) is authorized before the repository is
-    // called. Locks the assistant's row until the transaction ends by bumping
-    // UpdatedAt.
+    // Bumping UpdatedAt also locks the assistant's row until the transaction ends.
     private static async Task LockAssistantForNewFileAsync(AppDbContext db, Guid userId, Guid assistantId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedCount = await db.Assistants
@@ -192,6 +196,9 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
                 $"Assistant {assistantId} is not available to this user, so no file can be added to it. Re-list the user's assistants and retry.");
         }
     }
+
+    private static Task<bool> HasAssistantFileAsync(AppDbContext db, Guid assistantId, string sha256, CancellationToken ct)
+        => db.KnowledgeFiles.AnyAsync(f => f.AssistantId == assistantId && f.Sha256 == sha256, ct);
 
     private static async Task<bool> IsAssistantFullAsync(AppDbContext db, Guid assistantId, CancellationToken ct)
     {
@@ -208,7 +215,8 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         if (updatedCount == 0)
         {
-            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
+            throw new InvalidOperationException(
+                $"Chat {chatId} does not exist or is not this user's, so no file can be added to it.");
         }
     }
 
@@ -254,13 +262,33 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
             .OrderBy(f => f.CreatedAt)
             .Select(MetadataProjection);
 
+    // Bumps the assistant's UpdatedAt, as adding a file does. When no file is
+    // deleted, the transaction rolls back on dispose, and the bump with it.
     public async Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
-        var usableAssistants = db.Assistants.Where(AssistantAccess.UsableBy(userId));
+        await using var transaction = await db.Database.BeginTransactionAsync(ct);
+
+        var updatedCount = await db.Assistants
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
+        if (updatedCount == 0)
+        {
+            return false;
+        }
+
         var deletedCount = await db.KnowledgeFiles
-            .Where(f => f.Id == knowledgeFileId && f.AssistantId == assistantId && usableAssistants.Any(a => a.Id == assistantId))
+            .Where(f => f.Id == knowledgeFileId && f.AssistantId == assistantId)
             .ExecuteDeleteAsync(ct);
-        return deletedCount > 0;
+
+        if (deletedCount == 0)
+        {
+            return false;
+        }
+
+        await transaction.CommitAsync(ct);
+        return true;
     }
 }

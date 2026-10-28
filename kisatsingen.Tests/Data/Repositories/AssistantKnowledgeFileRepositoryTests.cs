@@ -72,12 +72,12 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
-    public async Task A_file_already_in_the_assistant_is_rejected_as_a_duplicate()
+    public async Task A_file_already_in_the_assistant_is_rejected_as_a_duplicate_even_when_the_assistant_is_full()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
-        await AddAsync(OwnerId, assistant.Id, "rundskriv.md");
+        await FillAsync(assistant.Id, fileCount: 20);
 
-        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, KnowledgeFileFactory.NewFile("rundskriv.md"));
+        var result = await Repo.CreateFileForAssistantAsync(OwnerId, assistant.Id, NumberedFile(1));
 
         Assert.Equal(KnowledgeFileSaveRejections.DuplicateInAssistant, Assert.IsType<KnowledgeFileSaveResult.Rejected>(result).Reason);
     }
@@ -118,6 +118,18 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
 
         Assert.True(isDeleted);
         Assert.Equal(0, await CountFilesAsync());
+    }
+
+    [Fact]
+    public async Task Deleting_a_file_from_an_assistant_marks_the_assistant_as_changed()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);
+        var added = await AddAsync(OwnerId, assistant.Id, "rundskriv.md");
+        var updatedAtBeforeDelete = await ReadUpdatedAtAsync(assistant.Id);
+
+        await Repo.DeleteAssistantFileAsync(OwnerId, assistant.Id, added.Id);
+
+        Assert.True(await ReadUpdatedAtAsync(assistant.Id) > updatedAtBeforeDelete);
     }
 
     [Fact]
@@ -168,6 +180,12 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
         {
             Assert.IsType<KnowledgeFileSaveResult.Saved>(await Repo.CreateFileForAssistantAsync(OwnerId, assistantId, NumberedFile(number)));
         }
+    }
+
+    private async Task<DateTimeOffset> ReadUpdatedAtAsync(Guid assistantId)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        return (await db.Assistants.SingleAsync(a => a.Id == assistantId)).UpdatedAt;
     }
 
     // Distinct content, so no file is a duplicate of another.
