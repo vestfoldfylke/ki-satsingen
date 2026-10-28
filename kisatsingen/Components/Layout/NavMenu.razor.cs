@@ -40,6 +40,7 @@ public partial class NavMenu : ComponentBase, IDisposable
             }
             catch (JSDisconnectedException)
             {
+                // The circuit is gone, so there is no page left to hide the panel on.
                 return;
             }
             catch (Exception ex)
