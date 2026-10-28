@@ -145,14 +145,15 @@ public sealed class ChatSessionAssistantTests
     [Fact]
     public async Task The_estimated_context_counts_the_assistants_instructions()
     {
-        await using var plainChat = new ChatSessionHarness();
-        await using var assistantChat = new ChatSessionHarness();
-        await assistantChat.Session.StartNewChatAsync(NewAssistant(instructions: new string('i', 3_000)));
+        await using var shortInstructionsChat = new ChatSessionHarness();
+        await using var longInstructionsChat = new ChatSessionHarness();
+        await shortInstructionsChat.Session.StartNewChatAsync(NewAssistant(instructions: "i"));
+        await longInstructionsChat.Session.StartNewChatAsync(NewAssistant(instructions: new string('i', 3_000)));
 
-        await plainChat.Session.SendAsync("hei");
-        await assistantChat.Session.SendAsync("hei");
+        await shortInstructionsChat.Session.SendAsync("hei");
+        await longInstructionsChat.Session.SendAsync("hei");
 
-        Assert.True(assistantChat.Session.EstimatedContextTokens > plainChat.Session.EstimatedContextTokens);
+        Assert.True(longInstructionsChat.Session.EstimatedContextTokens > shortInstructionsChat.Session.EstimatedContextTokens);
     }
 
     private static Assistant NewAssistant(string instructions = AssistantInstructions, Guid? id = null) => new()
