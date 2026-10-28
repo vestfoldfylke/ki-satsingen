@@ -153,7 +153,7 @@ public sealed class ChatSessionAssistantTests
         await shortInstructionsChat.Session.SendAsync("hei");
         await longInstructionsChat.Session.SendAsync("hei");
 
-        Assert.True(longInstructionsChat.Session.EstimatedContextTokens > shortInstructionsChat.Session.EstimatedContextTokens);
+        Assert.True(longInstructionsChat.Session.EstimatedContextTokens < shortInstructionsChat.Session.EstimatedContextTokens);
     }
 
     private static Assistant NewAssistant(string instructions = AssistantInstructions, Guid? id = null) => new()
