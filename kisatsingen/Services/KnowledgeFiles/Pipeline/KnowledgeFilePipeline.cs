@@ -9,7 +9,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Pipeline;
 // A file in, a new knowledge file out, through fixed steps in order:
 // convert, check size, outline, summarize. Knows nothing of chats or
 // assistants, and never deletes the temp file: whoever owns it does.
-[SuppressMessage("Reliability", "CA1001", Justification = "Nothing to dispose: the semaphore holds no OS resources, and disposing it at shutdown could break a conversion still in progress.")]
+[SuppressMessage("Reliability", "CA1001", Justification = "A singleton that lives as long as the app; disposing it at shutdown could break a conversion still in progress.")]
 public sealed class KnowledgeFilePipeline(
     DocumentConverterRegistry converters,
     IDocumentSummarizer summarizer,

@@ -50,6 +50,9 @@ dotnet_naming_rule.private_fields_are_underscore_camel_case.symbols = private_fi
 dotnet_naming_rule.private_fields_are_underscore_camel_case.style = underscore_camel_case
 dotnet_naming_rule.private_fields_are_underscore_camel_case.severity = warning
 
+# Without this, the build doesn't check the naming rules above.
+dotnet_diagnostic.IDE1006.severity = warning
+
 # A call that can take a CancellationToken must be given one, so a stop or a
 # timeout reaches every await. Converters depend on it most.
 dotnet_diagnostic.CA2016.severity = error
