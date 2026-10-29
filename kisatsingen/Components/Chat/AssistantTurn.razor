@@ -24,7 +24,7 @@
                             data-variant="tertiary" data-size="sm" data-copy-turn-id="@Turn.Id" aria-label="Kopier"
                             data-tooltip="Kopier" @onclick="async () => await InitiateCopyVisuals()">
                         <span class="material-symbols-outlined" aria-hidden="true">@(_copied ? "check" :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "content_copy")</span>
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           "content_copy")</span>
                         </button>
                     }
 
@@ -39,7 +39,8 @@
                 </time>
             </footer>
 
-            <div id="@PopoverId" class="ds-popover assistant-metadata" popover="auto" data-placement="top" data-color="neutral">
+            <div id="@PopoverId" class="ds-popover assistant-metadata" popover="auto" data-placement="top" data-color="neutral"
+                 @ontoggle="() => _showFullPrompt = false">
                 <dl class="assistant-metadata-list">
                     @if (DescribeModel(Turn) is { } modelDescription)
                     {
@@ -88,8 +89,18 @@
                         }
                     }
                     <dt>System instructions</dt>
-                    <dd class="assistant-metadata-system">@Turn.SystemPrompt</dd>
-                </dl>
-            </div>
-        }
-    </div>
+                    <dd>
+                        <div @key="_showFullPrompt" class="assistant-metadata-system @(_showFullPrompt ? "expanded" : "")">
+                            @Turn.SystemPrompt</div>
+                            @if (Turn.SystemPrompt?.Length > 160)
+                            {
+                                <button class="ds-link assistant-metadata-toggle" data-variant="tertiary" data-color="neutral"
+                                        aria-expanded="@_showFullPrompt" @onclick="() => _showFullPrompt = !_showFullPrompt">
+                                    @(_showFullPrompt ? "Vis mindre" : "Vis mer")
+                                </button>
+                            }
+                        </dd>
+                    </dl>
+                </div>
+            }
+        </div>

@@ -27,5 +27,54 @@
 }
 
 .assistant-metadata {
-    min-width: 50rem;
+    width: min(28rem, 90vw);
+    max-width: none;
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    line-height: 1.4;
+}
+
+.assistant-metadata-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.4rem 1rem;
+    margin: 0;
+}
+
+.assistant-metadata-list dt {
+    opacity: 0.65;
+    font-weight: 500;
+}
+
+.assistant-metadata-list dd {
+    margin: 0;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.assistant-metadata-usage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+}
+
+.assistant-metadata-system {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    white-space: pre-wrap;
+}
+
+.assistant-metadata-system.expanded {
+    display: block;
+    max-height: 15rem;
+    overflow-y: auto;
+}
+
+.assistant-metadata-toggle {
+    margin-top: 0.5rem;
+    font-size: 0.7rem;
+    text-decoration: none;
 }
