@@ -7,6 +7,8 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
+    private const int TooltipOnChatListTitleLengthThreshold = 45;
+
     private const string SidebarPanelId = "sidebar-panel";
 
     [Inject]
