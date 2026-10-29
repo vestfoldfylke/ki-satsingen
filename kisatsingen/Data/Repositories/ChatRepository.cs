@@ -89,7 +89,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         return await db.Chats
             .Where(c => c.OwnerId == ownerId)
             .OrderByDescending(c => c.UpdatedAt)
-            .Select(c => new ChatSummary(c.Id, c.Title, c.UpdatedAt))
+            .Select(c => new ChatSummary(c.Id, c.Title, c.AssistantId, c.UpdatedAt))
             .ToListAsync(ct);
     }
 

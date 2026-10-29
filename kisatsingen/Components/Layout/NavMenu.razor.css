@@ -5,7 +5,7 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: 0 .5rem;
+    padding: 0 .3rem;
 }
 
 .logo-container {
@@ -136,14 +136,14 @@
 }
 
 .chat-list-items > li {
-    margin-top: 0.1rem;
+    margin-top: 0.3rem;
 }
 
 .chat-list-item, .user-menu-item {
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    padding: 0.2rem 0.5rem;
+    padding: 0.3rem 0.5rem;
     border-radius: 0.375rem;
     height: 2rem;
     overflow: hidden;
@@ -153,7 +153,7 @@
     background: #eef2f6;
 }
 
-.chat-list-item:hover .chat-list-item-option-button {
+.chat-list-item:is(:hover, :focus-within) .chat-list-item-option-button {
     opacity: 1;
     transition: opacity 0.02s ease-in-out;
 }
@@ -198,8 +198,10 @@
 .chat-list-link {
     flex: 1;
     min-width: 0;
+    gap: 0.6rem;
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
     text-decoration: none;
     color: inherit;
 }
@@ -234,4 +236,9 @@
 
 .user-menu-button .ds-avatar {
     --dsc-avatar-size: 1.7rem;
+}
+
+.chat-list-bullet {
+    font-size: 1rem;
+    opacity: 0.6;
 }
