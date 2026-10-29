@@ -70,6 +70,11 @@ This app requires the following `Microsoft Graph` permissions:
 ```
 - run app `dotnet watch --project kisatsingen`
 
+### Formatting
+Rules live in `.editorconfig`. `dotnet format` covers C# only; Razor markup is formatted by hand (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+- Check: `dotnet format --verify-no-changes`
+- Fix: `dotnet format`
+
 ### Local db
 #### Startup postgres
 - `docker compose up -d`
