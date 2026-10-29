@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace kisatsingen.Services.Chat;
 
-// The open chat view's attachments, for one tab: picked in the composer,
+// The open chat view's attachments, for one tab: selected in the composer,
 // uploaded to temp files, and owned here until they are sent or discarded.
 //
 // No lock: it is only ever used from its circuit's dispatcher, which runs one
@@ -48,14 +48,14 @@ public sealed class ChatAttachments(
 
         // All listed up front, so the whole selection shows at once and a file
         // that is not acceptable is refused before any bytes move.
-        var picked = new List<ComposerAttachment>();
+        var selectedAttachments = new List<ComposerAttachment>();
         var waiting = new List<(ComposerAttachment Attachment, IBrowserFile File, AttachmentType Type)>();
         foreach (var file in selection.GetMultipleFiles(AttachmentOptions.MaxFilesPerSelection))
         {
             var fileName = AttachmentFileName.Normalize(file.Name);
             var attachment = new ComposerAttachment(fileName, file.Size);
             _attachments.Add(attachment);
-            picked.Add(attachment);
+            selectedAttachments.Add(attachment);
 
             switch (uploader.Check(fileName, file.Size))
             {
@@ -81,7 +81,7 @@ public sealed class ChatAttachments(
         // Counted here, from the final status, so no way of refusing a file can
         // be missed; from the selection's own list, since a reset or the
         // circuit closing can empty _attachments meanwhile.
-        foreach (var attachment in picked)
+        foreach (var attachment in selectedAttachments)
         {
             if (attachment.Rejection is UploadRejection rejection)
             {
@@ -112,7 +112,7 @@ public sealed class ChatAttachments(
 
         try
         {
-            // Checked as the upload starts rather than when picked: uploads in a
+            // Checked as the upload starts rather than when selected: uploads in a
             // tab run one after another, so previously attached files are on disk
             // at their real size.
             if (quota.CheckDeclaredSizeFits(ownerId, attachment.DeclaredSizeBytes) is QuotaCheck.Rejected quotaRejection)

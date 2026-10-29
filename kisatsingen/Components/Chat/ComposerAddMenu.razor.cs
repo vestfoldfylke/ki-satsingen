@@ -40,9 +40,9 @@ public sealed partial class ComposerAddMenu : ComponentBase
     private string FileLimitsText =>
         $"Maks {ByteSize.Format(Options.MaxFileBytes)} per fil, opptil {AttachmentOptions.MaxFilesPerSelection} filer om gangen";
 
-    // Choosing a file is a click inside the popover, which popover="auto"
+    // Selecting files is a click inside the popover, which popover="auto"
     // doesn't treat as a dismissal, so the menu would stay open over the upload.
-    private async Task OnFilesChosen(InputFileChangeEventArgs args)
+    private async Task RaiseFilesSelectedAsync(InputFileChangeEventArgs args)
     {
         try
         {

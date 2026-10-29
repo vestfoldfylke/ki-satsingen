@@ -38,7 +38,7 @@
                        The alert is included because tabbing straight to the
                        input skips over it. *@
                     <InputFile class="visually-hidden"
-                               OnChange="OnFilesChosen"
+                               OnChange="RaiseFilesSelectedAsync"
                                multiple
                                accept="@AttachmentContentTypes.AcceptAttribute"
                                aria-labelledby="@FilePickerNameId"

@@ -23,9 +23,9 @@ public abstract record UploadOutcome
     public sealed record Rejected(UploadRejection Reason) : UploadOutcome;
 }
 
-// Copies a picked file to a temp file one buffer at a time, hashing it and
-// checking its size and signature on the way. Does not check the quota (see
-// AttachmentQuota).
+// Copies a file selected in the browser to a temp file one buffer at a time,
+// hashing it and checking its size and signature on the way. Does not check
+// the quota (see AttachmentQuota).
 public sealed class AttachmentUploader(
     AttachmentStorage storage,
     AttachmentOptions options,
