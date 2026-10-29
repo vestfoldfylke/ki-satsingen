@@ -1,5 +1,4 @@
 using kisatsingen.Tests.Data.Repositories;
-using kisatsingen.Services.Attachments;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;

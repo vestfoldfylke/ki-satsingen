@@ -27,7 +27,7 @@ public class GraphService : IGraphService
         "id",
         "userPrincipalName"
     ];
-    
+
     public GraphService(IConfiguration configuration)
     {
         _graphBaseUrl = configuration["Graph:BaseUrl"] ?? DefaultGraphBaseUrl;
@@ -61,7 +61,7 @@ public class GraphService : IGraphService
                 allUsers.AddRange(usersResponse.Value ?? []);
             }
         }
- 
+
         return allUsers;
     }
 
