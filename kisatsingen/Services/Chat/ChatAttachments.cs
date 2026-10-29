@@ -13,9 +13,7 @@ public sealed class ChatAttachments(
     IAuthenticationService authenticationService,
     AttachmentUploader uploader,
     AttachmentQuota quota,
-    AttachmentOptions options,
-    AttachmentMetrics metrics,
-    ILogger<ChatAttachments> logger) : IDisposable
+    AttachmentMetrics metrics) : IDisposable
 {
     private readonly List<ComposerAttachment> _attachments = [];
 
@@ -55,24 +53,19 @@ public sealed class ChatAttachments(
         foreach (var file in selection.GetMultipleFiles(AttachmentOptions.MaxFilesPerSelection))
         {
             var fileName = AttachmentFileName.Normalize(file.Name);
-            var type = AttachmentContentTypes.FromFileName(fileName);
             var attachment = new ComposerAttachment(fileName, file.Size);
             _attachments.Add(attachment);
             picked.Add(attachment);
 
-            if (type is null)
+            switch (uploader.Check(fileName, file.Size))
             {
-                attachment.MarkRejected(UploadRejections.UnsupportedType);
-                continue;
+                case UploadCheck.Accepted accepted:
+                    waiting.Add((attachment, file, accepted.Type));
+                    break;
+                case UploadCheck.Rejected rejected:
+                    attachment.MarkRejected(rejected.Reason);
+                    break;
             }
-
-            if (FindUnacceptableSizeReason(file.Size) is UploadRejection reason)
-            {
-                attachment.MarkRejected(reason);
-                continue;
-            }
-
-            waiting.Add((attachment, file, type));
         }
 
         Changed?.Invoke();
@@ -96,14 +89,6 @@ public sealed class ChatAttachments(
             }
         }
     }
-
-    // Null when acceptable. The declared size is the browser's claim: good
-    // enough to refuse an honest oversized file before any bytes are read,
-    // never trusted to count it.
-    private UploadRejection? FindUnacceptableSizeReason(long declaredSizeBytes) =>
-        declaredSizeBytes < 0 ? UploadRejections.UnreadableSize
-        : declaredSizeBytes > options.MaxFileBytes ? UploadRejections.TooLarge(options.MaxFileBytes)
-        : null;
 
     // Never throws: this runs in a UI event handler, where an exception would
     // end the circuit. Announces the upload starting and its progress; the
@@ -139,15 +124,11 @@ public sealed class ChatAttachments(
             attachment.MarkUploading();
             Changed?.Invoke();
 
-            await using var uploadStream = file.OpenReadStream(options.MaxFileBytes, cancellation);
-            var uploadDuration = metrics.StartUpload();
-            var outcome = await uploader.UploadAsync(uploadStream, ownerId, attachment.AttachmentId, type, options.MaxFileBytes, progress, cancellation);
+            var outcome = await uploader.UploadAsync(ownerId, attachment.AttachmentId, file, type, progress, cancellation);
 
             switch (outcome)
             {
-                // Recorded before the duplicate and quota checks: the bytes moved either way.
                 case UploadOutcome.Stored stored:
-                    metrics.RecordUpload(uploadDuration, stored.SizeBytes);
                     MarkReadyIfAccepted(ownerId, attachment, type, stored);
                     break;
                 case UploadOutcome.Rejected rejected:
@@ -158,19 +139,6 @@ public sealed class ChatAttachments(
         // Removed, or the view moved on: the attachment is already gone.
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
-        }
-        // Only the attachment folder can be missing, and then every upload fails
-        // until a restart recreates it.
-        catch (DirectoryNotFoundException ex)
-        {
-            logger.LogError(ex, "The attachment folder is gone, so attachment {AttachmentId} could not be uploaded. Restart the app to recreate it.", attachment.AttachmentId);
-            attachment.MarkRejected(UploadRejections.Unavailable);
-        }
-        // A lost connection mid-upload surfaces as whatever the stream throws.
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed.", attachment.AttachmentId);
-            attachment.MarkRejected(UploadRejections.Interrupted);
         }
     }
 

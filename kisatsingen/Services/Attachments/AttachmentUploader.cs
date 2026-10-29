@@ -1,7 +1,17 @@
 using System.Buffers;
 using System.Security.Cryptography;
+using Microsoft.AspNetCore.Components.Forms;
 
 namespace kisatsingen.Services.Attachments;
+
+public abstract record UploadCheck
+{
+    private UploadCheck() { }
+
+    public sealed record Accepted(AttachmentType Type) : UploadCheck;
+
+    public sealed record Rejected(UploadRejection Reason) : UploadCheck;
+}
 
 // Only the nested cases can derive, so an outcome is always Stored or Rejected.
 public abstract record UploadOutcome
@@ -13,22 +23,84 @@ public abstract record UploadOutcome
     public sealed record Rejected(UploadRejection Reason) : UploadOutcome;
 }
 
-// Copies an upload to a temp file in one pass: hashing, counting against the
-// size limit and checking the type's signature as the bytes go by. Never holds
-// more than one buffer of the file in memory.
-public sealed class AttachmentUploader(AttachmentStorage storage)
+// Copies a picked file to a temp file one buffer at a time, hashing it and
+// checking its size and signature on the way. Does not check the quota (see
+// AttachmentQuota).
+public sealed class AttachmentUploader(
+    AttachmentStorage storage,
+    AttachmentOptions options,
+    AttachmentMetrics metrics,
+    ILogger<AttachmentUploader> logger)
 {
     // The default bufferSize documented for Stream.CopyToAsync. A tuning value,
     // not a correctness one: any positive size copies correctly, so change it
     // only after measuring uploads.
     private const int CopyBufferSize = 81_920;
 
+    // Before any bytes move. The declared size comes from the browser, so it
+    // only refuses early; UploadAsync counts the real bytes.
+    public UploadCheck Check(string fileName, long declaredSizeBytes)
+    {
+        if (AttachmentContentTypes.FromFileName(fileName) is not AttachmentType type)
+        {
+            return new UploadCheck.Rejected(UploadRejections.UnsupportedType);
+        }
+
+        if (declaredSizeBytes < 0)
+        {
+            return new UploadCheck.Rejected(UploadRejections.UnreadableSize);
+        }
+
+        if (declaredSizeBytes > options.MaxFileBytes)
+        {
+            return new UploadCheck.Rejected(UploadRejections.TooLarge(options.MaxFileBytes));
+        }
+
+        return new UploadCheck.Accepted(type);
+    }
+
+    // Throws only when cancelled; any other failure is returned as Rejected.
     public async Task<UploadOutcome> UploadAsync(
+        Guid ownerId,
+        Guid attachmentId,
+        IBrowserFile file,
+        AttachmentType acceptedType,
+        IProgress<long> progress,
+        CancellationToken ct)
+    {
+        try
+        {
+            await using var uploadStream = file.OpenReadStream(options.MaxFileBytes, ct);
+            var uploadDuration = metrics.StartUpload();
+            var outcome = await UploadStreamAsync(uploadStream, ownerId, attachmentId, acceptedType, progress, ct);
+
+            // Even if the file is refused later: the bytes were uploaded.
+            if (outcome is UploadOutcome.Stored stored)
+            {
+                metrics.RecordUpload(uploadDuration, stored.SizeBytes);
+            }
+
+            return outcome;
+        }
+        // Only the attachment folder can be missing. A restart recreates it.
+        catch (DirectoryNotFoundException ex)
+        {
+            logger.LogError(ex, "The attachment folder is gone, so attachment {AttachmentId} could not be uploaded. Restart the app to recreate it.", attachmentId);
+            return new UploadOutcome.Rejected(UploadRejections.Unavailable);
+        }
+        // A lost connection can surface as any exception from the stream.
+        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Uploading attachment {AttachmentId} failed.", attachmentId);
+            return new UploadOutcome.Rejected(UploadRejections.Interrupted);
+        }
+    }
+
+    private async Task<UploadOutcome> UploadStreamAsync(
         Stream uploadStream,
         Guid ownerId,
         Guid attachmentId,
         AttachmentType type,
-        long maxBytes,
         IProgress<long> progress,
         CancellationToken ct)
     {
@@ -40,7 +112,7 @@ public sealed class AttachmentUploader(AttachmentStorage storage)
             // Closed before the file is either returned or deleted below.
             await using (tempFileStream)
             {
-                outcome = await CopyToTempFileAsync(uploadStream, tempFile, tempFileStream, type, maxBytes, progress, ct);
+                outcome = await CopyToTempFileAsync(uploadStream, tempFile, tempFileStream, type, options.MaxFileBytes, progress, ct);
             }
 
             return outcome;

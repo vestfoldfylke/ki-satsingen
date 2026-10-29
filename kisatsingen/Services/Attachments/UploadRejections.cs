@@ -18,11 +18,10 @@ internal static class UploadRejections
         "interrupted",
         "Opplastingen ble avbrutt. Prøv igjen.");
 
-    // The attachment folder is gone: nothing the user does helps until the app
-    // is restarted.
+    // The attachment folder is gone or unreadable. Only a restart fixes it.
     public static UploadRejection Unavailable { get; } = new(
         "unavailable",
-        "Vi beklager, vedlegg virker ikke akkurat nå. Feilen må rettes av en systemadministrator.");
+        "Vi beklager, opplasting av filer virker ikke akkurat nå. Feilen må rettes av en systemadministrator.");
 
     public static UploadRejection AlreadyPending { get; } = new("already_pending", "Denne filen er allerede valgt.");
 
@@ -37,7 +36,7 @@ internal static class UploadRejections
 
     public static UploadRejection UnsupportedType => new(
         "unsupported_type",
-        $"Filtypen støttes ikke. Du kan legge ved {AttachmentContentTypes.AllowedKindsWithExtensionsText}.");
+        $"Filtypen støttes ikke. Du kan laste opp {AttachmentContentTypes.AllowedKindsWithExtensionsText}.");
 
     public static UploadRejection TooLarge(long maxBytes) => new(
         "too_large",

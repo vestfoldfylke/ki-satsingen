@@ -6,13 +6,22 @@ namespace kisatsingen.Tests.Services.Attachments;
 
 public sealed class AttachmentUploaderTests : IDisposable
 {
-    private readonly AttachmentTestEnvironment _environment = new();
+    private const long MaxFileBytes = 1024;
+
+    private readonly AttachmentTestEnvironment _environment = new(new AttachmentOptions { MaxFileBytes = MaxFileBytes });
     private static readonly IProgress<long> IgnoredProgress = new Progress<long>();
 
     public void Dispose() => _environment.Dispose();
 
-    private Task<UploadOutcome> UploadAsync(Stream source, AttachmentType type, long maxBytes = 1024, CancellationToken ct = default) =>
-        _environment.Uploader.UploadAsync(source, Guid.NewGuid(), Guid.NewGuid(), type, maxBytes, IgnoredProgress, ct);
+    // Declared as 0 bytes, so only the uploader's own count enforces the size limit.
+    private Task<UploadOutcome> UploadAsync(Stream source, AttachmentType type, CancellationToken ct = default) =>
+        _environment.Uploader.UploadAsync(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            new FakeBrowserFile("fil", () => source, size: 0),
+            type,
+            IgnoredProgress,
+            ct);
 
     [Fact]
     public async Task A_stored_file_holds_exactly_the_uploaded_bytes()
@@ -35,9 +44,9 @@ public sealed class AttachmentUploaderTests : IDisposable
     [Fact]
     public async Task A_file_over_the_limit_is_rejected_and_leaves_nothing_on_disk()
     {
-        var outcome = await UploadAsync(new MemoryStream(new byte[2048]), AttachmentContentTypes.PlainText, maxBytes: 1024);
+        var outcome = await UploadAsync(new MemoryStream(new byte[MaxFileBytes + 1]), AttachmentContentTypes.PlainText);
 
-        Assert.IsType<UploadOutcome.Rejected>(outcome);
+        Assert.Equal(new UploadOutcome.Rejected(UploadRejections.TooLarge(MaxFileBytes)), outcome);
         Assert.Empty(_environment.FilesOnDisk);
     }
 
@@ -75,11 +84,21 @@ public sealed class AttachmentUploaderTests : IDisposable
     }
 
     [Fact]
+    public async Task A_file_uploaded_after_the_attachment_folder_is_gone_is_rejected_as_unavailable()
+    {
+        Directory.Delete(_environment.Folder, recursive: true);
+
+        var outcome = await UploadAsync(new MemoryStream(UploadBytes.Text), AttachmentContentTypes.PlainText);
+
+        Assert.Equal(new UploadOutcome.Rejected(UploadRejections.Unavailable), outcome);
+    }
+
+    [Fact]
     public async Task A_cancelled_upload_leaves_nothing_on_disk()
     {
         var reached = new TaskCompletionSource();
         using var cancellation = new CancellationTokenSource();
-        var upload = UploadAsync(new StallingStream(UploadBytes.Text, reached), AttachmentContentTypes.PlainText, ct: cancellation.Token);
+        var upload = UploadAsync(new StallingStream(UploadBytes.Text, reached), AttachmentContentTypes.PlainText, cancellation.Token);
         await reached.Task;
 
         await cancellation.CancelAsync();

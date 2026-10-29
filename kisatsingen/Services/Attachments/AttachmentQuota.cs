@@ -21,7 +21,9 @@ public abstract record QuotaCheck
 //   progress included, so a user cannot start more than their limits allow.
 // - Finishing is fair: only files already ready count, plus this one, so a
 //   finished file is never pushed out by an upload that may still fail.
-public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions options)
+//
+// A folder that cannot be read gives Unavailable instead of throwing.
+public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions options, ILogger<AttachmentQuota> logger)
 {
     private readonly Lock _markReadyLock = new();
 
@@ -32,12 +34,19 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
     {
         ArgumentOutOfRangeException.ThrowIfNegative(declaredSizeBytes);
 
-        var ownerUsage = storage.UsageOf(ownerId);
-        var totalUsage = storage.TotalUsage();
-        return CheckFits(
-            ownerUsage.FileCount + 1,
-            ownerUsage.ByteCount + declaredSizeBytes,
-            totalUsage.ByteCount + declaredSizeBytes);
+        try
+        {
+            var ownerUsage = storage.UsageOf(ownerId);
+            var totalUsage = storage.TotalUsage();
+            return CheckFits(
+                ownerUsage.FileCount + 1,
+                ownerUsage.ByteCount + declaredSizeBytes,
+                totalUsage.ByteCount + declaredSizeBytes);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return RejectForUnreadableFolder(ex);
+        }
     }
 
     // Decides with the stored file at its real size, and marks it ready under
@@ -48,12 +57,20 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
     {
         lock (_markReadyLock)
         {
-            var ownerReady = storage.ReadyUsageOf(ownerId);
-            var totalReady = storage.TotalReadyUsage();
-            var check = CheckFits(
-                ownerReady.FileCount + 1,
-                ownerReady.ByteCount + stored.SizeBytes,
-                totalReady.ByteCount + stored.SizeBytes);
+            QuotaCheck check;
+            try
+            {
+                var ownerReady = storage.ReadyUsageOf(ownerId);
+                var totalReady = storage.TotalReadyUsage();
+                check = CheckFits(
+                    ownerReady.FileCount + 1,
+                    ownerReady.ByteCount + stored.SizeBytes,
+                    totalReady.ByteCount + stored.SizeBytes);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                check = RejectForUnreadableFolder(ex);
+            }
 
             if (check is QuotaCheck.Rejected)
             {
@@ -69,6 +86,12 @@ public sealed class AttachmentQuota(AttachmentStorage storage, AttachmentOptions
 
             return check;
         }
+    }
+
+    private QuotaCheck.Rejected RejectForUnreadableFolder(Exception ex)
+    {
+        logger.LogError(ex, "The attachment folder could not be read, so the quota cannot be checked. Restart the app to recreate the folder.");
+        return new QuotaCheck.Rejected(UploadRejections.Unavailable);
     }
 
     // The owner's own limits are named first: the user can act on them ("send
