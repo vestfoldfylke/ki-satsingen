@@ -1,0 +1,33 @@
+@using kisatsingen.Services.Attachments
+
+<div>
+    <p id="@AlertId" class="ds-alert ds-paragraph attachment-picker-alert" data-size="xs">
+        Ikke last opp personopplysninger eller taushetsbelagt informasjon, som elevsaker, helseopplysninger eller personalsaker.
+    </p>
+
+    @* A label rather than a button, so the browser opens the picker itself
+       with no script. The input is visually hidden rather than display:none,
+       so the keyboard can still reach it. *@
+    <label class="ds-button attachment-picker-button"
+           data-variant="tertiary"
+           data-color="neutral"
+           aria-disabled="@(IsDisabled ? "true" : null)">
+        <span class="attachment-picker-heading">
+            <span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
+            <span id="@NameId" class="ds-paragraph" data-size="sm">@Label</span>
+        </span>
+        <span id="@KindsId" class="ds-paragraph" data-size="xs">@FileKindsText</span>
+        <span id="@LimitsId" class="ds-paragraph" data-size="xs">@FileLimitsText</span>
+        @* Named by the heading alone: the wrapping label would name it with
+           the lines below too, which aria-describedby already reads. The
+           alert is included because tabbing straight to the input skips
+           over it. *@
+        <InputFile class="visually-hidden"
+                   OnChange="OnFilesSelected"
+                   multiple
+                   accept="@AttachmentContentTypes.AcceptAttribute"
+                   aria-labelledby="@NameId"
+                   aria-describedby="@($"{AlertId} {KindsId} {LimitsId}")"
+                   disabled="@IsDisabled" />
+    </label>
+</div>
