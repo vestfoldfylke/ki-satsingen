@@ -9,7 +9,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 {
     private const string SidebarPanelId = "sidebar-panel";
     private const string UserMenuId = "user-menu-dropdown";
-    private static readonly string[] PopoverIds = [SidebarPanelId, UserMenuId];
+    private static readonly string[] MenuIdsToHideOnNavigation = [SidebarPanelId, UserMenuId];
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -32,23 +32,23 @@ public partial class NavMenu : ComponentBase, IDisposable
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;
 
-    private async Task HideSidebarPanelAsync()
+    private async Task HideMenusAsync()
     {
-        foreach (var popoverId in PopoverIds)
+        foreach (var menuId in MenuIdsToHideOnNavigation)
         {
             try
             {
-                await using var popover = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", popoverId);
+                await using var popover = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", menuId);
                 await popover.InvokeVoidAsync("hidePopover");
             }
             catch (JSDisconnectedException)
             {
-                // The circuit is gone, so there is no page left to hide the panel on.
+                // The circuit is gone, so there is no page left to hide the menus on.
                 return;
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Failed to hide {PopoverId} after navigation; it stays open", popoverId);
+                Logger.LogWarning(ex, "Failed to hide {PopoverId} after navigation; it stays open", menuId);
             }
         }
     }
@@ -68,7 +68,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        await HideSidebarPanelAsync();
+        await HideMenusAsync();
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);
