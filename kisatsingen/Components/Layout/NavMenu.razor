@@ -65,6 +65,7 @@
                                         class="material-symbols-outlined chat-list-bullet"
                                         aria-hidden="true"
                                     >@(entry.AssistantId is null ? "fiber_manual_record" : "smart_toy")</span>
+                                    <span class="ds-sr-only">@(entry.AssistantId is not null ? "Assistent" : null)</span>
                                     <span class="chat-list-title">@entry.Title</span>
                                 </a>
                                 <button
