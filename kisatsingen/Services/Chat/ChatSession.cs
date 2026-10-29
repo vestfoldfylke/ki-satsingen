@@ -2,7 +2,6 @@ using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
-using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
