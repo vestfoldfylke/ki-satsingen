@@ -3,6 +3,9 @@
         <!-- Check the .editorconfig style rules when building, not only in the editor. -->
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
 
+        <!-- Microsoft's recommended set of code quality rules. Exceptions are in .editorconfig. -->
+        <AnalysisMode>Recommended</AnalysisMode>
+
         <!-- Needed for the build to report unused usings (IDE0005). We don't use the XML docs. -->
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
 

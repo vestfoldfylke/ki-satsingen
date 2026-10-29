@@ -54,6 +54,32 @@ dotnet_naming_rule.private_fields_are_underscore_camel_case.severity = warning
 # timeout reaches every await. Converters depend on it most.
 dotnet_diagnostic.CA2016.severity = error
 
+# Logging performance doesn't pay off at this scale.
+dotnet_diagnostic.CA1848.severity = suggestion
+dotnet_diagnostic.CA1873.severity = suggestion
+
+# We use IReadOnlyList for lists that must not be changed; this rule suggests List only for a speed-up.
+dotnet_diagnostic.CA1859.severity = none
+
+# Only matters to VB.NET callers.
+dotnet_diagnostic.CA1716.severity = none
+
+[kisatsingen.Tests/**.cs]
+# Test names are snake_case sentences.
+dotnet_diagnostic.CA1707.severity = none
+
+# xUnit collection definitions are named ...Collection.
+dotnet_diagnostic.CA1711.severity = none
+
+# Tests throw runtime-reserved exceptions to prove they aren't swallowed.
+dotnet_diagnostic.CA2201.severity = none
+
+# A constant array in a test runs once; caching it buys nothing.
+dotnet_diagnostic.CA1861.severity = none
+
+# Test doubles live only as long as one test.
+dotnet_diagnostic.CA1001.severity = none
+
 # EF writes these, with a byte-order mark; style rules would only flag what the
 # next migration rewrites.
 [**/Migrations/*.cs]
