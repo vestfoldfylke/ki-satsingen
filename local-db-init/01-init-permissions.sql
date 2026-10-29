@@ -7,7 +7,7 @@ CREATE ROLE kisatsingen_web_app WITH LOGIN PASSWORD 'kisatsingen_web_app_local_d
 GRANT CONNECT ON DATABASE kisatsingen_dev_db TO kisatsingen_web_app;
 
 -- 3. Automate CRUD permissions on any FUTURE tables that EF Core creates.
--- This ensures that whenever 'local_user' creates tables via migrations, 
+-- This ensures that whenever 'local_user' creates tables via migrations,
 -- 'kisatsingen_web_app' instantly gets read/write rights without manual grants.
 ALTER DEFAULT PRIVILEGES FOR ROLE local_user IN SCHEMA public -- In the future, whenever the specific user local_user creates a new table or sequence inside the public schema, automatically apply the following permissions to other users.
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO kisatsingen_web_app;
