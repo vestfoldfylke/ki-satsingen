@@ -134,7 +134,9 @@ public static class VestfoldPdfConverter
 
         var lines = GroupWordsIntoLines(words);
         if (lines.Count == 0)
+        {
             return string.Empty;
+        }
 
         var bodyFontSize = DetectBodyFontSize(lines);
         var paragraphs = GroupLinesIntoParagraphs(lines);
@@ -145,7 +147,9 @@ public static class VestfoldPdfConverter
         {
             var text = paragraph.Text;
             if (string.IsNullOrWhiteSpace(text))
+            {
                 continue;
+            }
 
             var roundedFontSize = Math.Round(paragraph.FontSize, 1);
             if (IsHeadingCandidate(paragraph, bodyFontSize) && headingLevelMap.TryGetValue(roundedFontSize, out var level))
@@ -193,7 +197,9 @@ public static class VestfoldPdfConverter
         }
 
         if (currentLineWords.Count > 0)
+        {
             lines.Add(CreateTextLine(currentLineWords));
+        }
 
         return lines;
     }
@@ -245,7 +251,9 @@ public static class VestfoldPdfConverter
     {
         var paragraphs = new List<ParagraphInfo>();
         if (lines.Count == 0)
+        {
             return paragraphs;
+        }
 
         var currentLines = new List<TextLine> { lines[0] };
 
@@ -286,7 +294,9 @@ public static class VestfoldPdfConverter
         }
 
         if (currentLines.Count > 0)
+        {
             paragraphs.Add(CreateParagraph(currentLines));
+        }
 
         return paragraphs;
     }
@@ -303,11 +313,15 @@ public static class VestfoldPdfConverter
         {
             var fontSize = Math.Max(lines[i - 1].FontSize, lines[i].FontSize);
             if (fontSize <= 0 || Math.Abs(lines[i - 1].FontSize - lines[i].FontSize) > 1.0)
+            {
                 continue;
+            }
 
             var ratio = (lines[i - 1].Y - lines[i].Y) / fontSize;
             if (ratio is > 0.8 and < 1.9)
+            {
                 ratios.Add(Math.Round(ratio, 1));
+            }
         }
 
         return ratios.Count < 2
@@ -320,7 +334,10 @@ public static class VestfoldPdfConverter
         // ENDRET: slå sammen linjer med håndtering av bindestrek på slutten av linjen.
         var builder = new StringBuilder();
         foreach (var line in lines)
+        {
             AppendLine(builder, line.Text);
+        }
+
         var text = builder.ToString();
         var avgFontSize = lines.Average(l => l.FontSize);
         var avgBoldRatio = lines.Average(l => l.BoldRatio);
@@ -354,7 +371,10 @@ public static class VestfoldPdfConverter
         if (endsWithHyphen && char.IsLetter(line[0]) && !WordsKeepingHyphen.Contains(firstWord))
         {
             if (char.IsLower(sb[^2]) && char.IsLower(line[0]))
+            {
                 sb.Length--; // orddeling: fjern streken
+            }
+
             sb.Append(line);
         }
         else
@@ -366,7 +386,9 @@ public static class VestfoldPdfConverter
     private static Dictionary<double, int> BuildHeadingLevelMap(List<ParagraphInfo> paragraphs, double bodyFontSize)
     {
         if (bodyFontSize <= 0 || paragraphs.Count == 0)
+        {
             return [];
+        }
 
         var roundedBodyFontSize = Math.Round(bodyFontSize, 1);
         var headingSizes = paragraphs
@@ -379,7 +401,9 @@ public static class VestfoldPdfConverter
             .ToList();
 
         if (headingSizes.Count == 0)
+        {
             return [];
+        }
 
         return headingSizes
             .Select((size, index) => new { Size = size, Level = index + 1 })
@@ -389,7 +413,9 @@ public static class VestfoldPdfConverter
     private static bool IsHeadingCandidate(ParagraphInfo paragraph, double bodyFontSize)
     {
         if (paragraph.LineCount > 3 || bodyFontSize <= 0 || paragraph.FontSize <= 0)
+        {
             return false;
+        }
 
         var isLargeBySize = paragraph.FontSize >= bodyFontSize * HeadingMinimumSizeRatio;
         var isBoldAndLarger = paragraph.BoldRatio >= 0.6 &&
@@ -401,7 +427,9 @@ public static class VestfoldPdfConverter
     private static bool IsBoldFontName(string? fontName)
     {
         if (string.IsNullOrWhiteSpace(fontName))
+        {
             return false;
+        }
 
         var normalized = fontName.ToLowerInvariant();
         return normalized.Contains("bold", StringComparison.Ordinal) ||

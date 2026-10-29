@@ -1,4 +1,3 @@
-using kisatsingen.Data;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 

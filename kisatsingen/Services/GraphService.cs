@@ -9,7 +9,7 @@ public interface IGraphService
     Task<List<User>> GetUsersByObjectIds(Guid[] objectIds, CancellationToken cancellationToken);
 }
 
-public class GraphService : IGraphService
+public sealed class GraphService : IGraphService, IDisposable
 {
     private readonly string _graphBaseUrl;
     private readonly GraphServiceClient _graphClient;
@@ -27,7 +27,7 @@ public class GraphService : IGraphService
         "id",
         "userPrincipalName"
     ];
-    
+
     public GraphService(IConfiguration configuration)
     {
         _graphBaseUrl = configuration["Graph:BaseUrl"] ?? DefaultGraphBaseUrl;
@@ -61,9 +61,11 @@ public class GraphService : IGraphService
                 allUsers.AddRange(usersResponse.Value ?? []);
             }
         }
- 
+
         return allUsers;
     }
+
+    public void Dispose() => _graphClient.Dispose();
 
     private async Task<UserCollectionResponse> GetUsersPage(string requestUrl, CancellationToken cancellationToken) =>
         await _graphClient.Users.WithUrl(requestUrl).GetAsync(cancellationToken: cancellationToken) ?? new UserCollectionResponse();
