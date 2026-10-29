@@ -102,7 +102,7 @@ public sealed class ChatAttachments(
         }
 
         var cancellation = attachment.Cancellation.Token;
-        var progress = new ImmediateProgress(receivedBytes =>
+        var progress = new UploadProgress(receivedBytes =>
         {
             if (attachment.ReportProgress(receivedBytes))
             {
@@ -246,11 +246,4 @@ public sealed class ChatAttachments(
 
     private async Task<Guid> EnsureOwnerAsync() =>
         _ownerId ??= await authenticationService.RequireUserObjectIdentifierAsync();
-
-    // Progress<T> posts each report to the thread pool, so reports could land
-    // out of order.
-    private sealed class ImmediateProgress(Action<long> report) : IProgress<long>
-    {
-        public void Report(long value) => report(value);
-    }
 }

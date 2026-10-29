@@ -5,6 +5,7 @@ using kisatsingen.Components.Usage;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
+using kisatsingen.Services.Assistants;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
@@ -205,6 +206,7 @@ builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<AttachmentMetrics>();
 builder.Services.AddScoped<ChatAttachments>();
+builder.Services.AddScoped<AssistantFileProcessor>();
 
 // ─── Knowledge-file pipeline ───────────────────────────
 // Defaults live in KnowledgeFilePipelineOptions; the section overrides them.
