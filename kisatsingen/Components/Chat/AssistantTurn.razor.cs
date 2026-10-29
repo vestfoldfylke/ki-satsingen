@@ -11,9 +11,18 @@ public partial class AssistantTurn : ComponentBase
 
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
 
+    private bool _copied;
+
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
+
+    private async Task InitiateCopyVisuals()
+    {
+        _copied = true;
+        await Task.Delay(2000);
+        _copied = false;
+    }
 
     // Blanks count as absent, so nothing renders as " ()".
     private static string? DescribeModel(Turn turn)

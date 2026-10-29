@@ -2,3 +2,30 @@
     align-self: stretch;
     padding: 0.25rem 0;
 }
+
+.assistant-turn-footer {
+    display: flex;
+    align-items: center;
+    justify-content: left;
+    padding: 0;
+    gap: 0.5rem;
+}
+
+.assistant-turn-time {
+    opacity: 0.7;
+    user-select: none;
+}
+
+.assistant-turn-actions {
+    display: flex;
+}
+
+.assistant-turn-action-button {
+    --dsc-button-size: 1rem;
+    flex: 0 0 auto;
+    padding: 0.2rem;
+}
+
+.assistant-metadata {
+    min-width: 50rem;
+}

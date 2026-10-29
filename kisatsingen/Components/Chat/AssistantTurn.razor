@@ -17,75 +17,79 @@
     @if (!IsLive)
     {
         <footer class="assistant-turn-footer">
-            <time datetime="@Turn.StartedAt.ToString("o")">@Turn.StartedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</time>
             <div class="assistant-turn-actions">
                 @if (HasCopyableText)
                 {
-                    <button type="button"
-                            class="assistant-turn-copy"
-                            data-copy-turn-id="@Turn.Id">
-                            Kopier
-                    </button>
-                }
-                <button type="button"
-                        popovertarget="@PopoverId"
-                        aria-controls="@PopoverId">
-                        Metadata
-                </button>
-            </div>
-        </footer>
+                    <button type="button" class="ds-button assistant-turn-action-button" data-color="neutral"
+                            data-variant="tertiary" data-size="sm" data-copy-turn-id="@Turn.Id" aria-label="Kopier"
+                            data-tooltip="Kopier" @onclick="async () => await InitiateCopyVisuals()">
+                        <span class="material-symbols-outlined" aria-hidden="true">@(_copied ? "check" :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               "content_copy")</span>
+                        </button>
+                    }
 
-        <div id="@PopoverId" class="assistant-metadata" popover="auto">
-            <dl class="assistant-metadata-list">
-                @if (DescribeModel(Turn) is { } modelDescription)
-                {
-                    <dt>Model</dt>
-                    <dd>@modelDescription</dd>
-                }
-                @if (Turn.Metadata is { } meta)
-                {
-                    @if (meta.ResponseId is { } responseId)
+                    <button type="button" class="ds-button assistant-turn-action-button" data-color="neutral"
+                            data-variant="tertiary" data-size="sm" data-copy-turn-id="@Turn.Id" aria-label="Metadata"
+                            data-tooltip="Metadata" popovertarget="@PopoverId" aria-controls="@PopoverId">
+                        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    </button>
+                </div>
+                <time class="assistant-turn-time" datetime="@Turn.StartedAt.ToString("o")">
+                    @Turn.StartedAt.LocalDateTime.ToString("d. MMM HH:mm:ss")
+                </time>
+            </footer>
+
+            <div id="@PopoverId" class="ds-popover assistant-metadata" popover="auto" data-placement="top" data-color="neutral">
+                <dl class="assistant-metadata-list">
+                    @if (DescribeModel(Turn) is { } modelDescription)
                     {
-                        <dt>Response ID</dt>
-                        <dd>@responseId</dd>
+                        <dt>Model</dt>
+                        <dd>@modelDescription</dd>
                     }
-                    @if (meta.FinishReason is { } finish)
+                    @if (Turn.Metadata is { } meta)
                     {
-                        <dt>Finish reason</dt>
-                        <dd>@finish</dd>
+                        @if (meta.ResponseId is { } responseId)
+                        {
+                            <dt>Response ID</dt>
+                            <dd>@responseId</dd>
+                        }
+                        @if (meta.FinishReason is { } finish)
+                        {
+                            <dt>Finish reason</dt>
+                            <dd>@finish</dd>
+                        }
+                        @if (meta.Usage is { } usage)
+                        {
+                            <dt>Tokens</dt>
+                            <dd class="assistant-metadata-usage">
+                                @if (usage.CombinedInputTokens is { } input)
+                                {
+                                    <span>in @TokenCountFormat.Format(input, usage.IsEstimated)</span>
+                                }
+                                @if (usage.CombinedOutputTokens is { } output)
+                                {
+                                    <span>out @TokenCountFormat.Format(output, usage.IsEstimated)</span>
+                                }
+                                @if (usage.CombinedTotalTokens is { } total)
+                                {
+                                    <span>total @TokenCountFormat.Format(total, usage.IsEstimated)</span>
+                                }
+                            </dd>
+                        }
+                        @if (meta.DurationMs is { } duration)
+                        {
+                            <dt>Duration</dt>
+                            <dd>@FormatMs(duration)</dd>
+                        }
+                        @if (meta.TimeToFirstTokenMs is { } ttft)
+                        {
+                            <dt>Time to first token</dt>
+                            <dd>@FormatMs(ttft)</dd>
+                        }
                     }
-                    @if (meta.Usage is { } usage)
-                    {
-                        <dt>Tokens</dt>
-                        <dd class="assistant-metadata-usage">
-                            @if (usage.CombinedInputTokens is { } input)
-                            {
-                                <span>in @TokenCountFormat.Format(input, usage.IsEstimated)</span>
-                            }
-                            @if (usage.CombinedOutputTokens is { } output)
-                            {
-                                <span>out @TokenCountFormat.Format(output, usage.IsEstimated)</span>
-                            }
-                            @if (usage.CombinedTotalTokens is { } total)
-                            {
-                                <span>total @TokenCountFormat.Format(total, usage.IsEstimated)</span>
-                            }
-                        </dd>
-                    }
-                    @if (meta.DurationMs is { } duration)
-                    {
-                        <dt>Duration</dt>
-                        <dd>@FormatMs(duration)</dd>
-                    }
-                    @if (meta.TimeToFirstTokenMs is { } ttft)
-                    {
-                        <dt>Time to first token</dt>
-                        <dd>@FormatMs(ttft)</dd>
-                    }
-                }
-                <dt>System instructions</dt>
-                <dd class="assistant-metadata-system">@Turn.SystemPrompt</dd>
-            </dl>
-        </div>
-    }
-</div>
+                    <dt>System instructions</dt>
+                    <dd class="assistant-metadata-system">@Turn.SystemPrompt</dd>
+                </dl>
+            </div>
+        }
+    </div>
