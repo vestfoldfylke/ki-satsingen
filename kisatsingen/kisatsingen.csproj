@@ -14,9 +14,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="ElBruno.MarkItDotNet" Version="0.9.3" />
       <PackageReference Include="Markdig" Version="1.4.2" />
-      <PackageReference Include="Microsoft.Graph" Version="6.8.0" />
       <PackageReference Include="PdfPig" Version="0.1.16" />
+      <PackageReference Include="Microsoft.Graph" Version="6.8.0" />
       <PackageReference Include="Radzen.Blazor" Version="12.1.5" />
       <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.13">
         <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -57,6 +58,10 @@
 
     <Target Name="NodeDependencies" BeforeTargets="BeforeBuild">
         <Exec Command="npm install" />
+    </Target>
+
+    <Target Name="Format" BeforeTargets="VSTest" AfterTargets="AfterBuild">
+        <Exec Command="dotnet format --verify-no-changes" />
     </Target>
 
     <!-- Globbed rather than enumerated, so adding a source file can't silently

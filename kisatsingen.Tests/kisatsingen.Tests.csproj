@@ -28,6 +28,10 @@
         <ProjectReference Include="..\kisatsingen\kisatsingen.csproj" />
     </ItemGroup>
 
+    <Target Name="Format" BeforeTargets="VSTest" AfterTargets="AfterBuild">
+        <Exec Command="dotnet format --verify-no-changes" />
+    </Target>
+
     <!-- The test container mounts these at /docker-entrypoint-initdb.d, exactly as
          compose.yml does, so tests run against the same roles and grants as dev. -->
     <ItemGroup>
