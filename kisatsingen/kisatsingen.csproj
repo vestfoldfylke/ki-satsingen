@@ -59,6 +59,10 @@
         <Exec Command="npm install" />
     </Target>
 
+    <Target Name="Format" BeforeTargets="VSTest" AfterTargets="AfterBuild">
+        <Exec Command="dotnet format --verify-no-changes" />
+    </Target>
+
     <!-- Globbed rather than enumerated, so adding a source file can't silently
          leave a bundle that never rebuilds. These must be items: the Inputs
          attribute does not expand wildcards, it treats them as literal paths, and
