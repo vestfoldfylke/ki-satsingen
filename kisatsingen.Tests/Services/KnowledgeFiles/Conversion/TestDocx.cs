@@ -5,9 +5,9 @@ using System.Text;
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion;
 
 // Builds the smallest .docx Word and OpenXml accept, with the body written as
-// raw WordprocessingML. Raw XML rather than the OpenXml SDK, because the
-// converter matches on the exact text of the XML (localized style names, and
-// whether an element is written "<x/>" or "<x />").
+// raw WordprocessingML. Raw XML rather than the OpenXml SDK, so tests control
+// exactly what Word or another tool would write (localized style names,
+// namespace prefixes, and whether an element is written "<x/>" or "<x />").
 internal static class TestDocx
 {
     private const string ContentTypesXml =
