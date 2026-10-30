@@ -30,4 +30,13 @@ internal static class ConversionRejections
 
     public const string EmptyPdf =
         "Fant ingen tekst i PDF-filen. Den er trolig skannet. Bruk en PDF med tekst, for eksempel eksportert fra Word.";
+
+    public const string ErrorParsingDocx =
+        "Word-filen kunne ikke leses. Den kan være skadet. Prøv igjen.";
+
+    public const string EmptyDocx =
+        "Fant ingen tekst i Word-filen.";
+
+    public const string DocxTooLargeUncompressed =
+        "Word-filen blir for stor når den pakkes ut. Komprimer bildene i dokumentet, eller del det opp, og prøv igjen.";
 }

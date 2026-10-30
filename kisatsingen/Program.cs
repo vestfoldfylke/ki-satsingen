@@ -1,3 +1,5 @@
+using ElBruno.MarkItDotNet;
+using ElBruno.MarkItDotNet.Converters;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Authorization;
 using kisatsingen.Components;
@@ -214,11 +216,25 @@ pipelineOptions.Validate();
 
 builder.Services.AddSingleton(pipelineOptions);
 
+// ElBruno.MarkItDotNet for docx parsing (supports many other as well when needed)
+builder.Services.AddSingleton(new MarkItDotNetOptions());
+builder.Services.AddSingleton(_ =>
+{
+    var registry = new ConverterRegistry();
+    registry.Register(new DocxConverter());
+    return registry;
+});
+builder.Services.AddSingleton(serviceProvider => new MarkdownService(
+    serviceProvider.GetRequiredService<ConverterRegistry>(),
+    serviceProvider.GetServices<IConverterPlugin>(),
+    serviceProvider.GetRequiredService<MarkItDotNetOptions>()));
+
 // One converter per content type. Moving a type to a remote converter means
 // swapping its registration here for one that calls that service.
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
 builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
+builder.Services.AddSingleton<IDocumentConverter, DocxDocumentConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();

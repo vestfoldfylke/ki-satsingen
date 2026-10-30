@@ -24,7 +24,10 @@ public enum ContentOrigin
     ImagePlaceholder,
 
     // The upload was a PDF file (*.pdf), whose content has been converted to Markdown.
-    Pdf
+    Pdf,
+
+    // The upload was a Word document (*.docx) whose content has been converted to Markdown.
+    Docx
 }
 
 // Shown to both the model and the user, so a note states how the text was
@@ -35,7 +38,7 @@ public static class ContentOriginNotes
     {
         ContentOrigin.TextFile => null,
         ContentOrigin.ImagePlaceholder => "Innholdet i bildet er ikke tolket.",
-        ContentOrigin.Pdf => "Teksten er hentet ut og konvertert til Markdown.",
+        ContentOrigin.Docx or ContentOrigin.Pdf => "Teksten er hentet ut og konvertert til Markdown.",
         // A stored name this build does not know.
         null => "Det er ukjent hvordan teksten ble hentet ut, så den kan være unøyaktig.",
         _ => throw new UnreachableException($"ContentOrigin {origin} has no note. Add one here in the same change that adds the value.")
