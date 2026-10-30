@@ -43,23 +43,23 @@
             <p class="ds-paragraph" data-size="sm">Ingen filer ennå.</p>
         }
 
-        @if (Uploads.All.Count > 0)
-        {
-            <ul class="assistant-files-uploads" aria-label="Filer som legges til">
-                @foreach (var upload in Uploads.All)
-                {
-                    <li @key="upload.Id" class="assistant-files-upload">
-                        <span class="assistant-files-upload-name">@upload.FileName</span>
-                        <span data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
-                            @DescribeStatus(upload)
-                        </span>
-                    </li>
-                }
-            </ul>
-        }
-
         <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
             <Authorized>
+                @if (Uploads.All.Count > 0)
+                {
+                    <ul class="assistant-files-uploads" aria-label="Filer som legges til">
+                        @foreach (var upload in Uploads.All)
+                        {
+                            <li @key="upload.Id" class="assistant-files-upload">
+                                <span class="assistant-files-upload-name">@upload.FileName</span>
+                                <span data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
+                                    @DescribeStatus(upload)
+                                </span>
+                            </li>
+                        }
+                    </ul>
+                }
+
                 @if (_refusal is not null)
                 {
                     <p class="ds-paragraph" data-size="sm" data-color="danger">@_refusal</p>
