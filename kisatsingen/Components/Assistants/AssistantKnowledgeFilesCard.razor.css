@@ -27,6 +27,12 @@
     align-items: flex-start;
 }
 
+.assistant-files-upload-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 .assistant-files-upload-name {
     max-width: 100%;
     overflow-wrap: anywhere;

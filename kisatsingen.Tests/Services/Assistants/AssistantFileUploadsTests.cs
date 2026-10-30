@@ -178,6 +178,31 @@ public sealed class AssistantFileUploadsTests : IDisposable
     }
 
     [Fact]
+    public async Task A_dismissed_refusal_leaves_the_list()
+    {
+        await AddAsync([TextFile("program.exe")]);
+
+        _uploads.Dismiss(Assert.Single(_uploads.All).Id);
+
+        Assert.Empty(_uploads.All);
+    }
+
+    [Fact]
+    public async Task A_file_in_progress_cannot_be_dismissed()
+    {
+        var reached = new TaskCompletionSource();
+        var adding = AddAsync([StallingFile("notat.md", reached)]);
+        await reached.Task;
+
+        _uploads.Dismiss(Assert.Single(_uploads.All).Id);
+
+        var listedCount = _uploads.All.Count;
+        _uploads.Reset();
+        await adding;
+        Assert.Equal(1, listedCount);
+    }
+
+    [Fact]
     public async Task A_file_counts_as_uploading_while_its_bytes_arrive()
     {
         var reached = new TaskCompletionSource();

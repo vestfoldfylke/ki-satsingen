@@ -98,6 +98,16 @@ public sealed class AssistantFileUploads(
         Changed?.Invoke();
     }
 
+    // Only a refusal: a file still in progress cannot be stopped on its own.
+    public void Dismiss(Guid uploadId)
+    {
+        if (_uploads.Find(upload => upload.Id == uploadId) is { Status: AssistantFileUploadStatus.Rejected } upload)
+        {
+            _uploads.Remove(upload);
+            Changed?.Invoke();
+        }
+    }
+
     public void Dispose() => _cancellation.Cancel();
 
     // All listed up front, so the whole selection shows at once and a file
