@@ -1,3 +1,17 @@
+/* The heading on the left, adding to the right. */
+.assistant-files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ds-size-2);
+}
+
+/* A dropdown is as wide as its widest line, so the alert would otherwise
+   stretch it to the edge of the viewport before wrapping. */
+.assistant-files-menu {
+    max-width: 20rem;
+}
+
 .assistant-files-uploads {
     display: flex;
     flex-direction: column;

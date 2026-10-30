@@ -5,7 +5,30 @@
 
 <div class="ds-card" data-color="neutral">
     <div class="ds-card__block">
-        <h2 class="ds-heading" data-size="xs">Filer</h2>
+        <div class="assistant-files-header">
+            <h2 class="ds-heading" data-size="xs">Filer</h2>
+            <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+                <Authorized>
+                    @if (!_isLoading && !IsFull)
+                    {
+                        <div>
+                            <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
+                                    popovertarget="@MenuId" data-tooltip="Legg til filer" aria-label="Legg til filer">
+                                <span class="material-symbols-outlined" aria-hidden="true">add</span>
+                            </button>
+
+                            @* Not role="menu": a file input can't be a menu item, and a menu
+                               promises arrow-key navigation that nothing here provides. *@
+                            <div @ref="_menu" id="@MenuId" class="ds-dropdown assistant-files-menu" popover="auto" data-placement="bottom-end">
+                                <AttachmentPicker Label="Legg til filer"
+                                                  IsDisabled="Uploads.IsUploading"
+                                                  OnFilesSelected="AddFilesAsync" />
+                            </div>
+                        </div>
+                    }
+                </Authorized>
+            </AuthorizeView>
+        </div>
 
         @if (_isLoading)
         {
@@ -55,12 +78,6 @@
                 @if (IsFull)
                 {
                     <p class="ds-paragraph" data-size="sm">Assistenten har @Assistant.MaxKnowledgeFiles filer, som er det meste den kan ha.</p>
-                }
-                else if (!_isLoading)
-                {
-                    <AttachmentPicker Label="Legg til filer"
-                                      IsDisabled="Uploads.IsUploading"
-                                      OnFilesSelected="AddFilesAsync" />
                 }
             </Authorized>
         </AuthorizeView>

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Assistants;
 
@@ -30,6 +31,12 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     [Inject]
     public required AssistantFileUploads Uploads { get; init; }
 
+    [Inject]
+    public required IJSRuntime JS { get; init; }
+
+    [Inject]
+    public required ILogger<AssistantKnowledgeFilesCard> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -39,8 +46,11 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     private IReadOnlyList<KnowledgeFileMetadata> _files = [];
     private bool _isLoading = true;
     private string? _refusal;
+    private ElementReference _menu;
 
     private bool IsFull => _files.Count >= Assistant.MaxKnowledgeFiles;
+
+    private string MenuId => $"assistant-files-menu-{Assistant.Id}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,6 +67,8 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
 
     private async Task AddFilesAsync(InputFileChangeEventArgs selection)
     {
+        await HideMenuAsync();
+
         var user = (await AuthenticationState).User;
         if (!(await AuthorizationService.AuthorizeAsync(user, Assistant, AuthorizationPolicies.CanEditAssistant)).Succeeded)
         {
@@ -66,6 +78,20 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
 
         _refusal = null;
         await Uploads.AddAsync(Assistant.Id, selection, _files.Count, LoadFilesAsync);
+    }
+
+    // Selecting files is a click inside the menu, which popover="auto" doesn't
+    // treat as a dismissal, so the menu would stay open over the progress.
+    private async Task HideMenuAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("chatClient.hidePopover", _menu);
+        }
+        catch (JSException ex)
+        {
+            Logger.LogWarning(ex, "AssistantKnowledgeFilesCard could not close its menu after a file selection");
+        }
     }
 
     private static string DescribeStatus(AssistantFileUpload upload) => upload.Status switch
