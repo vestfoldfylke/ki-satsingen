@@ -1,0 +1,68 @@
+@using kisatsingen.Components.Attachments
+@using kisatsingen.Components.KnowledgeFiles
+@using kisatsingen.Data.Entities
+@using kisatsingen.Services.Assistants
+
+<div class="ds-card" data-color="neutral">
+    <div class="ds-card__block">
+        <h2 class="ds-heading" data-size="xs">Filer</h2>
+
+        @if (_isLoading)
+        {
+            <p class="ds-paragraph" data-size="sm">Laster …</p>
+        }
+        else if (_files.Count > 0)
+        {
+            <KnowledgeFileList Files="_files" />
+        }
+        else if (Uploads.All.Count == 0)
+        {
+            <p class="ds-paragraph" data-size="sm">Ingen filer ennå.</p>
+        }
+
+        @if (Uploads.All.Count > 0)
+        {
+            <ul class="assistant-files-uploads" aria-label="Filer som legges til">
+                @foreach (var upload in Uploads.All)
+                {
+                    <li @key="upload.Id" class="assistant-files-upload">
+                        <span class="assistant-files-upload-name">@upload.FileName</span>
+                        <span data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
+                            @DescribeStatus(upload)
+                        </span>
+                    </li>
+                }
+            </ul>
+        }
+
+        <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+            <Authorized>
+                @if (_refusal is not null)
+                {
+                    <p class="ds-paragraph" data-size="sm" data-color="danger">@_refusal</p>
+                }
+
+                @if (Uploads.SelectionNotice is { } notice)
+                {
+                    <p class="ds-paragraph" data-size="sm" data-color="danger">@notice</p>
+                }
+
+                @if (Uploads.IsUploading)
+                {
+                    <p class="ds-paragraph" data-size="sm">Filer som ikke er ferdige, lagres ikke hvis du forlater siden.</p>
+                }
+
+                @if (IsFull)
+                {
+                    <p class="ds-paragraph" data-size="sm">Assistenten har @Assistant.MaxKnowledgeFiles filer, som er det meste den kan ha.</p>
+                }
+                else if (!_isLoading)
+                {
+                    <AttachmentPicker Label="Legg til filer"
+                                      IsDisabled="Uploads.IsUploading"
+                                      OnFilesSelected="AddFilesAsync" />
+                }
+            </Authorized>
+        </AuthorizeView>
+    </div>
+</div>

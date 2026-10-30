@@ -206,7 +206,7 @@ builder.Services.AddSingleton<AttachmentQuota>();
 builder.Services.AddSingleton<AttachmentUploader>();
 builder.Services.AddSingleton<AttachmentMetrics>();
 builder.Services.AddScoped<ChatAttachments>();
-builder.Services.AddScoped<AssistantFileProcessor>();
+builder.Services.AddScoped<AssistantFileUploads>();
 
 // ─── Knowledge-file pipeline ───────────────────────────
 // Defaults live in KnowledgeFilePipelineOptions; the section overrides them.
