@@ -11,7 +11,7 @@ namespace kisatsingen.OfficeConversion.Docx;
 // Styles are told apart by what they do, not by their ID, since the ID
 // depends on Word's language: Norwegian Word writes Overskrift1 where English
 // Word writes Heading1, and both set outline level 0.
-internal sealed class WordStyles
+internal sealed class DocxStyles
 {
     // Outline levels 0–8 are heading levels 1–9; 9 marks a style as body text.
     private const int DeepestOutlineLevel = 8;
@@ -39,19 +39,19 @@ internal sealed class WordStyles
     private readonly Dictionary<string, Style> _stylesById;
     private readonly string? _defaultParagraphStyleId;
 
-    private WordStyles(Dictionary<string, Style> stylesById, string? defaultParagraphStyleId)
+    private DocxStyles(Dictionary<string, Style> stylesById, string? defaultParagraphStyleId)
     {
         _stylesById = stylesById;
         _defaultParagraphStyleId = defaultParagraphStyleId;
     }
 
     // A document without styles.xml has no styles, so nothing is a heading or a list.
-    public static WordStyles From(XDocument? stylesPart)
+    public static DocxStyles From(XDocument? stylesPart)
     {
         var stylesById = new Dictionary<string, Style>(StringComparer.Ordinal);
         if (stylesPart?.Root is not { } root)
         {
-            return new WordStyles(stylesById, defaultParagraphStyleId: null);
+            return new DocxStyles(stylesById, defaultParagraphStyleId: null);
         }
 
         string? defaultParagraphStyleId = null;
@@ -66,13 +66,13 @@ internal sealed class WordStyles
             }
 
             stylesById.TryAdd(styleId, ReadStyle(style, w));
-            if ((string?)style.Attribute(w + "type") == ParagraphStyleType && WordToggle.IsOn(style.Attribute(w + "default")))
+            if ((string?)style.Attribute(w + "type") == ParagraphStyleType && DocxToggle.IsOn(style.Attribute(w + "default")))
             {
                 defaultParagraphStyleId ??= styleId;
             }
         }
 
-        return new WordStyles(stylesById, defaultParagraphStyleId);
+        return new DocxStyles(stylesById, defaultParagraphStyleId);
     }
 
     // Word's outline level (0 for heading 1), or null when the style is no heading.
@@ -84,7 +84,7 @@ internal sealed class WordStyles
 
     // Null when no style in the chain sets a list. A ListId of "0" means the
     // style cancels a list it would otherwise inherit.
-    public WordListReference? ListOf(string? paragraphStyleId) =>
+    public DocxListReference? ListOf(string? paragraphStyleId) =>
         FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), style => style.List);
 
     // The character style overrides the paragraph style. Word actually flips a
@@ -141,9 +141,9 @@ internal sealed class WordStyles
             BasedOn: (string?)style.Element(w + "basedOn")?.Attribute(w + "val"),
             OutlineLevel: ReadOutlineLevel(style, paragraphProperties, w),
             List: ReadList(paragraphProperties, w),
-            IsBold: WordToggle.Read(runProperties?.Element(w + "b"), w),
-            IsItalic: WordToggle.Read(runProperties?.Element(w + "i"), w),
-            IsStruck: WordToggle.ReadStrike(runProperties, w));
+            IsBold: DocxToggle.Read(runProperties?.Element(w + "b"), w),
+            IsItalic: DocxToggle.Read(runProperties?.Element(w + "i"), w),
+            IsStruck: DocxToggle.ReadStrike(runProperties, w));
     }
 
     // Kept as written, 9 for body text included: a style that sets body text
@@ -161,7 +161,7 @@ internal sealed class WordStyles
             : null;
     }
 
-    private static WordListReference? ReadList(XElement? paragraphProperties, XNamespace w)
+    private static DocxListReference? ReadList(XElement? paragraphProperties, XNamespace w)
     {
         var numberingProperties = paragraphProperties?.Element(w + "numPr");
         if ((string?)numberingProperties?.Element(w + "numId")?.Attribute(w + "val") is not { } listId)
@@ -169,7 +169,7 @@ internal sealed class WordStyles
             return null;
         }
 
-        return new WordListReference(listId, ReadInt(numberingProperties.Element(w + "ilvl"), w) ?? 0);
+        return new DocxListReference(listId, ReadInt(numberingProperties.Element(w + "ilvl"), w) ?? 0);
     }
 
     private static int? ReadInt(XElement? element, XNamespace w) =>
@@ -181,7 +181,7 @@ internal sealed class WordStyles
     private sealed record Style(
         string? BasedOn,
         int? OutlineLevel,
-        WordListReference? List,
+        DocxListReference? List,
         bool? IsBold,
         bool? IsItalic,
         bool? IsStruck);
@@ -189,6 +189,6 @@ internal sealed class WordStyles
 
 // A list a paragraph is in: Word's numId, and its nesting level from 0.
 // numId "0" means the paragraph is in no list, cancelling one it would inherit.
-internal readonly record struct WordListReference(string ListId, int Level);
+internal readonly record struct DocxListReference(string ListId, int Level);
 
 internal readonly record struct RunFormatting(bool IsBold, bool IsItalic, bool IsStruck);

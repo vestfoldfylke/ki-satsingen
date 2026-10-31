@@ -4,7 +4,7 @@ using Xunit;
 
 namespace kisatsingen.Tests.OfficeConversion.Docx;
 
-public sealed class WordStylesTests
+public sealed class DocxStylesTests
 {
     private const string TransitionalNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
     private const string StrictNamespace = "http://purl.oclc.org/ooxml/wordprocessingml/main";
@@ -16,10 +16,10 @@ public sealed class WordStylesTests
 
     private static readonly string Punktliste = ParagraphStyle("Punktliste", "List Bullet", ListProperties("5"));
 
-    private static WordStyles Styles(params string[] styles) => StylesIn(TransitionalNamespace, styles);
+    private static DocxStyles Styles(params string[] styles) => StylesIn(TransitionalNamespace, styles);
 
-    private static WordStyles StylesIn(string wordNamespace, params string[] styles) =>
-        WordStyles.From(XDocument.Parse($"<w:styles xmlns:w=\"{wordNamespace}\">{string.Concat(styles)}</w:styles>"));
+    private static DocxStyles StylesIn(string wordNamespace, params string[] styles) =>
+        DocxStyles.From(XDocument.Parse($"<w:styles xmlns:w=\"{wordNamespace}\">{string.Concat(styles)}</w:styles>"));
 
     private static string ParagraphStyle(string id, string name, string properties = "", string? basedOn = null, bool isDefault = false) =>
         Style("paragraph", id, name, properties, basedOn, isDefault);
@@ -113,7 +113,7 @@ public sealed class WordStylesTests
     [Fact]
     public void A_document_without_styles_has_no_headings()
     {
-        var styles = WordStyles.From(null);
+        var styles = DocxStyles.From(null);
 
         Assert.Null(styles.OutlineLevelOf("Overskrift1"));
     }
@@ -194,7 +194,7 @@ public sealed class WordStylesTests
     {
         var styles = Styles(Punktliste);
 
-        Assert.Equal(new WordListReference("5", Level: 0), styles.ListOf("Punktliste"));
+        Assert.Equal(new DocxListReference("5", Level: 0), styles.ListOf("Punktliste"));
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public sealed class WordStylesTests
     {
         var styles = Styles(ParagraphStyle("Punktliste2", "List Bullet 2", ListProperties("5", level: 1)));
 
-        Assert.Equal(new WordListReference("5", Level: 1), styles.ListOf("Punktliste2"));
+        Assert.Equal(new DocxListReference("5", Level: 1), styles.ListOf("Punktliste2"));
     }
 
     [Fact]
@@ -210,7 +210,7 @@ public sealed class WordStylesTests
     {
         var styles = Styles(Punktliste, ParagraphStyle("MinListe", "Min liste", basedOn: "Punktliste"));
 
-        Assert.Equal(new WordListReference("5", Level: 0), styles.ListOf("MinListe"));
+        Assert.Equal(new DocxListReference("5", Level: 0), styles.ListOf("MinListe"));
     }
 
     // numId 0 is how a style says "no list"; it must not fall through to the base style's list.
@@ -219,6 +219,6 @@ public sealed class WordStylesTests
     {
         var styles = Styles(Punktliste, ParagraphStyle("UtenListe", "Uten liste", ListProperties("0"), basedOn: "Punktliste"));
 
-        Assert.Equal(new WordListReference("0", Level: 0), styles.ListOf("UtenListe"));
+        Assert.Equal(new DocxListReference("0", Level: 0), styles.ListOf("UtenListe"));
     }
 }

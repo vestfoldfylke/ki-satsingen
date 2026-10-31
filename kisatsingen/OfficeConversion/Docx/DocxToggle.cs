@@ -5,7 +5,7 @@ namespace kisatsingen.OfficeConversion.Docx;
 // Word's on/off properties, such as <w:b/> for bold. A toggle element without
 // w:val is on; w:val="0", "false" or "off" switches it off, which a style uses
 // to cancel bold it would inherit.
-internal static class WordToggle
+internal static class DocxToggle
 {
     private static readonly string[] SwitchedOffValues = ["0", "false", "off"];
 
