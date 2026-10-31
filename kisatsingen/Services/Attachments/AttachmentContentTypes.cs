@@ -20,6 +20,7 @@ public static class AttachmentContentTypes
     public static readonly AttachmentType Png = new("image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     public static readonly AttachmentType Jpeg = new("image/jpeg", [0xFF, 0xD8, 0xFF]);
     public static readonly AttachmentType Pdf = new("application/pdf", [.. "%PDF"u8]);
+    public static readonly AttachmentType Docx = new("application/vnd.openxmlformats-officedocument.wordprocessingml.document", [0x50, 0x4B, 0x03, 0x04]);
 
     private sealed record AllowedExtension(string Extension, AttachmentType Type, string KindName);
 
