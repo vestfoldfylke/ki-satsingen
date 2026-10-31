@@ -3,8 +3,9 @@ using System.Text;
 namespace kisatsingen.OfficeConversion;
 
 // Writes rows as a GitHub-flavoured Markdown table. The first row is the
-// header, since a Markdown table can't be written without one. Every row is
-// padded to the widest, so a merged cell never shifts the columns after it.
+// header, since a Markdown table can't be written without one. A cell
+// spanning columns is followed by empty cells, and short rows are padded, so
+// every row has the same columns.
 //
 // Writes whole lines, ending with a newline. The caller separates the table
 // from the blocks around it with a blank line.
@@ -75,8 +76,9 @@ internal static class MarkdownTable
         EscapePipes(text.Trim()).ReplaceLineEndings("<br>");
 
     // A pipe ends the cell unless an odd number of backslashes comes before
-    // it, so one is added where the count is even. Other backslashes are left
-    // alone: the text is inline Markdown, and its escapes such as \# must work.
+    // it, so a backslash is added before a pipe preceded by an even number of
+    // them. Other backslashes are left alone: the text is inline Markdown, and
+    // its escapes such as \# must keep working.
     private static string EscapePipes(string text)
     {
         var escaped = new StringBuilder(text.Length);

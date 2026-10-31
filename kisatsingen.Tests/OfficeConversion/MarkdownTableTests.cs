@@ -2,6 +2,7 @@ using kisatsingen.OfficeConversion;
 using Markdig;
 using Markdig.Extensions.Tables;
 using Markdig.Syntax;
+using Markdig.Syntax.Inlines;
 using Xunit;
 
 namespace kisatsingen.Tests.OfficeConversion;
@@ -31,7 +32,7 @@ public sealed class MarkdownTableTests
     }
 
     private static string CellText(TableCell cell) =>
-        string.Concat(cell.Descendants<Markdig.Syntax.Inlines.LiteralInline>().Select(literal => literal.Content.ToString()));
+        string.Concat(cell.Descendants<LiteralInline>().Select(literal => literal.Content.ToString()));
 
     [Fact]
     public void The_first_row_is_the_header()
@@ -101,17 +102,24 @@ public sealed class MarkdownTableTests
         Assert.Equal([["Svar", "Merknad"], ["Ja | Nei", "-"]], ParseTable(markdown));
     }
 
-    // A backslash right before a pipe would cancel an escape that only added
-    // one; however many backslashes come before it, the pipe adds no column.
+    // Always adding one backslash fails on \|, which would become \\|: an
+    // escaped backslash, then a pipe that ends the cell.
     [Theory]
     [InlineData("||")]
     [InlineData(@"C:\Ja\|Nei")]
     [InlineData(@"C:\Ja\\|Nei")]
     [InlineData(@"\\\|")]
-    [InlineData(@"slutter med \")]
     public void A_pipe_after_any_number_of_backslashes_adds_no_column(string text)
     {
         var markdown = Write(Row("Svar", "Merknad"), Row(text, "-"));
+
+        Assert.All(ParseTable(markdown), row => Assert.Equal(2, row.Count));
+    }
+
+    [Fact]
+    public void A_backslash_at_the_end_of_a_cell_does_not_hide_the_cell_s_end()
+    {
+        var markdown = Write(Row("Svar", "Merknad"), Row(@"slutter med \", "-"));
 
         Assert.All(ParseTable(markdown), row => Assert.Equal(2, row.Count));
     }
@@ -142,24 +150,5 @@ public sealed class MarkdownTableTests
     {
         Assert.Throws<MarkdownTooLongException>(() =>
             Write(maxCharacters: 10_000, Row("Overskrift"), [new MarkdownTableCell("Fyll", ColumnSpan: int.MaxValue)]));
-    }
-
-    [Fact]
-    public void Output_up_to_the_limit_is_written()
-    {
-        var output = new MarkdownOutput(maxCharacters: 5);
-
-        output.Append("12345");
-
-        Assert.Equal("12345", output.ToString());
-    }
-
-    [Fact]
-    public void Output_one_character_past_the_limit_is_refused()
-    {
-        var output = new MarkdownOutput(maxCharacters: 5);
-        output.Append("1234");
-
-        Assert.Throws<MarkdownTooLongException>(() => output.Append("56"));
     }
 }

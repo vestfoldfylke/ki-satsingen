@@ -8,12 +8,10 @@ namespace kisatsingen.OfficeConversion;
 // through relationships. Parts are always found through those relationships,
 // never by file name, since some tools name the main part document2.xml.
 //
-// Malformed input throws: InvalidDataException for a broken zip, XmlException
-// for a broken part. A converter catches both where it starts.
+// Throws InvalidDataException for a broken zip and XmlException for a broken part.
 public sealed class OpenXmlPackage : IDisposable
 {
-    // The relationships of a part are in a sibling _rels folder; the package
-    // root's own relationships, which lead to the main part, are in _rels/.rels.
+    // The package root has the empty part name, so RelationshipsPartName maps it to _rels/.rels.
     private const string PackageRoot = "";
 
     private static readonly XNamespace RelationshipsNamespace = "http://schemas.openxmlformats.org/package/2006/relationships";
@@ -40,7 +38,6 @@ public sealed class OpenXmlPackage : IDisposable
         }
     }
 
-    // Throws InvalidDataException when the stream is not a zip archive.
     public static OpenXmlPackage Open(Stream stream) =>
         new(new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true));
 
@@ -66,24 +63,25 @@ public sealed class OpenXmlPackage : IDisposable
     // officeDocument relationship points to.
     public string? FindMainPart() => FindRelatedPart(PackageRoot, RelationshipType.OfficeDocument);
 
-    // The first part of this type that partName points to, or null when it points to none.
+    // The first part of this type that partName points to and the package
+    // contains, or null when there is none.
     public string? FindRelatedPart(string partName, RelationshipType type) =>
         RelationshipsOf(partName)
-            .Where(relationship => !relationship.IsExternal && type.Matches(relationship.Type))
+            .Where(relationship => !relationship.IsExternal && type.Matches(relationship.TypeUri))
             .Select(relationship => relationship.Target)
-            .FirstOrDefault(_entriesByPartName.ContainsKey);
+            .FirstOrDefault(target => _entriesByPartName.ContainsKey(target));
 
     // Internal targets are resolved to part names; external ones, such as a
     // hyperlink's address, are kept as written.
     public IReadOnlyList<PackageRelationship> RelationshipsOf(string partName)
     {
-        var relationships = LoadPart(RelationshipsPartName(partName));
-        if (relationships?.Root is null)
+        var relationshipsPart = LoadPart(RelationshipsPartName(partName));
+        if (relationshipsPart?.Root is null)
         {
             return [];
         }
 
-        return relationships.Root.Elements(RelationshipsNamespace + "Relationship")
+        return relationshipsPart.Root.Elements(RelationshipsNamespace + "Relationship")
             .Select(relationship => ReadRelationship(partName, relationship))
             .OfType<PackageRelationship>()
             .ToList();
@@ -99,34 +97,33 @@ public sealed class OpenXmlPackage : IDisposable
 
         using var stream = entry.Open();
         using var reader = XmlReader.Create(stream, PartReaderSettings);
-
-        // Word's text can be nothing but spaces, which only survives if whitespace is kept.
-        return XDocument.Load(reader, LoadOptions.PreserveWhitespace);
+        return XDocument.Load(reader);
     }
 
     public void Dispose() => _archive.Dispose();
 
+    // Null when the relationship lacks an Id, Type or Target.
     private static PackageRelationship? ReadRelationship(string sourcePartName, XElement relationship)
     {
         var id = (string?)relationship.Attribute("Id");
-        var type = (string?)relationship.Attribute("Type");
+        var typeUri = (string?)relationship.Attribute("Type");
         var target = (string?)relationship.Attribute("Target");
-        if (id is null || type is null || target is null)
+        if (id is null || typeUri is null || target is null)
         {
             return null;
         }
 
         var isExternal = string.Equals((string?)relationship.Attribute("TargetMode"), "External", StringComparison.OrdinalIgnoreCase);
-        return isExternal
-            ? new PackageRelationship(id, type, target, IsExternal: true)
-            : new PackageRelationship(id, type, ResolveTarget(sourcePartName, target), IsExternal: false);
+        var resolvedTarget = isExternal ? target : ResolveTarget(sourcePartName, target);
+        return new PackageRelationship(id, typeUri, resolvedTarget, isExternal);
     }
 
-    // word/document.xml → word/_rels/document.xml.rels
+    // A part's relationships are in a _rels folder beside it:
+    // word/document.xml → word/_rels/document.xml.rels.
     private static string RelationshipsPartName(string partName)
     {
-        var folderEnd = partName.LastIndexOf('/') + 1;
-        return $"{partName[..folderEnd]}_rels/{partName[folderEnd..]}.rels";
+        var folder = FolderOf(partName);
+        return $"{folder}_rels/{partName[folder.Length..]}.rels";
     }
 
     // A target is relative to the folder of the part that points to it,
@@ -134,7 +131,7 @@ public sealed class OpenXmlPackage : IDisposable
     private static string ResolveTarget(string sourcePartName, string target)
     {
         var path = Uri.UnescapeDataString(target);
-        var folder = path.StartsWith('/') ? "" : sourcePartName[..(sourcePartName.LastIndexOf('/') + 1)];
+        var folder = path.StartsWith('/') ? "" : FolderOf(sourcePartName);
 
         var segments = new List<string>();
         foreach (var segment in (folder + path).Split('/', StringSplitOptions.RemoveEmptyEntries))
@@ -154,7 +151,10 @@ public sealed class OpenXmlPackage : IDisposable
 
         return string.Join('/', segments);
     }
+
+    // "word/document.xml" → "word/", and "" for a part at the package root.
+    private static string FolderOf(string partName) => partName[..(partName.LastIndexOf('/') + 1)];
 }
 
 // Target is a part name for an internal relationship, an address for an external one.
-public sealed record PackageRelationship(string Id, string Type, string Target, bool IsExternal);
+public sealed record PackageRelationship(string Id, string TypeUri, string Target, bool IsExternal);

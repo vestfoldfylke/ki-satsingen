@@ -13,7 +13,9 @@ internal static class TestPackage
     public const string TransitionalStyles = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles";
     public const string TransitionalHyperlink = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
-    public sealed record Relationship(string Id, string Type, string Target, bool IsExternal = false);
+    // A relationship as written in a .rels part, with its target unresolved;
+    // PackageRelationship is what OpenXmlPackage reads it as.
+    public sealed record Relationship(string Id, string TypeUri, string Target, bool IsExternal = false);
 
     public static byte[] Zip(params (string Name, string Content)[] parts)
     {
@@ -38,7 +40,6 @@ internal static class TestPackage
 
     // Rewrites the uncompressed size an entry declares in the central directory,
     // as a zip bomb would, without having to build gigabytes of content.
-    // From Rune's TestDocx on the docx-parser branch.
     public static byte[] WithDeclaredUncompressedSizes(byte[] package, params (string EntryName, uint Size)[] sizes)
     {
         const uint centralDirectoryHeaderSignature = 0x02014b50;
@@ -66,5 +67,5 @@ internal static class TestPackage
     }
 
     private static string RelationshipElement(Relationship relationship) =>
-        $"<Relationship Id=\"{relationship.Id}\" Type=\"{relationship.Type}\" Target=\"{relationship.Target}\"{(relationship.IsExternal ? " TargetMode=\"External\"" : "")}/>";
+        $"<Relationship Id=\"{relationship.Id}\" Type=\"{relationship.TypeUri}\" Target=\"{relationship.Target}\"{(relationship.IsExternal ? " TargetMode=\"External\"" : "")}/>";
 }
