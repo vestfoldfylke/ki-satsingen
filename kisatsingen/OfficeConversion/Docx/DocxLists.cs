@@ -1,5 +1,5 @@
-using System.Globalization;
-using System.Xml.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace kisatsingen.OfficeConversion.Docx;
 
@@ -12,72 +12,59 @@ namespace kisatsingen.OfficeConversion.Docx;
 internal sealed class DocxLists
 {
     // numId 0 is how Word says a paragraph is in no list.
-    private const string NoListId = "0";
+    private const int NoListId = 0;
 
+    // Compared as written, since the SDK's typed format throws on a value it
+    // doesn't know, and every value but these two means "numbered".
     private const string BulletFormat = "bullet";
 
     // Word's format for list text with no marker shown, such as an indented
     // paragraph inside a list; written as an ordinary paragraph.
     private const string NoMarkerFormat = "none";
 
-    private readonly Dictionary<string, string> _abstractListIdsByListId;
-    private readonly Dictionary<string, Dictionary<int, string?>> _formatsByLevelByAbstractListId;
+    // Each list's format per level. From follows numId → abstractNum once,
+    // so KindOf doesn't have to.
+    private readonly Dictionary<int, Dictionary<int, string?>> _formatsByLevelByListId;
 
-    private DocxLists(
-        Dictionary<string, string> abstractListIdsByListId,
-        Dictionary<string, Dictionary<int, string?>> formatsByLevelByAbstractListId)
-    {
-        _abstractListIdsByListId = abstractListIdsByListId;
-        _formatsByLevelByAbstractListId = formatsByLevelByAbstractListId;
-    }
+    private DocxLists(Dictionary<int, Dictionary<int, string?>> formatsByLevelByListId) =>
+        _formatsByLevelByListId = formatsByLevelByListId;
 
     // A document without numbering.xml has no lists.
-    public static DocxLists From(XDocument? numberingPart)
+    public static DocxLists From(Numbering? numbering)
     {
-        var abstractListIdsByListId = new Dictionary<string, string>(StringComparer.Ordinal);
-        var formatsByLevelByAbstractListId = new Dictionary<string, Dictionary<int, string?>>(StringComparer.Ordinal);
-        if (numberingPart?.Root is not { } root)
+        var formatsByLevelByAbstractListId = new Dictionary<int, Dictionary<int, string?>>();
+        foreach (var abstractList in numbering?.Elements<AbstractNum>() ?? [])
         {
-            return new DocxLists(abstractListIdsByListId, formatsByLevelByAbstractListId);
-        }
-
-        // Taken from the root, so Strict and Transitional files both read.
-        var w = root.Name.Namespace;
-
-        foreach (var list in root.Elements(w + "num"))
-        {
-            var listId = (string?)list.Attribute(w + "numId");
-            var abstractListId = (string?)list.Element(w + "abstractNumId")?.Attribute(w + "val");
-            if (listId is not null && abstractListId is not null)
+            if (ValueOf(abstractList.AbstractNumberId) is { } abstractListId)
             {
-                abstractListIdsByListId.TryAdd(listId, abstractListId);
+                formatsByLevelByAbstractListId.TryAdd(abstractListId, ReadFormatsByLevel(abstractList));
             }
         }
 
-        foreach (var abstractList in root.Elements(w + "abstractNum"))
+        // A list whose abstract list is missing, or defines its levels in a
+        // list style (numStyleLink), has no formats here. Its paragraphs are
+        // still in a list, so KindOf gives them the plainest marker.
+        var formatsByLevelByListId = new Dictionary<int, Dictionary<int, string?>>();
+        foreach (var list in numbering?.Elements<NumberingInstance>() ?? [])
         {
-            if ((string?)abstractList.Attribute(w + "abstractNumId") is { } abstractListId)
+            if (ValueOf(list.NumberID) is { } listId && ValueOf(list.AbstractNumId?.Val) is { } abstractListId)
             {
-                formatsByLevelByAbstractListId.TryAdd(abstractListId, ReadFormatsByLevel(abstractList, w));
+                formatsByLevelByListId.TryAdd(listId, formatsByLevelByAbstractListId.GetValueOrDefault(abstractListId) ?? []);
             }
         }
 
-        return new DocxLists(abstractListIdsByListId, formatsByLevelByAbstractListId);
+        return new DocxLists(formatsByLevelByListId);
     }
 
     // Null when the paragraph is in no list, or its level shows no marker.
     public DocxListKind? KindOf(DocxListReference list)
     {
-        if (list.ListId == NoListId || !_abstractListIdsByListId.TryGetValue(list.ListId, out var abstractListId))
+        if (list.ListId == NoListId || !_formatsByLevelByListId.TryGetValue(list.ListId, out var formatsByLevel))
         {
             return null;
         }
 
-        // A list linked to a list style (numStyleLink) defines its levels in
-        // that style, not here. The paragraph is still in a list, so it gets
-        // the plainest marker.
-        if (!_formatsByLevelByAbstractListId.TryGetValue(abstractListId, out var formatsByLevel)
-            || !formatsByLevel.TryGetValue(list.Level, out var format))
+        if (!formatsByLevel.TryGetValue(list.Level, out var format))
         {
             return DocxListKind.Bulleted;
         }
@@ -91,19 +78,22 @@ internal sealed class DocxLists
         };
     }
 
-    private static Dictionary<int, string?> ReadFormatsByLevel(XElement abstractList, XNamespace w)
+    private static Dictionary<int, string?> ReadFormatsByLevel(AbstractNum abstractList)
     {
         var formatsByLevel = new Dictionary<int, string?>();
-        foreach (var level in abstractList.Elements(w + "lvl"))
+        foreach (var level in abstractList.Elements<Level>())
         {
-            if (int.TryParse((string?)level.Attribute(w + "ilvl"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var levelNumber))
+            if (ValueOf(level.LevelIndex) is { } levelNumber)
             {
-                formatsByLevel.TryAdd(levelNumber, (string?)level.Element(w + "numFmt")?.Attribute(w + "val"));
+                formatsByLevel.TryAdd(levelNumber, level.NumberingFormat?.Val?.InnerText);
             }
         }
 
         return formatsByLevel;
     }
+
+    // Null when absent or not a number: .Value would throw on a value the SDK can't parse.
+    private static int? ValueOf(Int32Value? number) => number is { HasValue: true } ? number.Value : null;
 }
 
 internal enum DocxListKind

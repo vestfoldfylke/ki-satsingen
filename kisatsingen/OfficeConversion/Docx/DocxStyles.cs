@@ -1,5 +1,5 @@
-using System.Globalization;
-using System.Xml.Linq;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace kisatsingen.OfficeConversion.Docx;
 
@@ -21,8 +21,6 @@ internal sealed class DocxStyles
     // loops back on itself.
     private const int MaxChainLength = 32;
 
-    private const string ParagraphStyleType = "paragraph";
-
     // Used when a style sets no outline level: Title and Subtitle never do,
     // and some tools leave it out of headings. Built-in names are written in
     // English whatever Word's language, so Overskrift1 is named "heading 1".
@@ -41,37 +39,30 @@ internal sealed class DocxStyles
         ["heading 9"] = 8,
     };
 
-    private readonly Dictionary<string, Style> _stylesById;
+    private readonly Dictionary<string, StyleSettings> _stylesById;
     private readonly string? _defaultParagraphStyleId;
 
-    private DocxStyles(Dictionary<string, Style> stylesById, string? defaultParagraphStyleId)
+    private DocxStyles(Dictionary<string, StyleSettings> stylesById, string? defaultParagraphStyleId)
     {
         _stylesById = stylesById;
         _defaultParagraphStyleId = defaultParagraphStyleId;
     }
 
     // A document without styles.xml has no styles, so nothing is a heading or a list.
-    public static DocxStyles From(XDocument? stylesPart)
+    public static DocxStyles From(Styles? styles)
     {
-        var stylesById = new Dictionary<string, Style>(StringComparer.Ordinal);
-        if (stylesPart?.Root is not { } root)
-        {
-            return new DocxStyles(stylesById, defaultParagraphStyleId: null);
-        }
-
+        var stylesById = new Dictionary<string, StyleSettings>(StringComparer.Ordinal);
         string? defaultParagraphStyleId = null;
-
-        // Taken from the root, so Strict and Transitional files both read.
-        var w = root.Name.Namespace;
-        foreach (var style in root.Elements(w + "style"))
+        foreach (var style in styles?.Elements<Style>() ?? [])
         {
-            if ((string?)style.Attribute(w + "styleId") is not { } styleId)
+            if (style.StyleId?.Value is not { } styleId)
             {
                 continue;
             }
 
-            stylesById.TryAdd(styleId, ReadStyle(style, w));
-            if ((string?)style.Attribute(w + "type") == ParagraphStyleType && DocxToggle.IsOn(style.Attribute(w + "default")))
+            stylesById.TryAdd(styleId, ReadSettings(style));
+            var isParagraphStyle = style.Type is { HasValue: true } && style.Type.Value == StyleValues.Paragraph;
+            if (isParagraphStyle && DocxToggle.IsOn(style.Default))
             {
                 defaultParagraphStyleId ??= styleId;
             }
@@ -87,7 +78,7 @@ internal sealed class DocxStyles
         return outlineLevel is >= 0 and <= DeepestOutlineLevel ? outlineLevel : null;
     }
 
-    // Null when no style in the chain sets a list. A ListId of "0" means the
+    // Null when no style in the chain sets a list. A ListId of 0 means the
     // style cancels a list it would otherwise inherit.
     public DocxListReference? ListOf(string? paragraphStyleId) =>
         FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), style => style.List);
@@ -100,7 +91,7 @@ internal sealed class DocxStyles
     // off leaves the other; the text is struck if either is on.
     public RunFormatting FormattingOf(string? paragraphStyleId, string? characterStyleId)
     {
-        bool ResolveToggle(Func<Style, bool?> toggle) =>
+        bool ResolveToggle(Func<StyleSettings, bool?> toggle) =>
             FirstSetAlongChain(characterStyleId, toggle)
             ?? FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), toggle)
             ?? false;
@@ -116,7 +107,7 @@ internal sealed class DocxStyles
 
     // Walks from the style to the one it's based on, and so on, until one
     // sets the property.
-    private T? FirstSetAlongChain<T>(string? styleId, Func<Style, T?> property) where T : struct
+    private T? FirstSetAlongChain<T>(string? styleId, Func<StyleSettings, T?> property) where T : struct
     {
         for (var chainLength = 0; chainLength < MaxChainLength; chainLength++)
         {
@@ -136,54 +127,50 @@ internal sealed class DocxStyles
         return null;
     }
 
-    private static Style ReadStyle(XElement style, XNamespace w)
+    private static StyleSettings ReadSettings(Style style)
     {
-        var paragraphProperties = style.Element(w + "pPr");
-        var runProperties = style.Element(w + "rPr");
+        var runProperties = style.StyleRunProperties;
 
-        return new Style(
-            BasedOn: (string?)style.Element(w + "basedOn")?.Attribute(w + "val"),
-            OutlineLevel: ReadOutlineLevel(style, paragraphProperties, w),
-            List: ReadList(paragraphProperties, w),
-            IsBold: DocxToggle.Read(runProperties?.Element(w + "b"), w),
-            IsItalic: DocxToggle.Read(runProperties?.Element(w + "i"), w),
-            IsStruck: DocxToggle.Read(runProperties?.Element(w + "strike"), w),
-            IsDoubleStruck: DocxToggle.Read(runProperties?.Element(w + "dstrike"), w));
+        return new StyleSettings(
+            BasedOn: style.BasedOn?.Val?.Value,
+            OutlineLevel: ReadOutlineLevel(style),
+            List: ReadList(style.StyleParagraphProperties?.NumberingProperties),
+            IsBold: DocxToggle.Read(runProperties?.Bold),
+            IsItalic: DocxToggle.Read(runProperties?.Italic),
+            IsStruck: DocxToggle.Read(runProperties?.Strike),
+            IsDoubleStruck: DocxToggle.Read(runProperties?.DoubleStrike));
     }
 
     // Kept as written, 9 for body text included: a style that sets body text
     // must stop the chain, not inherit its base style's heading level.
-    private static int? ReadOutlineLevel(XElement style, XElement? paragraphProperties, XNamespace w)
+    private static int? ReadOutlineLevel(Style style)
     {
-        if (ReadInt(paragraphProperties?.Element(w + "outlineLvl"), w) is { } outlineLevel)
+        if (ValueOf(style.StyleParagraphProperties?.OutlineLevel?.Val) is { } outlineLevel)
         {
             return outlineLevel;
         }
 
-        var name = (string?)style.Element(w + "name")?.Attribute(w + "val");
+        var name = style.StyleName?.Val?.Value;
         return name is not null && OutlineLevelsByBuiltInName.TryGetValue(name, out var builtInOutlineLevel)
             ? builtInOutlineLevel
             : null;
     }
 
-    private static DocxListReference? ReadList(XElement? paragraphProperties, XNamespace w)
+    private static DocxListReference? ReadList(NumberingProperties? numberingProperties)
     {
-        var numberingProperties = paragraphProperties?.Element(w + "numPr");
-        if ((string?)numberingProperties?.Element(w + "numId")?.Attribute(w + "val") is not { } listId)
+        if (numberingProperties is null || ValueOf(numberingProperties.NumberingId?.Val) is not { } listId)
         {
             return null;
         }
 
-        return new DocxListReference(listId, ReadInt(numberingProperties.Element(w + "ilvl"), w) ?? 0);
+        return new DocxListReference(listId, ValueOf(numberingProperties.NumberingLevelReference?.Val) ?? 0);
     }
 
-    private static int? ReadInt(XElement? element, XNamespace w) =>
-        int.TryParse((string?)element?.Attribute(w + "val"), NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
-            ? value
-            : null;
+    // Null when absent or not a number: .Value would throw on a value the SDK can't parse.
+    private static int? ValueOf(Int32Value? number) => number is { HasValue: true } ? number.Value : null;
 
     // Null where the style doesn't set the property, so it's inherited.
-    private sealed record Style(
+    private sealed record StyleSettings(
         string? BasedOn,
         int? OutlineLevel,
         DocxListReference? List,
@@ -194,7 +181,7 @@ internal sealed class DocxStyles
 }
 
 // A list a paragraph is in: Word's numId, and its nesting level from 0.
-// numId "0" means the paragraph is in no list, cancelling one it would inherit.
-internal readonly record struct DocxListReference(string ListId, int Level);
+// numId 0 means the paragraph is in no list, cancelling one it would inherit.
+internal readonly record struct DocxListReference(int ListId, int Level);
 
 internal readonly record struct RunFormatting(bool IsBold, bool IsItalic, bool IsStruck);

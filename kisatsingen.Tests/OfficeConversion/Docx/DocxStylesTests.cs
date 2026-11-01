@@ -1,25 +1,20 @@
-using System.Xml.Linq;
 using kisatsingen.OfficeConversion.Docx;
 using Xunit;
+using WordStyles = DocumentFormat.OpenXml.Wordprocessing.Styles;
 
 namespace kisatsingen.Tests.OfficeConversion.Docx;
 
 public sealed class DocxStylesTests
 {
-    private const string TransitionalNamespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-    private const string StrictNamespace = "http://purl.oclc.org/ooxml/wordprocessingml/main";
-
     // As Norwegian Word writes them: a localized ID, the built-in English name,
     // and the outline level that makes them headings.
     private static readonly string Overskrift1 = ParagraphStyle("Overskrift1", "heading 1", OutlineLevel(0));
     private static readonly string Overskrift2 = ParagraphStyle("Overskrift2", "heading 2", OutlineLevel(1));
 
-    private static readonly string Punktliste = ParagraphStyle("Punktliste", "List Bullet", ListProperties("5"));
+    private static readonly string Punktliste = ParagraphStyle("Punktliste", "List Bullet", ListProperties(5));
 
-    private static DocxStyles Styles(params string[] styles) => StylesIn(TransitionalNamespace, styles);
-
-    private static DocxStyles StylesIn(string wordNamespace, params string[] styles) =>
-        DocxStyles.From(XDocument.Parse($"<w:styles xmlns:w=\"{wordNamespace}\">{string.Concat(styles)}</w:styles>"));
+    private static DocxStyles Styles(params string[] styles) =>
+        DocxStyles.From(new WordStyles($"<w:styles xmlns:w=\"{TestDocx.WordNamespace}\">{string.Concat(styles)}</w:styles>"));
 
     private static string ParagraphStyle(string id, string name, string properties = "", string? basedOn = null, bool isDefault = false) =>
         Style("paragraph", id, name, properties, basedOn, isDefault);
@@ -33,7 +28,7 @@ public sealed class DocxStylesTests
 
     private static string OutlineLevel(int level) => $"<w:pPr><w:outlineLvl w:val=\"{level}\"/></w:pPr>";
 
-    private static string ListProperties(string listId, int level = 0) =>
+    private static string ListProperties(int listId, int level = 0) =>
         $"<w:pPr><w:numPr><w:ilvl w:val=\"{level}\"/><w:numId w:val=\"{listId}\"/></w:numPr></w:pPr>";
 
     private static string RunProperties(string properties) => $"<w:rPr>{properties}</w:rPr>";
@@ -149,12 +144,38 @@ public sealed class DocxStylesTests
         Assert.Null(styles.OutlineLevelOf("S1000"));
     }
 
+    // A crafted file can hold values the SDK can't parse; reading them must not throw.
     [Fact]
-    public void Styles_in_a_strict_open_xml_file_are_read()
+    public void An_outline_level_that_is_not_a_number_makes_no_heading()
     {
-        var styles = StylesIn(StrictNamespace, Overskrift1);
+        var styles = Styles(ParagraphStyle("Rar", "Rar", "<w:pPr><w:outlineLvl w:val=\"abc\"/></w:pPr>"));
 
-        Assert.Equal(0, styles.OutlineLevelOf("Overskrift1"));
+        Assert.Null(styles.OutlineLevelOf("Rar"));
+    }
+
+    [Fact]
+    public void A_list_id_that_is_not_a_number_makes_no_list()
+    {
+        var styles = Styles(ParagraphStyle("Rar", "Rar", "<w:pPr><w:numPr><w:numId w:val=\"abc\"/></w:numPr></w:pPr>"));
+
+        Assert.Null(styles.ListOf("Rar"));
+    }
+
+    // Word itself shows the property as on whenever the element is present.
+    [Fact]
+    public void A_toggle_with_a_value_word_does_not_know_counts_as_on()
+    {
+        var styles = Styles(CharacterStyle("Rar", "Rar", RunProperties("<w:b w:val=\"maybe\"/>")));
+
+        Assert.True(styles.FormattingOf(paragraphStyleId: null, "Rar").IsBold);
+    }
+
+    [Fact]
+    public void A_default_marker_with_a_value_word_does_not_know_is_not_the_default()
+    {
+        var styles = Styles("<w:style w:type=\"paragraph\" w:styleId=\"Normal\" w:default=\"maybe\"><w:name w:val=\"Normal\"/><w:rPr><w:i/></w:rPr></w:style>");
+
+        Assert.False(styles.FormattingOf(paragraphStyleId: null, characterStyleId: null).IsItalic);
     }
 
     [Fact]
@@ -233,15 +254,15 @@ public sealed class DocxStylesTests
     {
         var styles = Styles(Punktliste);
 
-        Assert.Equal(new DocxListReference("5", Level: 0), styles.ListOf("Punktliste"));
+        Assert.Equal(new DocxListReference(5, Level: 0), styles.ListOf("Punktliste"));
     }
 
     [Fact]
     public void A_list_style_s_level_is_read()
     {
-        var styles = Styles(ParagraphStyle("Punktliste2", "List Bullet 2", ListProperties("5", level: 1)));
+        var styles = Styles(ParagraphStyle("Punktliste2", "List Bullet 2", ListProperties(5, level: 1)));
 
-        Assert.Equal(new DocxListReference("5", Level: 1), styles.ListOf("Punktliste2"));
+        Assert.Equal(new DocxListReference(5, Level: 1), styles.ListOf("Punktliste2"));
     }
 
     [Fact]
@@ -249,15 +270,15 @@ public sealed class DocxStylesTests
     {
         var styles = Styles(Punktliste, ParagraphStyle("MinListe", "Min liste", basedOn: "Punktliste"));
 
-        Assert.Equal(new DocxListReference("5", Level: 0), styles.ListOf("MinListe"));
+        Assert.Equal(new DocxListReference(5, Level: 0), styles.ListOf("MinListe"));
     }
 
     // numId 0 is how a style says "no list"; it must not fall through to the base style's list.
     [Fact]
     public void A_style_that_cancels_its_base_style_s_list_says_list_zero()
     {
-        var styles = Styles(Punktliste, ParagraphStyle("UtenListe", "Uten liste", ListProperties("0"), basedOn: "Punktliste"));
+        var styles = Styles(Punktliste, ParagraphStyle("UtenListe", "Uten liste", ListProperties(0), basedOn: "Punktliste"));
 
-        Assert.Equal(new DocxListReference("0", Level: 0), styles.ListOf("UtenListe"));
+        Assert.Equal(new DocxListReference(0, Level: 0), styles.ListOf("UtenListe"));
     }
 }
