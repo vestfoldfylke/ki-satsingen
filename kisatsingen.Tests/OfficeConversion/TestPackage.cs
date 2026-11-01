@@ -9,12 +9,8 @@ namespace kisatsingen.Tests.OfficeConversion;
 internal static class TestPackage
 {
     public const string TransitionalOfficeDocument = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument";
-    public const string StrictOfficeDocument = "http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument";
-    public const string TransitionalStyles = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles";
-    public const string TransitionalHyperlink = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink";
 
-    // A relationship as written in a .rels part, with its target unresolved;
-    // PackageRelationship is what OpenXmlPackage reads it as.
+    // A relationship as written in a .rels part.
     public sealed record Relationship(string Id, string TypeUri, string Target, bool IsExternal = false);
 
     public static byte[] Zip(params (string Name, string Content)[] parts)
@@ -29,6 +25,75 @@ internal static class TestPackage
             }
         }
 
+        return buffer.ToArray();
+    }
+
+    // A zip of one stored entry whose central directory declares its size in
+    // a ZIP64 extra field, as declaredSize, which can be negative. Built by
+    // hand, since .NET won't write a size it knows is wrong. The CRC is left
+    // at 0: tests using this check the declared size, never the content.
+    public static byte[] WithZip64DeclaredSize(string name, string content, long declaredSize)
+    {
+        const ushort zip64Version = 45;
+        const ushort storedMethod = 0;
+        const ushort zip64ExtraFieldId = 1;
+        const ushort zip64ExtraFieldSize = 8;
+        const uint sizeInZip64ExtraField = 0xFFFFFFFF;
+
+        var nameBytes = Encoding.ASCII.GetBytes(name);
+        var data = Encoding.UTF8.GetBytes(content);
+        using var buffer = new MemoryStream();
+        using var writer = new BinaryWriter(buffer);
+
+        // Local file header, then the entry's data.
+        writer.Write(0x04034b50u);
+        writer.Write(zip64Version);
+        writer.Write((ushort)0);
+        writer.Write(storedMethod);
+        writer.Write(0u);
+        writer.Write(0u);
+        writer.Write((uint)data.Length);
+        writer.Write((uint)data.Length);
+        writer.Write((ushort)nameBytes.Length);
+        writer.Write((ushort)0);
+        writer.Write(nameBytes);
+        writer.Write(data);
+
+        // Central directory: the size field says "see ZIP64", and the extra field holds the forged size.
+        var centralDirectoryStart = buffer.Position;
+        writer.Write(0x02014b50u);
+        writer.Write(zip64Version);
+        writer.Write(zip64Version);
+        writer.Write((ushort)0);
+        writer.Write(storedMethod);
+        writer.Write(0u);
+        writer.Write(0u);
+        writer.Write((uint)data.Length);
+        writer.Write(sizeInZip64ExtraField);
+        writer.Write((ushort)nameBytes.Length);
+        writer.Write((ushort)(2 + 2 + zip64ExtraFieldSize));
+        writer.Write((ushort)0);
+        writer.Write((ushort)0);
+        writer.Write((ushort)0);
+        writer.Write(0u);
+        writer.Write(0u);
+        writer.Write(nameBytes);
+        writer.Write(zip64ExtraFieldId);
+        writer.Write(zip64ExtraFieldSize);
+        writer.Write(declaredSize);
+        var centralDirectoryEnd = buffer.Position;
+
+        // End of central directory: one entry.
+        writer.Write(0x06054b50u);
+        writer.Write((ushort)0);
+        writer.Write((ushort)0);
+        writer.Write((ushort)1);
+        writer.Write((ushort)1);
+        writer.Write((uint)(centralDirectoryEnd - centralDirectoryStart));
+        writer.Write((uint)centralDirectoryStart);
+        writer.Write((ushort)0);
+
+        writer.Flush();
         return buffer.ToArray();
     }
 

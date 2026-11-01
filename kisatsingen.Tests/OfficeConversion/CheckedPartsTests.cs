@@ -1,0 +1,92 @@
+using System.Xml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using kisatsingen.OfficeConversion;
+using Xunit;
+using static kisatsingen.Tests.OfficeConversion.Docx.TestDocx;
+
+namespace kisatsingen.Tests.OfficeConversion;
+
+public sealed class CheckedPartsTests
+{
+    private static WordprocessingDocument Open(byte[] docx) =>
+        WordprocessingDocument.Open(new MemoryStream(docx), isEditable: false, CheckedParts.OpenSettings);
+
+    private static string Nested(int depth) =>
+        string.Concat(Enumerable.Repeat("<w:sdt><w:sdtContent>", depth)) + "<w:p/>" + string.Concat(Enumerable.Repeat("</w:sdtContent></w:sdt>", depth));
+
+    [Fact]
+    public void A_part_loads_as_its_root_element()
+    {
+        using var document = Open(WithBody("<w:p><w:r><w:t>Hei</w:t></w:r></w:p>"));
+
+        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.Equal("Hei", root!.Body!.InnerText);
+    }
+
+    [Fact]
+    public void A_missing_part_loads_as_null()
+    {
+        using var document = Open(WithBody("<w:p/>"));
+
+        var styles = CheckedParts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart);
+
+        Assert.Null(styles);
+    }
+
+    [Fact]
+    public void A_part_nested_as_deep_as_real_documents_loads()
+    {
+        using var document = Open(WithBody(Nested(100)));
+
+        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.NotNull(root);
+    }
+
+    // Loading takes time quadratic in the depth (20,000 deep took 26 seconds),
+    // so this must be refused before the SDK loads it.
+    [Fact]
+    public void A_part_nested_far_deeper_than_real_documents_is_refused()
+    {
+        using var document = Open(WithBody(Nested(50_000)));
+
+        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart));
+    }
+
+    [Fact]
+    public void A_part_with_more_elements_than_the_limit_is_refused()
+    {
+        var millionAndOneRuns = "<w:p>" + string.Concat(Enumerable.Repeat("<w:r/>", 1_000_001)) + "</w:p>";
+        using var document = Open(WithBody(millionAndOneRuns));
+
+        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart));
+    }
+
+    // The "billion laughs" attack nests entities like these until they expand to gigabytes.
+    [Fact]
+    public void A_part_with_a_dtd_is_refused()
+    {
+        var documentWithDtd = $"""<?xml version="1.0"?><!DOCTYPE w:document [<!ENTITY lol "lol">]><w:document xmlns:w="{WordNamespace}"><w:body><w:p><w:r><w:t>&lol;</w:t></w:r></w:p></w:body></w:document>""";
+        using var document = Open(WithDocumentXml(documentWithDtd));
+
+        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart));
+    }
+
+    // Without the setting, the SDK keeps both branches, and a text box's text comes out twice.
+    [Fact]
+    public void Alternate_content_keeps_one_branch()
+    {
+        var body = $"""
+            <w:p xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"><w:r><mc:AlternateContent>
+            <mc:Choice Requires="wps"><w:t>Tekst</w:t></mc:Choice><mc:Fallback><w:t>Tekst</w:t></mc:Fallback>
+            </mc:AlternateContent></w:r></w:p>
+            """;
+        using var document = Open(WithBody(body));
+
+        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.Equal("Tekst", root!.Body!.InnerText);
+    }
+}
