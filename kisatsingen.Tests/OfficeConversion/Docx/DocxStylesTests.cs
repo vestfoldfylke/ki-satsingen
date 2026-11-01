@@ -130,6 +130,26 @@ public sealed class DocxStylesTests
     }
 
     [Fact]
+    public void A_chain_ten_styles_long_is_followed_to_its_heading()
+    {
+        var chain = Enumerable.Range(1, 10).Select(index => ParagraphStyle($"S{index}", $"S{index}", basedOn: index == 1 ? "Overskrift1" : $"S{index - 1}"));
+        var styles = Styles([Overskrift1, .. chain]);
+
+        Assert.Equal(0, styles.OutlineLevelOf("S10"));
+    }
+
+    // Word writes chains a few styles long; a crafted one thousands long would
+    // make every lookup walk all of it.
+    [Fact]
+    public void A_chain_far_longer_than_word_writes_is_not_followed_to_its_end()
+    {
+        var chain = Enumerable.Range(1, 1_000).Select(index => ParagraphStyle($"S{index}", $"S{index}", basedOn: index == 1 ? "Overskrift1" : $"S{index - 1}"));
+        var styles = Styles([Overskrift1, .. chain]);
+
+        Assert.Null(styles.OutlineLevelOf("S1000"));
+    }
+
+    [Fact]
     public void Styles_in_a_strict_open_xml_file_are_read()
     {
         var styles = StylesIn(StrictNamespace, Overskrift1);
@@ -143,6 +163,14 @@ public sealed class DocxStylesTests
         var styles = Styles(ParagraphStyle("Normal", "Normal", RunProperties("<w:i/>"), isDefault: true));
 
         Assert.True(styles.FormattingOf(paragraphStyleId: null, characterStyleId: null).IsItalic);
+    }
+
+    [Fact]
+    public void A_style_marked_default_zero_is_not_the_default_paragraph_style()
+    {
+        var styles = Styles("<w:style w:type=\"paragraph\" w:styleId=\"Normal\" w:default=\"0\"><w:name w:val=\"Normal\"/><w:rPr><w:i/></w:rPr></w:style>");
+
+        Assert.False(styles.FormattingOf(paragraphStyleId: null, characterStyleId: null).IsItalic);
     }
 
     [Theory]
@@ -177,6 +205,17 @@ public sealed class DocxStylesTests
             CharacterStyle("Vanlig", "Vanlig", RunProperties($"<w:b w:val=\"{switchedOff}\"/>")));
 
         Assert.False(styles.FormattingOf("Viktig", "Vanlig").IsBold);
+    }
+
+    // Single and double strikethrough are separate toggles in Word.
+    [Fact]
+    public void Switching_off_single_strikethrough_leaves_double_strikethrough_on()
+    {
+        var styles = Styles(
+            ParagraphStyle("Utgått", "Utgått", RunProperties("<w:dstrike/>")),
+            CharacterStyle("IkkeGjennomstreket", "Ikke gjennomstreket", RunProperties("<w:strike w:val=\"0\"/>")));
+
+        Assert.True(styles.FormattingOf("Utgått", "IkkeGjennomstreket").IsStruck);
     }
 
     [Fact]

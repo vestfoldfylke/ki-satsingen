@@ -103,17 +103,18 @@ public sealed class MarkdownTableTests
     }
 
     // Always adding one backslash fails on \|, which would become \\|: an
-    // escaped backslash, then a pipe that ends the cell.
+    // escaped backslash, then a pipe that ends the cell. A single backslash
+    // right before a pipe reads as escaping it, so that one is lost.
     [Theory]
-    [InlineData("||")]
-    [InlineData(@"C:\Ja\|Nei")]
-    [InlineData(@"C:\Ja\\|Nei")]
-    [InlineData(@"\\\|")]
-    public void A_pipe_after_any_number_of_backslashes_adds_no_column(string text)
+    [InlineData("||", "||")]
+    [InlineData(@"C:\Ja\|Nei", @"C:\Ja|Nei")]
+    [InlineData(@"C:\Ja\\|Nei", @"C:\Ja\|Nei")]
+    [InlineData(@"\\\|", @"\|")]
+    public void A_pipe_after_any_number_of_backslashes_stays_in_its_cell(string text, string expectedCellText)
     {
         var markdown = Write(Row("Svar", "Merknad"), Row(text, "-"));
 
-        Assert.All(ParseTable(markdown), row => Assert.Equal(2, row.Count));
+        Assert.Equal([["Svar", "Merknad"], [expectedCellText, "-"]], ParseTable(markdown));
     }
 
     [Fact]
@@ -121,7 +122,7 @@ public sealed class MarkdownTableTests
     {
         var markdown = Write(Row("Svar", "Merknad"), Row(@"slutter med \", "-"));
 
-        Assert.All(ParseTable(markdown), row => Assert.Equal(2, row.Count));
+        Assert.Equal([["Svar", "Merknad"], [@"slutter med \", "-"]], ParseTable(markdown));
     }
 
     [Fact]

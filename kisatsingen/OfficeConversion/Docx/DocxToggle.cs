@@ -13,19 +13,6 @@ internal static class DocxToggle
     public static bool? Read(XElement? toggle, XNamespace w) =>
         toggle is null ? null : !IsSwitchedOff(toggle.Attribute(w + "val"));
 
-    // Single and double strikethrough both mean the text is struck.
-    public static bool? ReadStrike(XElement? runProperties, XNamespace w)
-    {
-        var strike = Read(runProperties?.Element(w + "strike"), w);
-        var doubleStrike = Read(runProperties?.Element(w + "dstrike"), w);
-        if (strike is null && doubleStrike is null)
-        {
-            return null;
-        }
-
-        return strike == true || doubleStrike == true;
-    }
-
     // For on/off attributes such as w:default="1", which are off when absent.
     public static bool IsOn(XAttribute? attribute) => attribute is not null && !IsSwitchedOff(attribute);
 

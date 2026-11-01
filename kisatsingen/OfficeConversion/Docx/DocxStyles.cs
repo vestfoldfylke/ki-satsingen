@@ -16,6 +16,11 @@ internal sealed class DocxStyles
     // Outline levels 0–8 are heading levels 1–9; 9 marks a style as body text.
     private const int DeepestOutlineLevel = 8;
 
+    // Word's chains are a few styles long. Following at most this many keeps
+    // every lookup cheap however long a crafted chain is, and ends one that
+    // loops back on itself.
+    private const int MaxChainLength = 32;
+
     private const string ParagraphStyleType = "paragraph";
 
     // Used when a style sets no outline level: Title and Subtitle never do,
@@ -90,6 +95,9 @@ internal sealed class DocxStyles
     // The character style overrides the paragraph style. Word actually flips a
     // toggle that both switch on (bold twice is not bold); that is rare enough
     // not to model.
+    //
+    // Single and double strikethrough are separate toggles, so switching one
+    // off leaves the other; the text is struck if either is on.
     public RunFormatting FormattingOf(string? paragraphStyleId, string? characterStyleId)
     {
         bool ResolveToggle(Func<Style, bool?> toggle) =>
@@ -100,7 +108,7 @@ internal sealed class DocxStyles
         return new RunFormatting(
             IsBold: ResolveToggle(style => style.IsBold),
             IsItalic: ResolveToggle(style => style.IsItalic),
-            IsStruck: ResolveToggle(style => style.IsStruck));
+            IsStruck: ResolveToggle(style => style.IsStruck) || ResolveToggle(style => style.IsDoubleStruck));
     }
 
     // A paragraph without a style of its own has the default paragraph style.
@@ -110,16 +118,12 @@ internal sealed class DocxStyles
     // sets the property.
     private T? FirstSetAlongChain<T>(string? styleId, Func<Style, T?> property) where T : struct
     {
-        var visitedStyleIds = new HashSet<string>(StringComparer.Ordinal);
-        while (styleId is not null && _stylesById.TryGetValue(styleId, out var style))
+        for (var chainLength = 0; chainLength < MaxChainLength; chainLength++)
         {
-            // Word never writes a chain that loops back on itself, but a crafted file can.
-            if (visitedStyleIds.Contains(styleId))
+            if (styleId is null || !_stylesById.TryGetValue(styleId, out var style))
             {
                 return null;
             }
-
-            visitedStyleIds.Add(styleId);
 
             if (property(style) is { } value)
             {
@@ -143,7 +147,8 @@ internal sealed class DocxStyles
             List: ReadList(paragraphProperties, w),
             IsBold: DocxToggle.Read(runProperties?.Element(w + "b"), w),
             IsItalic: DocxToggle.Read(runProperties?.Element(w + "i"), w),
-            IsStruck: DocxToggle.ReadStrike(runProperties, w));
+            IsStruck: DocxToggle.Read(runProperties?.Element(w + "strike"), w),
+            IsDoubleStruck: DocxToggle.Read(runProperties?.Element(w + "dstrike"), w));
     }
 
     // Kept as written, 9 for body text included: a style that sets body text
@@ -184,7 +189,8 @@ internal sealed class DocxStyles
         DocxListReference? List,
         bool? IsBold,
         bool? IsItalic,
-        bool? IsStruck);
+        bool? IsStruck,
+        bool? IsDoubleStruck);
 }
 
 // A list a paragraph is in: Word's numId, and its nesting level from 0.
