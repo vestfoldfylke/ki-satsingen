@@ -12,8 +12,9 @@ using Microsoft.JSInterop;
 namespace kisatsingen.Components.Assistants;
 
 // An assistant's knowledge files: the list for everyone who can use it, and
-// adding files when CanEditAssistant allows. Adding checks the policy again,
-// since a picker that was allowed when it rendered may no longer be.
+// adding and deleting files when CanEditAssistant allows. Adding checks the
+// policy again, since a picker that was allowed when it rendered may no longer
+// be; DeleteAssistantFileDialog does the same for deleting.
 //
 // Shows one assistant for its whole life: its files load once, and its
 // uploads go to that assistant until the card is disposed, which resets them.
@@ -47,10 +48,13 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     private bool _isLoading = true;
     private string? _refusal;
     private ElementReference _menu;
+    private DeleteAssistantFileDialog? _deleteDialog;
 
     private bool IsFull => _files.Count >= Assistant.MaxKnowledgeFiles;
 
     private string MenuId => $"assistant-files-menu-{Assistant.Id}";
+
+    private string DeleteDialogId => $"delete-assistant-file-dialog-{Assistant.Id}";
 
     protected override async Task OnInitializedAsync()
     {

@@ -18,6 +18,15 @@
                     @note
                 </div>
             }
+            @if (DeleteDialogId is not null)
+            {
+                <button type="button" class="ds-button" data-variant="tertiary" data-color="danger" data-size="sm" data-icon="true"
+                        command="show-modal" commandfor="@DeleteDialogId"
+                        data-tooltip="@($"Slett {file.FileName}")" aria-label="@($"Slett {file.FileName}")"
+                        @onclick="() => OnDeleteRequested.InvokeAsync(file)">
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                </button>
+            }
         </li>
     }
 </ul>
@@ -28,6 +37,15 @@
 
     [Parameter, EditorRequired]
     public required IReadOnlyList<KnowledgeFileMetadata> Files { get; set; }
+
+    // The dialog that confirms a delete, owned by whoever owns the files. Each
+    // file gets a delete button only when this is set.
+    [Parameter]
+    public string? DeleteDialogId { get; set; }
+
+    // Raised as the dialog opens, with the file to delete.
+    [Parameter]
+    public EventCallback<KnowledgeFileMetadata> OnDeleteRequested { get; set; }
 
     private string NoteId(KnowledgeFileMetadata file) => $"{_idPrefix}-{file.Id:N}";
 }

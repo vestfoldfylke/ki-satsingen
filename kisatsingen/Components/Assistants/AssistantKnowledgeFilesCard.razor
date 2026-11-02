@@ -36,7 +36,14 @@
         }
         else if (_files.Count > 0)
         {
-            <KnowledgeFileList Files="_files" />
+            <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+                <Authorized>
+                    <KnowledgeFileList Files="_files" DeleteDialogId="@DeleteDialogId" OnDeleteRequested="file => _deleteDialog?.Load(file)" />
+                </Authorized>
+                <NotAuthorized>
+                    <KnowledgeFileList Files="_files" />
+                </NotAuthorized>
+            </AuthorizeView>
         }
         else if (Uploads.All.Count == 0)
         {
@@ -91,6 +98,8 @@
                 {
                     <p class="ds-paragraph" data-size="sm">Assistenten har @Assistant.MaxKnowledgeFiles filer, som er det meste den kan ha.</p>
                 }
+
+                <DeleteAssistantFileDialog @ref="_deleteDialog" Id="@DeleteDialogId" Assistant="Assistant" OnDeleted="LoadFilesAsync" />
             </Authorized>
         </AuthorizeView>
     </div>
