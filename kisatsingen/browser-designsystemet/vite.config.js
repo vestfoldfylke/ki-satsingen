@@ -4,12 +4,12 @@ import { defineConfig } from 'vite';
 export default defineConfig({
   build: {
     lib: {
-      entry: path.resolve(__dirname, 'index.ts'),
+      entry: path.resolve(import.meta.dirname, 'index.ts'),
       formats: ['es'],
       fileName: () => 'designsystemet.mjs',
       cssFileName: 'designsystemet'
     },
-    outDir: path.resolve(__dirname, '../wwwroot/designsystemet'),
+    outDir: path.resolve(import.meta.dirname, '../wwwroot/designsystemet'),
     emptyOutDir: true
   }
 });

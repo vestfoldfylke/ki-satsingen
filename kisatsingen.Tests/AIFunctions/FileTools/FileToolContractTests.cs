@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
@@ -42,7 +43,7 @@ public sealed class FileToolContractTests
                 : schema.GetProperty("type").GetString();
             var requiredMark = required.Contains(argument.Name) ? " required" : "";
             var range = schema.TryGetProperty("minimum", out var minimum)
-                ? $" {minimum.GetInt32()}..{(schema.TryGetProperty("maximum", out var maximum) && maximum.GetInt32() != int.MaxValue ? maximum.GetInt32().ToString() : "")}"
+                ? $" {minimum.GetInt32()}..{(schema.TryGetProperty("maximum", out var maximum) && maximum.GetInt32() != int.MaxValue ? maximum.GetInt32().ToString(CultureInfo.InvariantCulture) : "")}"
                 : "";
             return $"{argument.Name}: {type}{requiredMark}{range}";
         });

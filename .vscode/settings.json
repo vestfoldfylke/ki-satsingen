@@ -1,0 +1,6 @@
+{
+  "dotnet.defaultSolution": "kisatsingen.slnx",
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.trimTrailingWhitespaceInRegexAndStrings": false
+}

@@ -1,4 +1,3 @@
-using kisatsingen.Services.Chat;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;

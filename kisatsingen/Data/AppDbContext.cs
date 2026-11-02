@@ -127,8 +127,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         // Partial, so each only covers rows in its own scope. They also serve
         // every lookup by scope, which is why there is no plain index on
-        // ChatId or AssistantId. OwnerId has none either: every query narrows
-        // by id or scope first.
+        // ChatId or AssistantId.
         knowledgeFile.HasIndex(f => new { f.ChatId, f.Sha256 })
             .IsUnique()
             .HasFilter("\"ChatId\" IS NOT NULL")
