@@ -5,13 +5,13 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    padding: 0 .3rem;
+    padding: 0 0.3rem;
 }
 
 .logo-container {
     font-weight: 600;
     font-size: 2rem;
-    padding: 1rem 1rem 1rem .5rem;
+    padding: 1rem 1rem 1rem 0.5rem;
 }
 
 @media (min-width: 641px) {
@@ -55,8 +55,8 @@
         width: min(85vw, 20rem);
         transform: translateX(-100%);
         visibility: hidden;
-        transition: transform .3s ease-in-out, visibility .3s, box-shadow .3s;
-        padding: .2rem .4rem .4rem .4rem;
+        transition: transform .3s ease-in-out, visibility 0.3s, box-shadow 0.3s;
+        padding: 0.2rem 0.4rem 0.4rem 0.4rem;
         border-radius: 0 1rem 1rem 0;
         border: none;
         z-index: 100;
@@ -75,7 +75,7 @@
     }
 
     .sidebar-panel::backdrop {
-        background: rgba(0, 0, 0, .25);
+        background: rgba(0, 0, 0, 0.25);
     }
 
     .sidebar-panel-close {
@@ -95,7 +95,7 @@
 .nav-primary-button {
     width: 100%;
     justify-content: left;
-    padding-left: .3rem;
+    padding-left: 0.3rem;
 }
 
 .nav-primary {
@@ -104,7 +104,7 @@
 }
 
 .chat-list {
-    padding: 0 .5rem;
+    padding: 0 0.5rem;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -180,7 +180,7 @@
 .chat-list-item-option-dropdown-menu {
     --dsc-dropdown-padding: 0.25rem;
     --dsc-dropdown-item-size: 1rem;
-    --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem .3rem;
+    --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem 0.3rem;
     min-width: 0;
     width: max-content;
 }
@@ -192,7 +192,7 @@
 }
 
 .chat-list-item-option-dropdown-menu ul > li > button {
-    font-size: .925rem;
+    font-size: 0.925rem;
 }
 
 .chat-list-link {
