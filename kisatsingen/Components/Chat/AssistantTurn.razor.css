@@ -26,6 +26,18 @@
     padding: 0.2rem;
 }
 
+.icon-copy-confirm {
+    display: none;
+}
+
+.assistant-turn-action-button.is-copied .icon-copy {
+    display: none;
+}
+
+.assistant-turn-action-button.is-copied .icon-copy-confirm {
+    display: inline-block;
+}
+
 .assistant-metadata {
     width: min(28rem, 90vw);
     max-width: none;
