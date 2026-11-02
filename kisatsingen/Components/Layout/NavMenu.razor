@@ -85,28 +85,35 @@
                                 >
                                     <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                                 </button>
-                                <div class="ds-dropdown chat-list-item-option-dropdown-menu" data-placement="bottom-end" id="@menuId" popover>
+                                <div
+                                    class="ds-dropdown chat-list-item-option-dropdown-menu"
+                                    data-placement="bottom-end"
+                                    id="@menuId"
+                                    popover
+                                >
                                     <ul>
                                         <li>
-                                            <button type="button"
-                                                    class="ds-button"
-                                                    data-variant="tertiary"
-                                                    command="show-modal"
-                                                    commandfor="rename-chat-dialog"
-                                                    @onclick="() => _renameDialog?.Load(entry)"
+                                            <button
+                                                type="button"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                command="show-modal"
+                                                commandfor="rename-chat-dialog"
+                                                @onclick="() => _renameDialog?.Load(entry)"
                                             >
                                                 <span class="material-symbols-outlined" aria-hidden="true">edit</span>
                                                 Endre navn
                                             </button>
                                         </li>
                                         <li>
-                                            <button type="button"
-                                                    class="ds-button"
-                                                    data-variant="tertiary"
-                                                    data-color="danger"
-                                                    command="show-modal"
-                                                    commandfor="delete-chat-dialog"
-                                                    @onclick="() => _deleteDialog?.Load(entry)"
+                                            <button
+                                                type="button"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                data-color="danger"
+                                                command="show-modal"
+                                                commandfor="delete-chat-dialog"
+                                                @onclick="() => _deleteDialog?.Load(entry)"
                                             >
                                                 <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                                                 Slett samtale
@@ -127,38 +134,29 @@
         <div class="user-menu">
             <AuthorizeView>
                 <Authorized>
-                    <hr aria-hidden="true" class="ds-divider"/>
+                    <hr aria-hidden="true" class="ds-divider" />
                     <div class="user-menu-item">
-                        <button class="ds-button user-menu-button"
+                        <button
+                            class="ds-button user-menu-button"
                             type="button"
                             data-variant="tertiary"
                             data-color="neutral"
-                            popovertarget="user-menu-dropdown"
+                            popovertarget="@UserMenuId"
                             data-tooltip="Brukermeny"
                         >
+                            <span aria-hidden="true" class="ds-avatar" data-size="xs" data-color="accent"></span>
                             <span
-                                aria-hidden="true"
-                                class="ds-avatar"
-                                data-size="xs"
-                                data-color="accent"
-                            ></span>
-                            <span class="ds-paragraph user-menu-button-title" data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
+                                class="ds-paragraph user-menu-button-title"
+                                data-size="sm"
+                            ><strong>@context.User.FindFirst("name")?.Value</strong></span>
                             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
                         </button>
 
-                        <div
-                            id="user-menu-dropdown"
-                            class="ds-dropdown"
-                            popover="auto"
-                            data-placement="top-start"
-                        >
+                        <div id="@UserMenuId" class="ds-dropdown" popover="auto" data-placement="top-start">
                             <h2 id="user-menu-heading" class="ds-heading"><strong>Meg og mitt</strong></h2>
                             <ul aria-labelledby="user-menu-heading">
                                 <li>
-                                    <NavLink class="ds-button"
-                                        data-variant="tertiary"
-                                        data-color="accent"
-                                        href="usage">
+                                    <NavLink class="ds-button" data-variant="tertiary" data-color="accent" href="usage">
                                         <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                                         Mitt forbruk
                                     </NavLink>
@@ -166,14 +164,16 @@
                             </ul>
 
                             <AuthorizeView Policy="@AuthorizationPolicies.IsAdministrator" Context="adminContext">
-                                <hr aria-hidden="true" class="ds-divider"/>
+                                <hr aria-hidden="true" class="ds-divider" />
                                 <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
                                 <ul aria-labelledby="admin-menu-heading">
                                     <li>
-                                        <NavLink class="ds-button"
+                                        <NavLink
+                                            class="ds-button"
                                             data-variant="tertiary"
                                             data-color="accent"
-                                            href="administration/usage">
+                                            href="administration/usage"
+                                        >
                                             <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                                             Totalt forbruk
                                         </NavLink>
