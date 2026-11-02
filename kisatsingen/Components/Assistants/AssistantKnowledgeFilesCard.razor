@@ -64,7 +64,7 @@
                                         </button>
                                     }
                                 </div>
-                                <span data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
+                                <span class="ds-paragraph ds-alert" data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
                                     @DescribeStatus(upload)
                                 </span>
                             </li>
