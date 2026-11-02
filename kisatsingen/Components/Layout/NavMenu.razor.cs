@@ -38,8 +38,8 @@ public partial class NavMenu : ComponentBase, IDisposable
         {
             try
             {
-                await using var popover = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", menuId);
-                await popover.InvokeVoidAsync("hidePopover");
+                await using var menuElement = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", menuId);
+                await menuElement.InvokeVoidAsync("hidePopover");
             }
             catch (JSDisconnectedException)
             {
@@ -48,7 +48,7 @@ public partial class NavMenu : ComponentBase, IDisposable
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Failed to hide {PopoverId} after navigation; it stays open", menuId);
+                Logger.LogWarning(ex, "Failed to hide {MenuId} after navigation; it stays open", menuId);
             }
         }
     }
