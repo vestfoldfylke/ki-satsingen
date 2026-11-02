@@ -42,7 +42,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
 
         await db.SaveChangesAsync(ct);
     }
-    
+
     public async Task<TokenUsageSummary> GetTotalsAsync(
         Guid ownerId,
         DateTimeOffset? since,
@@ -66,7 +66,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
 
         return rows[0];
     }
-    
+
     public async Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
         Guid ownerId,
         DateTimeOffset? since,
@@ -93,7 +93,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
              """
         ).ToListAsync(ct);
     }
-    
+
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
         Guid ownerId,
         DateTimeOffset? since,
@@ -118,7 +118,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
              """
         ).ToListAsync(ct);
     }
-    
+
     public async Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
         Guid ownerId,
         DateTimeOffset? since,
@@ -151,7 +151,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
             r.EstimatedOutputTokens,
             r.TurnCount))];
     }
-    
+
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
         Guid ownerId,
         DateTimeOffset? since,

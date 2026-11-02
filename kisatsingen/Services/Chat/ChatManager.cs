@@ -44,7 +44,7 @@ public sealed class ChatManager
         _entries.Clear();
         foreach (var summary in list)
         {
-            _entries.Add(new ChatListEntry(summary.Id, summary.Title, summary.UpdatedAt));
+            _entries.Add(new ChatListEntry(summary.Id, summary.Title, summary.AssistantId, summary.UpdatedAt));
         }
 
         _loaded = true;
@@ -56,7 +56,7 @@ public sealed class ChatManager
         var ownerId = await _auth.RequireUserObjectIdentifierAsync();
         var chat = await _repo.CreateChatAsync(ownerId, chatId, BuildTitle(firstMessageText), assistantId, ct);
 
-        _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.UpdatedAt));
+        _entries.Insert(0, new ChatListEntry(chat.Id, chat.Title, chat.AssistantId, chat.UpdatedAt));
         RaiseChanged();
     }
 

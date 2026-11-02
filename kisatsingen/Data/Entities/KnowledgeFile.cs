@@ -21,12 +21,8 @@ public sealed class KnowledgeFile
 
     public Guid Id { get; init; }
 
-    // Denormalised from the owning assistant or chat so repository queries can
-    // filter by owner without a join. Safe only while nothing transfers
-    // ownership of an assistant or a chat.
-    public required Guid OwnerId { get; init; }
-
-    // Exactly one is set — see the check constraint in AppDbContext.
+    // Exactly one is set — see the check constraint in AppDbContext. A file has
+    // no owner of its own: who may reach it is decided by its chat or assistant.
     public Guid? AssistantId { get; init; }
     public Guid? ChatId { get; init; }
 

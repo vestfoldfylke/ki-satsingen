@@ -85,7 +85,7 @@ public sealed class UserInfoCache : IUserInfoCache, IDisposable
         _userInfoMemoryCache.Dispose();
     }
 
-    private string GetCacheKey(Guid objectId) => $"{UserInfoMemoryCacheKey}_{objectId}";
+    private static string GetCacheKey(Guid objectId) => $"{UserInfoMemoryCacheKey}_{objectId}";
 }
 
 public sealed class UserInfo

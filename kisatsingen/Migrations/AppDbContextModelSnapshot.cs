@@ -222,9 +222,6 @@ namespace kisatsingen.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid");
-
                     b.Property<int?>("PageCount")
                         .HasColumnType("integer");
 

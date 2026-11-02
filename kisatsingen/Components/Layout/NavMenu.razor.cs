@@ -10,6 +10,8 @@ public partial class NavMenu : ComponentBase, IDisposable
     private const int TooltipOnChatListTitleLengthThreshold = 45;
 
     private const string SidebarPanelId = "sidebar-panel";
+    private const string UserMenuId = "user-menu-dropdown";
+    private static readonly string[] MenuIdsToHideOnNavigation = [SidebarPanelId, UserMenuId];
 
     [Inject]
     public required ChatSession Session { get; set; }
@@ -32,20 +34,24 @@ public partial class NavMenu : ComponentBase, IDisposable
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;
 
-    private async Task HideSidebarPanelAsync()
+    private async Task HideMenusAsync()
     {
-        try
+        foreach (var menuId in MenuIdsToHideOnNavigation)
         {
-            await using var sidebarPanel = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", SidebarPanelId);
-            await sidebarPanel.InvokeVoidAsync("hidePopover");
-        }
-        catch (JSDisconnectedException)
-        {
-            // The circuit is gone, so there is no page left to hide the panel on.
-        }
-        catch (Exception ex)
-        {
-            Logger.LogWarning(ex, "Failed to hide {SidebarPanelId} after navigation; the mobile drawer stays open", SidebarPanelId);
+            try
+            {
+                await using var menuElement = await JS.InvokeAsync<IJSObjectReference>("document.getElementById", menuId);
+                await menuElement.InvokeVoidAsync("hidePopover");
+            }
+            catch (JSDisconnectedException)
+            {
+                // The circuit is gone, so there is no page left to hide the menus on.
+                return;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning(ex, "Failed to hide {MenuId} after navigation; it stays open", menuId);
+            }
         }
     }
 
@@ -64,7 +70,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        await HideSidebarPanelAsync();
+        await HideMenusAsync();
     }
 
     private void OnStateChanged() => InvokeAsync(StateHasChanged);

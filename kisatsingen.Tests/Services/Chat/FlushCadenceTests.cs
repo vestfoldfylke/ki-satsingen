@@ -1,3 +1,4 @@
+using System.Globalization;
 using kisatsingen.Services.Chat;
 using Xunit;
 
@@ -185,7 +186,7 @@ public sealed class FlushCadenceTests
 
         for (var i = 0; i < offsets.Length; i++)
         {
-            if (cadence.Append(offsets[i], i.ToString()) is { } due)
+            if (cadence.Append(offsets[i], i.ToString(CultureInfo.InvariantCulture)) is { } due)
             {
                 delivered.Add(due);
             }
