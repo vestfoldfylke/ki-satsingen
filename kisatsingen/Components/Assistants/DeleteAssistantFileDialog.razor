@@ -1,0 +1,24 @@
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Slett fil">
+    @if (_isNotFound)
+    {
+        <p class="ds-paragraph">Fant ikke filen. Den er slettet, eller du har ikke lenger tilgang til assistenten.</p>
+    }
+    else if (_file is not null)
+    {
+        <div class="form-fields">
+            @if (_refusal is not null)
+            {
+                <div class="ds-alert" data-color="danger" role="alert">
+                    <p class="ds-paragraph">@_refusal</p>
+                </div>
+            }
+
+            <p class="ds-paragraph">Vil du slette «@_file.FileName»? Dette kan ikke angres.</p>
+
+            <div class="form-actions">
+                <button type="button" class="ds-button" data-variant="primary" data-color="danger" @onclick="DeleteAsync">Ja, slett</button>
+                <button type="button" class="ds-button" data-variant="secondary" command="close" commandfor="@Id">Avbryt</button>
+            </div>
+        </div>
+    }
+</ModalDialog>

@@ -22,4 +22,7 @@
 
 .assistant-config {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-4);
 }

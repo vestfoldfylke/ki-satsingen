@@ -1,0 +1,39 @@
+/* The heading on the left, adding to the right. */
+.assistant-files-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ds-size-2);
+}
+
+/* A dropdown is as wide as its widest line, so the alert would otherwise
+   stretch it to the edge of the viewport before wrapping. */
+.assistant-files-menu {
+    max-width: 20rem;
+}
+
+.assistant-files-uploads {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.assistant-files-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.assistant-files-upload-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.assistant-files-upload-name {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}

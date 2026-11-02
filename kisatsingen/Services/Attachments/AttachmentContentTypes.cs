@@ -43,7 +43,7 @@ public static class AttachmentContentTypes
     // can be told to show all files, so the upload checks again.
     public static string AcceptAttribute { get; } = string.Join(',', AllowedExtensions.Select(allowed => allowed.Extension));
 
-    // "tekstfiler og bilder": what may be attached, before a file is picked.
+    // "tekstfiler og bilder": what may be attached, before a file is selected.
     public static string AllowedKindsText { get; } =
         JoinAsNorwegianList(GroupByKind().Select(kind => kind.Key));
 

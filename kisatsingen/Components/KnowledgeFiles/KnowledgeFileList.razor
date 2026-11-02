@@ -1,0 +1,67 @@
+@using kisatsingen.Data.Entities
+@using kisatsingen.Services.KnowledgeFiles.Conversion
+
+@* Saved knowledge files, a chat's or an assistant's alike: the list never
+   knows whose they are. *@
+<ul class="knowledge-file-list">
+    @foreach (var file in Files)
+    {
+        <li @key="file.Id" class="knowledge-file-list-item">
+            <span class="knowledge-file-list-name">@file.FileName</span>
+            @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
+            {
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="tertiary"
+                    data-size="sm"
+                    data-icon="true"
+                    popovertarget="@NoteId(file)"
+                    aria-label="@($"Om innholdet i {file.FileName}")"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                </button>
+                <div class="ds-popover knowledge-file-list-note" id="@NoteId(file)" popover="auto" data-placement="top">
+                    @note
+                </div>
+            }
+            @if (DeleteDialogId is not null)
+            {
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="tertiary"
+                    data-color="danger"
+                    data-size="sm"
+                    data-icon="true"
+                    command="show-modal"
+                    commandfor="@DeleteDialogId"
+                    data-tooltip="@($"Slett {file.FileName}")"
+                    aria-label="@($"Slett {file.FileName}")"
+                    @onclick="() => OnDeleteRequested.InvokeAsync(file)"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                </button>
+            }
+        </li>
+    }
+</ul>
+
+@code {
+    // Unique per instance, so two lists of the same files can share a page.
+    private readonly string _idPrefix = $"knowledge-file-list-{Guid.NewGuid():N}";
+
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<KnowledgeFileMetadata> Files { get; set; }
+
+    // The dialog that confirms a delete, owned by whoever owns the files. Each
+    // file gets a delete button only when this is set.
+    [Parameter]
+    public string? DeleteDialogId { get; set; }
+
+    // Raised as the dialog opens, with the file to delete.
+    [Parameter]
+    public EventCallback<KnowledgeFileMetadata> OnDeleteRequested { get; set; }
+
+    private string NoteId(KnowledgeFileMetadata file) => $"{_idPrefix}-{file.Id:N}";
+}

@@ -187,6 +187,17 @@ public sealed class AttachmentQuotaTests : IDisposable
     }
 
     [Fact]
+    public void A_file_finishing_after_the_attachment_folder_is_gone_is_refused_as_unavailable()
+    {
+        var stored = CreateUploadingFile(Owner, Kilobyte);
+        Directory.Delete(_environment.Folder, recursive: true);
+
+        var check = Quota.MarkReadyIfFits(Owner, stored);
+
+        Assert.Equal(new QuotaCheck.Rejected(UploadRejections.Unavailable), check);
+    }
+
+    [Fact]
     public void A_negative_declared_size_is_refused_as_a_programming_error()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => Quota.CheckDeclaredSizeFits(Owner, -1));

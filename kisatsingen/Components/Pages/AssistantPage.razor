@@ -24,6 +24,9 @@
             </div>
             <div class="assistant-config">
                 <AssistantInstructionsCard Assistant="_assistant" OnChanged="ApplyEditAsync" />
+                @* A new card per assistant: moving to another one disposes the
+                   card, which cancels its uploads. *@
+                <AssistantKnowledgeFilesCard @key="_assistant.Id" Assistant="_assistant" />
             </div>
         </div>
     }

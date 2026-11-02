@@ -1,6 +1,6 @@
 namespace kisatsingen.Services.Attachments;
 
-// One picked file in the composer, from picking until it is sent or discarded.
+// One selected file in the composer, from selection until it is sent or discarded.
 public sealed class ComposerAttachment(string fileName, long declaredSizeBytes)
 {
     // Often enough to look live, rarely enough not to re-render per buffer.
