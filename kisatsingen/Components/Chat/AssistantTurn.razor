@@ -20,26 +20,42 @@
             <div class="assistant-turn-actions">
                 @if (HasCopyableText)
                 {
-                    <button type="button" class="ds-button assistant-turn-action-button" data-color="neutral"
-                            data-variant="tertiary" data-size="sm" data-copy-turn-id="@Turn.Id" aria-label="Kopier"
-                            data-tooltip="Kopier" @onclick="async () => await InitiateCopyVisuals()">
-                        <span class="material-symbols-outlined" aria-hidden="true">@(_copied ? "check" :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           "content_copy")</span>
-                        </button>
-                    }
-
-                    <button type="button" class="ds-button assistant-turn-action-button" data-color="neutral"
-                            data-variant="tertiary" data-size="sm" data-copy-turn-id="@Turn.Id" aria-label="Metadata"
-                            data-tooltip="Metadata" popovertarget="@PopoverId" aria-controls="@PopoverId">
-                        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    <button type="button"
+                            class="ds-button assistant-turn-action-button"
+                            data-color="neutral"
+                            data-variant="tertiary"
+                            data-size="sm"
+                            data-copy-turn-id="@Turn.Id"
+                            aria-label="Kopier"
+                            data-tooltip="Kopier"
+                            @onclick="async () => await InitiateCopyVisuals()">
+                        <span class="material-symbols-outlined" aria-hidden="true">@(_copied ? "check" : "content_copy")</span>
                     </button>
-                </div>
-                <time class="assistant-turn-time" datetime="@Turn.StartedAt.ToString("o")">
-                    @Turn.StartedAt.LocalDateTime.ToString("d. MMM HH:mm:ss")
-                </time>
+                }
+
+                <button type="button"
+                        class="ds-button assistant-turn-action-button"
+                        data-color="neutral"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        data-copy-turn-id="@Turn.Id"
+                        aria-label="Metadata"
+                        data-tooltip="Metadata"
+                        popovertarget="@PopoverId"
+                        aria-controls="@PopoverId"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                </button>
+            </div>
+
+            <time class="assistant-turn-time" datetime="@Turn.StartedAt.ToString("o")">
+                @Turn.StartedAt.LocalDateTime.ToString("d. MMM HH:mm:ss")
+            </time>
             </footer>
 
-            <div id="@PopoverId" class="ds-popover assistant-metadata" popover="auto" data-placement="top" data-color="neutral"
+            <div id="@PopoverId"
+                class="ds-popover assistant-metadata" 
+                popover="auto" data-placement="top" data-color="neutral"
                  @ontoggle="() => _showFullPrompt = false">
                 <dl class="assistant-metadata-list">
                     @if (DescribeModel(Turn) is { } modelDescription)
@@ -94,8 +110,11 @@
                             @Turn.SystemPrompt</div>
                             @if (Turn.SystemPrompt?.Length > 160)
                             {
-                                <button class="ds-link assistant-metadata-toggle" data-variant="tertiary" data-color="neutral"
-                                        aria-expanded="@_showFullPrompt" @onclick="() => _showFullPrompt = !_showFullPrompt">
+                                <button class="ds-link assistant-metadata-toggle"
+                                        data-variant="tertiary"
+                                        data-color="neutral"
+                                        aria-expanded="@_showFullPrompt" @onclick="() => _showFullPrompt = !_showFullPrompt"
+                                >
                                     @(_showFullPrompt ? "Vis mindre" : "Vis mer")
                                 </button>
                             }
