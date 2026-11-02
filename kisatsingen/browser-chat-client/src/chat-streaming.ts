@@ -75,16 +75,48 @@ const streamStates = new Map<string, StreamState>();
 const COPIED_FEEDBACK_MS = 1200;
 const COPY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
+function markCopied(button: HTMLElement): void {
+    button.classList.add('is-copied');
+    setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
+}
+
 async function copyToClipboard(text: string, button: HTMLElement): Promise<void> {
     if (!text) {
         return;
     }
+
+    await copyPlainText(text, button);
+}
+
+async function copyPlainText(text: string, button: HTMLElement): Promise<void> {
     try {
         await navigator.clipboard.writeText(text);
-        button.classList.add('is-copied');
-        setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
+        markCopied(button);
     } catch (err) {
         console.warn('Copy failed', err);
+    }
+}
+
+async function copyRichToClipboard(markdown: string, html: string, button: HTMLElement): Promise<void> {
+    if (!markdown) {
+        return;
+    }
+
+    if (!html) {
+        return copyPlainText(markdown, button);
+    }
+
+    try {
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([html], {type: 'text/html'}),
+                'text/plain': new Blob([markdown], {type: 'text/plain'}),
+            }),
+        ]);
+
+        markCopied(button);
+    } catch {
+        await copyPlainText(markdown, button);
     }
 }
 
@@ -115,7 +147,7 @@ function injectCodeBlockCopy(el: HTMLElement): void {
     });
 }
 
-// Message-level copy: read joined prose from the turn's .markdown-fallback divs.
+// Message-level copy: read joined prose from the turn's .markdown-fallback and .assistant-markdown divs.
 // Delegated at document to catch any AssistantTurn Blazor inserts later.
 document.addEventListener('click', event => {
     const button = event.target instanceof Element
@@ -131,11 +163,22 @@ document.addEventListener('click', event => {
     }
 
     const parts = turn.querySelectorAll('.markdown-fallback');
+
+    const html = Array.from(turn.querySelectorAll<HTMLElement>('.assistant-markdown'))
+        .map(el => {
+            const clone = el.cloneNode(true) as HTMLElement;
+            clone.querySelectorAll('.chat-code-copy').forEach(copyButton => copyButton.remove());
+            return clone.innerHTML;
+        })
+        .filter(h => h)
+        .join('');
+
     const text = Array.from(parts)
         .map(el => el.textContent)
         .filter(t => t)
         .join('\n\n');
-    copyToClipboard(text, button);
+
+    copyRichToClipboard(text, html, button);
 });
 
 function renderInto(el: HTMLElement | null, source: string | null | undefined, { highlight = false }: { highlight?: boolean } = {}): void {
