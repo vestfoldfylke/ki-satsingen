@@ -1,7 +1,15 @@
 ﻿<div class="navbar">
     <div class="sidebar-header">
-        <button type="button" class="ds-button sidebar-panel-open" data-variant="tertiary" data-size="sm"
-                data-icon="true" aria-label="Åpne meny" aria-controls="@SidebarPanelId" popovertarget="@SidebarPanelId">
+        <button
+            type="button"
+            class="ds-button sidebar-panel-open"
+            data-variant="tertiary"
+            data-size="sm"
+            data-icon="true"
+            aria-label="Åpne meny"
+            aria-controls="@SidebarPanelId"
+            popovertarget="@SidebarPanelId"
+        >
             <span class="material-symbols-outlined" aria-hidden="true">menu</span>
         </button>
     </div>
@@ -22,8 +30,16 @@
                 </a>
             </nav>
 
-            <button type="button" class="ds-button sidebar-panel-close" data-variant="tertiary" data-size="sm"
-                    data-icon="true" aria-label="Lukk meny" popovertarget="@SidebarPanelId" popovertargetaction="hide">
+            <button
+                type="button"
+                class="ds-button sidebar-panel-close"
+                data-variant="tertiary"
+                data-size="sm"
+                data-icon="true"
+                aria-label="Lukk meny"
+                popovertarget="@SidebarPanelId"
+                popovertargetaction="hide"
+            >
                 <span class="material-symbols-outlined" aria-hidden="true">close</span>
             </button>
         </div>
@@ -47,25 +63,48 @@
                                 <a class="ds-link chat-list-link" href="@($"/chat/{entry.Id}")" data-tooltip="@entry.Title">
                                     <span class="chat-list-title">@entry.Title</span>
                                 </a>
-                                <button type="button" class="ds-button chat-list-item-option-button" data-variant="tertiary"
-                                        data-size="sm" data-icon="true" popovertarget="@menuId" aria-label="Valg for samtalen"
-                                        data-tooltip="Valg for samtalen">
+                                <button
+                                    type="button"
+                                    class="ds-button chat-list-item-option-button"
+                                    data-variant="tertiary"
+                                    data-size="sm"
+                                    data-icon="true"
+                                    popovertarget="@menuId"
+                                    aria-label="Valg for samtalen"
+                                    data-tooltip="Valg for samtalen"
+                                >
                                     <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                                 </button>
-                                <div class="ds-dropdown chat-list-item-option-dropdown-menu" data-placement="bottom-end"
-                                     id="@menuId" popover>
+                                <div
+                                    class="ds-dropdown chat-list-item-option-dropdown-menu"
+                                    data-placement="bottom-end"
+                                    id="@menuId"
+                                    popover
+                                >
                                     <ul>
                                         <li>
-                                            <button type="button" class="ds-button" data-variant="tertiary" command="show-modal"
-                                                    commandfor="rename-chat-dialog" @onclick="() => _renameDialog?.Load(entry)">
+                                            <button
+                                                type="button"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                command="show-modal"
+                                                commandfor="rename-chat-dialog"
+                                                @onclick="() => _renameDialog?.Load(entry)"
+                                            >
                                                 <span class="material-symbols-outlined" aria-hidden="true">edit</span>
                                                 Endre navn
                                             </button>
                                         </li>
                                         <li>
-                                            <button type="button" class="ds-button" data-variant="tertiary" data-color="danger"
-                                                    command="show-modal" commandfor="delete-chat-dialog"
-                                                    @onclick="() => _deleteDialog?.Load(entry)">
+                                            <button
+                                                type="button"
+                                                class="ds-button"
+                                                data-variant="tertiary"
+                                                data-color="danger"
+                                                command="show-modal"
+                                                commandfor="delete-chat-dialog"
+                                                @onclick="() => _deleteDialog?.Load(entry)"
+                                            >
                                                 <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                                                 Slett samtale
                                             </button>
@@ -87,11 +126,19 @@
                 <Authorized>
                     <hr aria-hidden="true" class="ds-divider" />
                     <div class="user-menu-item">
-                        <button class="ds-button user-menu-button" type="button" data-variant="tertiary"
-                                data-color="neutral" popovertarget="@UserMenuId" data-tooltip="Brukermeny">
+                        <button
+                            class="ds-button user-menu-button"
+                            type="button"
+                            data-variant="tertiary"
+                            data-color="neutral"
+                            popovertarget="@UserMenuId"
+                            data-tooltip="Brukermeny"
+                        >
                             <span aria-hidden="true" class="ds-avatar" data-size="xs" data-color="accent"></span>
-                            <span class="ds-paragraph user-menu-button-title"
-                                  data-size="sm"><strong>@context.User.FindFirst("name")?.Value</strong></span>
+                            <span
+                                class="ds-paragraph user-menu-button-title"
+                                data-size="sm"
+                            ><strong>@context.User.FindFirst("name")?.Value</strong></span>
                             <span class="material-symbols-outlined" aria-hidden="true">keyboard_arrow_down</span>
                         </button>
 
@@ -111,8 +158,12 @@
                                 <h2 id="admin-menu-heading" class="ds-heading"><strong>Administrator</strong></h2>
                                 <ul aria-labelledby="admin-menu-heading">
                                     <li>
-                                        <NavLink class="ds-button" data-variant="tertiary" data-color="accent"
-                                                 href="administration/usage">
+                                        <NavLink
+                                            class="ds-button"
+                                            data-variant="tertiary"
+                                            data-color="accent"
+                                            href="administration/usage"
+                                        >
                                             <span class="material-symbols-outlined" aria-hidden="true">data_usage</span>
                                             Totalt forbruk
                                         </NavLink>
