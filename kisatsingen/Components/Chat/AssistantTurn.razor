@@ -39,7 +39,6 @@
                         data-color="neutral"
                         data-variant="tertiary"
                         data-size="sm"
-                        data-copy-turn-id="@Turn.Id"
                         aria-label="Metadata"
                         data-tooltip="Metadata"
                         popovertarget="@PopoverId"
@@ -55,7 +54,7 @@
             </footer>
 
             <div id="@PopoverId"
-                class="ds-popover assistant-metadata" 
+                class="ds-popover assistant-metadata"
                 popover="auto" data-placement="top" data-color="neutral"
                  @ontoggle="() => _showFullPrompt = false">
                 <dl class="assistant-metadata-list">
