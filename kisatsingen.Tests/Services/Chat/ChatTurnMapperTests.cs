@@ -198,15 +198,15 @@ public sealed class ChatTurnMapperTests
         string? answerJson = null,
         string? status = null,
         string? attachmentsJson = null) => new()
-    {
-        Id = stored.Id,
-        Prompt = stored.Prompt,
-        SystemPrompt = stored.SystemPrompt,
-        ModelKey = stored.ModelKey,
-        Status = status ?? stored.Status,
-        AnswerJson = answerJson ?? stored.AnswerJson,
-        AttachmentsJson = attachmentsJson ?? stored.AttachmentsJson
-    };
+        {
+            Id = stored.Id,
+            Prompt = stored.Prompt,
+            SystemPrompt = stored.SystemPrompt,
+            ModelKey = stored.ModelKey,
+            Status = status ?? stored.Status,
+            AnswerJson = answerJson ?? stored.AnswerJson,
+            AttachmentsJson = attachmentsJson ?? stored.AttachmentsJson
+        };
 
     private static Turn TurnWith(params TurnSegment[] answer) => new()
     {

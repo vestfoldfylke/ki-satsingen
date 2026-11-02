@@ -3,7 +3,6 @@ using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using System.Text.Json;
 using kisatsingen.Services.Chat;
-using kisatsingen.Tests.Data;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -25,7 +24,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     public Task InitializeAsync() => fixture.ResetAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
-    
+
     [Fact]
     public async Task CreateChatAsync_refuses_a_blank_title()
     {
@@ -417,15 +416,15 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         string answerJson = "[]",
         long? durationMs = null,
         string? attachmentsJson = null) => new()
-    {
-        Id = id ?? Guid.NewGuid(),
-        StartedAt = startedAt == default ? DateTimeOffset.UtcNow : startedAt,
-        Prompt = prompt,
-        SystemPrompt = "be brief",
-        ModelKey = "fast",
-        Status = status,
-        AnswerJson = answerJson,
-        AttachmentsJson = attachmentsJson,
-        DurationMs = durationMs
-    };
+        {
+            Id = id ?? Guid.NewGuid(),
+            StartedAt = startedAt == default ? DateTimeOffset.UtcNow : startedAt,
+            Prompt = prompt,
+            SystemPrompt = "be brief",
+            ModelKey = "fast",
+            Status = status,
+            AnswerJson = answerJson,
+            AttachmentsJson = attachmentsJson,
+            DurationMs = durationMs
+        };
 }
