@@ -15,8 +15,10 @@
     @* Not role="menu": a file input can't be a menu item, and a menu
        promises arrow-key navigation that nothing here provides. *@
     <div @ref="_popover" id="@PopoverId" class="ds-dropdown composer-add-menu" popover="auto" data-placement="top-start">
-        <AttachmentPicker Label="Legg ved filer"
-                          IsDisabled="IsFilePickerDisabled"
-                          OnFilesSelected="RaiseFilesSelectedAsync" />
+        <AttachmentPicker
+            Label="Legg ved filer"
+            IsDisabled="IsFilePickerDisabled"
+            OnFilesSelected="RaiseFilesSelectedAsync"
+        />
     </div>
 </div>

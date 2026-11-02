@@ -10,8 +10,15 @@
             <span class="knowledge-file-list-name">@file.FileName</span>
             @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
             {
-                <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
-                        popovertarget="@NoteId(file)" aria-label="@($"Om innholdet i {file.FileName}")">
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="tertiary"
+                    data-size="sm"
+                    data-icon="true"
+                    popovertarget="@NoteId(file)"
+                    aria-label="@($"Om innholdet i {file.FileName}")"
+                >
                     <span class="material-symbols-outlined" aria-hidden="true">info</span>
                 </button>
                 <div class="ds-popover knowledge-file-list-note" id="@NoteId(file)" popover="auto" data-placement="top">
@@ -20,10 +27,19 @@
             }
             @if (DeleteDialogId is not null)
             {
-                <button type="button" class="ds-button" data-variant="tertiary" data-color="danger" data-size="sm" data-icon="true"
-                        command="show-modal" commandfor="@DeleteDialogId"
-                        data-tooltip="@($"Slett {file.FileName}")" aria-label="@($"Slett {file.FileName}")"
-                        @onclick="() => OnDeleteRequested.InvokeAsync(file)">
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="tertiary"
+                    data-color="danger"
+                    data-size="sm"
+                    data-icon="true"
+                    command="show-modal"
+                    commandfor="@DeleteDialogId"
+                    data-tooltip="@($"Slett {file.FileName}")"
+                    aria-label="@($"Slett {file.FileName}")"
+                    @onclick="() => OnDeleteRequested.InvokeAsync(file)"
+                >
                     <span class="material-symbols-outlined" aria-hidden="true">delete</span>
                 </button>
             }
