@@ -116,8 +116,8 @@ internal sealed class TurnRunner
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || builder.Attachments.Any(attachment => attachment.FileId is not null);
-            await StreamAsync(inserted, input, builder, chatHasKnowledgeFiles, observer, cancellation.Token);
+            var hasKnowledgeFiles = input.HasKnowledgeFiles || builder.Attachments.Any(attachment => attachment.FileId is not null);
+            await StreamAsync(inserted, input, builder, hasKnowledgeFiles, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
             // chat during this one write must not store it as stopped.
@@ -266,7 +266,7 @@ internal sealed class TurnRunner
         InsertedTurn inserted,
         TurnInput input,
         TurnBuilder builder,
-        bool chatHasKnowledgeFiles,
+        bool hasKnowledgeFiles,
         TurnObserver observer,
         CancellationToken ct)
     {
@@ -280,9 +280,8 @@ internal sealed class TurnRunner
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
 
-        // Only for a chat with files: one without pays nothing for their
-        // definitions, and the model is not tempted to call list_files.
-        if (chatHasKnowledgeFiles)
+        // Without files, the tools would cost tokens and make the model call list_files for nothing.
+        if (hasKnowledgeFiles)
         {
             var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];

@@ -53,6 +53,8 @@ public sealed class ChatSession : IAsyncDisposable
     // longer use, which goes on as a plain chat.
     private Assistant? _assistant;
 
+    private IReadOnlyList<KnowledgeFileMetadata> _assistantFiles = [];
+
     // The name the chat was saved with, shown once its assistant is no longer usable.
     private string? _assistantNameSnapshot;
 
@@ -159,7 +161,7 @@ public sealed class ChatSession : IAsyncDisposable
     // what is estimated can never differ.
     private string SystemPrompt =>
         _assistant is Assistant assistant
-            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions)
+            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, hasFiles: _assistantFiles.Count > 0)
             : ChatInstructions.ForPlainChat;
 
     // Estimated from the request we would send, not from usage: usage sums every
@@ -210,6 +212,7 @@ public sealed class ChatSession : IAsyncDisposable
         var assistant = chat?.AssistantId is Guid assistantId
             ? await _assistantRepository.GetAssistantAsync(userObjectId, assistantId)
             : null;
+        var assistantFiles = assistant is null ? [] : await _knowledgeFileRepository.ListFilesForAssistantAsync(userObjectId, assistant.Id);
 
         if (HasAnotherChatBeenRequestedSince(requestNumber))
         {
@@ -227,6 +230,7 @@ public sealed class ChatSession : IAsyncDisposable
         _chatState = ChatState.Saved;
         _knowledgeFiles = knowledgeFiles;
         _assistant = assistant;
+        _assistantFiles = assistantFiles;
         _assistantNameSnapshot = chat.AssistantNameSnapshot;
         var loadedAt = DateTimeOffset.UtcNow;
         _turns.AddRange(chat.Turns.Select(stored => ChatTurnMapper.FromEntity(stored, loadedAt, ResolveModelName, _logger)));
@@ -237,7 +241,13 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
-    public async Task StartNewChatAsync(Assistant? assistant)
+    public Task StartNewPlainChatAsync() => StartNewChatAsync(assistant: null, assistantFiles: []);
+
+    // Takes the assistant's files, so starting a chat needs no query.
+    public Task StartNewAssistantChatAsync(Assistant assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles) =>
+        StartNewChatAsync(assistant, assistantFiles);
+
+    private async Task StartNewChatAsync(Assistant? assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles)
     {
         var newChatId = Guid.NewGuid();
         var requestNumber = RequestChat(newChatId);
@@ -249,12 +259,13 @@ public sealed class ChatSession : IAsyncDisposable
 
         ResetToNewChat(newChatId);
         _assistant = assistant;
+        _assistantFiles = assistantFiles;
         Notify();
     }
 
     // Ignored unless the chat is with this assistant, so an edit never gives a chat
     // an assistant it was not saved with.
-    public void UpdateAssistant(Assistant assistant)
+    public void UpdateAssistant(Assistant assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles)
     {
         if (_assistant?.Id != assistant.Id)
         {
@@ -262,6 +273,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
 
         _assistant = assistant;
+        _assistantFiles = assistantFiles;
         Notify();
     }
 
@@ -319,6 +331,7 @@ public sealed class ChatSession : IAsyncDisposable
         _chatState = ChatState.New;
         _knowledgeFiles = [];
         _assistant = null;
+        _assistantFiles = [];
         _assistantNameSnapshot = null;
         _selectedModel = _catalog.Default;
 
@@ -347,7 +360,7 @@ public sealed class ChatSession : IAsyncDisposable
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ChatHasKnowledgeFiles());
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, HasKnowledgeFiles());
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -386,7 +399,7 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private bool ChatHasKnowledgeFiles() => _knowledgeFiles.Count > 0;
+    private bool HasKnowledgeFiles() => _knowledgeFiles.Count > 0 || _assistantFiles.Count > 0;
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddKnowledgeFile(KnowledgeFileMetadata file)

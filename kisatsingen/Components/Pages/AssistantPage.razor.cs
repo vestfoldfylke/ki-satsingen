@@ -33,27 +33,23 @@ public sealed partial class AssistantPage : ComponentBase
 
     protected override async Task OnParametersSetAsync()
     {
-        await LoadAsync();
-
-        if (_assistant is null)
+        if (await LoadAsync() is Assistant assistant)
         {
-            return;
+            await Session.StartNewAssistantChatAsync(assistant, _files);
         }
-
-        await Session.StartNewChatAsync(_assistant);
     }
 
     private async Task ApplyEditAsync()
     {
-        await LoadAsync();
-
-        if (_assistant is not null)
+        if (await LoadAsync() is Assistant assistant)
         {
-            Session.UpdateAssistant(_assistant);
+            Session.UpdateAssistant(assistant, _files);
         }
     }
 
-    private async Task LoadAsync()
+    // Null when the assistant isn't found, or when the page moved to another
+    // assistant meanwhile.
+    private async Task<Assistant?> LoadAsync()
     {
         // No _isLoading true here, current stays until new arrives, to avoid flicker
         var assistantId = AssistantId;
@@ -61,15 +57,16 @@ public sealed partial class AssistantPage : ComponentBase
         var assistant = await AssistantRepository.GetAssistantAsync(userId, assistantId);
         var files = assistant is null ? [] : await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, assistantId);
 
-        // The page moved to another assistant meanwhile; that load assigns its own.
+        // Page has moved to another assistant, let that one load and set its own fields.
         if (assistantId != AssistantId)
         {
-            return;
+            return null;
         }
 
         _assistant = assistant;
         _files = files;
         _isLoading = false;
+        return assistant;
     }
 
     private void OpenChat() => Navigation.NavigateTo($"/chat/{Session.ChatId}");

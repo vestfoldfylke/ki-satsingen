@@ -49,8 +49,25 @@ internal static class ChatInstructions
 
     public const string ForPlainChat = Base + "\n\n" + PlainChatAddition;
 
-    public static string ForAssistant(string name, string? instructions) =>
-        instructions is null
+    // Tells the model why it has the file tools when nothing was attached in the chat.
+    internal const string AssistantFilesLine =
+        "The assistant has knowledge files. Use list_files to find them, and read what the question needs before you answer.";
+
+    public static string ForAssistant(string name, string? instructions, bool hasFiles)
+    {
+        var sections = new List<string>();
+        if (instructions is not null)
+        {
+            sections.Add(instructions);
+        }
+
+        if (hasFiles)
+        {
+            sections.Add(AssistantFilesLine);
+        }
+
+        return sections.Count == 0
             ? Base
-            : $"{Base}\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}";
+            : $"{Base}\n\n## Instructions for the assistant \"{name}\"\n\n{string.Join("\n\n", sections)}";
+    }
 }

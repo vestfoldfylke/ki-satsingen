@@ -14,7 +14,7 @@ public sealed class ChatSessionAssistantTests
     public async Task A_new_chat_with_an_assistant_is_sent_the_assistants_instructions()
     {
         await using var harness = new ChatSessionHarness();
-        await harness.Session.StartNewChatAsync(NewAssistant());
+        await harness.Session.StartNewAssistantChatAsync(NewAssistant(), assistantFiles: []);
 
         await harness.Session.SendAsync("hei");
 
@@ -26,7 +26,7 @@ public sealed class ChatSessionAssistantTests
     {
         await using var harness = new ChatSessionHarness();
         var assistant = NewAssistant();
-        await harness.Session.StartNewChatAsync(assistant);
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: []);
 
         await harness.Session.SendAsync("hei");
 
@@ -64,8 +64,8 @@ public sealed class ChatSessionAssistantTests
     {
         await using var harness = new ChatSessionHarness();
         var assistant = NewAssistant();
-        await harness.Session.StartNewChatAsync(assistant);
-        harness.Session.UpdateAssistant(NewAssistant(instructions: "Svar på nynorsk.", id: assistant.Id));
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: []);
+        harness.Session.UpdateAssistant(NewAssistant(instructions: "Svar på nynorsk.", id: assistant.Id), assistantFiles: []);
 
         await harness.Session.SendAsync("hei");
 
@@ -76,8 +76,8 @@ public sealed class ChatSessionAssistantTests
     public async Task A_chat_without_an_assistant_is_not_given_the_one_that_was_updated()
     {
         await using var harness = new ChatSessionHarness();
-        await harness.Session.StartNewChatAsync(assistant: null);
-        harness.Session.UpdateAssistant(NewAssistant());
+        await harness.Session.StartNewPlainChatAsync();
+        harness.Session.UpdateAssistant(NewAssistant(), assistantFiles: []);
 
         await harness.Session.SendAsync("hei");
 
@@ -137,7 +137,7 @@ public sealed class ChatSessionAssistantTests
         harness.Assistants.RemoveAccess(assistant.Id);
         await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id, nameSnapshot: "Gammelt navn").Id);
 
-        await harness.Session.StartNewChatAsync(assistant: null);
+        await harness.Session.StartNewPlainChatAsync();
 
         Assert.Null(harness.Session.AssistantName);
     }
@@ -147,14 +147,84 @@ public sealed class ChatSessionAssistantTests
     {
         await using var shortInstructionsChat = new ChatSessionHarness();
         await using var longInstructionsChat = new ChatSessionHarness();
-        await shortInstructionsChat.Session.StartNewChatAsync(NewAssistant(instructions: "i"));
-        await longInstructionsChat.Session.StartNewChatAsync(NewAssistant(instructions: new string('i', 3_000)));
+        await shortInstructionsChat.Session.StartNewAssistantChatAsync(NewAssistant(instructions: "i"), assistantFiles: []);
+        await longInstructionsChat.Session.StartNewAssistantChatAsync(NewAssistant(instructions: new string('i', 3_000)), assistantFiles: []);
 
         await shortInstructionsChat.Session.SendAsync("hei");
         await longInstructionsChat.Session.SendAsync("hei");
 
         Assert.True(longInstructionsChat.Session.EstimatedContextTokens > shortInstructionsChat.Session.EstimatedContextTokens);
     }
+
+    [Fact]
+    public async Task A_new_chat_with_an_assistant_that_has_files_gets_the_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = NewAssistant();
+        var file = harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: [file]);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Contains("read_file", ToolNames(harness));
+    }
+
+    [Fact]
+    public async Task A_new_chat_with_an_assistant_that_has_files_is_told_about_them()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = NewAssistant();
+        var file = harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: [file]);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Contains(ChatInstructions.AssistantFilesLine, harness.Client.LastOptions?.Instructions);
+    }
+
+    [Fact]
+    public async Task An_opened_chat_whose_assistant_has_files_gets_the_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id).Id);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Contains("read_file", ToolNames(harness));
+    }
+
+    [Fact]
+    public async Task An_opened_chat_whose_assistant_is_no_longer_usable_gets_no_file_tools_for_its_files()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        harness.Assistants.RemoveAccess(assistant.Id);
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id).Id);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.DoesNotContain("read_file", ToolNames(harness));
+    }
+
+    [Fact]
+    public async Task A_chat_gets_the_file_tools_once_its_assistant_has_its_first_file()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = NewAssistant();
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: []);
+        var file = harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        harness.Session.UpdateAssistant(assistant, assistantFiles: [file]);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Contains("read_file", ToolNames(harness));
+    }
+
+    private static IEnumerable<string> ToolNames(ChatSessionHarness harness) =>
+        harness.Client.LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
 
     private static Assistant NewAssistant(string instructions = AssistantInstructions, Guid? id = null) => new()
     {
