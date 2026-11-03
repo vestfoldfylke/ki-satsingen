@@ -220,6 +220,17 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         }
     }
 
+    public async Task<KnowledgeFileText?> GetAssistantFileTextAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var usableAssistants = db.Assistants.Where(AssistantAccess.UsableBy(userId));
+        var file = await db.KnowledgeFiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == knowledgeFileId && f.AssistantId == assistantId && usableAssistants.Any(a => a.Id == assistantId), ct);
+
+        return file is null ? null : new KnowledgeFileText(ToMetadata(file), file.Markdown);
+    }
+
     public async Task<KnowledgeFileText?> GetChatFileTextAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);

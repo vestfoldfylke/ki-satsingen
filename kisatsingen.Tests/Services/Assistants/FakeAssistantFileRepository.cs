@@ -75,6 +75,9 @@ internal sealed class FakeAssistantFileRepository : IKnowledgeFileRepository
     public Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid userId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Assistant files are never saved into chats.");
 
+    public Task<KnowledgeFileText?> GetAssistantFileTextAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default) =>
+        throw new NotSupportedException("Assistant files are never read here.");
+
     public Task<KnowledgeFileText?> GetChatFileTextAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("Assistant files are never read from chats here.");
 

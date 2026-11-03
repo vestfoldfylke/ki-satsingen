@@ -1,7 +1,5 @@
 using kisatsingen.Authorization;
 using kisatsingen.Data.Entities;
-using kisatsingen.Data.Repositories;
-using kisatsingen.Services;
 using kisatsingen.Services.Assistants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
@@ -16,16 +14,10 @@ namespace kisatsingen.Components.Assistants;
 // policy again, since a picker that was allowed when it rendered may no longer
 // be; DeleteAssistantFileDialog does the same for deleting.
 //
-// Shows one assistant for its whole life: its files load once, and its
-// uploads go to that assistant until the card is disposed, which resets them.
+// Shows one assistant for its whole life: its uploads go to that assistant
+// until the card is disposed, which resets them.
 public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDisposable
 {
-    [Inject]
-    public required IKnowledgeFileRepository KnowledgeFileRepository { get; init; }
-
-    [Inject]
-    public required IAuthenticationService AuthenticationService { get; init; }
-
     [Inject]
     public required IAuthorizationService AuthorizationService { get; init; }
 
@@ -44,30 +36,24 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     [Parameter, EditorRequired]
     public required Assistant Assistant { get; set; }
 
-    private IReadOnlyList<KnowledgeFileMetadata> _files = [];
-    private bool _isLoading = true;
+    [Parameter, EditorRequired]
+    public required IReadOnlyList<KnowledgeFileMetadata> Files { get; set; }
+
+    // Raised once a file is saved or deleted.
+    [Parameter]
+    public EventCallback OnChanged { get; set; }
+
     private string? _refusal;
     private ElementReference _menu;
     private DeleteAssistantFileDialog? _deleteDialog;
 
-    private bool IsFull => _files.Count >= Assistant.MaxKnowledgeFiles;
+    private bool IsFull => Files.Count >= Assistant.MaxKnowledgeFiles;
 
     private string MenuId => $"assistant-files-menu-{Assistant.Id}";
 
     private string DeleteDialogId => $"delete-assistant-file-dialog-{Assistant.Id}";
 
-    protected override async Task OnInitializedAsync()
-    {
-        Uploads.Changed += OnUploadsChanged;
-        await LoadFilesAsync();
-        _isLoading = false;
-    }
-
-    private async Task LoadFilesAsync()
-    {
-        var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        _files = await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, Assistant.Id);
-    }
+    protected override void OnInitialized() => Uploads.Changed += OnUploadsChanged;
 
     private async Task AddFilesAsync(InputFileChangeEventArgs selection)
     {
@@ -81,7 +67,7 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
         }
 
         _refusal = null;
-        await Uploads.AddAsync(Assistant.Id, selection, _files.Count, LoadFilesAsync);
+        await Uploads.AddAsync(Assistant.Id, selection, savedFileCount: Files.Count, onFileSaved: OnChanged.InvokeAsync);
     }
 
     // Selecting files is a click inside the menu, which popover="auto" doesn't
@@ -107,6 +93,7 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
         _ => upload.Status.ToString()
     };
 
+    // Uploads change in the middle of AddFilesAsync, where Blazor doesn't render by itself.
     private void OnUploadsChanged() => InvokeAsync(StateHasChanged);
 
     public void Dispose()

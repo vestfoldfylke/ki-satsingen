@@ -15,6 +15,7 @@ public interface IKnowledgeFileRepository
     Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default);
     Task<KnowledgeFileSaveResult> CreateFileForChatAsync(Guid userId, Guid chatId, NewKnowledgeFile newFile, CancellationToken ct = default);
 
+    Task<KnowledgeFileText?> GetAssistantFileTextAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default);
     Task<KnowledgeFileText?> GetChatFileTextAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default);
 
     Task<KnowledgeFileMetadata?> FindChatFileBySha256Async(Guid userId, Guid chatId, string sha256, CancellationToken ct = default);
