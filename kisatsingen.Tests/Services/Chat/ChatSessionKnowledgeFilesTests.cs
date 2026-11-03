@@ -29,8 +29,8 @@ public sealed class ChatSessionKnowledgeFilesTests
         UpdatedAt = DateTimeOffset.UtcNow
     });
 
-    private static IEnumerable<string> KnowledgeFileNames(ChatSessionHarness harness) =>
-        harness.Session.KnowledgeFiles.Select(file => file.FileName);
+    private static IEnumerable<string> ChatFileNames(ChatSessionHarness harness) =>
+        harness.Session.ChatFiles.Select(file => file.FileName);
 
     [Fact]
     public async Task Opening_a_chat_lists_its_knowledge_files()
@@ -41,7 +41,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.OpenChatAsync(chat.Id);
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.StartNewPlainChatAsync();
 
-        Assert.Empty(harness.Session.KnowledgeFiles);
+        Assert.Empty(harness.Session.ChatFiles);
     }
 
     [Fact]
@@ -65,7 +65,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         var sending = harness.Session.SendAsync("Hva står i notatet?");
         await reached.Task;
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
         harness.Session.Cancel();
         await sending;
     }
@@ -95,7 +95,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Se på notatet igjen.");
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     // The turn reuses the copy another tab saved, so nothing new is saved for
@@ -110,7 +110,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(["fra-annen-fane.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["fra-annen-fane.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -139,6 +139,6 @@ public sealed class ChatSessionKnowledgeFilesTests
         harness.Session.Cancel();
         await sending;
 
-        Assert.Equal(["rask.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["rask.md"], ChatFileNames(harness));
     }
 }

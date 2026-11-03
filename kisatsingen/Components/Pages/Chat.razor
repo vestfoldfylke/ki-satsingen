@@ -19,7 +19,7 @@ else
         <ChatHeader Title="@Title"
             AssistantName="@Session.AssistantName"
             AssistantId="Session.AssistantId"
-            FileCount="Session.KnowledgeFiles.Count + Attachments.All.Count"
+            FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count + Attachments.All.Count"
             IsFilesPanelOpen="_isFilesPanelOpen"
             OnToggleFiles="ToggleFilesPanel" />
 
@@ -54,7 +54,8 @@ else
 
             @if (_isFilesPanelOpen)
             {
-                <ChatFilesPanel KnowledgeFiles="Session.KnowledgeFiles"
+                <ChatFilesPanel AssistantFiles="Session.AssistantFiles"
+                    ChatFiles="Session.ChatFiles"
                     Attachments="Attachments.All"
                     OnRemove="Attachments.Remove"
                     OnClose="ToggleFilesPanel" />

@@ -46,7 +46,7 @@ public sealed class ChatSession : IAsyncDisposable
         NotFound
     }
 
-    private IReadOnlyList<KnowledgeFileMetadata> _knowledgeFiles = [];
+    private IReadOnlyList<KnowledgeFileMetadata> _chatFiles = [];
 
     // Read when the chat is opened or started, and replaced by UpdateAssistant.
     // Null for a plain chat, and for a chat whose assistant the user can no
@@ -120,7 +120,10 @@ public sealed class ChatSession : IAsyncDisposable
 
     public bool CanSend => !IsBusy && _chatState is ChatState.New or ChatState.Saved;
 
-    public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles => _knowledgeFiles;
+    public IReadOnlyList<KnowledgeFileMetadata> ChatFiles => _chatFiles;
+
+    public IReadOnlyList<KnowledgeFileMetadata> AssistantFiles => _assistantFiles;
+
     public bool IsBusy { get; private set; }
     public bool HasLiveTurn => _liveTurnId is not null;
 
@@ -208,7 +211,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
         var chat = await _repo.GetChatAsync(userObjectId, chatId);
-        var knowledgeFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId);
+        var chatFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId);
         var assistant = chat?.AssistantId is Guid assistantId
             ? await _assistantRepository.GetAssistantAsync(userObjectId, assistantId)
             : null;
@@ -228,7 +231,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _chatId = chat.Id;
         _chatState = ChatState.Saved;
-        _knowledgeFiles = knowledgeFiles;
+        _chatFiles = chatFiles;
         _assistant = assistant;
         _assistantFiles = assistantFiles;
         _assistantNameSnapshot = chat.AssistantNameSnapshot;
@@ -329,7 +332,7 @@ public sealed class ChatSession : IAsyncDisposable
         _liveTurnId = null;
         _chatId = newChatId;
         _chatState = ChatState.New;
-        _knowledgeFiles = [];
+        _chatFiles = [];
         _assistant = null;
         _assistantFiles = [];
         _assistantNameSnapshot = null;
@@ -371,7 +374,7 @@ public sealed class ChatSession : IAsyncDisposable
             var observer = new TurnObserver(
                 TurnSaved: () => _chatState = ChatState.Saved,
                 Changed: ShowSnapshot,
-                KnowledgeFileAvailable: AddKnowledgeFile);
+                KnowledgeFileAvailable: AddChatFile);
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
             UpdateTurn(ended);
@@ -399,17 +402,17 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private bool HasKnowledgeFiles() => _knowledgeFiles.Count > 0 || _assistantFiles.Count > 0;
+    private bool HasKnowledgeFiles() => _chatFiles.Count > 0 || _assistantFiles.Count > 0;
 
     // By id, since a turn reports a file it reused, which may already be listed.
-    private void AddKnowledgeFile(KnowledgeFileMetadata file)
+    private void AddChatFile(KnowledgeFileMetadata file)
     {
-        if (_knowledgeFiles.Any(known => known.Id == file.Id))
+        if (_chatFiles.Any(known => known.Id == file.Id))
         {
             return;
         }
 
-        _knowledgeFiles = [.. _knowledgeFiles, file];
+        _chatFiles = [.. _chatFiles, file];
         Notify();
     }
 

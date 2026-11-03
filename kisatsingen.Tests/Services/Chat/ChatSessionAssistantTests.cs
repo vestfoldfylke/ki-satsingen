@@ -223,6 +223,21 @@ public sealed class ChatSessionAssistantTests
         Assert.Contains("read_file", ToolNames(harness));
     }
 
+    // A chat that isn't found sets no files of its own, so this shows that
+    // leaving the previous chat cleared them.
+    [Fact]
+    public async Task A_chat_that_is_not_found_shows_none_of_the_assistant_files_from_the_chat_before()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = harness.Assistants.Store(NewAssistant());
+        harness.KnowledgeFiles.AddAssistantFile(assistant.Id, "rundskriv.md");
+        await harness.Session.OpenChatAsync(StoreChatWith(harness, assistant.Id).Id);
+
+        await harness.Session.OpenChatAsync(Guid.NewGuid());
+
+        Assert.Empty(harness.Session.AssistantFiles);
+    }
+
     private static IEnumerable<string> ToolNames(ChatSessionHarness harness) =>
         harness.Client.LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
 

@@ -1,11 +1,10 @@
+@using kisatsingen.Components.KnowledgeFiles
 @using kisatsingen.Data.Entities
 @using kisatsingen.Services
 @using kisatsingen.Services.Attachments
-@using kisatsingen.Services.KnowledgeFiles.Conversion
 
-@* The chat's knowledge files, then the ones not sent yet. Items are list
-   entries rather than links: when parsed content can be viewed, each
-   knowledge file becomes the button that opens it. *@
+@* The assistant's knowledge files, the chat's, then the ones not sent yet.
+   The assistant's are read-only here: they are managed on its page. *@
 <aside id="chat-files-panel" class="chat-files-panel" aria-label="Filer i samtalen">
     <div class="chat-files-panel-header">
         <h2 class="ds-heading" data-size="xs">Filer</h2>
@@ -14,27 +13,21 @@
         </button>
     </div>
 
-    @if (KnowledgeFiles.Count == 0 && Attachments.Count == 0)
+    @if (AssistantFiles.Count == 0 && ChatFiles.Count == 0 && Attachments.Count == 0)
     {
         <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
     }
 
-    @if (KnowledgeFiles.Count > 0)
+    @if (AssistantFiles.Count > 0)
+    {
+        <h3 class="ds-heading" data-size="2xs">Fra assistenten</h3>
+        <KnowledgeFileList Files="AssistantFiles" />
+    }
+
+    @if (ChatFiles.Count > 0)
     {
         <h3 class="ds-heading" data-size="2xs">I samtalen</h3>
-        <ul class="chat-files-list">
-            @foreach (var file in KnowledgeFiles)
-            {
-                <li @key="file.Id" class="chat-files-item">
-                    <span class="chat-files-item-name">@file.FileName</span>
-                    <span class="chat-files-item-meta">@ByteSize.Format(file.SizeBytes)</span>
-                    @if (ContentOriginNotes.For(file.ContentOrigin) is { } note)
-                    {
-                        <span class="chat-files-item-status">@note</span>
-                    }
-                </li>
-            }
-        </ul>
+        <KnowledgeFileList Files="ChatFiles" />
     }
 
     @if (Attachments.Count > 0)
@@ -61,7 +54,10 @@
 
 @code {
     [Parameter]
-    public IReadOnlyList<KnowledgeFileMetadata> KnowledgeFiles { get; set; } = [];
+    public IReadOnlyList<KnowledgeFileMetadata> AssistantFiles { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyList<KnowledgeFileMetadata> ChatFiles { get; set; } = [];
 
     [Parameter]
     public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
