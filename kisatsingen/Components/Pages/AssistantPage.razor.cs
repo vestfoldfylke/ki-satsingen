@@ -13,6 +13,9 @@ public sealed partial class AssistantPage : ComponentBase
     public required IAssistantRepository AssistantRepository { get; init; }
 
     [Inject]
+    public required IKnowledgeFileRepository KnowledgeFileRepository { get; init; }
+
+    [Inject]
     public required IAuthenticationService AuthenticationService { get; init; }
 
     [Inject]
@@ -25,6 +28,7 @@ public sealed partial class AssistantPage : ComponentBase
     public Guid AssistantId { get; set; }
 
     private Assistant? _assistant;
+    private IReadOnlyList<KnowledgeFileMetadata> _files = [];
     private bool _isLoading = true;
 
     protected override async Task OnParametersSetAsync()
@@ -54,6 +58,7 @@ public sealed partial class AssistantPage : ComponentBase
         // No _isLoading true here, current stays until new arrives, to avoid flicker
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
         _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
+        _files = _assistant is null ? [] : await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, AssistantId);
         _isLoading = false;
     }
 
