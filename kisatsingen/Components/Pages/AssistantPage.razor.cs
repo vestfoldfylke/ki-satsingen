@@ -39,7 +39,7 @@ public sealed partial class AssistantPage : ComponentBase
         }
     }
 
-    private async Task ApplyEditAsync()
+    private async Task ApplyChangeAsync()
     {
         if (await LoadAsync() is Assistant assistant)
         {

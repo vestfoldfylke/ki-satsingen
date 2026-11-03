@@ -16,12 +16,14 @@ else
     <PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
     <div class="chat-layout">
-        <ChatHeader Title="@Title"
+        <ChatHeader
+            Title="@Title"
             AssistantName="@Session.AssistantName"
             AssistantId="Session.AssistantId"
             FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count + Attachments.All.Count"
             IsFilesPanelOpen="_isFilesPanelOpen"
-            OnToggleFiles="ToggleFilesPanel" />
+            OnToggleFiles="ToggleFilesPanel"
+        />
 
         <div class="chat-body">
             <div class="chat-page">
@@ -54,11 +56,13 @@ else
 
             @if (_isFilesPanelOpen)
             {
-                <ChatFilesPanel AssistantFiles="Session.AssistantFiles"
+                <ChatFilesPanel
+                    AssistantFiles="Session.AssistantFiles"
                     ChatFiles="Session.ChatFiles"
                     Attachments="Attachments.All"
                     OnRemove="Attachments.Remove"
-                    OnClose="ToggleFilesPanel" />
+                    OnClose="ToggleFilesPanel"
+                />
             }
         </div>
     </div>

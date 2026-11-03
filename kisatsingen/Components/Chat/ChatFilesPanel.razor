@@ -42,8 +42,13 @@
                     <span class="chat-files-item-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
                         @AttachmentStatusTexts.DescribeStatus(attachment)
                     </span>
-                    <button type="button" class="ds-button" data-variant="tertiary" data-size="sm"
-                            @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)">
+                    <button
+                        type="button"
+                        class="ds-button"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)"
+                    >
                         Fjern
                     </button>
                 </li>
