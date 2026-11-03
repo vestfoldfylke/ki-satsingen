@@ -47,7 +47,8 @@ internal static class DocxConverter
 
     // The only code that touches the file. A missing main part or body is a
     // broken file, not a null for the writer to check.
-    // Every part is loaded through CheckedParts, which checks ct as it reads.
+    // Every part is loaded through one CheckedParts, which counts elements
+    // across all of them and checks ct as it reads.
     private static DocxContent Load(Stream stream, CancellationToken ct)
     {
         stream.Position = 0;
@@ -55,15 +56,16 @@ internal static class DocxConverter
         using var document = WordprocessingDocument.Open(stream, isEditable: false, CheckedParts.OpenSettings);
 
         var mainPart = document.MainDocumentPart ?? throw new InvalidDataException("The package has no main document part.");
-        var body = CheckedParts.RootOf<Document>(mainPart, ct)?.Body ?? throw new InvalidDataException("The main document has no body.");
+        var parts = new CheckedParts(ct);
+        var body = parts.RootOf<Document>(mainPart)?.Body ?? throw new InvalidDataException("The main document has no body.");
 
         return new DocxContent(
             body,
-            DocxStyles.FromXml(CheckedParts.RootOf<Styles>(mainPart.StyleDefinitionsPart, ct)),
-            DocxLists.FromXml(CheckedParts.RootOf<Numbering>(mainPart.NumberingDefinitionsPart, ct)),
+            DocxStyles.FromXml(parts.RootOf<Styles>(mainPart.StyleDefinitionsPart)),
+            DocxLists.FromXml(parts.RootOf<Numbering>(mainPart.NumberingDefinitionsPart)),
             ReadHyperlinks(mainPart),
-            ReadNotes(CheckedParts.RootOf<Footnotes>(mainPart.FootnotesPart, ct)?.Elements<Footnote>(), mainPart.FootnotesPart),
-            ReadNotes(CheckedParts.RootOf<Endnotes>(mainPart.EndnotesPart, ct)?.Elements<Endnote>(), mainPart.EndnotesPart));
+            ReadNotes(parts.RootOf<Footnotes>(mainPart.FootnotesPart)?.Elements<Footnote>(), mainPart.FootnotesPart),
+            ReadNotes(parts.RootOf<Endnotes>(mainPart.EndnotesPart)?.Elements<Endnote>(), mainPart.EndnotesPart));
     }
 
     private static DocxNotes ReadNotes(IEnumerable<FootnoteEndnoteType>? notes, OpenXmlPart? part)

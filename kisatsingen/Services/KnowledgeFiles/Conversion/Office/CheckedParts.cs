@@ -8,16 +8,20 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office;
 // which the Open XML SDK leaves off or doesn't have. Every part a converter
 // reads must be loaded through RootOf: the SDK's own getters, such as
 // MainDocumentPart.Document, load without these checks.
-internal static class CheckedParts
+//
+// One instance per file, since the element limit counts every part the file
+// loads.
+internal sealed class CheckedParts(CancellationToken ct)
 {
     // Real documents nest under 50 deep, even with tables in tables. Loading a
     // part takes time quadratic in its depth: 20,000 deep took 26 seconds.
     private const int MaxDepth = 256;
 
-    // A loaded part takes about 30 times its XML's size in memory, most of it
-    // per element. A million elements is a few hundred MB; a 300-page
-    // document is around 600,000.
-    private const int MaxElementsPerPart = 1_000_000;
+    // A loaded element takes a few hundred bytes. All of a file's parts are
+    // loaded at once, so the limit is for the file, not each part: per part,
+    // five parts near the limit took about a gigabyte. A 300-page document is
+    // around 600,000 elements in all.
+    private const int MaxElementsPerFile = 1_000_000;
 
     // Bounds what the element limit can't, such as one huge text node.
     // Fifty million characters is several times the largest real document.
@@ -31,6 +35,8 @@ internal static class CheckedParts
         MaxCharactersInDocument = MaxCharactersPerPart,
     };
 
+    private int _elementsLeft = MaxElementsPerFile;
+
     // A new instance each time, since OpenSettings is mutable. Alternate
     // content keeps only the branch Office 2019 would show; without this, the
     // SDK keeps both, and a text box comes out twice.
@@ -43,12 +49,13 @@ internal static class CheckedParts
     };
 
     // The part's root element, or null when there is no such part or its root
-    // isn't a T. Throws XmlException when the part is too deep or too large.
+    // isn't a T. Throws XmlException when the part is too deep, or the file's
+    // parts together have too many elements.
     //
     // ct is checked per element of the streaming pass and once before the SDK
     // loads the part. That loading can't be cancelled; the limits keep it to
     // about a second.
-    public static T? RootOf<T>(OpenXmlPart? part, CancellationToken ct) where T : OpenXmlPartRootElement
+    public T? RootOf<T>(OpenXmlPart? part) where T : OpenXmlPartRootElement
     {
         if (part is null)
         {
@@ -60,16 +67,15 @@ internal static class CheckedParts
         using (var stream = part.GetStream(FileMode.Open, FileAccess.Read))
         using (var reader = XmlReader.Create(stream, CheckReaderSettings))
         {
-            RejectTooDeepOrTooLarge(reader, ct);
+            RejectTooDeepOrTooLarge(reader);
         }
 
         ct.ThrowIfCancellationRequested();
         return part.RootElement as T;
     }
 
-    private static void RejectTooDeepOrTooLarge(XmlReader reader, CancellationToken ct)
+    private void RejectTooDeepOrTooLarge(XmlReader reader)
     {
-        var elementCount = 0;
         while (reader.Read())
         {
             if (reader.NodeType != XmlNodeType.Element)
@@ -84,10 +90,10 @@ internal static class CheckedParts
                 throw new XmlException($"The part nests elements more than {MaxDepth} deep.");
             }
 
-            elementCount++;
-            if (elementCount > MaxElementsPerPart)
+            _elementsLeft--;
+            if (_elementsLeft < 0)
             {
-                throw new XmlException($"The part has more than {MaxElementsPerPart} elements.");
+                throw new XmlException($"The file's parts together have more than {MaxElementsPerFile} elements.");
             }
         }
     }
