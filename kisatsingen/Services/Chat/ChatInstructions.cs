@@ -53,21 +53,18 @@ internal static class ChatInstructions
     internal const string AssistantFilesLine =
         "The assistant has knowledge files. Use list_files to find them, and read what the question needs before you answer.";
 
+    // The files line has its own section, so the author's instructions end
+    // where their heading's section does.
     public static string ForAssistant(string name, string? instructions, bool hasFiles)
     {
-        var sections = new List<string>();
-        if (instructions is not null)
-        {
-            sections.Add(instructions);
-        }
+        var instructionsSection = instructions is not null
+            ? $"\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}"
+            : "";
 
-        if (hasFiles)
-        {
-            sections.Add(AssistantFilesLine);
-        }
+        var filesSection = hasFiles
+            ? $"\n\n## Files\n\n{AssistantFilesLine}"
+            : "";
 
-        return sections.Count == 0
-            ? Base
-            : $"{Base}\n\n## Instructions for the assistant \"{name}\"\n\n{string.Join("\n\n", sections)}";
+        return $"{Base}{instructionsSection}{filesSection}";
     }
 }

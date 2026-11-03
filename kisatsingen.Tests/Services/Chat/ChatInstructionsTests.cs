@@ -18,26 +18,26 @@ public sealed class ChatInstructionsTests
     }
 
     [Fact]
-    public void An_assistant_with_files_is_told_so_after_its_instructions()
+    public void An_assistant_with_files_is_told_so_in_a_section_after_its_instructions()
     {
         var baseInstructions = ChatInstructions.ForAssistant("Saksbehandler", null, hasFiles: false);
 
         var instructions = ChatInstructions.ForAssistant("Saksbehandler", "Svar kort og formelt.", hasFiles: true);
 
         Assert.Equal(
-            baseInstructions + "\n\n## Instructions for the assistant \"Saksbehandler\"\n\nSvar kort og formelt.\n\n" + ChatInstructions.AssistantFilesLine,
+            baseInstructions + "\n\n## Instructions for the assistant \"Saksbehandler\"\n\nSvar kort og formelt.\n\n## Files\n\n" + ChatInstructions.AssistantFilesLine,
             instructions);
     }
 
     [Fact]
-    public void An_assistant_with_files_but_no_instructions_gets_the_heading_and_the_files_line()
+    public void An_assistant_with_files_but_no_instructions_gets_only_the_files_section()
     {
         var baseInstructions = ChatInstructions.ForAssistant("Saksbehandler", null, hasFiles: false);
 
         var instructions = ChatInstructions.ForAssistant("Saksbehandler", null, hasFiles: true);
 
         Assert.Equal(
-            baseInstructions + "\n\n## Instructions for the assistant \"Saksbehandler\"\n\n" + ChatInstructions.AssistantFilesLine,
+            baseInstructions + "\n\n## Files\n\n" + ChatInstructions.AssistantFilesLine,
             instructions);
     }
 
