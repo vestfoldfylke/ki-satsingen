@@ -56,9 +56,19 @@ public sealed partial class AssistantPage : ComponentBase
     private async Task LoadAsync()
     {
         // No _isLoading true here, current stays until new arrives, to avoid flicker
+        var assistantId = AssistantId;
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
-        _files = _assistant is null ? [] : await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, AssistantId);
+        var assistant = await AssistantRepository.GetAssistantAsync(userId, assistantId);
+        var files = assistant is null ? [] : await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, assistantId);
+
+        // The page moved to another assistant meanwhile; that load assigns its own.
+        if (assistantId != AssistantId)
+        {
+            return;
+        }
+
+        _assistant = assistant;
+        _files = files;
         _isLoading = false;
     }
 
