@@ -1,13 +1,10 @@
 using System.IO.Compression;
-using ElBruno.MarkItDotNet.Converters;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
-using ConverterRegistry = ElBruno.MarkItDotNet.ConverterRegistry;
-using MarkdownService = ElBruno.MarkItDotNet.MarkdownService;
-using MarkItDotNetOptions = ElBruno.MarkItDotNet.MarkItDotNetOptions;
-using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.TestDocx;
+using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.Docx.TestDocx;
+using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.TestPackage;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion;
 
@@ -22,18 +19,8 @@ public sealed class DocxDocumentConverterTests
     // A small upload limit keeps the unpacked limit, four times it, easy to reason about.
     private const uint OneMegabyte = 1024 * 1024;
 
-    private static readonly MarkdownService MarkdownService = CreateMarkdownService();
-
-    // Registered the same way as in Program.cs.
-    private static MarkdownService CreateMarkdownService()
-    {
-        var registry = new ConverterRegistry();
-        registry.Register(new DocxConverter());
-        return new MarkdownService(registry, [], new MarkItDotNetOptions());
-    }
-
     private static DocxDocumentConverter CreateConverter(long maxFileBytes = OneMegabyte) =>
-        new(NullLogger<DocxDocumentConverter>.Instance, MarkdownService, new AttachmentOptions { MaxFileBytes = maxFileBytes });
+        new(NullLogger<DocxDocumentConverter>.Instance, new AttachmentOptions { MaxFileBytes = maxFileBytes });
 
     private static Task<ConversionResult> ConvertAsync(byte[] docx, int maxEstimatedTokens = GenerousTokenCap, long maxFileBytes = OneMegabyte) =>
         CreateConverter(maxFileBytes).ConvertAsync(

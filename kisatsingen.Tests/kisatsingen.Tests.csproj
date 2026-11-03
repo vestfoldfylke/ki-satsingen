@@ -44,4 +44,9 @@
         <None Include="Fonts\NotoSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
+    <!-- Real Word documents and their reviewed Markdown, compared by DocxRealDocumentTests. -->
+    <ItemGroup>
+        <None Include="Services\KnowledgeFiles\Conversion\Office\Docx\Documents\*" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+
 </Project>

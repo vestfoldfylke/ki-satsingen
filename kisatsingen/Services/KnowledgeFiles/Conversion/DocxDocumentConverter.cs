@@ -1,12 +1,9 @@
-using System.IO.Compression;
-using System.Xml.Linq;
-using ElBruno.MarkItDotNet;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.KnowledgeFiles.Conversion.Office;
+using kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 
-// NOTE: This docx document converter is not perfect. It most likely will get some syntax wrong,
-// but the overall gist is preserved and understandable for further processing.
 public class DocxDocumentConverter : IDocumentConverter
 {
     // Images are already compressed and unpack to about their own size. XML packs
@@ -15,145 +12,87 @@ public class DocxDocumentConverter : IDocumentConverter
     // stopped. Tied to the upload limit so the two cannot drift apart.
     private const int MaxUncompressedToUploadRatio = 4;
 
+    // The Markdown holds all the document's text plus markers, so writing
+    // less than this share of it means the converter lost text it can't read.
+    private const double MinWrittenToSourceTextRatio = 0.9;
+
     private readonly ILogger<DocxDocumentConverter> _logger;
-    private readonly MarkdownService _markdownService;
     private readonly long _maxUncompressedBytes;
 
     public IReadOnlyList<string> ContentTypes { get; } = [AttachmentContentTypes.Docx.ContentType];
 
-    public DocxDocumentConverter(ILogger<DocxDocumentConverter> logger, MarkdownService markdownService, AttachmentOptions attachmentOptions)
+    public DocxDocumentConverter(ILogger<DocxDocumentConverter> logger, AttachmentOptions attachmentOptions)
     {
         _logger = logger;
-        _markdownService = markdownService;
         _maxUncompressedBytes = attachmentOptions.MaxFileBytes * MaxUncompressedToUploadRatio;
     }
 
-    public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
-    {
-        await using var docx = new MemoryStream();
-        try
-        {
-            await request.Content.CopyToAsync(docx, ct);
+    public Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct) => Task.FromResult(Convert(request, ct));
 
-            if (ExceedsMaxUncompressedBytes(docx, _maxUncompressedBytes))
+    private ConversionResult Convert(ConversionRequest request, CancellationToken ct)
+    {
+        var limits = new OfficeLimits(_maxUncompressedBytes, TokenEstimate.MaxCharacters(request.MaxEstimatedTokens), request.MaxEstimatedTokens);
+        var conversionResult = DocxConverter.Convert(request.Content, limits, ct);
+
+        if (conversionResult.Success)
+        {
+            if (conversionResult.Markdown.Length == 0)
             {
-                _logger.LogWarning(
-                    "Docx document '{Filename}' with ContentType '{ContentType}' unpacks to more than {MaxUncompressedBytes} bytes.",
-                    request.FileName,
-                    request.ContentType,
-                    _maxUncompressedBytes
-                );
-                return new ConversionResult.Rejected(ConversionRejections.DocxTooLargeUncompressed);
+                return new ConversionResult.Rejected(ConversionRejections.EmptyDocx);
             }
 
-            await NormalizeDocx(docx, ct);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(
-                ex,
-                "Failed to normalize docx document '{Filename}' with ContentType '{ContentType}'",
-                request.FileName,
-                request.ContentType
-            );
-            return new ConversionResult.Rejected(ConversionRejections.ErrorParsingDocx);
+            WarnWhenTextWasLost(request, conversionResult);
+            return new ConversionResult.Converted(conversionResult.Markdown, ContentOrigin.Docx, null);
         }
 
-        var result = await _markdownService.ConvertAsync(docx, ".docx", ct);
-
-        if (!result.Success)
+        if (conversionResult.ErrorType == OfficeConversionResultErrorType.TooLarge)
         {
-            _logger.LogError(
-                "Failed to convert docx document '{Filename}' with ContentType '{ContentType}' to Markdown. ErrorMessage: {ErrorMessage}",
+            _logger.LogWarning(
+                "Docx document '{Filename}' with ContentType '{ContentType}' unpacks to more than {MaxUncompressedBytes} bytes.",
                 request.FileName,
                 request.ContentType,
-                result.ErrorMessage
+                _maxUncompressedBytes
             );
-            return new ConversionResult.Rejected(ConversionRejections.ErrorParsingDocx);
+
+            return new ConversionResult.Rejected(conversionResult.Error ?? ConversionRejections.DocxTooLargeUncompressed);
         }
 
-        if (result.Markdown.Length == 0)
+        if (conversionResult.ErrorType == OfficeConversionResultErrorType.TooLong)
         {
-            return new ConversionResult.Rejected(ConversionRejections.EmptyDocx);
-        }
+            _logger.LogWarning(
+                "Converting docx document '{Filename}' with ContentType '{ContentType}' to Markdown would exceed the limit for MaxEstimatedTokens ({MaxEstimatedTokens}).",
+                request.FileName,
+                request.ContentType,
+                request.MaxEstimatedTokens
+            );
 
-        if (TokenEstimate.FromCharacters(result.Markdown.Length) <= request.MaxEstimatedTokens)
-        {
-            return new ConversionResult.Converted(result.Markdown, ContentOrigin.Docx, null);
+            return new ConversionResult.Rejected(conversionResult.Error ?? ConversionRejections.TooManyTokens(request.MaxEstimatedTokens));
         }
 
         _logger.LogWarning(
-            "Converting docx document '{Filename}' with ContentType '{ContentType}' to Markdown would exceeded the limit for MaxEstimatedTokens ({MaxEstimatedTokens}).",
+            conversionResult.Exception,
+            "Docx document '{Filename}' with ContentType '{ContentType}' is unreadable.",
             request.FileName,
-            request.ContentType,
-            request.MaxEstimatedTokens
+            request.ContentType
         );
-        return new ConversionResult.Rejected(ConversionRejections.TooManyTokens(request.MaxEstimatedTokens));
+
+        return new ConversionResult.Rejected(conversionResult.Error ?? ConversionRejections.ErrorParsingDocx);
     }
 
-    // ZipArchive never reads past an entry's declared size, even when the size is
-    // forged, so the declared sizes bound what both this converter and
-    // MarkItDotNet can unpack.
-    private static bool ExceedsMaxUncompressedBytes(MemoryStream docx, long maxUncompressedBytes)
+    // The file is still accepted: this is how documents the converter doesn't
+    // handle are found, since nobody notices text that is silently missing.
+    private void WarnWhenTextWasLost(ConversionRequest request, OfficeConversionResult conversionResult)
     {
-        docx.Position = 0;
-        using var archive = new ZipArchive(docx, ZipArchiveMode.Read, leaveOpen: true);
-
-        // Summed with an early exit, so huge declared sizes cannot overflow the total
-        long totalBytes = 0;
-        foreach (var entry in archive.Entries)
+        if (conversionResult.WrittenTextCharacters >= conversionResult.SourceTextCharacters * MinWrittenToSourceTextRatio)
         {
-            totalBytes += entry.Length;
-            if (totalBytes > maxUncompressedBytes)
-            {
-                return true;
-            }
+            return;
         }
 
-        return false;
-    }
-
-    // Rewrites the Word XML parts in place and leaves the stream at the start
-    private static async Task NormalizeDocx(MemoryStream docx, CancellationToken stoppingToken)
-    {
-        docx.Position = 0;
-
-        await using (var archive = new ZipArchive(docx, ZipArchiveMode.Update, leaveOpen: true))
-        {
-            await NormalizeEntries(archive, stoppingToken);
-        }
-
-        docx.Position = 0;
-    }
-
-    private static async Task NormalizeEntries(ZipArchive archive, CancellationToken stoppingToken)
-    {
-        // find all XML documents in word folder inside archive
-        var entriesToUpdate = archive.Entries
-            .Where(entry => entry.FullName.EndsWith("word/document.xml", StringComparison.InvariantCultureIgnoreCase) || entry.FullName.EndsWith("word/styles.xml", StringComparison.InvariantCultureIgnoreCase))
-            .ToList();
-
-        foreach (var entry in entriesToUpdate)
-        {
-            XDocument part;
-            await using (var stream = await entry.OpenAsync(stoppingToken))
-            {
-                part = await XDocument.LoadAsync(stream, LoadOptions.None, stoppingToken);
-            }
-
-            // Unchanged parts are left alone, since XDocument never round-trips to the same text
-            if (!DocxXmlNormalizer.Normalize(part))
-            {
-                continue;
-            }
-
-            // Remove the old XML entry from the archive and save the new entry in the archive
-            var fullName = entry.FullName;
-            entry.Delete();
-
-            var newEntry = archive.CreateEntry(fullName);
-            await using var newStream = await newEntry.OpenAsync(stoppingToken);
-            await part.SaveAsync(newStream, SaveOptions.DisableFormatting, stoppingToken);
-        }
+        _logger.LogWarning(
+            "Converting docx document '{Filename}' wrote {WrittenTextCharacters} of the document's {SourceTextCharacters} text characters. Find which elements the converter skips, using a copy of the document without sensitive content.",
+            request.FileName,
+            conversionResult.WrittenTextCharacters,
+            conversionResult.SourceTextCharacters
+        );
     }
 }
