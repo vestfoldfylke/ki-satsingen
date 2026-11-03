@@ -218,6 +218,9 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
         }
     }
 
+    public Task<KnowledgeFileText?> GetAssistantFileTextAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default) =>
+        throw new NotSupportedException("The chat session tests read chat files only.");
+
     public Task<KnowledgeFileSaveResult> CreateFileForAssistantAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions save files into chats only.");
 

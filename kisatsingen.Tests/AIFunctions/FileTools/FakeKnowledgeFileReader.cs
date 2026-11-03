@@ -5,9 +5,9 @@ using kisatsingen.Services.KnowledgeFiles.Reading;
 
 namespace kisatsingen.Tests.AIFunctions.FileTools;
 
-// One file, readable only through the owner and chat it was given, so the
-// contract tests need no database.
-internal sealed class FakeKnowledgeFileReader(Guid ownerId, Guid chatId, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
+// One chat file, readable only through the scope it was given, so the contract
+// tests need no database.
+internal sealed class FakeKnowledgeFileReader(KnowledgeFileScope scope, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
 {
     private static readonly DateTimeOffset SavedAt = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
@@ -26,13 +26,14 @@ internal sealed class FakeKnowledgeFileReader(Guid ownerId, Guid chatId, Guid fi
         SavedAt,
         SavedAt);
 
-    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(Guid owner, Guid chat, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>(IsScope(owner, chat) ? [Metadata] : []);
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListChatFilesAsync(KnowledgeFileScope asked, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>(asked == scope ? [Metadata] : []);
 
-    public Task<KnowledgeFileDocument?> OpenChatFileAsync(Guid owner, Guid chat, Guid file, CancellationToken ct) =>
-        Task.FromResult(IsScope(owner, chat) && file == fileId
+    public Task<IReadOnlyList<KnowledgeFileMetadata>> ListAssistantFilesAsync(KnowledgeFileScope asked, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>([]);
+
+    public Task<KnowledgeFileDocument?> OpenFileAsync(KnowledgeFileScope asked, Guid file, CancellationToken ct) =>
+        Task.FromResult(asked == scope && file == fileId
             ? new KnowledgeFileDocument(Metadata, DocumentLines.Split(markdown), DocumentOutline.Build(markdown))
             : null);
-
-    private bool IsScope(Guid owner, Guid chat) => owner == ownerId && chat == chatId;
 }

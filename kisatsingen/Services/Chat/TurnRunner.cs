@@ -3,6 +3,7 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.KnowledgeFiles.Reading;
 using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
@@ -283,7 +284,8 @@ internal sealed class TurnRunner
         // definitions, and the model is not tempted to call list_files.
         if (chatHasKnowledgeFiles)
         {
-            options.Tools = [.. options.Tools ?? [], .. _fileTools.CreateForChat(inserted.OwnerId, inserted.ChatId)];
+            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
+            options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);

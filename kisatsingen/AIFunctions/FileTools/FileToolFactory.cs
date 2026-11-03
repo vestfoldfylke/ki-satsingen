@@ -3,14 +3,14 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.AIFunctions.FileTools;
 
-// Owner and chat are fixed when the tools are made, so nothing the model sends
-// can widen what they reach: a file outside the chat is simply not found.
+// The scope is fixed when the tools are made, so nothing the model sends can
+// widen what they reach: a file outside it is simply not found.
 public sealed class FileToolFactory(IKnowledgeFileReader reader, FileToolOptions options)
 {
-    public IReadOnlyList<AITool> CreateForChat(Guid ownerId, Guid chatId) =>
+    public IReadOnlyList<AITool> Create(KnowledgeFileScope scope) =>
     [
-        ListFilesTool.Create(reader, ownerId, chatId),
-        GetOutlineTool.Create(reader, options, ownerId, chatId),
-        ReadFileTool.Create(reader, options, ownerId, chatId)
+        ListFilesTool.Create(reader, scope),
+        GetOutlineTool.Create(reader, options, scope),
+        ReadFileTool.Create(reader, options, scope)
     ];
 }

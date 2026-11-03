@@ -8,7 +8,7 @@ internal static class FileToolResults
 
     public sealed record ListFilesResult(IReadOnlyList<ListedFile> Files);
 
-    public sealed record ListedFile(string FileId, string Name, int LineCount, string? Summary, string? OriginNote);
+    public sealed record ListedFile(string FileId, string Source, string Name, int LineCount, string? Summary, string? OriginNote);
 
     public sealed record GetOutlineResult(
         string FileId,

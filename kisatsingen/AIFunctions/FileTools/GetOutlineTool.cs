@@ -30,19 +30,18 @@ internal static class GetOutlineTool
 
     // fileId is a string, not a Guid, so a malformed id gets the same answer
     // as an unknown one, which points the model to list_files.
-    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, Guid ownerId, Guid chatId) =>
+    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, KnowledgeFileScope scope) =>
         FileToolFunction.Create(Name, Description(options), (
             [Description("The file's fileId, from the attachment line or list_files.")] string fileId,
             [Description("First line of the range to outline. Defaults to the first line."), Range(1, int.MaxValue)] int? start = null,
             [Description("Last line of the range to outline. Defaults to the last line."), Range(1, int.MaxValue)] int? end = null,
             [Description("How many heading levels to show, counted from the highest level in the file."), Range(1, MaxDepth)] int? depth = null,
-            CancellationToken ct = default) => OutlineAsync(reader, options, ownerId, chatId, fileId, start, end, depth, ct));
+            CancellationToken ct = default) => OutlineAsync(reader, options, scope, fileId, start, end, depth, ct));
 
     private static async Task<object> OutlineAsync(
         IKnowledgeFileReader reader,
         FileToolOptions options,
-        Guid ownerId,
-        Guid chatId,
+        KnowledgeFileScope scope,
         string? fileIdText,
         int? start,
         int? end,
@@ -54,7 +53,7 @@ internal static class GetOutlineTool
             return new ToolError(FileToolTexts.FileNotFound);
         }
 
-        var document = await reader.OpenChatFileAsync(ownerId, chatId, fileId, ct);
+        var document = await reader.OpenFileAsync(scope, fileId, ct);
         if (document is null)
         {
             return new ToolError(FileToolTexts.FileNotFound);
