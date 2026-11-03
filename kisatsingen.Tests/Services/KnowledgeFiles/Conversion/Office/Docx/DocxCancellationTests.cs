@@ -24,7 +24,7 @@ public sealed class DocxCancellationTests
         DocxNotes.None);
 
     private static DocxParagraphReader Reader(CancellationToken ct) =>
-        new(DocxStyles.FromXml(null), DocxHyperlinks.None, new DocxNoteReferences(DocxNotes.None, DocxNotes.None), new DocxTextTally(), ct);
+        new(DocxStyles.FromXml(null), DocxHyperlinks.None, new DocxNoteReferences(DocxNotes.None, DocxNotes.None), new DocxTextTally(int.MaxValue), ct);
 
     // Before the file is even opened, so a broken file isn't reported as unreadable.
     [Fact]

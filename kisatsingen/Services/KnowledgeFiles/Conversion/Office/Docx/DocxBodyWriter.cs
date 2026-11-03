@@ -46,7 +46,7 @@ internal sealed class DocxBodyWriter
     public static int Write(DocxContent content, MarkdownOutput output, CancellationToken ct)
     {
         var blocks = new DocxBlockOutput(output);
-        var tally = new DocxTextTally();
+        var tally = new DocxTextTally(output.MaxCharacters);
         var noteReferences = new DocxNoteReferences(content.Footnotes, content.Endnotes);
 
         var bodyReader = new DocxParagraphReader(content.Styles, content.Hyperlinks, noteReferences, tally, ct);

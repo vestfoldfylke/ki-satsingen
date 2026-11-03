@@ -46,10 +46,22 @@ internal static class DocxTextCount
     }
 }
 
-// Counts the document text a conversion wrote, to compare with DocxTextCount.
-internal sealed class DocxTextTally
+// Counts the document text a conversion reads, to compare with DocxTextCount.
+//
+// Every character it counts is written to the Markdown, so once the count
+// passes maxCharacters the Markdown would too. It stops the conversion then,
+// while reading, before the text is copied into strings: one paragraph of 40
+// million characters took about 476 MB before MarkdownOutput refused it.
+internal sealed class DocxTextTally(int maxCharacters)
 {
     public int Characters { get; private set; }
 
-    public void Add(string text) => Characters += DocxTextCount.NonWhitespaceCharacters(text);
+    public void Add(string text)
+    {
+        Characters += DocxTextCount.NonWhitespaceCharacters(text);
+        if (Characters > maxCharacters)
+        {
+            throw new MarkdownTooLongException(maxCharacters);
+        }
+    }
 }

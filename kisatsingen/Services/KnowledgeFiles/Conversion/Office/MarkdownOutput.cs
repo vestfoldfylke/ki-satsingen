@@ -10,6 +10,8 @@ internal sealed class MarkdownOutput(int maxCharacters)
 {
     private readonly StringBuilder _markdown = new();
 
+    public int MaxCharacters => maxCharacters;
+
     public void Append(string text)
     {
         if (text.Length > maxCharacters - _markdown.Length)
