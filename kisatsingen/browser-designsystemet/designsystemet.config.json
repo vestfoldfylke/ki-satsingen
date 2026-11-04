@@ -1,0 +1,18 @@
+{
+  "$schema": "../node_modules/@digdir/designsystemet/dist/config.schema.json",
+  "outDir": "generated/design-tokens",
+  "clean": true,
+  "themes": {
+    "vestfold": {
+      "colors": {
+        "accent": "#005260",
+        "neutral": "#7B7B7A",
+        "brand1": "#BC7726"
+      },
+      "typography": {
+        "fontFamily": "'Nunito Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif"
+      },
+      "borderRadius": 4
+    }
+  }
+}

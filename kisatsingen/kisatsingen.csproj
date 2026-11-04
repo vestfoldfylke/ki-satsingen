@@ -5,7 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
-        <DefaultItemExcludes>$(DefaultItemExcludes);browser-designsystemet\package*;browser-chat-client\package*;package*</DefaultItemExcludes>
+        <DefaultItemExcludes>$(DefaultItemExcludes);browser-designsystemet\package*;browser-designsystemet\designsystemet.config.json;browser-designsystemet\generated\**;browser-chat-client\package*;package*</DefaultItemExcludes>
     </PropertyGroup>
 
     <!-- Debug: ikke generer .exe — kjør via dotnet.exe -->
@@ -65,7 +65,7 @@
          an input that doesn't exist makes the target run on every build. Single
          star on the designsystemet sources keeps node_modules out. -->
     <ItemGroup>
-      <DesignsystemetSource Include="browser-designsystemet\*.ts;browser-designsystemet\package.json;browser-designsystemet\tsconfig.json;browser-designsystemet\vite.config.js" />
+      <DesignsystemetSource Include="browser-designsystemet\*.ts;browser-designsystemet\package.json;browser-designsystemet\designsystemet.config.json;browser-designsystemet\tsconfig.json;browser-designsystemet\vite.config.js" />
       <ChatClientSource Include="browser-chat-client\src\**\*;browser-chat-client\package.json;browser-chat-client\tsconfig.json;browser-chat-client\vite.config.js" />
     </ItemGroup>
 

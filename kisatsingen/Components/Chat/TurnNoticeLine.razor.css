@@ -10,11 +10,11 @@
 .chat-event-line {
     flex: 1;
     height: 1px;
-    background: #e2e8f0;
+    background: var(--ds-color-neutral-border-subtle);
 }
 
 .chat-event-text {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--ds-color-neutral-text-subtle);
     white-space: nowrap;
 }

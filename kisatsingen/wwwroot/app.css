@@ -1,3 +1,36 @@
+/* https://www.vestfoldfylke.no/no/Designmanual/meny/Visuell-verktoykasse/typografi/ */
+@font-face {
+    font-family: 'Nunito Sans';
+    src: url('fonts/NunitoSans.woff2') format('woff2');
+    font-weight: 200 1000;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Nunito Sans';
+    src: url('fonts/NunitoSans-Italic.woff2') format('woff2');
+    font-weight: 200 1000;
+    font-style: italic;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Nunito';
+    src: url('fonts/Nunito.woff2') format('woff2');
+    font-weight: 200 1000;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Nunito';
+    src: url('fonts/Nunito-Italic.woff2') format('woff2');
+    font-weight: 200 1000;
+    font-style: italic;
+    font-display: swap;
+}
+
 :root {
     /* The transcript and the composer share one column width on every chat
        page, or the composer stops lining up with the messages above it and
@@ -5,9 +38,20 @@
     --chat-column-width: 44rem;
 }
 
+/* Designsystemet's components inherit their font, so the theme's font has to be
+   set on the root. */
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    font-family: var(--ds-font-family);
     margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6, blockquote, .heading-font {
+    font-family: 'Nunito', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+/* The design manual counts these as small titles, which use the body font. */
+.ds-heading:is([data-size="xs"], [data-size="2xs"]) {
+    font-family: var(--ds-font-family);
 }
 
 /* Scrolling happens in the chat window and internally in other blocks - not in html */

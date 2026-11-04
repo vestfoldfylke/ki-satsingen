@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc --noEmit && vite build && node --experimental-strip-types strip-designsystemet-layers.ts ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
+    "theme": "designsystemet tokens create --skip-check && designsystemet tokens build --tokens generated/design-tokens --out-dir generated/css --clean",
+    "build": "npm run theme && tsc --noEmit && vite build &&node --experimental-strip-types strip-designsystemet-layers.ts ../wwwroot/designsystemet/designsystemet.css ./designsystemet.flat.css"
   },
   "keywords": [],
   "author": "",
@@ -19,6 +20,7 @@
     "@digdir/designsystemet-web": "^1.23.0"
   },
   "devDependencies": {
+    "@digdir/designsystemet": "^1.23.0",
     "vite": "^8.3.4"
   }
 }

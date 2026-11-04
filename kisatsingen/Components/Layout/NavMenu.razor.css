@@ -150,7 +150,7 @@
 }
 
 .chat-list-item:hover, .user-menu-item:hover {
-    background: #eef2f6;
+    background: var(--ds-color-neutral-surface-hover);
 }
 
 .chat-list-item:is(:hover, :focus-within) .chat-list-item-option-button {
@@ -159,7 +159,7 @@
 }
 
 .chat-list-item-active {
-    background: #e0eaff;
+    background: var(--ds-color-accent-surface-tinted);
 }
 
 .chat-list-item-option-button {

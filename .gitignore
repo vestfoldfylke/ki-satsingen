@@ -3,6 +3,7 @@ obj/
 riderModule.iml
 node_modules
 /kisatsingen/browser-designsystemet/designsystemet.flat.css
+/kisatsingen/browser-designsystemet/generated/
 /kisatsingen/wwwroot/chat-client/
 /kisatsingen/wwwroot/designsystemet/
 

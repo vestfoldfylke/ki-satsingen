@@ -1,6 +1,6 @@
 // Import the JS/Web Component behaviors globally
 import '@digdir/designsystemet-web';
 
-// Import the core CSS layout and default theme
+// Import the core CSS layout and our theme, generated from designsystemet.config.json
 import '@digdir/designsystemet-css';
-import '@digdir/designsystemet-css/theme';
+import './generated/css/vestfold.css';
