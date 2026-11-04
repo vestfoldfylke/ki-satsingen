@@ -49,6 +49,12 @@ h1, h2, h3, h4, h5, h6, blockquote, .heading-font {
     font-family: 'Nunito', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
 
+/* The design manual sets no weight; this matches vestfoldfylke.no. Designsystemet's
+   default (500) is tuned for Inter and looks thin in Nunito. */
+h1, h2, h3, h4, h5, h6, .heading-font {
+    font-weight: 700;
+}
+
 /* The design manual counts these as small titles, which use the body font. */
 .ds-heading:is([data-size="xs"], [data-size="2xs"]) {
     font-family: var(--ds-font-family);
