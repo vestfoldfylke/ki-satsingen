@@ -114,9 +114,10 @@ internal static class DocxInlineMarkdown
 
     // A line starting with # would become a heading, and DocumentOutline makes
     // sections from headings; one starting with > would become a quote.
-    public static string EscapeBlockStart(string line) => line.StartsWith('#') || line.StartsWith('>')
-        ? $"\\{line}"
-        : line;
+    public static string EscapeBlockStart(string line) =>
+        line.StartsWith('#') || line.StartsWith('>') || line.All(character => character == '=') || line.All(character => character == '-')
+            ? $"\\{line}"
+            : line;
 
     // In opening order, so bold and italic together give "***text***".
     private static List<string> MarkersOf(RunFormatting formatting)
