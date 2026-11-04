@@ -75,6 +75,11 @@ Rules live in `.editorconfig`. `dotnet format` covers C# only; Razor markup is f
 - Check: `dotnet format --verify-no-changes`
 - Fix: `dotnet format`
 
+### Designsystemet theme
+The theme (colours, font, border radius) is defined in `kisatsingen/browser-designsystemet/designsystemet.config.json`. The build generates the theme CSS from it, and the generated files are not committed.
+
+To upgrade Designsystemet, set the same exact version on all three `@digdir` packages in `kisatsingen/browser-designsystemet/package.json`, then run `npm install` and build. The generated theme must match the tokens `@digdir/designsystemet-css` reads.
+
 ### Local db
 #### Startup postgres
 - `docker compose up -d`
