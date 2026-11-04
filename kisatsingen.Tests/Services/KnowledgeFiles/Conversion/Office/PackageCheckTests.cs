@@ -53,7 +53,7 @@ public sealed class PackageCheckTests
         var entries = Enumerable.Range(0, 10_001).Select(index => ($"media/{index}.xml", AnyPartContent)).ToArray();
         var package = Zip(entries);
 
-        Assert.Throws<InvalidOperationException>(() => ExceedsDeclaredSize(package, maxUncompressedBytes: long.MaxValue));
+        Assert.Throws<InvalidDataException>(() => ExceedsDeclaredSize(package, maxUncompressedBytes: long.MaxValue));
     }
 
     [Fact]

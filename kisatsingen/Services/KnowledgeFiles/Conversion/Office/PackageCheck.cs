@@ -23,7 +23,7 @@ internal static class PackageCheck
         using var archive = new ZipArchive(package, ZipArchiveMode.Read, leaveOpen: true);
         if (archive.Entries.Count > MaxEntries)
         {
-            throw new InvalidOperationException($"The package has more than {MaxEntries} entries.");
+            throw new InvalidDataException($"The package has more than {MaxEntries} entries.");
         }
 
         long totalBytes = 0;
