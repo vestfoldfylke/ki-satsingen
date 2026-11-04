@@ -20,9 +20,6 @@ internal sealed class DocxBodyWriter
     private const int IndentPerListLevel = 4;
     private const string BulletMarker = "- ";
 
-    // Markdown numbers a list itself, so every item can be "1.".
-    private const string NumberMarker = "1. ";
-
     private const string HardLineBreak = "  \n";
     private const string QuoteMarker = "> ";
 
@@ -32,6 +29,10 @@ internal sealed class DocxBodyWriter
     private readonly DocxBlockText _cellText;
     private readonly CancellationToken _ct;
     private int _previousListLevel;
+
+    // The number each list's levels are at. Word counts a list across the
+    // whole document, also past other paragraphs between its items.
+    private readonly Dictionary<int, Dictionary<int, int>> _numbersByLevelByListId = [];
 
     private DocxBodyWriter(DocxContent content, DocxBlockOutput blocks, DocxParagraphReader reader, CancellationToken ct)
     {
@@ -151,18 +152,22 @@ internal sealed class DocxBodyWriter
 
     // A list may skip levels in Word, but four spaces too many make a code
     // block in Markdown, so an item is at most one level below the one before.
-    private void WriteListItem((DocxListKind Kind, int Level) listItem, List<string> lines)
+    // A numbered item gets its number as Word shows it, since the model reads
+    // the Markdown as text, and a reference such as "punkt 5" needs it.
+    private void WriteListItem((DocxListReference List, DocxListKind Kind) listItem, List<string> lines)
     {
+        var number = NextNumber(listItem.List);
+
         var maxLevel = _blocks.IsAfterListItem
             ? _previousListLevel + 1
             : 0;
-        var level = Math.Clamp(listItem.Level, 0, maxLevel);
+        var level = Math.Clamp(listItem.List.Level, 0, maxLevel);
         _previousListLevel = level;
 
         var indent = new string(' ', level * IndentPerListLevel);
         var marker = listItem.Kind == DocxListKind.Bulleted
             ? BulletMarker
-            : NumberMarker;
+            : $"{number}. ";
         var continuationIndent = new string(' ', indent.Length + marker.Length);
 
         var text = string.Join(HardLineBreak + continuationIndent, lines.Select(DocxInlineMarkdown.EscapeBlockStart));
@@ -184,7 +189,7 @@ internal sealed class DocxBodyWriter
 
     // The paragraph's own list wins over its style's. A paragraph that sets
     // only its level is at that level of its style's list.
-    private (DocxListKind Kind, int Level)? ListItemOf(ParagraphProperties? properties, string? styleId)
+    private (DocxListReference List, DocxListKind Kind)? ListItemOf(ParagraphProperties? properties, string? styleId)
     {
         var ownList = properties?.NumberingProperties;
         var ownListId = ValueOf(ownList?.NumberingId?.Val);
@@ -197,9 +202,34 @@ internal sealed class DocxBodyWriter
             return null;
         }
 
-        var level = ownLevel ?? (ownListId is null ? styleList?.Level : null) ?? 0;
-        return _content.Lists.KindOf(new DocxListReference(listId.Value, level)) is { } kind
-            ? (kind, level)
+        var list = new DocxListReference(listId.Value, ownLevel ?? (ownListId is null ? styleList?.Level : null) ?? 0);
+        return _content.Lists.KindOf(list) is { } kind
+            ? (list, kind)
             : null;
+    }
+
+    // An item continues its level's count, or starts it at the level's start.
+    // It restarts the levels below it, as Word does by default: the "a." under
+    // a new "2." is "a." again. Bulleted items go through it too, so they
+    // restart the numbered levels below them.
+    private int NextNumber(DocxListReference list)
+    {
+        if (!_numbersByLevelByListId.TryGetValue(list.ListId, out var numbersByLevel))
+        {
+            numbersByLevel = [];
+            _numbersByLevelByListId[list.ListId] = numbersByLevel;
+        }
+
+        var number = numbersByLevel.TryGetValue(list.Level, out var previous)
+            ? previous + 1
+            : _content.Lists.StartOf(list);
+        numbersByLevel[list.Level] = number;
+
+        foreach (var deeperLevel in numbersByLevel.Keys.Where(level => level > list.Level).ToList())
+        {
+            numbersByLevel.Remove(deeperLevel);
+        }
+
+        return number;
     }
 }

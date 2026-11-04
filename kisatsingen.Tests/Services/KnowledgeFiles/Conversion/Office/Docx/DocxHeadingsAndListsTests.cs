@@ -14,7 +14,10 @@ public sealed class DocxHeadingsAndListsTests
         "<w:abstractNum w:abstractNumId=\"10\"><w:lvl w:ilvl=\"0\"><w:numFmt w:val=\"bullet\"/></w:lvl><w:lvl w:ilvl=\"1\"><w:numFmt w:val=\"bullet\"/></w:lvl></w:abstractNum>" +
         "<w:abstractNum w:abstractNumId=\"20\"><w:lvl w:ilvl=\"0\"><w:numFmt w:val=\"decimal\"/></w:lvl><w:lvl w:ilvl=\"1\"><w:numFmt w:val=\"lowerLetter\"/></w:lvl></w:abstractNum>" +
         "<w:num w:numId=\"1\"><w:abstractNumId w:val=\"10\"/></w:num>" +
-        "<w:num w:numId=\"2\"><w:abstractNumId w:val=\"20\"/></w:num>";
+        "<w:num w:numId=\"2\"><w:abstractNumId w:val=\"20\"/></w:num>" +
+        "<w:num w:numId=\"3\"><w:abstractNumId w:val=\"20\"/><w:lvlOverride w:ilvl=\"0\"><w:startOverride w:val=\"5\"/></w:lvlOverride></w:num>";
+
+    private const int ListStartingAtFiveId = 3;
 
     private static string HeadingStyle(string id, string name, int outlineLevel, string extraParagraphProperties = "") =>
         ParagraphStyle(id, name, $"<w:pPr>{extraParagraphProperties}<w:outlineLvl w:val=\"{outlineLevel}\"/></w:pPr>");
@@ -126,6 +129,51 @@ public sealed class DocxHeadingsAndListsTests
         var markdown = ToMarkdown(docx);
 
         Assert.Equal("# Bakgrunn", markdown);
+    }
+
+    // The model reads the Markdown as text, so "punkt 2" needs the 2.
+    [Fact]
+    public void A_numbered_list_s_items_get_their_numbers()
+    {
+        var docx = WithLists(ListParagraph(NumberedListId, 0, "Første") + ListParagraph(NumberedListId, 0, "Andre") + ListParagraph(NumberedListId, 0, "Tredje"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("1. Første\n2. Andre\n3. Tredje", markdown);
+    }
+
+    [Fact]
+    public void A_numbered_list_starts_at_its_start_value()
+    {
+        var docx = WithLists(ListParagraph(ListStartingAtFiveId, 0, "Fem") + ListParagraph(ListStartingAtFiveId, 0, "Seks"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("5. Fem\n6. Seks", markdown);
+    }
+
+    // Word restarts the "a." under each new item.
+    [Fact]
+    public void A_new_item_restarts_the_numbering_of_the_level_below_it()
+    {
+        var docx = WithLists(
+            ListParagraph(NumberedListId, 0, "Første") + ListParagraph(NumberedListId, 1, "a") + ListParagraph(NumberedListId, 1, "b") +
+            ListParagraph(NumberedListId, 0, "Andre") + ListParagraph(NumberedListId, 1, "a igjen"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("1. Første\n    1. a\n    2. b\n2. Andre\n    1. a igjen", markdown);
+    }
+
+    // As Word counts it: an indented paragraph between two items doesn't restart the list.
+    [Fact]
+    public void A_list_continues_its_numbering_past_a_paragraph_between_its_items()
+    {
+        var docx = WithLists(ListParagraph(NumberedListId, 0, "Første") + Paragraph("Fortsettelse") + ListParagraph(NumberedListId, 0, "Andre"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("1. Første\n\nFortsettelse\n\n2. Andre", markdown);
     }
 
     [Fact]
