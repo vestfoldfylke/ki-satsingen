@@ -166,7 +166,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Contains("read_file", ToolNames(harness));
+        Assert.Contains("read_file", harness.Client.LastToolNames);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Contains("read_file", ToolNames(harness));
+        Assert.Contains("read_file", harness.Client.LastToolNames);
     }
 
     [Fact]
@@ -206,7 +206,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.DoesNotContain("read_file", ToolNames(harness));
+        Assert.DoesNotContain("read_file", harness.Client.LastToolNames);
     }
 
     [Fact]
@@ -220,7 +220,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Contains("read_file", ToolNames(harness));
+        Assert.Contains("read_file", harness.Client.LastToolNames);
     }
 
     // A chat that isn't found sets no files of its own, so this shows that
@@ -237,9 +237,6 @@ public sealed class ChatSessionAssistantTests
 
         Assert.Empty(harness.Session.AssistantFiles);
     }
-
-    private static IEnumerable<string> ToolNames(ChatSessionHarness harness) =>
-        harness.Client.LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
 
     private static Assistant NewAssistant(string instructions = AssistantInstructions, Guid? id = null) => new()
     {

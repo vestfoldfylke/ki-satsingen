@@ -406,10 +406,11 @@ public sealed class ChatSession : IAsyncDisposable
     // list_files for nothing. Once a chat has used files, the tools stay: the
     // history still refers to them, and removing tools invalidates the cache.
     private bool ShouldOfferFileTools(Turn newTurn) =>
-        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || _turns.Append(newTurn).Any(HasUsedFiles);
+        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || newTurn.Attachments.Count > 0 || _turns.Any(HasUsedFiles);
 
+    // An attachment counts once it became a file; one that failed asks for no tool.
     private static bool HasUsedFiles(Turn turn) =>
-        turn.Attachments.Count > 0
+        turn.Attachments.Any(attachment => attachment.FileId is not null)
         || turn.Answer.OfType<ToolSegment>().Any(tool => FileToolFactory.ToolNames.Contains(tool.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.

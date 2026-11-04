@@ -304,6 +304,8 @@ internal sealed class FakeChatClient : IChatClient
     // Kept because the system prompt travels on the options, not in the messages.
     public ChatOptions? LastOptions { get; private set; }
 
+    public IEnumerable<string> LastToolNames => LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
+
     public IReadOnlyList<AiMessage> LastMessages { get; private set; } = [];
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

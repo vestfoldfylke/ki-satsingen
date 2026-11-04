@@ -198,7 +198,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.DoesNotContain("read_file", ToolNames(harness));
+        Assert.DoesNotContain("read_file", harness.Client.LastToolNames);
     }
 
     [Fact]
@@ -214,12 +214,22 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.Contains("read_file", ToolNames(harness));
+        Assert.Contains("read_file", harness.Client.LastToolNames);
+    }
+
+    [Fact]
+    public async Task A_turn_whose_only_attachment_failed_leaves_the_next_turn_without_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.KnowledgeFiles.FileNamesThatFailToSave.Add("tapt.md");
+        await AttachAsync(harness, "tapt.md");
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        await harness.Session.SendAsync("Hei");
+
+        Assert.DoesNotContain("read_file", harness.Client.LastToolNames);
     }
 
     private static KnowledgeFileMetadata SaveIntoChat(ChatSessionHarness harness, Guid chatId, string fileName) =>
         harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, chatId, fileName, NoteBytes);
-
-    private static IEnumerable<string> ToolNames(ChatSessionHarness harness) =>
-        harness.Client.LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
 }

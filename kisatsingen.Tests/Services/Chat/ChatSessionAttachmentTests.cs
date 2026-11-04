@@ -26,9 +26,6 @@ public sealed class ChatSessionAttachmentTests
     private static Guid SavedFileId(ChatSessionHarness harness, string fileName) =>
         harness.KnowledgeFiles.Saved.Single(file => file.FileName == fileName).Id;
 
-    private static IEnumerable<string> ToolNames(ChatSessionHarness harness) =>
-        harness.Client.LastOptions!.Tools!.Select(tool => tool.Name);
-
     [Fact]
     public async Task Opening_another_chat_discards_what_was_attached_in_this_one()
     {
@@ -249,7 +246,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.Empty(ToolNames(harness).Intersect(FileToolNames));
+        Assert.Empty(harness.Client.LastToolNames.Intersect(FileToolNames));
     }
 
     [Fact]
@@ -260,7 +257,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
+        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
     }
 
     // Scoping inside the tools is tested in FileToolsTests; this is the wiring:
@@ -303,7 +300,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Og så?");
 
-        Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
+        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
     }
 
     // The stored turn still tells the model to read the file, so the tools stay.
@@ -336,7 +333,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Og så?");
 
-        Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
+        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
     }
 
     [Fact]
@@ -356,6 +353,6 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva sto i notatet?");
 
-        Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
+        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
     }
 }
