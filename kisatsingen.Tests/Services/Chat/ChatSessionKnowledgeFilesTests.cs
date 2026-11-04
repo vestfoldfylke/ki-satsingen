@@ -144,17 +144,31 @@ public sealed class ChatSessionKnowledgeFilesTests
     }
 
     [Fact]
-    public async Task A_deleted_file_leaves_the_list()
+    public async Task A_deleted_file_is_removed_from_storage_and_the_list()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
         var file = SaveIntoChat(harness, chat.Id, "notat.md");
         await harness.Session.OpenChatAsync(chat.Id);
 
-        await harness.Session.DeleteChatFileAsync(file.Id);
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
 
         Assert.Empty(harness.Session.ChatFiles);
         Assert.Empty(harness.KnowledgeFiles.Saved);
+    }
+
+    [Fact]
+    public async Task A_file_is_deleted_from_the_chat_given_after_another_chat_was_opened()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        await harness.Session.OpenChatAsync(StoreChat(harness).Id);
+
+        var isDeleted = await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        Assert.True(isDeleted);
     }
 
     [Fact]
@@ -166,7 +180,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         await harness.Session.OpenChatAsync(chat.Id);
         harness.KnowledgeFiles.Delete(file.Id);
 
-        var isDeleted = await harness.Session.DeleteChatFileAsync(file.Id);
+        var isDeleted = await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
 
         Assert.False(isDeleted);
         Assert.Empty(harness.Session.ChatFiles);
@@ -179,7 +193,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         var chat = StoreChat(harness);
         var file = SaveIntoChat(harness, chat.Id, "notat.md");
         await harness.Session.OpenChatAsync(chat.Id);
-        await harness.Session.DeleteChatFileAsync(file.Id);
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
 
         await harness.Session.SendAsync("Hei");
 
