@@ -7,8 +7,6 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 internal static class DocxConverter
 {
-    // Throws OperationCanceledException as soon as ct is cancelled, also
-    // before any work starts.
     public static OfficeConversionResult Convert(Stream stream, OfficeLimits limits, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -36,7 +34,6 @@ internal static class DocxConverter
             var writtenTextCharacters = DocxBodyWriter.Write(content, output, ct);
             var sourceTextCharacters = DocxTextCount.Of(content, ct);
 
-            // A table ends its last line itself.
             return OfficeConversionResult.Converted(output.ToString().TrimEnd('\n'), writtenTextCharacters, sourceTextCharacters);
         }
         catch (MarkdownTooLongException ex)
