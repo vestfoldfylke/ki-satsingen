@@ -416,6 +416,18 @@ public sealed class ChatSession : IAsyncDisposable
         Notify();
     }
 
+    // False when the file was not found. The file is gone either way, so it
+    // leaves the list in both cases.
+    public async Task<bool> DeleteChatFileAsync(Guid fileId)
+    {
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+        var isDeleted = await _knowledgeFileRepository.DeleteChatFileAsync(userObjectId, _chatId, fileId);
+
+        _chatFiles = [.. _chatFiles.Where(file => file.Id != fileId)];
+        Notify();
+        return isDeleted;
+    }
+
     private void ShowSnapshot(Turn snapshot)
     {
         UpdateTurn(snapshot);

@@ -254,6 +254,12 @@ internal sealed class FakeKnowledgeFileRepository : IKnowledgeFileRepository
     public Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("Chat sessions do not delete an assistant's files.");
 
-    public Task<bool> DeleteChatFileAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default) =>
-        throw new NotSupportedException("Chat sessions do not delete files yet.");
+    public Task<bool> DeleteChatFileAsync(Guid ownerId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
+    {
+        lock (_files)
+        {
+            var deletedCount = _files.RemoveAll(file => file.OwnerId == ownerId && file.ChatId == chatId && file.File.Id == knowledgeFileId);
+            return Task.FromResult(deletedCount > 0);
+        }
+    }
 }
