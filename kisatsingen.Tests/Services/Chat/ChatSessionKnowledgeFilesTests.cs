@@ -200,6 +200,22 @@ public sealed class ChatSessionKnowledgeFilesTests
         Assert.DoesNotContain("read_file", ToolNames(harness));
     }
 
+    [Fact]
+    public async Task After_the_last_file_is_deleted_the_next_turn_keeps_the_file_tools_an_earlier_turn_called()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        harness.Client.OnStream = _ => ModelStream.UsingATool("Leser notatet.", "Det handler om budsjett.", toolName: "read_file");
+        await harness.Session.SendAsync("Hva står i notatet?");
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        await harness.Session.SendAsync("Hei");
+
+        Assert.Contains("read_file", ToolNames(harness));
+    }
+
     private static KnowledgeFileMetadata SaveIntoChat(ChatSessionHarness harness, Guid chatId, string fileName) =>
         harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, chatId, fileName, NoteBytes);
 
