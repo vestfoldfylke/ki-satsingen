@@ -363,7 +363,7 @@ public sealed class ChatSession : IAsyncDisposable
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, HasKnowledgeFiles());
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ShouldOfferFileTools(turn));
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -402,7 +402,15 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private bool HasKnowledgeFiles() => _chatFiles.Count > 0 || _assistantFiles.Count > 0;
+    // Without files, the tools would cost tokens and make the model call
+    // list_files for nothing. Once a chat has used files, the tools stay: the
+    // history still refers to them, and removing tools invalidates the cache.
+    private bool ShouldOfferFileTools(Turn newTurn) =>
+        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || _turns.Append(newTurn).Any(HasUsedFiles);
+
+    private static bool HasUsedFiles(Turn turn) =>
+        turn.Attachments.Count > 0
+        || turn.Answer.OfType<ToolSegment>().Any(tool => FileToolFactory.ToolNames.Contains(tool.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddChatFile(KnowledgeFileMetadata file)

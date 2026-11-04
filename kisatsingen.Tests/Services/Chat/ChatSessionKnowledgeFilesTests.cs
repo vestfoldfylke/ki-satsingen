@@ -186,8 +186,9 @@ public sealed class ChatSessionKnowledgeFilesTests
         Assert.Empty(harness.Session.ChatFiles);
     }
 
+    // Saved elsewhere, so no turn in this chat attached or read the file.
     [Fact]
-    public async Task After_the_last_file_is_deleted_the_next_turn_has_no_file_tools()
+    public async Task After_the_last_file_is_deleted_a_chat_that_never_used_it_has_no_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);

@@ -116,10 +116,7 @@ internal sealed class TurnRunner
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            var shouldOfferFileTools = input.HasKnowledgeFiles
-                || builder.Attachments.Any(attachment => attachment.FileId is not null)
-                || HasFileToolCalls(input.EarlierTurns);
-            await StreamAsync(inserted, input, builder, shouldOfferFileTools, observer, cancellation.Token);
+            await StreamAsync(inserted, input, builder, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
             // chat during this one write must not store it as stopped.
@@ -268,7 +265,6 @@ internal sealed class TurnRunner
         InsertedTurn inserted,
         TurnInput input,
         TurnBuilder builder,
-        bool shouldOfferFileTools,
         TurnObserver observer,
         CancellationToken ct)
     {
@@ -282,8 +278,7 @@ internal sealed class TurnRunner
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
 
-        // Without files, the tools would cost tokens and make the model call list_files for nothing.
-        if (shouldOfferFileTools)
+        if (input.ShouldOfferFileTools)
         {
             var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
@@ -291,12 +286,6 @@ internal sealed class TurnRunner
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);
     }
-
-    // The tools stay once called, also after their files are deleted: some
-    // providers refuse tool calls in the history without the tools, and
-    // removing tools invalidates the cached prompt.
-    private static bool HasFileToolCalls(IReadOnlyList<Turn> turns) =>
-        turns.SelectMany(turn => turn.Answer).OfType<ToolSegment>().Any(tool => FileToolFactory.ToolNames.Contains(tool.ToolName));
 
     private async Task SaveAsync(InsertedTurn inserted, Turn ended, CancellationToken ct)
     {

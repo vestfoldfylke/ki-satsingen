@@ -306,9 +306,9 @@ public sealed class ChatSessionAttachmentTests
         Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
     }
 
-    // The stored turn still names a file, but the chat has none left to read.
+    // The stored turn still tells the model to read the file, so the tools stay.
     [Fact]
-    public async Task A_reopened_chat_whose_files_were_all_deleted_gets_no_file_tools()
+    public async Task A_reopened_chat_whose_files_were_all_deleted_keeps_the_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(new ChatEntity
@@ -336,7 +336,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Og så?");
 
-        Assert.Empty(ToolNames(harness).Intersect(FileToolNames));
+        Assert.Equal(FileToolNames, ToolNames(harness).Intersect(FileToolNames));
     }
 
     [Fact]

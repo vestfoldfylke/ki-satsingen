@@ -13,4 +13,4 @@ internal sealed record TurnInput(
     IReadOnlyList<Turn> EarlierTurns,
     ChatModel Model,
     SentAttachments SentAttachments,
-    bool HasKnowledgeFiles);
+    bool ShouldOfferFileTools);
