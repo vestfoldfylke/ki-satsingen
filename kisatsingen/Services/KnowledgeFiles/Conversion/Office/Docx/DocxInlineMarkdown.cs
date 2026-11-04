@@ -75,14 +75,9 @@ internal static class DocxInlineMarkdown
             // Two line breaks in a row would read as a paragraph break, which
             // would split an open marker from its closing one.
             var whitespace = pendingWhitespace.ToString();
-            if (whitespace.Contains(LineBreak))
-            {
-                markdown.Append(LineBreak);
-            }
-            else
-            {
-                markdown.Append(whitespace);
-            }
+            markdown.Append(whitespace.Contains(LineBreak)
+                ? LineBreak
+                : whitespace);
 
             pendingWhitespace.Clear();
 
