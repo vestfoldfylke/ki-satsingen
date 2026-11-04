@@ -139,6 +139,13 @@
     margin-top: 0.3rem;
 }
 
+/* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
+   stays in the row; otherwise it is placed against .page, outside the list's
+   scrolling, and makes the page itself scrollable. */
+.chat-list-item {
+    position: relative;
+}
+
 .chat-list-item, .user-menu-item {
     display: flex;
     align-items: center;
