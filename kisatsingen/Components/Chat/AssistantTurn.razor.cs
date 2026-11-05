@@ -11,7 +11,7 @@ public partial class AssistantTurn : ComponentBase
 
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
 
-    private bool _showFullPrompt;
+    private InstructionsModal? _instructionsModal;
 
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 

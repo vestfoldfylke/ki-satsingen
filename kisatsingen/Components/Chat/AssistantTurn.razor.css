@@ -10,18 +10,12 @@
 }
 
 .assistant-turn-time {
-    opacity: 0.7;
+    color: var(--ds-color-text-subtle);
     user-select: none;
 }
 
 .assistant-turn-actions {
     display: flex;
-}
-
-.assistant-turn-action-button {
-    --dsc-button-size: 1rem;
-    flex: 0 0 auto;
-    padding: 0.2rem;
 }
 
 .icon-copy-confirm,

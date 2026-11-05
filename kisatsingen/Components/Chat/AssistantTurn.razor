@@ -16,13 +16,13 @@
 
     @if (!IsLive)
     {
-        <footer class="assistant-turn-footer">
+        <footer class="assistant-turn-footer" data-color="neutral">
             <div class="assistant-turn-actions">
                 @if (HasCopyableText)
                 {
-                    <button type="button"
-                            class="ds-button assistant-turn-action-button"
-                            data-color="neutral"
+                    <button class="ds-button assistant-turn-action-button"
+                            data-icon="true"
+                            type="button"
                             data-variant="tertiary"
                             data-size="sm"
                             data-copy-turn-id="@Turn.Id"
@@ -34,117 +34,112 @@
                     </button>
                 }
 
-                <button type="button"
-                        class="ds-button assistant-turn-action-button"
-                        data-color="neutral"
+                <button class="ds-button assistant-turn-action-button"
+                        data-icon="true"
+                        type="button"
                         data-variant="tertiary"
                         data-size="sm"
-                        aria-label="Metadata"
-                        data-tooltip="Metadata"
-                        popovertarget="@PopoverId"
+                        data-tooltip="Detaljer"
+                        aria-label="Detaljer"
                         aria-controls="@PopoverId"
+                        popovertarget="@PopoverId"
                 >
                     <span class="material-symbols-outlined" aria-hidden="true">info</span>
                 </button>
+
+                <button class="ds-button assistant-turn-action-button"
+                        data-icon="true"
+                        type="button"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        aria-label="Instruksjoner"
+                        data-tooltip="Instruksjoner"
+                        command="show-modal"
+                        commandfor="instructions-dialog"
+                        @onclick="() => _instructionsModal?.Load(Turn)"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
+                </button>
             </div>
 
-            <time class="assistant-turn-time" datetime="@Turn.StartedAt.ToString("o")">
+            <time
+                class="assistant-turn-time"
+                datetime="@Turn.StartedAt.ToString("o")"
+            >
                 @Turn.StartedAt.LocalDateTime.ToString("d. MMM HH:mm:ss")
             </time>
         </footer>
+
+        <InstructionsModal @ref="_instructionsModal" Turn=@Turn Id="instructions-dialog" />
 
         <div id="@PopoverId"
             class="ds-popover assistant-metadata"
             popover="auto"
             data-placement="top"
             data-color="neutral"
-            @ontoggle="() => _showFullPrompt = false"
         >
-            <div class="assistant-metadata-scroll">
-                @if (DescribeModel(Turn) is { } modelDescription)
-                {
-                    <p class="ds-paragraph" data-size="md"><strong>Detaljer for melding</strong></p>
-                    <dl class="assistant-metadata-list">
-                        <dt>Språkmodell</dt>
-                        <dd>@modelDescription</dd>
-                    </dl>
-                }
+            @if (DescribeModel(Turn) is { } modelDescription)
+            {
+                <p class="ds-paragraph" data-size="md"><strong>Detaljer for melding</strong></p>
+                <dl class="assistant-metadata-list">
+                    <dt>Språkmodell</dt>
+                    <dd>@modelDescription</dd>
+                </dl>
+            }
+
+            <hr aria-hidden="true" class="ds-divider"/>
+
+            @if (Turn.Metadata is { } meta)
+            {
+                <p class="ds-paragraph" data-size="sm"><strong>Detaljer</strong></p>
+                <dl class="assistant-metadata-list">
+                    @if (meta.ResponseId is { } responseId)
+                    {
+                        <dt>Respons ID</dt>
+                        <dd>@responseId</dd>
+                    }
+                    @if (meta.FinishReason is { } finish)
+                    {
+                        <dt>Årsak til svarslutt</dt>
+                        <dd>@finish</dd>
+                    }
+
+                    @if (meta.DurationMs is { } duration)
+                    {
+                        <dt>Varighet</dt>
+                        <dd>@FormatMs(duration)</dd>
+                    }
+                    @if (meta.TimeToFirstTokenMs is { } ttft)
+                    {
+                        <dt>Tid før svaret startet</dt>
+                        <dd>@FormatMs(ttft)</dd>
+                    }
+                </dl>
 
                 <hr aria-hidden="true" class="ds-divider"/>
 
-                <p class="ds-paragraph" data-size="sm"><strong>Instruksjoner</strong></p>
-                <div class="assistant-metadata-instructions @(_showFullPrompt ? "expanded" : "")">
-                    <div @key="_showFullPrompt" class="assistant-metadata-instructions-content">@Turn.SystemPrompt?.TrimStart()</div>
-                </div>
-
-                @if (Turn.SystemPrompt?.Length > 160)
-                {
-                    <button class="ds-button assistant-metadata-toggle"
-                            type="button"
-                            data-variant="tertiary"
-                            data-size="sm"
-                            data-color="primary"
-                            aria-expanded="@_showFullPrompt" @onclick="() => _showFullPrompt = !_showFullPrompt"
-                    >
-                        <span class="material-symbols-outlined" aria-hidden="true">@(_showFullPrompt ? "expand_less" : "expand_more")</span>
-                        @(_showFullPrompt ? "Vis mindre" : "Vis mer")
-                    </button>
-                }
-
-                <hr aria-hidden="true" class="ds-divider"/>
-
-                @if (Turn.Metadata is { } meta)
-                {
-                    <p class="ds-paragraph" data-size="sm"><strong>Detaljer</strong></p>
-                    <dl class="assistant-metadata-list">
-                        @if (meta.ResponseId is { } responseId)
+                <p class="ds-paragraph" data-size="sm"><strong>Tokenbruk</strong></p>
+                <dl class="assistant-metadata-list">
+                    @if (meta.Usage is { } usage)
+                    {
+                        @if (usage.CombinedInputTokens is { } input)
                         {
-                            <dt>Respons ID</dt>
-                            <dd>@responseId</dd>
+                            <dt>Sendt til KI</dt>
+                            <dd>@TokenCountFormat.Format(input, usage.IsEstimated)</dd>
                         }
-                        @if (meta.FinishReason is { } finish)
+                        @if (usage.CombinedOutputTokens is { } output)
                         {
-                            <dt>Årsak til svarslutt</dt>
-                            <dd>@finish</dd>
+                            <dt>Svar fra KI</dt>
+                            <dd>@TokenCountFormat.Format(output, usage.IsEstimated)</dd>
                         }
-
-                        @if (meta.DurationMs is { } duration)
+                        @if (usage.CombinedTotalTokens is { } total)
                         {
-                            <dt>Varighet</dt>
-                            <dd>@FormatMs(duration)</dd>
+                            <dt>Totalt behandlet</dt>
+                            <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
                         }
-                        @if (meta.TimeToFirstTokenMs is { } ttft)
-                        {
-                            <dt>Tid før svaret startet</dt>
-                            <dd>@FormatMs(ttft)</dd>
-                        }
-                    </dl>
-
-                    <hr aria-hidden="true" class="ds-divider"/>
-
-                    <p class="ds-paragraph" data-size="sm"><strong>Tokenbruk</strong></p>
-                    <dl class="assistant-metadata-list">
-                        @if (meta.Usage is { } usage)
-                        {
-                            @if (usage.CombinedInputTokens is { } input)
-                            {
-                                <dt>Sendt til KI</dt>
-                                <dd>@TokenCountFormat.Format(input, usage.IsEstimated)</dd>
-                            }
-                            @if (usage.CombinedOutputTokens is { } output)
-                            {
-                                <dt>Svar fra KI</dt>
-                                <dd>@TokenCountFormat.Format(output, usage.IsEstimated)</dd>
-                            }
-                            @if (usage.CombinedTotalTokens is { } total)
-                            {
-                                <dt>Totalt behandlet</dt>
-                                <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
-                            }
-                        }
-                    </dl>
-                }
-            </div>
+                    }
+                </dl>
+            }
         </div>
     }
 </div>

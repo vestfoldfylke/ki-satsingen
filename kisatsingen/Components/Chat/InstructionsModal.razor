@@ -1,0 +1,20 @@
+@using kisatsingen.Services.Chat
+
+<ModalDialog @ref="_dialog" Id="@Id" Heading="Instruksjoner for dette svaret">
+    @if (_isNotFound)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">Denne samtalen er slettet eller du har ikke tilgang lenger.</p>
+        </div>
+    }
+    else if (_errorMessage is not null)
+    {
+        <div class="ds-alert" data-color="danger" role="alert">
+            <p class="ds-paragraph">@_errorMessage</p>
+        </div>
+    }
+
+    <div class="instructions-scroll">
+        <div class="instructions-content">@Turn.SystemPrompt?.TrimStart()</div>
+    </div>
+</ModalDialog>
