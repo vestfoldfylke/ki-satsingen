@@ -75,16 +75,43 @@ const streamStates = new Map<string, StreamState>();
 const COPIED_FEEDBACK_MS = 1200;
 const COPY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
-async function copyToClipboard(text: string, button: HTMLElement): Promise<void> {
+function markCopied(button: HTMLElement): void {
+    button.classList.add('is-copied');
+    setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
+}
+
+async function copyPlainTextToClipboard(text: string, button: HTMLElement): Promise<void> {
     if (!text) {
         return;
     }
+
     try {
         await navigator.clipboard.writeText(text);
-        button.classList.add('is-copied');
-        setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
+        markCopied(button);
     } catch (err) {
         console.warn('Copy failed', err);
+    }
+}
+
+async function copyRichToClipboard(markdown: string, button: HTMLElement): Promise<void> {
+    if (!markdown) {
+        return;
+    }
+
+    const html = DOMPurify.sanitize(md.render(markdown));
+
+    try {
+        await navigator.clipboard.write([
+            new ClipboardItem({
+                'text/html': new Blob([html], {type: 'text/html'}),
+                'text/plain': new Blob([markdown], {type: 'text/plain'}),
+            }),
+        ]);
+
+        markCopied(button);
+    } catch (err) {
+        console.warn('Rich copy failed, falling back to plain text', err);
+        await copyPlainTextToClipboard(markdown, button);
     }
 }
 
@@ -109,7 +136,7 @@ function injectCodeBlockCopy(el: HTMLElement): void {
         button.innerHTML = COPY_ICON_SVG;
         button.addEventListener('click', () => {
             const code = pre.querySelector('code');
-            copyToClipboard(code?.textContent ?? '', button);
+            copyPlainTextToClipboard(code?.textContent ?? '', button);
         });
         wrapper.appendChild(button);
     });
@@ -131,11 +158,13 @@ document.addEventListener('click', event => {
     }
 
     const parts = turn.querySelectorAll('.markdown-fallback');
+
     const text = Array.from(parts)
         .map(el => el.textContent)
         .filter(t => t)
         .join('\n\n');
-    copyToClipboard(text, button);
+
+    copyRichToClipboard(text, button);
 });
 
 function renderInto(el: HTMLElement | null, source: string | null | undefined, { highlight = false }: { highlight?: boolean } = {}): void {
