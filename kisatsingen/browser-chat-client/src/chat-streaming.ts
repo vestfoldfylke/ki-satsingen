@@ -81,6 +81,10 @@ function markCopied(button: HTMLElement): void {
 }
 
 async function copyPlainTextToClipboard(text: string, button: HTMLElement): Promise<void> {
+    if (!text) {
+        return;
+    }
+
     try {
         await navigator.clipboard.writeText(text);
         markCopied(button);
@@ -106,8 +110,8 @@ async function copyRichToClipboard(markdown: string, button: HTMLElement): Promi
 
         markCopied(button);
     } catch (err) {
-        await copyPlainTextToClipboard(markdown, button);
         console.warn('Rich copy failed, falling back to plain text', err);
+        await copyPlainTextToClipboard(markdown, button);
     }
 }
 
@@ -138,7 +142,7 @@ function injectCodeBlockCopy(el: HTMLElement): void {
     });
 }
 
-// Message-level copy: read joined prose from the turn's .markdown-fallback and .assistant-markdown divs.
+// Message-level copy: read joined prose from the turn's .markdown-fallback divs.
 // Delegated at document to catch any AssistantTurn Blazor inserts later.
 document.addEventListener('click', event => {
     const button = event.target instanceof Element
