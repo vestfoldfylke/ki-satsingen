@@ -80,15 +80,7 @@ function markCopied(button: HTMLElement): void {
     setTimeout(() => button.classList.remove('is-copied'), COPIED_FEEDBACK_MS);
 }
 
-async function copyToClipboard(text: string, button: HTMLElement): Promise<void> {
-    if (!text) {
-        return;
-    }
-
-    await copyPlainText(text, button);
-}
-
-async function copyPlainText(text: string, button: HTMLElement): Promise<void> {
+async function copyPlainTextToClipboard(text: string, button: HTMLElement): Promise<void> {
     try {
         await navigator.clipboard.writeText(text);
         markCopied(button);
@@ -97,14 +89,12 @@ async function copyPlainText(text: string, button: HTMLElement): Promise<void> {
     }
 }
 
-async function copyRichToClipboard(markdown: string, html: string, button: HTMLElement): Promise<void> {
+async function copyRichToClipboard(markdown: string, button: HTMLElement): Promise<void> {
     if (!markdown) {
         return;
     }
 
-    if (!html) {
-        return copyPlainText(markdown, button);
-    }
+    const html = DOMPurify.sanitize(md.render(markdown));
 
     try {
         await navigator.clipboard.write([
@@ -115,8 +105,9 @@ async function copyRichToClipboard(markdown: string, html: string, button: HTMLE
         ]);
 
         markCopied(button);
-    } catch {
-        await copyPlainText(markdown, button);
+    } catch (err) {
+        await copyPlainTextToClipboard(markdown, button);
+        console.warn('Rich copy failed, falling back to plain text', err);
     }
 }
 
@@ -141,7 +132,7 @@ function injectCodeBlockCopy(el: HTMLElement): void {
         button.innerHTML = COPY_ICON_SVG;
         button.addEventListener('click', () => {
             const code = pre.querySelector('code');
-            copyToClipboard(code?.textContent ?? '', button);
+            copyPlainTextToClipboard(code?.textContent ?? '', button);
         });
         wrapper.appendChild(button);
     });
@@ -164,21 +155,12 @@ document.addEventListener('click', event => {
 
     const parts = turn.querySelectorAll('.markdown-fallback');
 
-    const html = Array.from(turn.querySelectorAll<HTMLElement>('.assistant-markdown'))
-        .map(el => {
-            const clone = el.cloneNode(true) as HTMLElement;
-            clone.querySelectorAll('.chat-code-copy').forEach(copyButton => copyButton.remove());
-            return clone.innerHTML;
-        })
-        .filter(h => h)
-        .join('');
-
     const text = Array.from(parts)
         .map(el => el.textContent)
         .filter(t => t)
         .join('\n\n');
 
-    copyRichToClipboard(text, html, button);
+    copyRichToClipboard(text, button);
 });
 
 function renderInto(el: HTMLElement | null, source: string | null | undefined, { highlight = false }: { highlight?: boolean } = {}): void {
