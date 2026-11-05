@@ -21,7 +21,7 @@ internal static class ChatModelServiceCollectionExtensions
     // OpenAI-compatible, so it needs no adapter of its own.
     private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
-    private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.Mistral;
+    private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.OpenAI;
 
     private static readonly ChatModel MistralModel = new()
     {
@@ -89,21 +89,21 @@ internal static class ChatModelServiceCollectionExtensions
             definitions,
             configuration,
             logger,
-            MistralModel,
-            MistralConfigurationPath,
-            providerCredential => (
-                OpenAiCompatibleChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
-                WithTools()));
-
-        AddIfConfigured(
-            definitions,
-            configuration,
-            logger,
             OpenAIModel,
             OpenAiConfigurationPath,
             providerCredential => (
                 OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
                 WithToolsNoChatCompletionsStoreNoReasoning()));
+
+        AddIfConfigured(
+            definitions,
+            configuration,
+            logger,
+            MistralModel,
+            MistralConfigurationPath,
+            providerCredential => (
+                OpenAiCompatibleChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
+                WithTools()));
 
         AddIfConfigured(
             definitions,
