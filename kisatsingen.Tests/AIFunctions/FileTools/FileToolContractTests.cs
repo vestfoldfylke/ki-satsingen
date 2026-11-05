@@ -84,6 +84,12 @@ public sealed class FileToolContractTests
         Assert.Equal(["list_files", "get_outline", "read_file"], Tools().Select(tool => tool.Name));
     }
 
+    [Fact]
+    public void The_tool_names_are_the_names_of_the_tools_made()
+    {
+        Assert.Equal(Tools().Select(tool => tool.Name).ToHashSet(), FileToolFactory.ToolNames);
+    }
+
     // Wording is free to change; what the code relies on is that every tool and
     // argument is described at all.
     [Fact]

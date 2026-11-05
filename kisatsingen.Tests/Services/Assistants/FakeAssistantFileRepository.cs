@@ -92,4 +92,7 @@ internal sealed class FakeAssistantFileRepository : IKnowledgeFileRepository
 
     public Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default) =>
         throw new NotSupportedException("The processor never deletes files.");
+
+    public Task<bool> DeleteChatFileAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default) =>
+        throw new NotSupportedException("The processor never deletes files.");
 }

@@ -24,4 +24,5 @@ public interface IKnowledgeFileRepository
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListFilesForChatAsync(Guid userId, Guid chatId, CancellationToken ct = default);
 
     Task<bool> DeleteAssistantFileAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default);
+    Task<bool> DeleteChatFileAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default);
 }

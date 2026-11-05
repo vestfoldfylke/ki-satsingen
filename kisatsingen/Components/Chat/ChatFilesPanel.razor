@@ -27,7 +27,7 @@
     @if (ChatFiles.Count > 0)
     {
         <h3 class="ds-heading" data-size="2xs">I samtalen</h3>
-        <KnowledgeFileList Files="ChatFiles" />
+        <KnowledgeFileList Files="ChatFiles" DeleteDialogId="@DeleteDialogId" OnDeleteRequested="file => _deleteDialog?.Load(file)" />
     }
 
     @if (Attachments.Count > 0)
@@ -55,9 +55,17 @@
             }
         </ul>
     }
+
+    @* Outside the chat files' section, so deleting the last file doesn't remove
+       the dialog while it shows that the file was not found. *@
+    <DeleteChatFileDialog @ref="_deleteDialog" Id="@DeleteDialogId" />
 </aside>
 
 @code {
+    private const string DeleteDialogId = "delete-chat-file-dialog";
+
+    private DeleteChatFileDialog? _deleteDialog;
+
     [Parameter]
     public IReadOnlyList<KnowledgeFileMetadata> AssistantFiles { get; set; } = [];
 

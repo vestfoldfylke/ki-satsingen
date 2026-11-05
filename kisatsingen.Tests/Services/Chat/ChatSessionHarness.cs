@@ -304,6 +304,8 @@ internal sealed class FakeChatClient : IChatClient
     // Kept because the system prompt travels on the options, not in the messages.
     public ChatOptions? LastOptions { get; private set; }
 
+    public IEnumerable<string> LastToolNames => LastOptions?.Tools?.Select(tool => tool.Name) ?? [];
+
     public IReadOnlyList<AiMessage> LastMessages { get; private set; } = [];
 
     public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
@@ -401,10 +403,10 @@ internal static class ModelStream
 
     // The shape FunctionInvokingChatClient streams: the call, then its result as a
     // tool message, then the next round's answer.
-    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after)
+    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after, string toolName = "get_current_time_utc")
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, before);
-        yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", "get_current_time_utc")]);
+        yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", toolName)]);
         yield return new ChatResponseUpdate(ChatRole.Tool, [new FunctionResultContent("call-1", "2026-09-28T12:00:00Z")]);
         yield return new ChatResponseUpdate(ChatRole.Assistant, after);
         await Task.CompletedTask;

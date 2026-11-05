@@ -7,6 +7,8 @@ namespace kisatsingen.AIFunctions.FileTools;
 // widen what they reach: a file outside it is simply not found.
 public sealed class FileToolFactory(IKnowledgeFileReader reader, FileToolOptions options)
 {
+    public static readonly IReadOnlySet<string> ToolNames = new HashSet<string> { ListFilesTool.Name, GetOutlineTool.Name, ReadFileTool.Name };
+
     public IReadOnlyList<AITool> Create(KnowledgeFileScope scope) =>
     [
         ListFilesTool.Create(reader, scope),

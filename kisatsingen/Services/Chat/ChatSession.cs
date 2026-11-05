@@ -363,7 +363,7 @@ public sealed class ChatSession : IAsyncDisposable
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, HasKnowledgeFiles());
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ShouldOfferFileTools(turn));
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -402,7 +402,16 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
-    private bool HasKnowledgeFiles() => _chatFiles.Count > 0 || _assistantFiles.Count > 0;
+    // Without files, the tools would cost tokens and make the model call
+    // list_files for nothing. Once a chat has used files, the tools stay: the
+    // history still refers to them, and removing tools invalidates the cache.
+    private bool ShouldOfferFileTools(Turn newTurn) =>
+        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || newTurn.Attachments.Count > 0 || _turns.Any(HasUsedFiles);
+
+    // An attachment counts once it became a file; one that failed asks for no tool.
+    private static bool HasUsedFiles(Turn turn) =>
+        turn.Attachments.Any(attachment => attachment.FileId is not null)
+        || turn.Answer.OfType<ToolSegment>().Any(tool => FileToolFactory.ToolNames.Contains(tool.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddChatFile(KnowledgeFileMetadata file)
@@ -414,6 +423,18 @@ public sealed class ChatSession : IAsyncDisposable
 
         _chatFiles = [.. _chatFiles, file];
         Notify();
+    }
+
+    // False when the file was not found. The file is gone either way, so it
+    // leaves the list in both cases.
+    public async Task<bool> DeleteChatFileAsync(Guid chatId, Guid fileId)
+    {
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+        var isDeleted = await _knowledgeFileRepository.DeleteChatFileAsync(userObjectId, chatId, fileId);
+
+        _chatFiles = [.. _chatFiles.Where(file => file.Id != fileId)];
+        Notify();
+        return isDeleted;
     }
 
     private void ShowSnapshot(Turn snapshot)
