@@ -19,12 +19,18 @@ public sealed class KnowledgeFileReader(IKnowledgeFileRepository repository) : I
     // The id doesn't say whether the file is the chat's or the assistant's, so
     // try the assistant first, when the chat has one. The extra lookup is
     // cheap, and simpler than keeping track of which ids belong where.
-    public async Task<KnowledgeFileDocument?> OpenFileAsync(KnowledgeFileScope scope, Guid fileId, CancellationToken ct)
+    public async Task<KnowledgeFileText?> ReadFileTextAsync(KnowledgeFileScope scope, Guid fileId, CancellationToken ct)
     {
         var text = scope.AssistantId is Guid assistantId
             ? await repository.GetAssistantFileTextAsync(scope.UserId, assistantId, fileId, ct)
             : null;
-        text ??= await repository.GetChatFileTextAsync(scope.UserId, scope.ChatId, fileId, ct);
+
+        return text ?? await repository.GetChatFileTextAsync(scope.UserId, scope.ChatId, fileId, ct);
+    }
+
+    public async Task<KnowledgeFileDocument?> OpenFileAsync(KnowledgeFileScope scope, Guid fileId, CancellationToken ct)
+    {
+        var text = await ReadFileTextAsync(scope, fileId, ct);
 
         return text is null
             ? null

@@ -1,0 +1,22 @@
+/* Spaced by the viewer itself, so it looks the same in every host. */
+.knowledge-file-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* A setting rather than content, so it stays out of the way at the end. */
+.knowledge-file-viewer-toggle {
+    align-self: flex-end;
+}
+
+/* A wide table scrolls here instead of widening the panel or dialog. */
+.knowledge-file-viewer-reading {
+    overflow-x: auto;
+}
+
+.knowledge-file-viewer-plain-text {
+    margin: 0;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
