@@ -63,7 +63,12 @@
 
         @* Outside the lists, so it stays while the files change, and outside
            AuthorizeView, since everyone who can use the assistant may view them. *@
-        <ModalDialog Id="@ViewerDialogId" Heading="@(_shownFile?.FileName ?? string.Empty)" IsWide="true">
+        <ModalDialog
+            Id="@ViewerDialogId"
+            Heading="@(_shownFile?.FileName ?? string.Empty)"
+            IsWide="true"
+            OnClosed="CloseFile"
+        >
             @if (_shownFile is { } shownFile)
             {
                 <KnowledgeFileViewer @key="shownFile.Id" FileId="shownFile.Id" ReadFileText="ReadFileTextAsync" />

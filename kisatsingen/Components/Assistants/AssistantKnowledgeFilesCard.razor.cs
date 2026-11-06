@@ -55,7 +55,8 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     private ElementReference _menu;
     private DeleteAssistantFileDialog? _deleteDialog;
 
-    // The file in the view dialog; it stays set after the dialog is closed.
+    // Cleared when the dialog closes, so the next file never opens showing this
+    // one: the dialog opens in the browser before the click reaches the server.
     private KnowledgeFileMetadata? _shownFile;
 
     private bool IsFull => Files.Count >= Assistant.MaxKnowledgeFiles;
@@ -69,6 +70,8 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     protected override void OnInitialized() => Uploads.Changed += OnUploadsChanged;
 
     private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
+
+    private void CloseFile() => _shownFile = null;
 
     private async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
     {
