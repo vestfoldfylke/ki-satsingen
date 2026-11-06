@@ -1,7 +1,6 @@
 @using kisatsingen.Services.KnowledgeFiles.Conversion
 
-@* One file's text, loaded once: a host shows another file by giving the
-   viewer a new @key, which replaces this instance and cancels its load. *@
+@* Loads FileId once and ignores later changes to it. *@
 <div class="knowledge-file-viewer">
     @if (!_isLoaded)
     {
