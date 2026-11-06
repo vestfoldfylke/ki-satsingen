@@ -1,11 +1,6 @@
 @using kisatsingen.Components.KnowledgeFiles
 @using kisatsingen.Data.Entities
-@using kisatsingen.Services
-@using kisatsingen.Services.Attachments
 
-@* The assistant's knowledge files, the chat's, then the ones not sent yet; or
-   one saved file's text, in place of the lists. The assistant's files are
-   read-only here: they are managed on its page. *@
 <aside
     id="chat-files-panel"
     class="chat-files-panel"
@@ -40,7 +35,7 @@
         }
         else
         {
-            @if (AssistantFiles.Count == 0 && ChatFiles.Count == 0 && Attachments.Count == 0)
+            @if (AssistantFiles.Count == 0 && ChatFiles.Count == 0)
             {
                 <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
             }
@@ -48,6 +43,7 @@
             @if (AssistantFiles.Count > 0)
             {
                 <h3 class="ds-heading" data-size="2xs">Fra assistenten</h3>
+                @* No delete here: the assistant's files are managed on its page. *@
                 <KnowledgeFileList Files="AssistantFiles" OnOpenRequested="ShowFile" />
             }
 
@@ -60,32 +56,6 @@
                     DeleteDialogId="@DeleteDialogId"
                     OnDeleteRequested="file => _deleteDialog?.Load(file)"
                 />
-            }
-
-            @if (Attachments.Count > 0)
-            {
-                <h3 class="ds-heading" data-size="2xs">Ikke sendt ennå</h3>
-                <ul class="chat-files-list">
-                    @foreach (var attachment in Attachments)
-                    {
-                        <li @key="attachment.AttachmentId" class="chat-files-item">
-                            <span class="chat-files-item-name">@attachment.FileName</span>
-                            <span class="chat-files-item-meta">@ByteSize.Format(attachment.DeclaredSizeBytes)</span>
-                            <span class="chat-files-item-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
-                                @AttachmentStatusTexts.DescribeStatus(attachment)
-                            </span>
-                            <button
-                                type="button"
-                                class="ds-button"
-                                data-variant="tertiary"
-                                data-size="sm"
-                                @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)"
-                            >
-                                Fjern
-                            </button>
-                        </li>
-                    }
-                </ul>
             }
         }
     </div>
@@ -109,14 +79,8 @@
     [Parameter]
     public IReadOnlyList<KnowledgeFileMetadata> ChatFiles { get; set; } = [];
 
-    [Parameter]
-    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
-
     [Parameter, EditorRequired]
     public required Func<Guid, CancellationToken, Task<KnowledgeFileText?>> ReadFileText { get; set; }
-
-    [Parameter]
-    public EventCallback<Guid> OnRemove { get; set; }
 
     [Parameter]
     public EventCallback OnClose { get; set; }

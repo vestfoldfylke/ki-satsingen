@@ -21,7 +21,7 @@ else
                 Title="@Title"
                 AssistantName="@Session.AssistantName"
                 AssistantId="Session.AssistantId"
-                FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count + Attachments.All.Count"
+                FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count"
                 IsFilesPanelOpen="_isFilesPanelOpen"
                 OnOpenFilesPanel="OpenFilesPanel"
             />
@@ -68,9 +68,7 @@ else
                 @key="Session.ChatId"
                 AssistantFiles="Session.AssistantFiles"
                 ChatFiles="Session.ChatFiles"
-                Attachments="Attachments.All"
                 ReadFileText="Session.ReadFileTextAsync"
-                OnRemove="Attachments.Remove"
                 OnClose="CloseFilesPanel"
             />
         }

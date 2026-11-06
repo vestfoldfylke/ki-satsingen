@@ -10,9 +10,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required ChatSession Session { get; set; }
 
     [Inject]
-    public required ChatAttachments Attachments { get; set; }
-
-    [Inject]
     public required ChatManager Manager { get; set; }
 
     [Inject]
@@ -42,7 +39,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         if (!_stateWired)
         {
             Session.StateChanged += OnSessionChanged;
-            Attachments.Changed += OnSessionChanged;
             Manager.ChatListChanged += OnSessionChanged;
             _stateWired = true;
         }
@@ -76,7 +72,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         if (_stateWired)
         {
             Session.StateChanged -= OnSessionChanged;
-            Attachments.Changed -= OnSessionChanged;
             Manager.ChatListChanged -= OnSessionChanged;
         }
         // No cancel: this also runs on circuit teardown, where the session's own
