@@ -13,8 +13,6 @@
     }
     else
     {
-        <p class="ds-paragraph" data-size="sm">Lagt til <NorwegianDate Value="_file.CreatedAt" /></p>
-
         @if (ContentOriginNotes.For(_file.ContentOrigin) is { } note)
         {
             <p class="ds-alert ds-paragraph" data-size="sm" data-color="info">@note</p>

@@ -6,15 +6,18 @@
     @foreach (var file in Files)
     {
         <li @key="file.Id" class="knowledge-file-list-item">
-            <button
-                type="button"
-                class="ds-link knowledge-file-list-name"
-                command="@(ViewerDialogId is null ? null : "show-modal")"
-                commandfor="@ViewerDialogId"
-                @onclick="() => OnOpenRequested.InvokeAsync(file)"
-            >
-                @file.FileName
-            </button>
+            <div class="knowledge-file-list-file">
+                <button
+                    type="button"
+                    class="ds-link knowledge-file-list-name"
+                    command="@(ViewerDialogId is null ? null : "show-modal")"
+                    commandfor="@ViewerDialogId"
+                    @onclick="() => OnOpenRequested.InvokeAsync(file)"
+                >
+                    @file.FileName
+                </button>
+                <span class="ds-paragraph knowledge-file-list-date" data-size="xs"><NorwegianDate Value="file.CreatedAt" /></span>
+            </div>
             @if (DeleteDialogId is not null)
             {
                 <button

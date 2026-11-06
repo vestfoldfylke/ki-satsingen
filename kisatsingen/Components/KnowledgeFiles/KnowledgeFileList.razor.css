@@ -13,8 +13,21 @@
     gap: 0.25rem;
 }
 
-.knowledge-file-list-name {
+/* The name with its date below; takes the row's width, so the delete button
+   stays at the end. */
+.knowledge-file-list-file {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     flex: 1;
     min-width: 0;
+}
+
+.knowledge-file-list-name {
+    max-width: 100%;
     overflow-wrap: anywhere;
+}
+
+.knowledge-file-list-date {
+    color: var(--ds-color-neutral-text-subtle);
 }
