@@ -60,6 +60,14 @@ const md = new MarkdownIt({
     typographer: false,
 });
 
+// An image shows as "[Bilde: alt text]", so rendered Markdown never makes the
+// browser fetch anything (the CSP would block other sites' images anyway), and
+// the reader still sees that an image was there.
+md.renderer.rules.image = (tokens, index) => {
+    const altText = tokens[index]?.content.trim() ?? '';
+    return md.utils.escapeHtml(altText ? `[Bilde: ${altText}]` : '[Bilde]');
+};
+
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
 // model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
 // linking those as before.

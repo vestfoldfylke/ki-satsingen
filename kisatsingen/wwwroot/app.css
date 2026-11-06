@@ -66,6 +66,15 @@ pre, code {
     font-size: var(--ds-font-size-minus-1);
 }
 
+/* A knowledge file's formatted text, created by chatClient.renderMarkdown, so
+   global: scoped CSS never reaches elements Razor did not render. Blocks out
+   of view are not laid out until scrolled to, which about halves the layout
+   time of a long file. */
+.knowledge-file-viewer-reading > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 2rem;
+}
+
 /* Scrolling happens in the chat window and internally in other blocks - not in html */
 html {
     overflow-y: clip;

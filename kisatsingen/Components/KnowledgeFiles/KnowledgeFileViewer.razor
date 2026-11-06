@@ -12,19 +12,57 @@
     }
     else
     {
+        @if (_canFormat)
+        {
+            <fieldset
+                class="ds-toggle-group knowledge-file-viewer-toggle"
+                data-variant="primary"
+                focusgroup="radiogroup"
+                aria-label="Visning"
+            >
+                <label class="ds-button" data-variant="tertiary">
+                    <input
+                        type="radio"
+                        name="@ViewToggleName"
+                        checked="@(_view == TextView.Reading)"
+                        @onchange="() => ShowView(TextView.Reading)"
+                    />
+                    Lesevisning
+                </label>
+                <label class="ds-button" data-variant="tertiary" data-tooltip="Teksten slik KI-en leser den">
+                    <input
+                        type="radio"
+                        name="@ViewToggleName"
+                        checked="@(_view == TextView.PlainText)"
+                        @onchange="() => ShowView(TextView.PlainText)"
+                    />
+                    Ren tekst
+                </label>
+            </fieldset>
+        }
+
         @if (ContentOriginNotes.For(_file.ContentOrigin) is { } note)
         {
             <p class="ds-alert ds-paragraph" data-size="sm" data-color="info">@note</p>
         }
 
+        @* A truncated file is too long to format too; its warning covers both. *@
         @if (_isTruncated)
         {
             <p class="ds-alert ds-paragraph" data-size="sm" data-color="warning">
                 Filen er for lang til å vises i sin helhet. Viser begynnelsen.
             </p>
         }
+        else if (!_canFormat)
+        {
+            <p class="ds-alert ds-paragraph" data-size="sm" data-color="info">Filen er for lang til å vises formatert.</p>
+        }
 
         @* Filled by the browser, never by Blazor: see the code-behind. *@
-        <pre @ref="_textElement" class="knowledge-file-viewer-text"></pre>
+        @if (_canFormat)
+        {
+            <div @ref="_readingElement" class="knowledge-file-viewer-reading" hidden="@(_view != TextView.Reading)"></div>
+        }
+        <pre @ref="_plainTextElement" class="knowledge-file-viewer-plain-text" hidden="@(_view != TextView.PlainText)"></pre>
     }
 </div>

@@ -5,7 +5,17 @@
     gap: 0.75rem;
 }
 
-.knowledge-file-viewer-text {
+/* A setting rather than content, so it stays out of the way at the end. */
+.knowledge-file-viewer-toggle {
+    align-self: flex-end;
+}
+
+/* A wide table scrolls here instead of widening the panel or dialog. */
+.knowledge-file-viewer-reading {
+    overflow-x: auto;
+}
+
+.knowledge-file-viewer-plain-text {
     margin: 0;
     white-space: pre-wrap;
     overflow-wrap: anywhere;

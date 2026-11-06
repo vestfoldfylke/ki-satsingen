@@ -14,6 +14,17 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
     // token cap can allow files far larger than one message should carry.
     private const int MaxShownLength = 1_000_000;
 
+    // Formatting blocks the browser's main thread: about 1 second at this length
+    // with Chrome's CPU slowed 6x (a slow laptop), and it grows linearly.
+    // Longer text shows plain only.
+    private const int MaxFormattedLength = 200_000;
+
+    private enum TextView
+    {
+        Reading,
+        PlainText
+    }
+
     [Inject]
     public required IJSRuntime JS { get; init; }
 
@@ -28,15 +39,21 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
     public required Func<Guid, CancellationToken, Task<KnowledgeFileText?>> ReadFileText { get; set; }
 
     private readonly CancellationTokenSource _loadCancellation = new();
-    private ElementReference _textElement;
+    private ElementReference _readingElement;
+    private ElementReference _plainTextElement;
     private bool _isLoaded;
     private bool _isTruncated;
+    private bool _canFormat;
+    private TextView _view = TextView.Reading;
 
     // Null once loaded means the file was not found.
     private KnowledgeFileMetadata? _file;
 
-    // Held only until the render that shows the <pre> hands it to the browser.
+    // Held only until the render that shows the text's elements hands it to the browser.
     private string? _textForBrowser;
+
+    // Unique per file, so the toggle's radios never join another viewer's group.
+    private string ViewToggleName => $"knowledge-file-view-{FileId:N}";
 
     protected override async Task OnInitializedAsync()
     {
@@ -51,7 +68,11 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
         _file = text.File;
         _textForBrowser = TextTruncation.Prefix(text.Markdown, MaxShownLength);
         _isTruncated = _textForBrowser.Length < text.Markdown.Length;
+        _canFormat = _textForBrowser.Length <= MaxFormattedLength;
+        _view = _canFormat ? TextView.Reading : TextView.PlainText;
     }
+
+    private void ShowView(TextView view) => _view = view;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -62,13 +83,19 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
 
         _textForBrowser = null;
 
+        // Both views are filled now, so switching between them needs no interop.
         try
         {
-            await JS.InvokeVoidAsync("chatClient.showPlainText", _textElement, text);
+            await JS.InvokeVoidAsync("chatClient.showPlainText", _plainTextElement, text);
+
+            if (_canFormat)
+            {
+                await JS.InvokeVoidAsync("chatClient.renderMarkdown", _readingElement, text);
+            }
         }
         catch (JSException ex)
         {
-            Logger.LogWarning(ex, "JS interop failed for {Method}", "chatClient.showPlainText");
+            Logger.LogWarning(ex, "JS interop failed while showing knowledge file {FileId}", FileId);
         }
     }
 
