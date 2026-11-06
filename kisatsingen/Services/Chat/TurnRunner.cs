@@ -3,6 +3,7 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.KnowledgeFiles.Reading;
 using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
@@ -115,8 +116,7 @@ internal sealed class TurnRunner
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            var chatHasKnowledgeFiles = input.ChatHasKnowledgeFiles || builder.Attachments.Any(attachment => attachment.FileId is not null);
-            await StreamAsync(inserted, input, builder, chatHasKnowledgeFiles, observer, cancellation.Token);
+            await StreamAsync(inserted, input, builder, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
             // chat during this one write must not store it as stopped.
@@ -265,7 +265,6 @@ internal sealed class TurnRunner
         InsertedTurn inserted,
         TurnInput input,
         TurnBuilder builder,
-        bool chatHasKnowledgeFiles,
         TurnObserver observer,
         CancellationToken ct)
     {
@@ -279,11 +278,10 @@ internal sealed class TurnRunner
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
 
-        // Only for a chat with files: one without pays nothing for their
-        // definitions, and the model is not tempted to call list_files.
-        if (chatHasKnowledgeFiles)
+        if (input.ShouldOfferFileTools)
         {
-            options.Tools = [.. options.Tools ?? [], .. _fileTools.CreateForChat(inserted.OwnerId, inserted.ChatId)];
+            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
+            options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);

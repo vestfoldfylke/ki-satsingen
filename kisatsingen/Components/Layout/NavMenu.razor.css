@@ -9,7 +9,6 @@
 }
 
 .logo-container {
-    font-weight: 600;
     font-size: 2rem;
     padding: 1rem 1rem 1rem 0.5rem;
 }
@@ -139,6 +138,13 @@
     margin-top: 0.3rem;
 }
 
+/* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
+   stays in the row; otherwise it is placed against .page, outside the list's
+   scrolling, and makes the page itself scrollable. */
+.chat-list-item {
+    position: relative;
+}
+
 .chat-list-item, .user-menu-item {
     display: flex;
     align-items: center;
@@ -150,7 +156,7 @@
 }
 
 .chat-list-item:hover, .user-menu-item:hover {
-    background: #eef2f6;
+    background: var(--ds-color-neutral-surface-hover);
 }
 
 .chat-list-item:is(:hover, :focus-within) .chat-list-item-option-button {
@@ -159,7 +165,7 @@
 }
 
 .chat-list-item-active {
-    background: #e0eaff;
+    background: var(--ds-color-accent-surface-tinted);
 }
 
 .chat-list-item-option-button {

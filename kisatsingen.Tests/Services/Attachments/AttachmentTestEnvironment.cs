@@ -18,8 +18,8 @@ internal sealed class AttachmentTestEnvironment : IDisposable
         ParentFolder = Path.Combine(Path.GetTempPath(), "kisatsingen-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(ParentFolder);
         Storage = AttachmentStorage.StartFresh(ParentFolder, NullLogger<AttachmentStorage>.Instance);
-        Quota = new AttachmentQuota(Storage, Options);
-        Uploader = new AttachmentUploader(Storage);
+        Quota = new AttachmentQuota(Storage, Options, NullLogger<AttachmentQuota>.Instance);
+        Uploader = CreateUploader(CreateMetrics(Metrics));
     }
 
     public string ParentFolder { get; }
@@ -33,14 +33,17 @@ internal sealed class AttachmentTestEnvironment : IDisposable
 
     public IReadOnlyList<string> FilesOnDisk => Directory.GetFiles(Folder);
 
-    public ChatAttachments CreateChatAttachments(IAuthenticationService authentication, IMetricsService? metrics = null) =>
-        new(
-            authentication,
-            Uploader,
-            Quota,
-            Options,
-            new AttachmentMetrics(metrics ?? Metrics, NullLogger<AttachmentMetrics>.Instance),
-            NullLogger<ChatAttachments>.Instance);
+    public ChatAttachments CreateChatAttachments(IAuthenticationService authentication, IMetricsService? metricsService = null)
+    {
+        var metrics = CreateMetrics(metricsService ?? Metrics);
+        return new(authentication, CreateUploader(metrics), Quota, metrics);
+    }
+
+    private AttachmentUploader CreateUploader(AttachmentMetrics metrics) =>
+        new(Storage, Options, metrics, NullLogger<AttachmentUploader>.Instance);
+
+    private static AttachmentMetrics CreateMetrics(IMetricsService metricsService) =>
+        new(metricsService, NullLogger<AttachmentMetrics>.Instance);
 
     public void Dispose()
     {

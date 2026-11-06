@@ -153,7 +153,7 @@ public sealed class ChatSessionNavigationTests
         await using var harness = new ChatSessionHarness();
         var (sending, askedIn) = await StartStalledAnswer(harness);
 
-        await harness.Session.StartNewChatAsync(assistant: null).WaitAsync(TurnWindDownLimit);
+        await harness.Session.StartNewPlainChatAsync().WaitAsync(TurnWindDownLimit);
         await sending.WaitAsync(TurnWindDownLimit);
 
         Assert.Equal(TurnStatus.LeftChat, harness.StoredTurn.Status);
@@ -228,7 +228,7 @@ public sealed class ChatSessionNavigationTests
         Assert.Equal(1, lookups);
     }
 
-    // StartNewChatAsync waits for the running answer to end before it empties the
+    // StartNewPlainChatAsync waits for the running answer to end before it empties the
     // session, so until then the session still holds the stored chat. Opening the
     // stored chat in that time must still open it.
     [Fact]
@@ -239,7 +239,7 @@ public sealed class ChatSessionNavigationTests
         await harness.Session.OpenChatAsync(chat.Id);
         var (sending, _) = await StartStalledAnswer(harness);
 
-        var startingNewChat = harness.Session.StartNewChatAsync(assistant: null);
+        var startingNewChat = harness.Session.StartNewPlainChatAsync();
         var openingChatAgain = harness.Session.OpenChatAsync(chat.Id);
         await startingNewChat.WaitAsync(TurnWindDownLimit);
         await openingChatAgain.WaitAsync(TurnWindDownLimit);

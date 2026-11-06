@@ -220,6 +220,17 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
         }
     }
 
+    public async Task<KnowledgeFileText?> GetAssistantFileTextAsync(Guid userId, Guid assistantId, Guid knowledgeFileId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var usableAssistants = db.Assistants.Where(AssistantAccess.UsableBy(userId));
+        var file = await db.KnowledgeFiles
+            .AsNoTracking()
+            .FirstOrDefaultAsync(f => f.Id == knowledgeFileId && f.AssistantId == assistantId && usableAssistants.Any(a => a.Id == assistantId), ct);
+
+        return file is null ? null : new KnowledgeFileText(ToMetadata(file), file.Markdown);
+    }
+
     public async Task<KnowledgeFileText?> GetChatFileTextAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -290,5 +301,18 @@ public sealed class KnowledgeFileRepository(IDbContextFactory<AppDbContext> fact
 
         await transaction.CommitAsync(ct);
         return true;
+    }
+
+    // Leaves the chat's UpdatedAt alone: it orders the chat list by activity,
+    // and deleting a file is not a message.
+    public async Task<bool> DeleteChatFileAsync(Guid userId, Guid chatId, Guid knowledgeFileId, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var ownedChats = db.Chats.Where(c => c.OwnerId == userId);
+        var deletedCount = await db.KnowledgeFiles
+            .Where(f => f.Id == knowledgeFileId && f.ChatId == chatId && ownedChats.Any(c => c.Id == chatId))
+            .ExecuteDeleteAsync(ct);
+
+        return deletedCount > 0;
     }
 }

@@ -1,3 +1,4 @@
+using kisatsingen.Data.Entities;
 using kisatsingen.Tests.Data.Repositories;
 using kisatsingen.Tests.Services.Attachments;
 using Microsoft.AspNetCore.Components.Forms;
@@ -7,7 +8,7 @@ using ChatEntity = kisatsingen.Data.Entities.Chat;
 namespace kisatsingen.Tests.Services.Chat;
 
 // The chat's knowledge files as the session knows them: loaded with the chat,
-// and added to as a turn makes each file available.
+// added to as a turn makes each file available, and removed when deleted.
 public sealed class ChatSessionKnowledgeFilesTests
 {
     private static readonly byte[] NoteBytes = System.Text.Encoding.UTF8.GetBytes("# Notat\n\nInnhold.\n");
@@ -29,8 +30,8 @@ public sealed class ChatSessionKnowledgeFilesTests
         UpdatedAt = DateTimeOffset.UtcNow
     });
 
-    private static IEnumerable<string> KnowledgeFileNames(ChatSessionHarness harness) =>
-        harness.Session.KnowledgeFiles.Select(file => file.FileName);
+    private static IEnumerable<string> ChatFileNames(ChatSessionHarness harness) =>
+        harness.Session.ChatFiles.Select(file => file.FileName);
 
     [Fact]
     public async Task Opening_a_chat_lists_its_knowledge_files()
@@ -41,7 +42,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.OpenChatAsync(chat.Id);
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -52,9 +53,9 @@ public sealed class ChatSessionKnowledgeFilesTests
         await harness.KnowledgeFiles.CreateFileForChatAsync(ChatSessionHarness.OwnerUnderTest, chat.Id, KnowledgeFileFactory.NewFile("notat.md", "# Notat\n"));
         await harness.Session.OpenChatAsync(chat.Id);
 
-        await harness.Session.StartNewChatAsync(assistant: null);
+        await harness.Session.StartNewPlainChatAsync();
 
-        Assert.Empty(harness.Session.KnowledgeFiles);
+        Assert.Empty(harness.Session.ChatFiles);
     }
 
     [Fact]
@@ -65,7 +66,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -79,7 +80,7 @@ public sealed class ChatSessionKnowledgeFilesTests
         var sending = harness.Session.SendAsync("Hva står i notatet?");
         await reached.Task;
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
         harness.Session.Cancel();
         await sending;
     }
@@ -95,7 +96,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Se på notatet igjen.");
 
-        Assert.Equal(["notat.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["notat.md"], ChatFileNames(harness));
     }
 
     // The turn reuses the copy another tab saved, so nothing new is saved for
@@ -110,7 +111,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(["fra-annen-fane.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["fra-annen-fane.md"], ChatFileNames(harness));
     }
 
     [Fact]
@@ -139,6 +140,96 @@ public sealed class ChatSessionKnowledgeFilesTests
         harness.Session.Cancel();
         await sending;
 
-        Assert.Equal(["rask.md"], KnowledgeFileNames(harness));
+        Assert.Equal(["rask.md"], ChatFileNames(harness));
     }
+
+    [Fact]
+    public async Task A_deleted_file_is_removed_from_storage_and_the_list()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        Assert.Empty(harness.Session.ChatFiles);
+        Assert.Empty(harness.KnowledgeFiles.Saved);
+    }
+
+    [Fact]
+    public async Task A_file_is_deleted_from_the_chat_given_after_another_chat_was_opened()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        await harness.Session.OpenChatAsync(StoreChat(harness).Id);
+
+        var isDeleted = await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        Assert.True(isDeleted);
+    }
+
+    [Fact]
+    public async Task A_file_already_deleted_elsewhere_leaves_the_list_too()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        harness.KnowledgeFiles.Delete(file.Id);
+
+        var isDeleted = await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        Assert.False(isDeleted);
+        Assert.Empty(harness.Session.ChatFiles);
+    }
+
+    // Saved elsewhere, so no turn in this chat attached or read the file.
+    [Fact]
+    public async Task After_the_last_file_is_deleted_a_chat_that_never_used_it_has_no_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        await harness.Session.SendAsync("Hei");
+
+        Assert.DoesNotContain("read_file", harness.Client.LastToolNames);
+    }
+
+    [Fact]
+    public async Task After_the_last_file_is_deleted_the_next_turn_keeps_the_file_tools_an_earlier_turn_called()
+    {
+        await using var harness = new ChatSessionHarness();
+        var chat = StoreChat(harness);
+        var file = SaveIntoChat(harness, chat.Id, "notat.md");
+        await harness.Session.OpenChatAsync(chat.Id);
+        harness.Client.OnStream = _ => ModelStream.UsingATool("Leser notatet.", "Det handler om budsjett.", toolName: "read_file");
+        await harness.Session.SendAsync("Hva står i notatet?");
+        await harness.Session.DeleteChatFileAsync(chat.Id, file.Id);
+
+        await harness.Session.SendAsync("Hei");
+
+        Assert.Contains("read_file", harness.Client.LastToolNames);
+    }
+
+    [Fact]
+    public async Task A_turn_whose_only_attachment_failed_leaves_the_next_turn_without_file_tools()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.KnowledgeFiles.FileNamesThatFailToSave.Add("tapt.md");
+        await AttachAsync(harness, "tapt.md");
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        await harness.Session.SendAsync("Hei");
+
+        Assert.DoesNotContain("read_file", harness.Client.LastToolNames);
+    }
+
+    private static KnowledgeFileMetadata SaveIntoChat(ChatSessionHarness harness, Guid chatId, string fileName) =>
+        harness.KnowledgeFiles.SaveElsewhere(ChatSessionHarness.OwnerUnderTest, chatId, fileName, NoteBytes);
 }

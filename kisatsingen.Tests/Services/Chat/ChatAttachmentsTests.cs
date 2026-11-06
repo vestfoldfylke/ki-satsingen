@@ -23,7 +23,7 @@ public sealed class ChatAttachmentsTests : IDisposable
     private static InputFileChangeEventArgs Selecting(params IBrowserFile[] files) => new(files);
 
     [Fact]
-    public async Task A_picked_file_becomes_a_ready_attachment_backed_by_a_temp_file()
+    public async Task A_selected_file_becomes_a_ready_attachment_backed_by_a_temp_file()
     {
         await _attachments.AttachAsync(Selecting(new FakeBrowserFile("notat.md", UploadBytes.Text)));
 
@@ -89,7 +89,7 @@ public sealed class ChatAttachmentsTests : IDisposable
 
     // An exception here would end the circuit.
     [Fact]
-    public async Task A_file_picked_after_the_attachment_folder_is_gone_is_listed_as_unavailable()
+    public async Task A_file_selected_after_the_attachment_folder_is_gone_is_listed_as_unavailable()
     {
         Directory.Delete(_environment.Folder, recursive: true);
 

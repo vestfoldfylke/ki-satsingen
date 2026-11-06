@@ -158,6 +158,41 @@ public sealed class AssistantKnowledgeFileRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
+    public async Task An_organization_wide_assistants_file_is_read_by_everyone()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Felles", null, AssistantVisibility.Organization);
+        var added = await AddAsync(OwnerId, assistant.Id, "rundskriv.md");
+
+        var text = await Repo.GetAssistantFileTextAsync(OtherUserId, assistant.Id, added.Id);
+
+        Assert.Equal("rundskriv.md", text?.File.FileName);
+    }
+
+    [Fact]
+    public async Task A_private_assistants_file_is_read_by_no_one_else()
+    {
+        var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Privat", null);
+        var added = await AddAsync(OwnerId, assistant.Id, "rundskriv.md");
+
+        var text = await Repo.GetAssistantFileTextAsync(OtherUserId, assistant.Id, added.Id);
+
+        Assert.Null(text);
+    }
+
+    // Access is checked on the assistant given, so the file must be in it.
+    [Fact]
+    public async Task A_file_is_not_read_through_another_assistant()
+    {
+        var privateAssistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "Privat", null);
+        var organizationWideAssistant = await AssistantRepo.CreateAssistantAsync(OtherUserId, "Felles", null, AssistantVisibility.Organization);
+        var added = await AddAsync(OwnerId, privateAssistant.Id, "rundskriv.md");
+
+        var text = await Repo.GetAssistantFileTextAsync(OtherUserId, organizationWideAssistant.Id, added.Id);
+
+        Assert.Null(text);
+    }
+
+    [Fact]
     public async Task Deleting_an_assistant_takes_its_files_with_it()
     {
         var assistant = await AssistantRepo.CreateAssistantAsync(OwnerId, "A", null);

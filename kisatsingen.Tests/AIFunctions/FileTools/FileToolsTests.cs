@@ -1,5 +1,6 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
@@ -23,6 +24,8 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     private KnowledgeFileRepository Files => new(fixture.Factory, maxEstimatedTokenCount: 500_000);
 
     private ChatRepository Chats => new(fixture.Factory);
+
+    private AssistantRepository Assistants => new(fixture.Factory);
 
     public Task InitializeAsync() => fixture.ResetAsync();
 
@@ -112,8 +115,62 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         Assert.Empty(result.GetProperty("files").EnumerateArray());
     }
 
+    [Fact]
+    public async Task List_files_lists_the_assistants_files_then_the_chats_each_with_its_source()
+    {
+        var assistantId = await CreateOrganizationWideAssistantAsync(OtherOwnerId);
+        await SaveIntoAssistantAsync(OtherOwnerId, assistantId, KnowledgeFileFactory.NewFile("rundskriv.md", "# Rundskriv\n"));
+        var chatId = await CreateChatAsync(OwnerId);
+        await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
+
+        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "list_files", []);
+
+        var listed = result.GetProperty("files").EnumerateArray()
+            .Select(file => (file.GetProperty("name").GetString(), file.GetProperty("source").GetString()));
+        Assert.Equal([("rundskriv.md", "assistant"), ("budsjett.md", "chat")], listed);
+    }
+
+    [Fact]
+    public async Task Read_file_reads_one_of_the_assistants_files()
+    {
+        var assistantId = await CreateOrganizationWideAssistantAsync(OtherOwnerId);
+        var fileId = await SaveIntoAssistantAsync(OtherOwnerId, assistantId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
+        var chatId = await CreateChatAsync(OwnerId);
+
+        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+
+        Assert.Equal("1\t# Budsjett\n2\t\n3\tInnledning.", result.GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task Read_file_reads_a_chat_file_in_a_chat_with_an_assistant()
+    {
+        var assistantId = await CreateOrganizationWideAssistantAsync(OtherOwnerId);
+        var chatId = await CreateChatAsync(OwnerId);
+        var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
+
+        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+
+        Assert.Equal("1\t# Budsjett\n2\t\n3\tInnledning.", result.GetProperty("content").GetString());
+    }
+
+    [Fact]
+    public async Task An_assistants_file_is_not_found_from_a_chat_without_the_assistant()
+    {
+        var assistantId = await CreateOrganizationWideAssistantAsync(OtherOwnerId);
+        var fileId = await SaveIntoAssistantAsync(OtherOwnerId, assistantId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
+        var chatId = await CreateChatAsync(OwnerId);
+
+        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+
+        Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
+    }
+
     private async Task<Guid> CreateChatAsync(Guid ownerId) =>
         (await Chats.CreateChatAsync(ownerId, Guid.NewGuid(), "hello", assistantId: null)).Id;
+
+    private async Task<Guid> CreateOrganizationWideAssistantAsync(Guid ownerId) =>
+        (await Assistants.CreateAssistantAsync(ownerId, "Felles", null, AssistantVisibility.Organization)).Id;
 
     private async Task<Guid> SaveAsync(Guid ownerId, Guid chatId, NewKnowledgeFile newFile)
     {
@@ -121,9 +178,18 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File.Id;
     }
 
-    private async Task<JsonElement> InvokeAsync(Guid ownerId, Guid chatId, string toolName, AIFunctionArguments arguments)
+    private async Task<Guid> SaveIntoAssistantAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile)
     {
-        var tools = new FileToolFactory(new KnowledgeFileReader(Files), new FileToolOptions()).CreateForChat(ownerId, chatId);
+        var result = await Files.CreateFileForAssistantAsync(userId, assistantId, newFile);
+        return Assert.IsType<KnowledgeFileSaveResult.Saved>(result).File.Id;
+    }
+
+    private Task<JsonElement> InvokeAsync(Guid ownerId, Guid chatId, string toolName, AIFunctionArguments arguments) =>
+        InvokeAsync(new KnowledgeFileScope(ownerId, chatId, AssistantId: null), toolName, arguments);
+
+    private async Task<JsonElement> InvokeAsync(KnowledgeFileScope scope, string toolName, AIFunctionArguments arguments)
+    {
+        var tools = new FileToolFactory(new KnowledgeFileReader(Files), new FileToolOptions()).Create(scope);
         var tool = tools.Cast<AIFunction>().Single(tool => tool.Name == toolName);
         var json = Assert.IsType<string>(await tool.InvokeAsync(arguments));
 

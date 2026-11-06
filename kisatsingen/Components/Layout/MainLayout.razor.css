@@ -29,7 +29,7 @@ main {
         flex-direction: column;
         min-height: 0;
         flex-shrink: 0;
-        border: 1px solid #cccccc79;
+        border-right: 1px solid var(--ds-color-neutral-border-subtle);
         width: 300px;
     }
 }

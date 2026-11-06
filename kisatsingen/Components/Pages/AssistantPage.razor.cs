@@ -13,6 +13,9 @@ public sealed partial class AssistantPage : ComponentBase
     public required IAssistantRepository AssistantRepository { get; init; }
 
     [Inject]
+    public required IKnowledgeFileRepository KnowledgeFileRepository { get; init; }
+
+    [Inject]
     public required IAuthenticationService AuthenticationService { get; init; }
 
     [Inject]
@@ -25,36 +28,45 @@ public sealed partial class AssistantPage : ComponentBase
     public Guid AssistantId { get; set; }
 
     private Assistant? _assistant;
+    private IReadOnlyList<KnowledgeFileMetadata> _files = [];
     private bool _isLoading = true;
 
     protected override async Task OnParametersSetAsync()
     {
-        await LoadAsync();
-
-        if (_assistant is null)
+        if (await LoadAsync() is Assistant assistant)
         {
-            return;
+            await Session.StartNewAssistantChatAsync(assistant, _files);
         }
-
-        await Session.StartNewChatAsync(_assistant);
     }
 
-    private async Task ApplyEditAsync()
+    private async Task ApplyChangeAsync()
     {
-        await LoadAsync();
-
-        if (_assistant is not null)
+        if (await LoadAsync() is Assistant assistant)
         {
-            Session.UpdateAssistant(_assistant);
+            Session.UpdateAssistant(assistant, _files);
         }
     }
 
-    private async Task LoadAsync()
+    // Null when the assistant isn't found, or when the page moved to another
+    // assistant meanwhile.
+    private async Task<Assistant?> LoadAsync()
     {
         // No _isLoading true here, current stays until new arrives, to avoid flicker
+        var assistantId = AssistantId;
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        _assistant = await AssistantRepository.GetAssistantAsync(userId, AssistantId);
+        var assistant = await AssistantRepository.GetAssistantAsync(userId, assistantId);
+        var files = assistant is null ? [] : await KnowledgeFileRepository.ListFilesForAssistantAsync(userId, assistantId);
+
+        // Page has moved to another assistant, let that one load and set its own fields.
+        if (assistantId != AssistantId)
+        {
+            return null;
+        }
+
+        _assistant = assistant;
+        _files = files;
         _isLoading = false;
+        return assistant;
     }
 
     private void OpenChat() => Navigation.NavigateTo($"/chat/{Session.ChatId}");
