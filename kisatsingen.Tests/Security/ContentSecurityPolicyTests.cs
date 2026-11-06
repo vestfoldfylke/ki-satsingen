@@ -11,7 +11,7 @@ public sealed class ContentSecurityPolicyTests
         var policy = ContentSecurityPolicy.Build(isDevelopment: false);
 
         Assert.Equal(
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; style-src-elem 'self'; img-src 'self' data:; " +
             "connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'",
             policy);
     }

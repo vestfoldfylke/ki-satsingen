@@ -307,6 +307,9 @@ app.Use(async (context, next) =>
 
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    // Not the clipboard: the copy buttons write to it.
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
 
     await next();
 });

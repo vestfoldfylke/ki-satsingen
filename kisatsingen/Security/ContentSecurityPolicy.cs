@@ -19,7 +19,9 @@ public static class ContentSecurityPolicy
             ("default-src", ["'self'"]),
             ("script-src", scriptSources),
             // Radzen and Blazor set style attributes, which CSP treats as inline styles.
+            // style-src-elem keeps inline <style> elements out; browsers without it fall back to style-src.
             ("style-src", ["'self'", "'unsafe-inline'"]),
+            ("style-src-elem", ["'self'"]),
             ("img-src", ["'self'", "data:"]),
             ("connect-src", connectSources),
             ("frame-ancestors", ["'none'"]),
