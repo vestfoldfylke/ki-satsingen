@@ -1,3 +1,10 @@
+/* Spaced by the viewer itself, so it looks the same in every host. */
+.knowledge-file-viewer {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
 .knowledge-file-viewer-text {
     margin: 0;
     white-space: pre-wrap;

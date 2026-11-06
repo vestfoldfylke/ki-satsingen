@@ -18,9 +18,3 @@
     min-width: 0;
     overflow-wrap: anywhere;
 }
-
-/* A popover is as wide as its text, so a long note would otherwise stretch
-   it across the viewport. */
-.knowledge-file-list-note {
-    max-width: 20rem;
-}

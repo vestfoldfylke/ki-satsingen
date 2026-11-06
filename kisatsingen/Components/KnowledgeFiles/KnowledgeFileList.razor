@@ -1,5 +1,4 @@
 @using kisatsingen.Data.Entities
-@using kisatsingen.Services.KnowledgeFiles.Conversion
 
 @* Saved knowledge files, a chat's or an assistant's alike: the list never
    knows whose they are. *@
@@ -16,23 +15,6 @@
             >
                 @file.FileName
             </button>
-            @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
-            {
-                <button
-                    type="button"
-                    class="ds-button"
-                    data-variant="tertiary"
-                    data-size="sm"
-                    data-icon="true"
-                    popovertarget="@NoteId(file)"
-                    aria-label="@($"Om innholdet i {file.FileName}")"
-                >
-                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
-                </button>
-                <div class="ds-popover knowledge-file-list-note" id="@NoteId(file)" popover="auto" data-placement="top">
-                    @note
-                </div>
-            }
             @if (DeleteDialogId is not null)
             {
                 <button
@@ -56,9 +38,6 @@
 </ul>
 
 @code {
-    // Unique per instance, so two lists of the same files can share a page.
-    private readonly string _idPrefix = $"knowledge-file-list-{Guid.NewGuid():N}";
-
     [Parameter, EditorRequired]
     public required IReadOnlyList<KnowledgeFileMetadata> Files { get; set; }
 
@@ -79,6 +58,4 @@
     // Raised as the dialog opens, with the file to delete.
     [Parameter]
     public EventCallback<KnowledgeFileMetadata> OnDeleteRequested { get; set; }
-
-    private string NoteId(KnowledgeFileMetadata file) => $"{_idPrefix}-{file.Id:N}";
 }

@@ -30,8 +30,10 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
     private readonly CancellationTokenSource _loadCancellation = new();
     private ElementReference _textElement;
     private bool _isLoaded;
-    private bool _isNotFound;
     private bool _isTruncated;
+
+    // Null once loaded means the file was not found.
+    private KnowledgeFileMetadata? _file;
 
     // Held only until the render that shows the <pre> hands it to the browser.
     private string? _textForBrowser;
@@ -43,10 +45,10 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
 
         if (text is null)
         {
-            _isNotFound = true;
             return;
         }
 
+        _file = text.File;
         _textForBrowser = TextTruncation.Prefix(text.Markdown, MaxShownLength);
         _isTruncated = _textForBrowser.Length < text.Markdown.Length;
     }
