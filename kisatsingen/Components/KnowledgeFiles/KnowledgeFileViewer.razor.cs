@@ -49,7 +49,7 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
     // Null once loaded means the file was not found.
     private KnowledgeFileMetadata? _file;
 
-    // Held only until the render that shows the text's elements hands it to the browser.
+    // Held only until OnAfterRenderAsync hands the text to the browser.
     private string? _textForBrowser;
 
     // Unique per file, so the toggle's radios never join another viewer's group.

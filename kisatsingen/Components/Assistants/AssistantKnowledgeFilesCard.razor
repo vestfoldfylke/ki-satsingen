@@ -61,13 +61,13 @@
             <p class="ds-paragraph" data-size="sm">Ingen filer ennå.</p>
         }
 
-        @* Outside the lists, so it stays while the files change, and outside
-           AuthorizeView, since everyone who can use the assistant may view them. *@
+        @* Outside the lists, so the dialog stays while the files change, and outside
+           AuthorizeView, since everyone who can use the assistant may view its files. *@
         <ModalDialog
             Id="@ViewerDialogId"
             Heading="@(_shownFile?.FileName ?? string.Empty)"
             IsWide="true"
-            OnClosed="CloseFile"
+            OnClosed="ClearShownFile"
         >
             @if (_shownFile is { } shownFile)
             {

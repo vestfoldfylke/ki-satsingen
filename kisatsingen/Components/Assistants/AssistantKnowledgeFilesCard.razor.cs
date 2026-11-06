@@ -71,7 +71,7 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
 
     private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
 
-    private void CloseFile() => _shownFile = null;
+    private void ClearShownFile() => _shownFile = null;
 
     private async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
     {
