@@ -5,6 +5,8 @@ namespace kisatsingen.Security;
 // fallback.
 public static class ContentSecurityPolicy
 {
+    public const string FrameAncestors = "'none'";
+
     public static string Build(bool isDevelopment)
     {
         string[] scriptSources = isDevelopment
@@ -24,7 +26,7 @@ public static class ContentSecurityPolicy
             ("style-src-elem", ["'self'"]),
             ("img-src", ["'self'", "data:"]),
             ("connect-src", connectSources),
-            ("frame-ancestors", ["'none'"]),
+            ("frame-ancestors", [FrameAncestors]),
             ("base-uri", ["'self'"]),
             ("form-action", ["'self'"]),
             ("object-src", ["'none'"]),

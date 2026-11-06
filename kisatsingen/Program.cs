@@ -299,7 +299,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions()
     .AddSupportedUICultures(appCulture));
 
 // ─── Security response headers (apply to every response) ───
-var contentSecurityPolicy = ContentSecurityPolicy.Build(app.Environment.IsDevelopment());
+var contentSecurityPolicy = ContentSecurityPolicy.Build(isDevelopment: app.Environment.IsDevelopment());
 
 app.Use(async (context, next) =>
 {
@@ -341,9 +341,8 @@ app.MapStaticAssets();
 // a redirect before the redirect.
 app.MapGet("/", () => Results.Redirect("/new"));
 
-// Blazor sends its own frame-ancestors ('self' by default); this keeps it the same as the policy's.
 var razorComponents = app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode(options => options.ContentSecurityFrameAncestorsPolicy = "'none'");
+    .AddInteractiveServerRenderMode(options => options.ContentSecurityFrameAncestorsPolicy = ContentSecurityPolicy.FrameAncestors);
 
 /*
 .NET 11 - for the CloseOnAuthenticationExpiration
