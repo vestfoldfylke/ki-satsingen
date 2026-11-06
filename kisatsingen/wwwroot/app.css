@@ -60,6 +60,12 @@ h1, h2, h3, h4, h5, h6, .heading-font {
     font-family: var(--ds-font-family);
 }
 
+/* Monospace reads larger than Nunito Sans at the same size. The token's
+   .875rem floor keeps code inside a pre from shrinking a second step. */
+pre, code {
+    font-size: var(--ds-font-size-minus-1);
+}
+
 /* Scrolling happens in the chat window and internally in other blocks - not in html */
 html {
     overflow-y: clip;

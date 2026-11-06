@@ -1,0 +1,20 @@
+@* One file's text, loaded once: a host shows another file by giving the
+   viewer a new @key, which replaces this instance and cancels its load. *@
+@if (!_isLoaded)
+{
+    <p class="ds-paragraph" data-size="sm">Laster …</p>
+}
+else if (_isNotFound)
+{
+    <p class="ds-paragraph" data-size="sm">Fant ikke filen. Den kan være slettet.</p>
+}
+else
+{
+    @if (_isTruncated)
+    {
+        <p class="ds-paragraph" data-size="sm">Filen er for lang til å vises i sin helhet. Viser begynnelsen.</p>
+    }
+
+    @* Filled by the browser, never by Blazor: see the code-behind. *@
+    <pre @ref="_textElement" class="knowledge-file-viewer-text"></pre>
+}

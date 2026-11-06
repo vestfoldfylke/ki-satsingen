@@ -1,18 +1,50 @@
+/* Only the body scrolls, so the header's back and close buttons stay in view. */
 .chat-files-panel {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
     flex-shrink: 0;
     width: 20rem;
-    padding: 0.75rem 1rem;
-    overflow-y: auto;
+    padding-block: 0.75rem;
     border-left: 1px solid var(--ds-color-neutral-border-subtle);
+}
+
+/* The percentage is of the chat's area beside the sidebar, so a file never
+   takes more than half of it; never narrower than the lists. */
+.chat-files-panel[data-showing-file] {
+    width: clamp(20rem, 50%, 40rem);
+}
+
+/* Desktop-only for now, like the button that opens it. */
+@media (max-width: 640px) {
+    .chat-files-panel {
+        display: none;
+    }
 }
 
 .chat-files-panel-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.25rem;
+    padding-inline: 1rem;
+}
+
+/* Padded itself rather than inset by the panel, so its scrollbar sits at the
+   panel's edge. */
+.chat-files-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-inline: 1rem;
+}
+
+.chat-files-panel-title {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .chat-files-list {

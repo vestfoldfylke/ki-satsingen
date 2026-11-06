@@ -21,6 +21,7 @@ import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
+import { showPlainText } from './file-viewer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -249,6 +250,7 @@ declare global {
             setComposerUploading: typeof setComposerUploading;
             takeComposerValue: typeof takeComposerValue;
             hidePopover: typeof hidePopover;
+            showPlainText: typeof showPlainText;
         };
     }
 }
@@ -264,4 +266,5 @@ window.chatClient = {
     setComposerUploading,
     takeComposerValue,
     hidePopover,
+    showPlainText,
 };

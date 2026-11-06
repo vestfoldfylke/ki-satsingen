@@ -7,7 +7,20 @@
     @foreach (var file in Files)
     {
         <li @key="file.Id" class="knowledge-file-list-item">
-            <span class="knowledge-file-list-name">@file.FileName</span>
+            @if (OnOpenRequested.HasDelegate)
+            {
+                <button
+                    type="button"
+                    class="ds-link knowledge-file-list-name"
+                    @onclick="() => OnOpenRequested.InvokeAsync(file)"
+                >
+                    @file.FileName
+                </button>
+            }
+            else
+            {
+                <span class="knowledge-file-list-name">@file.FileName</span>
+            }
             @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
             {
                 <button
@@ -58,6 +71,11 @@
     // file gets a delete button only when this is set.
     [Parameter]
     public string? DeleteDialogId { get; set; }
+
+    // When OnOpenRequested is set, each file name is a button that raises
+    // OnOpenRequested with that file.
+    [Parameter]
+    public EventCallback<KnowledgeFileMetadata> OnOpenRequested { get; set; }
 
     // Raised as the dialog opens, with the file to delete.
     [Parameter]
