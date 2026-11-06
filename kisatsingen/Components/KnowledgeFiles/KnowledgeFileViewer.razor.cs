@@ -14,9 +14,10 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
     // token cap can allow files far larger than one message should carry.
     private const int MaxShownLength = 1_000_000;
 
-    // Formatting blocks the browser's main thread: about 1 second at this length
-    // with Chrome's CPU slowed 6x (a slow laptop), and it grows linearly.
-    // Longer text shows plain only.
+    // Formatting blocks the browser's main thread. At this length with Chrome's
+    // CPU slowed 6x (a slow laptop): about 1 second for prose, about 4 for text
+    // that is mostly code, which is highlighted. It grows linearly. Longer text
+    // shows plain only.
     private const int MaxFormattedLength = 200_000;
 
     private enum TextView
