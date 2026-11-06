@@ -73,6 +73,32 @@ md.renderer.rules.image = (tokens, index) => {
 // linking those as before.
 md.linkify.set({ fuzzyLink: true });
 
+const WEB_LINK = /^https?:\/\//i;
+const MAIL_OR_PHONE_LINK = /^(mailto|tel):/i;
+
+// A web link opens in a new tab: leaving the page would stop an answer still
+// being written. Other links, such as a document's relative or #-links, lead
+// nowhere here, so they stay as text.
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+    if (!(node instanceof HTMLAnchorElement)) {
+        return;
+    }
+
+    // The raw attribute: node.href would turn a relative link into a full URL.
+    const href = node.getAttribute('href');
+    if (href === null || MAIL_OR_PHONE_LINK.test(href)) {
+        return;
+    }
+
+    if (WEB_LINK.test(href)) {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+        return;
+    }
+
+    node.removeAttribute('href');
+});
+
 interface StreamState {
     id: string;
     buffer: string;
