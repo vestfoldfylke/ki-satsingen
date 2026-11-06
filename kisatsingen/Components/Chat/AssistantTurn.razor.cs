@@ -5,6 +5,23 @@ namespace kisatsingen.Components.Chat;
 
 public partial class AssistantTurn : ComponentBase
 {
+    private static readonly string[] PendingPhrases =
+    [
+        "Våkner fra dvale",
+        "Henter en kaffe først",
+        "Klør seg i hodet",
+        "Spisser blyanten",
+        "Blar i permene",
+        "Tygger på det",
+        "Snur alle steiner",
+        "Bretter opp ermene",
+        "Teller på fingrene",
+        "Rører i gryta",
+        "Myser på problemet",
+    ];
+
+    private readonly string _pendingPhrase = PendingPhrases[Random.Shared.Next(PendingPhrases.Length)];
+
     [Parameter, EditorRequired] public required Turn Turn { get; set; }
 
     [Parameter] public bool IsLive { get; set; }
