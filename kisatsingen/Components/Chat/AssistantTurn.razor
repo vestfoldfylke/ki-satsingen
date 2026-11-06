@@ -70,7 +70,14 @@
         </footer>
 
         <ModalDialog Id="@InstructionsDialogId" Heading="Instruksjoner for dette svaret">
-            <div class="assistant-turn-instructions">@Instructions</div>
+            @if (string.IsNullOrWhiteSpace(Instructions))
+            {
+                <p class="ds-paragraph">KI-en fikk ingen instruksjoner.</p>
+            }
+            else
+            {
+                <div class="assistant-turn-instructions">@Instructions</div>
+            }
         </ModalDialog>
 
         <div id="@PopoverId"
@@ -115,7 +122,7 @@
 
             @if (Turn.Metadata?.Usage is { } usage)
             {
-                <hr aria-hidden="true" class="ds-divider"/>
+                <hr aria-hidden="true" class="ds-divider" />
 
                 <p class="ds-paragraph assistant-metadata-heading" data-size="sm"><strong>Tokenbruk</strong></p>
                 <dl class="assistant-metadata-list">
