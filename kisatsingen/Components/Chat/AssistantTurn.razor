@@ -1,3 +1,4 @@
+@using System.Diagnostics.CodeAnalysis
 @using kisatsingen.Services.Chat
 
 <div class="assistant-turn" data-live="@IsLive">
@@ -55,8 +56,7 @@
                         aria-label="Instruksjoner"
                         data-tooltip="Instruksjoner"
                         command="show-modal"
-                        commandfor="instructions-dialog"
-                        @onclick="() => _instructionsModal?.Load(Turn.ToString())"
+                        commandfor="@InstructionsDialogId"
                 >
                     <span class="material-symbols-outlined" aria-hidden="true">edit_note</span>
                 </button>
@@ -66,11 +66,13 @@
                 class="assistant-turn-time"
                 datetime="@Turn.StartedAt.ToString("o")"
             >
-                @Turn.StartedAt.LocalDateTime.ToString("d. MMM HH:mm:ss")
+                @TimeZoneInfo.ConvertTime(Turn.StartedAt, Oslo).ToString("d. MMM HH:mm:ss")
             </time>
         </footer>
 
-        <InstructionsModal @ref="_instructionsModal" Instructions=@Turn.ToString() Id="instructions-dialog" />
+        <ModalDialog Id="@InstructionsDialogId" Heading="Instruksjoner for dette svaret">
+            <div class="assistant-turn-instructions">@Instructions</div>
+        </ModalDialog>
 
         <div id="@PopoverId"
             class="ds-popover assistant-metadata"
@@ -85,9 +87,9 @@
                     <dt>Språkmodell</dt>
                     <dd>@modelDescription</dd>
                 </dl>
-            }
 
-            <hr aria-hidden="true" class="ds-divider"/>
+                <hr aria-hidden="true" class="ds-divider"/>
+            }
 
             @if (Turn.Metadata is { } meta)
             {
@@ -116,12 +118,12 @@
                     }
                 </dl>
 
-                <hr aria-hidden="true" class="ds-divider"/>
+                @if (meta.Usage is { } usage)
+                {
+                    <hr aria-hidden="true" class="ds-divider"/>
 
-                <p class="ds-paragraph" data-size="sm"><strong>Tokenbruk</strong></p>
-                <dl class="assistant-metadata-list">
-                    @if (meta.Usage is { } usage)
-                    {
+                    <p class="ds-paragraph" data-size="sm"><strong>Tokenbruk</strong></p>
+                    <dl class="assistant-metadata-list">
                         @if (usage.CombinedInputTokens is { } input)
                         {
                             <dt>Sendt til KI</dt>
@@ -137,8 +139,8 @@
                             <dt>Totalt behandlet</dt>
                             <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
                         }
-                    }
-                </dl>
+                    </dl>
+                }
             }
         </div>
     }

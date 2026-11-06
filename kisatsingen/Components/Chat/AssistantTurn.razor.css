@@ -31,13 +31,6 @@
     min-width: 28rem;
     font-size: var(--ds-body-sm-font-size);
     line-height: var(--ds-body-sm-line-height);
-    gap: 0.75rem;
-}
-
-.assistant-metadata-scroll {
-    padding: 0 0.2rem;
-    max-height: min(70vh, 50rem);
-    overflow-y: auto;
 }
 
 .assistant-metadata hr {
@@ -58,19 +51,7 @@
     overflow-wrap: anywhere;
 }
 
-.assistant-metadata-instructions {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 3;
-    line-clamp: 3;
-    overflow: hidden;
-}
-
-.assistant-metadata-instructions-content {
+.assistant-turn-instructions {
     white-space: pre-wrap;
-}
-
-.assistant-metadata-instructions.expanded {
-    display: block;
-    overflow: visible;
+    max-height: min(70vh, 50rem);
 }

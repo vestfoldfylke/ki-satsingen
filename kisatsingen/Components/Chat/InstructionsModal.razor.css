@@ -1,9 +1,0 @@
-.instructions-scroll {
-    padding: 0 0.2rem;
-    max-height: min(70vh, 50rem);
-    overflow-y: auto;
-}
-
-.instructions-content {
-    white-space: pre-wrap;
-}

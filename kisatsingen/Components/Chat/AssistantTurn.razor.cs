@@ -10,12 +10,15 @@ public partial class AssistantTurn : ComponentBase
     [Parameter] public bool IsLive { get; set; }
 
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
+    private string InstructionsDialogId => $"assistant-turn-instructions-{Turn.Id}";
 
-    private InstructionsModal? _instructionsModal;
+    private string Instructions => Turn.SystemPrompt.TrimStart();
 
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
+
+    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
 
     // Blanks count as absent, so nothing renders as " ()".
     private static string? DescribeModel(Turn turn)
