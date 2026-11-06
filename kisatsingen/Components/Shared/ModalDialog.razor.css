@@ -1,0 +1,4 @@
+/* Designsystemet's own variable for the dialog's width (40rem by default). */
+.ds-dialog[data-wide] {
+    --dsc-dialog-max-width: 60rem;
+}

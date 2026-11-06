@@ -7,20 +7,15 @@
     @foreach (var file in Files)
     {
         <li @key="file.Id" class="knowledge-file-list-item">
-            @if (OnOpenRequested.HasDelegate)
-            {
-                <button
-                    type="button"
-                    class="ds-link knowledge-file-list-name"
-                    @onclick="() => OnOpenRequested.InvokeAsync(file)"
-                >
-                    @file.FileName
-                </button>
-            }
-            else
-            {
-                <span class="knowledge-file-list-name">@file.FileName</span>
-            }
+            <button
+                type="button"
+                class="ds-link knowledge-file-list-name"
+                command="@(ViewerDialogId is null ? null : "show-modal")"
+                commandfor="@ViewerDialogId"
+                @onclick="() => OnOpenRequested.InvokeAsync(file)"
+            >
+                @file.FileName
+            </button>
             @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
             {
                 <button
@@ -72,10 +67,14 @@
     [Parameter]
     public string? DeleteDialogId { get; set; }
 
-    // When OnOpenRequested is set, each file name is a button that raises
-    // OnOpenRequested with that file.
+    // Raised when a file name is clicked, with that file.
+    [Parameter, EditorRequired]
+    public required EventCallback<KnowledgeFileMetadata> OnOpenRequested { get; set; }
+
+    // The dialog that shows a file, owned by whoever owns the files. When set,
+    // clicking a file name also opens that dialog.
     [Parameter]
-    public EventCallback<KnowledgeFileMetadata> OnOpenRequested { get; set; }
+    public string? ViewerDialogId { get; set; }
 
     // Raised as the dialog opens, with the file to delete.
     [Parameter]
