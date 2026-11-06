@@ -221,6 +221,7 @@ builder.Services.AddSingleton(pipelineOptions);
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
 builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
+builder.Services.AddSingleton<IDocumentConverter, DocxDocumentConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();

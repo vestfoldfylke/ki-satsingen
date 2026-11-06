@@ -15,4 +15,13 @@ internal static class TokenEstimate
     private const int TokenLengthInCharacters = 3;
 
     public static long FromCharacters(long characters) => characters / TokenLengthInCharacters;
+
+    public static int MaxCharacters(long maxTokens)
+    {
+        var characterCount = (maxTokens + 1) * TokenLengthInCharacters - 1;
+
+        return characterCount > int.MaxValue
+            ? int.MaxValue
+            : (int)characterCount;
+    }
 }
