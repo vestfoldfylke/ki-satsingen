@@ -4,6 +4,7 @@ using kisatsingen.Components;
 using kisatsingen.Components.Usage;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Security;
 using kisatsingen.Services;
 using kisatsingen.Services.Assistants;
 using kisatsingen.Services.Chat;
@@ -298,26 +299,11 @@ app.UseRequestLocalization(new RequestLocalizationOptions()
     .AddSupportedUICultures(appCulture));
 
 // ─── Security response headers (apply to every response) ───
-var scriptSrc = app.Environment.IsDevelopment()
-    ? "'self' 'unsafe-inline'"                          // dotnet-watch injects an inline bootstrapper
-    : "'self'";
-var connectSrc = app.Environment.IsDevelopment()
-    ? "'self' ws://localhost:* wss://localhost:*"       // browser-refresh WebSocket on a random port
-    : "'self'";
+var contentSecurityPolicy = ContentSecurityPolicy.Build(app.Environment.IsDevelopment());
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.ContentSecurityPolicy =
-        "default-src 'self'; " +
-        $"script-src {scriptSrc}; " +
-        "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
-        "font-src 'self' https://altinncdn.no; " +
-        "img-src 'self' data:; " +
-        $"connect-src {connectSrc}; " +
-        "frame-ancestors 'none'; " +
-        "base-uri 'self'; " +
-        "form-action 'self'; " +
-        "object-src 'none'";
+    context.Response.Headers.ContentSecurityPolicy = contentSecurityPolicy;
 
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
@@ -352,8 +338,9 @@ app.MapStaticAssets();
 // a redirect before the redirect.
 app.MapGet("/", () => Results.Redirect("/new"));
 
+// Blazor sends its own frame-ancestors ('self' by default); this keeps it the same as the policy's.
 var razorComponents = app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(options => options.ContentSecurityFrameAncestorsPolicy = "'none'");
 
 /*
 .NET 11 - for the CloseOnAuthenticationExpiration
