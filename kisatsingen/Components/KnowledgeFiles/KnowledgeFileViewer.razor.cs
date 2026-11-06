@@ -93,6 +93,10 @@ public sealed partial class KnowledgeFileViewer : ComponentBase, IDisposable
                 await JS.InvokeVoidAsync("chatClient.renderMarkdown", _readingElement, text);
             }
         }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone, so there is no page left to show the file on.
+        }
         catch (JSException ex)
         {
             Logger.LogWarning(ex, "JS interop failed while showing knowledge file {FileId}", FileId);
