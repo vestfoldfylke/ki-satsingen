@@ -70,13 +70,13 @@
         </footer>
 
         <ModalDialog Id="@InstructionsDialogId" Heading="Instruksjoner for dette svaret">
-            @if (string.IsNullOrWhiteSpace(Instructions))
+            @if (string.IsNullOrWhiteSpace(Turn.SystemPrompt))
             {
                 <p class="ds-paragraph">KI-en fikk ingen instruksjoner.</p>
             }
             else
             {
-                <div class="assistant-turn-instructions">@Instructions</div>
+                <div class="assistant-turn-instructions">@Turn.SystemPrompt.TrimStart()</div>
             }
         </ModalDialog>
 
