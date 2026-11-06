@@ -66,6 +66,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             NullLogger<ChatSession>.Instance,
             UserTokenUsageRepository,
             KnowledgeFiles,
+            new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
             Assistants);

@@ -32,6 +32,9 @@ internal sealed class FakeKnowledgeFileReader(KnowledgeFileScope scope, Guid fil
     public Task<IReadOnlyList<KnowledgeFileMetadata>> ListAssistantFilesAsync(KnowledgeFileScope asked, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<KnowledgeFileMetadata>>([]);
 
+    public Task<KnowledgeFileText?> ReadFileTextAsync(KnowledgeFileScope asked, Guid file, CancellationToken ct) =>
+        Task.FromResult(asked == scope && file == fileId ? new KnowledgeFileText(Metadata, markdown) : null);
+
     public Task<KnowledgeFileDocument?> OpenFileAsync(KnowledgeFileScope asked, Guid file, CancellationToken ct) =>
         Task.FromResult(asked == scope && file == fileId
             ? new KnowledgeFileDocument(Metadata, DocumentLines.Split(markdown), DocumentOutline.Build(markdown))
