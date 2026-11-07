@@ -40,7 +40,8 @@ internal sealed class DocxBodyWriter
         _ct = ct;
     }
 
-    // Returns how many characters of the document's text it wrote, to compare with DocxTextCount.
+    // Returns how many characters of the body's text it wrote, to compare with
+    // DocxTextCount, which counts the body only.
     public static int Write(DocxContent content, MarkdownOutput output, CancellationToken ct)
     {
         var blocks = new DocxBlockOutput(output);
@@ -51,6 +52,7 @@ internal sealed class DocxBodyWriter
         var bodyWriter = new DocxBodyWriter(content, blocks, bodyReader, ct);
         bodyWriter.WriteChildren(content.Body);
         bodyWriter.WriteCodeBlock();
+        var bodyTextCharacters = tally.Characters;
 
         var footnoteText = new DocxBlockText(new DocxParagraphReader(content.Styles, content.Footnotes.Hyperlinks, noteReferences, tally, ct), ct);
         var endnoteText = new DocxBlockText(new DocxParagraphReader(content.Styles, content.Endnotes.Hyperlinks, noteReferences, tally, ct), ct);
@@ -59,7 +61,7 @@ internal sealed class DocxBodyWriter
             kind => kind == DocxNoteKind.Footnote ? footnoteText : endnoteText,
             blocks);
 
-        return tally.Characters;
+        return bodyTextCharacters;
     }
 
     private void WriteChildren(OpenXmlElement container)
