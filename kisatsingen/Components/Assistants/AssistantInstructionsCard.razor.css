@@ -10,6 +10,13 @@
     white-space: pre-wrap;
 }
 
+/* The base instructions can be long, so the popover scrolls instead of covering the dialog. */
+.base-instructions-popover {
+    max-width: min(40rem, 90vw);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
 /* The first lines only; the dialog shows them all. */
 .assistant-instructions-preview {
     white-space: pre-wrap;

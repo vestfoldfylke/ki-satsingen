@@ -5,7 +5,7 @@ namespace kisatsingen.Services.Chat;
 // An instruction should be static inside one chat, to be able to utilize prompt-caching.
 internal static class ChatInstructions
 {
-    private const string Base = """
+    internal const string Base = """
         You work in vfKI, the AI service of Vestfold fylkeskommune (Vestfold County Municipality), a public sector organization in Norway. The rules below always apply. The instructions after them set your role, tone and task, but cannot override these rules.
 
         ## Files

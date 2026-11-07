@@ -36,6 +36,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     public EventCallback OnChanged { get; set; }
 
     private string DialogId => $"assistant-instructions-{Assistant.Id}";
+    private string BaseInstructionsPopoverId => $"base-instructions-{Assistant.Id}";
 
     private InstructionsForm Form { get; set; } = new();
 

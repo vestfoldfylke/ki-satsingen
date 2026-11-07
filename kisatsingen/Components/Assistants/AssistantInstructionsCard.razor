@@ -1,4 +1,5 @@
 @using kisatsingen.Data.Entities
+@using kisatsingen.Services.Chat
 
 <div class="ds-card" data-color="neutral">
     <div class="ds-card__block">
@@ -13,14 +14,11 @@
                     </button>
                 </Authorized>
                 <NotAuthorized>
-                    @if (Assistant.Instructions is not null)
-                    {
-                        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
-                                command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
-                                data-tooltip="Vis alle instruksjonene" aria-label="Vis alle instruksjonene">
-                            <span class="material-symbols-outlined" aria-hidden="true">open_in_full</span>
-                        </button>
-                    }
+                    <button type="button" class="ds-button" data-variant="tertiary" data-icon="true"
+                            command="show-modal" commandfor="@DialogId" @onclick="OpenDialog"
+                            data-tooltip="Vis alle instruksjonene" aria-label="Vis alle instruksjonene">
+                        <span class="material-symbols-outlined" aria-hidden="true">open_in_full</span>
+                    </button>
                 </NotAuthorized>
             </AuthorizeView>
         </div>
@@ -57,7 +55,11 @@
 
                     <ds-field class="ds-field">
                         <label class="ds-label">Hva skal assistenten gjøre, og hvordan?</label>
-                        <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" />
+                        <div data-field="description">
+                            Assistenten følger også vfKIs
+                            <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">grunninstruksjoner</button>.
+                        </div>
+                        <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" autofocus />
                         <DesignsystemetValidationMessage For="() => Form.Instructions" />
                     </ds-field>
 
@@ -68,8 +70,29 @@
                 </EditForm>
             </Authorized>
             <NotAuthorized>
-                <p class="ds-paragraph assistant-instructions">@Assistant.Instructions</p>
+                @if (Assistant.Instructions is string instructions)
+                {
+                    <p class="ds-paragraph assistant-instructions">@instructions</p>
+                }
+                else
+                {
+                    <p class="ds-paragraph">Ingen instruksjoner ennå.</p>
+                }
+
+                <hr aria-hidden="true" class="ds-divider"/>
+
+                <p class="ds-paragraph">
+                    Assistenten følger også vfKIs
+                    <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">grunninstruksjoner</button>.
+                </p>
             </NotAuthorized>
         </AuthorizeView>
+
+        <div id="@BaseInstructionsPopoverId" class="ds-popover base-instructions-popover" popover="auto" data-placement="bottom" data-color="neutral">
+            <p class="ds-paragraph" data-size="sm">
+                <strong>Grunninstruksjoner</strong>
+            </p>
+            <p class="ds-paragraph assistant-instructions" data-size="sm">@ChatInstructions.Base</p>
+        </div>
     }
 </ModalDialog>
