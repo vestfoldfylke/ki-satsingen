@@ -65,8 +65,8 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
             return;
         }
 
-        // Without the permission, base instructions someone else disabled come
-        // are forced to enabled on save; the dialog warns about it before saving.
+        // Without the permission, base instructions someone else disabled are
+        // enabled again on save; the dialog warns about it before saving.
         var canDisableBaseInstructions = (await AuthorizationService.AuthorizeAsync(user, AuthorizationPolicies.CanDisableBaseInstructions)).Succeeded;
         var areBaseInstructionsDisabled = Form.AreBaseInstructionsDisabled && canDisableBaseInstructions;
 
