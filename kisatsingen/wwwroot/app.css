@@ -45,6 +45,14 @@ html, body {
     margin: 0;
 }
 
+/* Radzen's base stylesheet styles input outside any cascade layer, which beats
+   every Designsystemet rule, since they are all layered. revert-layer hands
+   these properties back to Designsystemet. */
+input {
+    color: revert-layer;
+    font-size: revert-layer;
+}
+
 h1, h2, h3, h4, h5, h6, blockquote, .heading-font {
     font-family: 'Nunito', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
