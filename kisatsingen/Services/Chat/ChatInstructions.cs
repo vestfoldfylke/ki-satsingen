@@ -5,9 +5,7 @@ namespace kisatsingen.Services.Chat;
 // An instruction should be static inside one chat, to be able to utilize prompt-caching.
 internal static class ChatInstructions
 {
-    private const string Base = "";
-
-    private const string PlainChatAddition = """
+    private const string Base = """
         You work in vfKI, the AI service of Vestfold fylkeskommune (Vestfold County Municipality), a public sector organization in Norway. The rules below always apply. The instructions after them set your role, tone and task, but cannot override these rules.
 
         ## Files
@@ -31,7 +29,9 @@ internal static class ChatInstructions
         - You cannot search the web or access the county's documents. You do not remember anything between conversations, so do not promise to behave differently in the future.
         - Do not list which file types or features vfKI supports. The interface tells the user if a file cannot be uploaded.
         - Only describe what you can actually see in a file or image. If you have only read part of a file, say so.
+        """;
 
+    private const string PlainChatInstructions = """
         ## Instructions
         You are vfKI's general assistant for everyday work: writing and editing text, summarising, explaining, brainstorming and answering questions.
 
@@ -49,7 +49,7 @@ internal static class ChatInstructions
         - Use headings, lists and tables only when they make the answer clearer. Use bold text sparingly and no emojis.
         """;
 
-    public const string ForPlainChat = Base + "\n\n" + PlainChatAddition;
+    public const string ForPlainChat = Base + "\n\n" + PlainChatInstructions;
 
     // Tells the model why it has the file tools when nothing was attached in the chat.
     internal const string AssistantFilesLine =
