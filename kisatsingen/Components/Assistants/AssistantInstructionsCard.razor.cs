@@ -12,7 +12,7 @@ namespace kisatsingen.Components.Assistants;
 
 // An assistant's instructions: a preview for everyone who can use it, all of
 // them in a dialog, editable there when CanEditAssistant allows. Saving checks
-// the policy again, since a dialog that was allowed when it rendered may no
+// the policies again, since a dialog that was allowed when it rendered may no
 // longer be.
 public sealed partial class AssistantInstructionsCard : ComponentBase
 {
@@ -49,7 +49,11 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     {
         _refusal = null;
         _isNotFound = false;
-        Form = new InstructionsForm { Instructions = Assistant.Instructions };
+        Form = new InstructionsForm
+        {
+            Instructions = Assistant.Instructions,
+            AreBaseInstructionsDisabled = Assistant.AreBaseInstructionsDisabled
+        };
     }
 
     private async Task SaveAsync()
@@ -61,8 +65,13 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
             return;
         }
 
+        // Without the permission, base instructions someone else disabled come
+        // are forced to enabled on save; the dialog warns about it before saving.
+        var canDisableBaseInstructions = (await AuthorizationService.AuthorizeAsync(user, AuthorizationPolicies.CanDisableBaseInstructions)).Succeeded;
+        var areBaseInstructionsDisabled = Form.AreBaseInstructionsDisabled && canDisableBaseInstructions;
+
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
-        if (!await AssistantRepository.UpdateAssistantInstructionsAsync(userId, Assistant.Id, Form.Instructions))
+        if (!await AssistantRepository.UpdateAssistantInstructionsAsync(userId, Assistant.Id, Form.Instructions, areBaseInstructionsDisabled))
         {
             _isNotFound = true;
             return;
@@ -78,5 +87,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
         // In ErrorMessage - {0} = FieldName, {1} = MaximumLength, {2} = MinimumLength (if set)
         [StringLength(Assistant.MaxInstructionsLength, ErrorMessage = "Instruksjonene kan ha opptil {1} tegn.")]
         public string? Instructions { get; set; }
+
+        public bool AreBaseInstructionsDisabled { get; set; }
     }
 }

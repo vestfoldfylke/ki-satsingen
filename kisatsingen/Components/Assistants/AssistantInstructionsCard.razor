@@ -55,13 +55,39 @@
 
                     <ds-field class="ds-field">
                         <label class="ds-label">Hva skal assistenten gjøre, og hvordan?</label>
-                        <div data-field="description">
-                            Assistenten følger også vfKIs
-                            <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">grunninstruksjoner</button>.
-                        </div>
                         <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" autofocus />
                         <DesignsystemetValidationMessage For="() => Form.Instructions" />
                     </ds-field>
+
+                    <p class="ds-paragraph">
+                        @if (Form.AreBaseInstructionsDisabled)
+                        {
+                            <text><button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">vfKIs grunninstruksjoner</button> er laget for generell bruk, ikke for oppgaven denne assistenten skal løse. De er derfor slått av med vilje, og assistenten følger bare sine egne instruksjoner.</text>
+                        }
+                        else
+                        {
+                            <text>Assistenten følger også <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">vfKIs grunninstruksjoner</button>.</text>
+                        }
+                    </p>
+
+                    <AuthorizeView Policy="@AuthorizationPolicies.CanDisableBaseInstructions" Context="disableAuthenticationState">
+                        <Authorized>
+                            <ds-field class="ds-field">
+                                <InputCheckbox class="ds-input" @bind-Value="Form.AreBaseInstructionsDisabled" />
+                                <label class="ds-label" data-weight="regular">Slå av grunninstruksjoner</label>
+                            </ds-field>
+                        </Authorized>
+                        <NotAuthorized>
+                            @if (Assistant.AreBaseInstructionsDisabled)
+                            {
+                                <div class="ds-alert" data-color="warning">
+                                    <p class="ds-paragraph">
+                                        Du har ikke tilgang til å slå av grunninstruksjonene. De blir derfor slått på igjen når du lagrer. Avbryt hvis du ikke ønsker det.
+                                    </p>
+                                </div>
+                            }
+                        </NotAuthorized>
+                    </AuthorizeView>
 
                     <div class="form-actions">
                         <button type="submit" class="ds-button" data-variant="primary">Lagre</button>
@@ -82,8 +108,14 @@
                 <hr aria-hidden="true" class="ds-divider"/>
 
                 <p class="ds-paragraph">
-                    Assistenten følger også vfKIs
-                    <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">grunninstruksjoner</button>.
+                    @if (Assistant.AreBaseInstructionsDisabled)
+                    {
+                        <text><button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">vfKIs grunninstruksjoner</button> er laget for generell bruk, ikke for oppgaven denne assistenten skal løse. De er derfor slått av med vilje, og assistenten følger bare sine egne instruksjoner.</text>
+                    }
+                    else
+                    {
+                        <text>Assistenten følger også <button type="button" data-popover="inline" popovertarget="@BaseInstructionsPopoverId">vfKIs grunninstruksjoner</button>.</text>
+                    }
                 </p>
             </NotAuthorized>
         </AuthorizeView>
