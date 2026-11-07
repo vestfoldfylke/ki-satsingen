@@ -137,6 +137,7 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.IsAdministrator, policy => policy.RequireRole(administratorRole))
     .AddPolicy(AuthorizationPolicies.CanContributeOrganizationWide, policy => policy.RequireRole(administratorRole, contributorRole))
     .AddPolicy(AuthorizationPolicies.CanEditAssistant, policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
+    .AddPolicy(AuthorizationPolicies.CanDisableBaseInstructions, policy => policy.RequireRole(administratorRole))
     .AddPolicy(AuthorizationPolicies.CanReadMetrics, policy => policy
         .AddAuthenticationSchemes(cookieOrBearerScheme)
         .RequireAuthenticatedUser()

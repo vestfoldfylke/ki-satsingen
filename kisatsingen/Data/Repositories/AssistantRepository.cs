@@ -68,7 +68,7 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
         return updatedCount > 0;
     }
 
-    public async Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, CancellationToken ct = default)
+    public async Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, bool areBaseInstructionsDisabled, CancellationToken ct = default)
     {
         var normalisedInstructions = BoundedText.TrimToNullable(instructions, "Assistant instructions", Assistant.MaxInstructionsLength);
 
@@ -79,6 +79,7 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
             .Where(a => a.Id == assistantId)
             .ExecuteUpdateAsync(s => s
                 .SetProperty(a => a.Instructions, normalisedInstructions)
+                .SetProperty(a => a.AreBaseInstructionsDisabled, areBaseInstructionsDisabled)
                 .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
 
         return updatedCount > 0;

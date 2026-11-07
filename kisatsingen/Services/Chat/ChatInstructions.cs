@@ -59,17 +59,26 @@ internal static class ChatInstructions
     // The files have their own section, so the author's instructions end
     // where their heading's section does. Names and ids only: a summary is
     // text from the file, kept out of the system prompt.
-    public static string ForAssistant(string name, string? instructions, IReadOnlyList<KnowledgeFileMetadata> files)
+    public static string ForAssistant(string name, string? instructions, IReadOnlyList<KnowledgeFileMetadata> files, bool areBaseInstructionsDisabled)
     {
-        var instructionsSection = instructions is not null
-            ? $"\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}"
-            : "";
+        var sections = new List<string>();
 
-        var fileLines = files.Select(file => $"- {file.FileName} (fileId: {file.Id})");
-        var filesSection = files.Count > 0
-            ? $"\n\n## Files\n\n{AssistantFilesLine}\n\n{string.Join("\n", fileLines)}"
-            : "";
+        if (!areBaseInstructionsDisabled)
+        {
+            sections.Add(Base);
+        }
 
-        return $"{Base}{instructionsSection}{filesSection}";
+        if (instructions is not null)
+        {
+            sections.Add($"## Instructions for the assistant \"{name}\"\n\n{instructions}");
+        }
+
+        if (files.Count > 0)
+        {
+            var fileLines = files.Select(file => $"- {file.FileName} (fileId: {file.Id})");
+            sections.Add($"## Files\n\n{AssistantFilesLine}\n\n{string.Join("\n", fileLines)}");
+        }
+
+        return string.Join("\n\n", sections);
     }
 }

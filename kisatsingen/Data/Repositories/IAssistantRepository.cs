@@ -25,8 +25,9 @@ public interface IAssistantRepository
     // Visibility has no default here: one would quietly unshare an assistant.
     Task<bool> UpdateAssistantDetailsAsync(Guid userId, Guid assistantId, string name, string? description, AssistantVisibility visibility, CancellationToken ct = default);
 
-    // Blank clears them.
-    Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, CancellationToken ct = default);
+    // Blank clears them. Whether the user may disable the base instructions is
+    // not checked here.
+    Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, bool areBaseInstructionsDisabled, CancellationToken ct = default);
 
     // Knowledge files cascade; chats survive with AssistantId nulled.
     Task<bool> DeleteAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default);
