@@ -27,6 +27,9 @@ public sealed class DocxHeadingsAndListsTests
 
     private static byte[] WithLists(string body, string styles = "") => WithParts(body, styles: styles, numbering: Numbering);
 
+    private static string IndentedParagraph(string text, string indent = "w:left=\"720\"") =>
+        $"<w:p><w:pPr><w:ind {indent}/></w:pPr>{Run(text)}</w:p>";
+
     [Theory]
     [InlineData("Overskrift1", "heading 1", 0, "# Tittel")]
     [InlineData("Heading2", "heading 2", 1, "## Tittel")]
@@ -174,6 +177,83 @@ public sealed class DocxHeadingsAndListsTests
         var markdown = ToMarkdown(docx);
 
         Assert.Equal("1. Første\n\nFortsettelse\n\n2. Andre", markdown);
+    }
+
+    // Word's "Punkt med fortsettelse": the paragraph is indented under the item, without a number.
+    [Theory]
+    [InlineData("w:left=\"720\"")]
+    [InlineData("w:start=\"720\"")]
+    public void An_indented_paragraph_after_a_list_item_continues_the_item(string indent)
+    {
+        var docx = WithLists(ListParagraph(NumberedListId, 0, "Første") + IndentedParagraph("Mer om første", indent) + ListParagraph(NumberedListId, 0, "Andre"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("1. Første\n\n   Mer om første\n\n2. Andre", markdown);
+    }
+
+    [Fact]
+    public void A_continuing_paragraph_lines_up_with_a_nested_item_s_text()
+    {
+        var docx = WithLists(ListParagraph(BulletListId, 0, "Topp") + ListParagraph(BulletListId, 1, "Under") + IndentedParagraph("Mer"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("- Topp\n    - Under\n\n      Mer", markdown);
+    }
+
+    [Fact]
+    public void Paragraphs_continuing_an_item_keep_the_list_going()
+    {
+        var docx = WithLists(ListParagraph(BulletListId, 0, "Topp") + IndentedParagraph("Mer") + IndentedParagraph("Enda mer") + ListParagraph(BulletListId, 1, "Under"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("- Topp\n\n  Mer\n\n  Enda mer\n\n    - Under", markdown);
+    }
+
+    [Fact]
+    public void A_paragraph_style_s_indent_continues_the_item()
+    {
+        var style = ParagraphStyle("Innrykk", "Innrykk", "<w:pPr><w:ind w:left=\"720\"/></w:pPr>");
+        var docx = WithLists(ListParagraph(BulletListId, 0, "Topp") + StyledParagraph("Innrykk", "Mer"), style);
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("- Topp\n\n  Mer", markdown);
+    }
+
+    [Fact]
+    public void A_paragraph_s_own_indent_of_zero_wins_over_its_style_s()
+    {
+        var style = ParagraphStyle("Innrykk", "Innrykk", "<w:pPr><w:ind w:left=\"720\"/></w:pPr>");
+        var body = ListParagraph(BulletListId, 0, "Topp") + $"<w:p><w:pPr><w:pStyle w:val=\"Innrykk\"/><w:ind w:left=\"0\"/></w:pPr>{Run("Etter")}</w:p>";
+        var docx = WithLists(body, style);
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("- Topp\n\nEtter", markdown);
+    }
+
+    [Fact]
+    public void An_indented_paragraph_outside_a_list_is_a_plain_paragraph()
+    {
+        var docx = WithLists(IndentedParagraph("Innrykket"));
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("Innrykket", markdown);
+    }
+
+    [Fact]
+    public void A_list_item_s_text_after_a_page_break_stays_in_the_item()
+    {
+        var body = $"<w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"{BulletListId}\"/></w:numPr></w:pPr>{Run("Side én")}<w:r><w:br w:type=\"page\"/></w:r>{Run("Side to")}</w:p>";
+        var docx = WithLists(body);
+
+        var markdown = ToMarkdown(docx);
+
+        Assert.Equal("- Side én\n\n  Side to", markdown);
     }
 
     [Fact]

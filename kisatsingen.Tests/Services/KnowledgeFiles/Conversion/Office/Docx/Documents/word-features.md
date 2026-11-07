@@ -24,15 +24,15 @@
 
 **Fet**, *kursiv*, ***fet og kursiv***, understreket, ~~gjennomstreket~~, ~~dobbel gjennomstreking~~.
 
-Hevet skrift: x2 og 1st. Senket skrift: H2O og CO2.
+Hevet skrift: x<sup>2</sup> og 1<sup>st</sup>. Senket skrift: H<sub>2</sub>O og CO<sub>2</sub>.
 
 Kapitéler, STORE BOKSTAVER VIA FORMAT, uthevet med markeringsfarge, rød tekst, annen skrifttype (Georgia), stor tekst.
 
-Delvis **fet**midt*i*ordet og  **fet med mellomrom rundt** (vanskelig for konvertere).
+Delvis **fet**midt*i*ordet og **fet med mellomrom rundt** (vanskelig for konvertere).
 
-Kode i linje: console.log("hei") og git commit -m `melding` (inneholder backticks).
+Kode i linje: `console.log("hei")` og `` git commit -m `melding` `` (inneholder backticks).
 
-**Merknad:** Forventet: **fet**, *kursiv*, ~~gjennomstreket~~, ^hevet^, ~senket~, [tekst]{.underline}/[tekst]{.smallcaps}/[tekst]{.mark} i Pandoc. Farge, font og størrelse går normalt tapt.
+**Merknad:** Forventet: \*\*fet\*\*, \*kursiv\*, \~\~gjennomstreket\~\~, ^hevet^, \~senket\~, \[tekst\]{.underline}/\[tekst\]{.smallcaps}/\[tekst\]{.mark} i Pandoc. Farge, font og størrelse går normalt tapt.
 
 # 3. Avsnitt, linjeskift og justering
 
@@ -50,7 +50,7 @@ Innrykket avsnitt (venstre innrykk 1,27 cm) uten å være sitat.
 
 Avsnitt med hengende innrykk: første linje stikker ut til venstre, resten er rykket inn. Dette brukes ofte i litteraturlister.
 
-Tabulator:	etter tab	og en til
+Tabulator: etter tab og en til
 
 ↑ Tomt avsnitt over denne linjen.
 
@@ -66,7 +66,7 @@ Tabulator:	etter tab	og en til
         - Under-underpunkt nivå 3
             - Nivå 4
     - Tilbake på nivå 2
-- Punkt med **fet** og kode
+- Punkt med **fet** og `kode`
 
 ## Nummerert liste
 
@@ -94,7 +94,7 @@ Tabulator:	etter tab	og en til
 
 1. Punkt med fortsettelse:
 
-Dette avsnittet hører til punktet over (innrykket, uten nummer).
+   Dette avsnittet hører til punktet over (innrykket, uten nummer).
 
 2. Neste punkt
 
@@ -106,7 +106,7 @@ Dette avsnittet hører til punktet over (innrykket, uten nummer).
 
 ☑ Også gjort
 
-**Merknad:** Forventet: «-»/«1.» med innrykk. «5.» som start. Avkrysning blir - [ ] / - [x] kun om konverteren tolker tegnene.
+**Merknad:** Forventet: «-»/«1.» med innrykk. «5.» som start. Avkrysning blir - \[ \] / - \[x\] kun om konverteren tolker tegnene.
 
 # 5. Lenker, bokmerker og kryssreferanser
 
@@ -116,13 +116,13 @@ E-postlenke: [post@example.no](mailto:post@example.no). Fet lenke: [**viktig len
 
 Intern lenke til bokmerke: hopp til seksjon 10.
 
-**Merknad:** Forventet: [tekst](url), <url>, [tekst](#anker).
+**Merknad:** Forventet: \[tekst\](url), \<url>, \[tekst\](#anker).
 
 # 6. Fotnoter og sluttnoter
 
 Her er en påstand med fotnote[^1] og en til[^2]. Og her en sluttnote[^e1].
 
-**Merknad:** Forventet: [^1] med definisjon nederst. Sluttnoter blir som regel også fotnoter.
+**Merknad:** Forventet: \[^1\] med definisjon nederst. Sluttnoter blir som regel også fotnoter.
 
 # 7. Sitater og kodeblokker
 
@@ -132,15 +132,14 @@ Her er en påstand med fotnote[^1] og en til[^2]. Og her en sluttnote[^e1].
 
 Kodeblokk (avsnittsstil «Source Code», monospace, grå bakgrunn):
 
+```
 function hilsen(navn) {
-
-// kommentar med *stjerner* og _understrek_
-
-return `Hei, ${navn}!`;
-
+  // kommentar med *stjerner* og _understrek_
+  return `Hei, ${navn}!`;
 }
+```
 
-**Merknad:** Forventet: «> » for sitat og ``` for kode. Word har ingen ekte kodeblokk; Pandoc gjenkjenner stilene «Source Code» og «Verbatim Char», andre konvertere ser bare monospace-tekst.
+**Merknad:** Forventet: «> » for sitat og \`\`\` for kode. Word har ingen ekte kodeblokk; Pandoc gjenkjenner stilene «Source Code» og «Verbatim Char», andre konvertere ser bare monospace-tekst.
 
 # 8. Tabeller
 
@@ -170,45 +169,51 @@ return `Hei, ${navn}!`;
 
 # 9. Bilder
 
+![Gul sirkel og hvit boks på blå bakgrunn]()
+
 *Figur 1: Bildetekst med stilen «Caption».*
 
-Bilde i linje med tekst:  fortsetter her.
+Bilde i linje med tekst: ![Lite ikon]() fortsetter her.
 
-**Merknad:** Forventet: ![alt](media/image1.png). Alt-tekst hentes fra «description».
+**Merknad:** Forventet: !\[alt\](media/image1.png). Alt-tekst hentes fra «description».
 
 # 10. Skillelinjer og sideskift (bokmerket mål)
 
 Under kommer en horisontal linje laget med avsnittskantlinje:
 
-Og en laget av tegn (***), slik Word gjør med Autoformat:
+Og en laget av tegn (\*\*\*), slik Word gjør med Autoformat:
 
-***
+\*\*\*
 
 **Merknad:** Forventet: --- for skillelinje. Sideskift (rett under) forsvinner vanligvis eller blir \newpage.
 
 # 11. Ligninger (OMML)
 
-I linje: .
+I linje: $E=mc^{2}$.
 
-**Merknad:** Forventet: $E=mc^{2}$ og $$\frac{...}{...}$$ (Pandoc gjør OMML om til LaTeX).
+$x=\frac{-b±\sqrt{b^{2}-4ac}}{2a}$
+
+$\sum_{i=1}^{n}x_{i}$
+
+**Merknad:** Forventet: \$E=mc^{2}\$ og \$\$\frac{...}{...}\$\$ (Pandoc gjør OMML om til LaTeX).
 
 # 12. Spesialtegn og tegn som må escapes
 
-Markdown-tegn i vanlig tekst: * stjerne, _understrek_, # hash, `backtick`, [klammer](ikke-lenke), <vinkel>, \ backslash, | rør, ~tilde~, 1. ikke en liste, + pluss.
+Markdown-tegn i vanlig tekst: \* stjerne, \_understrek\_, # hash, \`backtick\`, \[klammer\](ikke-lenke), \<vinkel>, \ backslash, | rør, \~tilde\~, 1. ikke en liste, + pluss.
 
 \# Denne linjen starter med hash, men er ikke en overskrift.
 
-- Denne starter med bindestrek, men er ikke en liste.
+\- Denne starter med bindestrek, men er ikke en liste.
 
 Typografi: «sitattegn», “engelske”, ‘enkle’, tankestrek – og lang tankestrek —, ellipse …, grader 20 °C, ©, ®, ™, €, ½, ≠, ≤, →.
 
 Hardt mellomrom:10 000 kr. Myk bindestrek: super­kali­fragilistisk. Hard bindestrek: e‑post. Nullbredde: a​b.
 
-Symbolfont (Wingdings):  og emoji: 😀 🇳🇴 ✅
+Symbolfont (Wingdings): og emoji: 😀 🇳🇴 ✅
 
-HTML-lignende tekst: <b>ikke fet</b> og &amp;.
+HTML-lignende tekst: \<b>ikke fet\</b> og \&amp;.
 
-**Merknad:** Forventet: \*, \_, \# osv. escapes. Hardt mellomrom blir ofte «&nbsp;» eller vanlig mellomrom. Symbolfont-tegn tapes ofte.
+**Merknad:** Forventet: \\\*, \\\_, \\# osv. escapes. Hardt mellomrom blir ofte «\&nbsp;» eller vanlig mellomrom. Symbolfont-tegn tapes ofte.
 
 # 13. Kommentarer og sporede endringer
 
@@ -216,11 +221,11 @@ Denne teksten har en kommentar knyttet til seg.
 
 Sporet endring: ny tekst i samme setning.
 
-**Merknad:** Forventet: Pandoc --track-changes=accept|reject|all. Kommentarer blir [tekst]{.comment-start} kun med «all».
+**Merknad:** Forventet: Pandoc --track-changes=accept|reject|all. Kommentarer blir \[tekst\]{.comment-start} kun med «all».
 
 # 14. Diverse
 
-## Overskrift med **fet** og `kode` i seg
+## Overskrift med \*\*fet\*\* og \`kode\` i seg
 
 ## Overskrift med kursiv formatering
 

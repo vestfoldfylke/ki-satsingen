@@ -58,7 +58,7 @@ internal sealed class DocxBlockText(DocxParagraphReader reader, CancellationToke
         var content = reader.Read(paragraph, allowsEmphasis: true);
         foreach (var lines in DocxInlineMarkdown.ParagraphsOf(DocxInlineMarkdown.Write(content.Pieces)))
         {
-            paragraphs.Add(string.Join(LineSeparator, lines.Select(DocxInlineMarkdown.EscapeBlockStart)));
+            paragraphs.Add(string.Join(LineSeparator, lines.Select(DocxMarkdownEscape.BlockStart)));
         }
 
         foreach (var nested in content.NestedBlocks)

@@ -1,12 +1,14 @@
+using System.Globalization;
 using DocumentFormat.OpenXml.Wordprocessing;
 using static kisatsingen.Services.KnowledgeFiles.Conversion.Office.OpenXmlValues;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 // What a paragraph or character style in styles.xml means for the Markdown:
-// its heading level, its list, whether it is a quote, and whether it makes
-// text bold, italic or struck. A style inherits what it doesn't set itself from the style it is
-// based on, so every answer walks that chain.
+// its heading level, its list, its indent, whether it is a quote or code, and
+// whether it makes text bold, italic, struck, raised or lowered. A style
+// inherits what it doesn't set itself from the style it is based on, so every
+// answer walks that chain.
 //
 // Styles are told apart by what they do, not by their ID, since the ID
 // depends on Word's language: Norwegian Word writes Overskrift1 where English
@@ -45,6 +47,17 @@ internal sealed class DocxStyles
     {
         "Quote",
         "Intense Quote"
+    };
+
+    // Word has no code style of its own. These are the names Pandoc writes
+    // (Source Code, Verbatim Char) and Word's HTML styles; a paragraph style
+    // makes a code block, a character style inline code.
+    private static readonly HashSet<string> CodeStyleNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Source Code",
+        "Verbatim Char",
+        "HTML Preformatted",
+        "HTML Code"
     };
 
     private readonly Dictionary<string, StyleSettings> _stylesById;
@@ -96,22 +109,52 @@ internal sealed class DocxStyles
     // A style based on a quote style is a quote too.
     public bool IsQuote(string? paragraphStyleId) => FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), style => style.IsQuote) ?? false;
 
+    public bool IsCode(string? paragraphStyleId) => FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), style => style.IsCode) ?? false;
+
+    // In twips; null when no style in the chain sets one.
+    public int? LeftIndentOf(string? paragraphStyleId) => FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), style => style.LeftIndent);
+
     // The character style overrides the paragraph style. Word actually flips a
     // toggle that both switch on (bold twice is not bold); that is rare enough
     // not to model.
     //
     // Single and double strikethrough are separate toggles, so switching one off
     // leaves the other; the text is struck if either is on.
+    //
+    // Inline code comes from the character style only: a code paragraph style
+    // makes a code block, which DocxBodyWriter writes.
     public RunFormatting FormattingOf(string? paragraphStyleId, string? characterStyleId)
     {
-        bool ResolveToggle(Func<StyleSettings, bool?> toggle) =>
-            FirstSetAlongChain(characterStyleId, toggle) ?? FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), toggle) ?? false;
+        T? Resolve<T>(Func<StyleSettings, T?> property) where T : struct =>
+            FirstSetAlongChain(characterStyleId, property) ?? FirstSetAlongChain(ResolveParagraphStyleId(paragraphStyleId), property);
 
         return new RunFormatting(
-            IsBold: ResolveToggle(style => style.IsBold),
-            IsItalic: ResolveToggle(style => style.IsItalic),
-            IsStruck: ResolveToggle(style => style.IsStruck) || ResolveToggle(style => style.IsDoubleStruck));
+            IsBold: Resolve(style => style.IsBold) ?? false,
+            IsItalic: Resolve(style => style.IsItalic) ?? false,
+            IsStruck: (Resolve(style => style.IsStruck) ?? false) || (Resolve(style => style.IsDoubleStruck) ?? false),
+            IsCode: FirstSetAlongChain(characterStyleId, style => style.IsCode) ?? false,
+            VerticalPosition: Resolve(style => style.VerticalPosition) ?? DocxVerticalPosition.Baseline);
     }
+
+    // Null when the run or style doesn't set it, so it's inherited.
+    public static DocxVerticalPosition? ReadVerticalPosition(VerticalTextAlignment? alignment)
+    {
+        if (alignment?.Val is not { HasValue: true } position)
+        {
+            return null;
+        }
+
+        return position.Value == VerticalPositionValues.Superscript ? DocxVerticalPosition.Superscript
+            : position.Value == VerticalPositionValues.Subscript ? DocxVerticalPosition.Subscript
+            : DocxVerticalPosition.Baseline;
+    }
+
+    // Word writes w:left, or w:start in newer files; either is the left
+    // indent in twips. Null when the paragraph or style doesn't set it.
+    public static int? ReadLeftIndent(Indentation? indentation) =>
+        int.TryParse(indentation?.Left?.Value ?? indentation?.Start?.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var twips)
+            ? twips
+            : null;
 
     // A paragraph without a style of its own has the default paragraph style.
     private string? ResolveParagraphStyleId(string? paragraphStyleId) => paragraphStyleId ?? _defaultParagraphStyleId;
@@ -141,16 +184,20 @@ internal sealed class DocxStyles
     private static StyleSettings ReadSettings(Style style)
     {
         var runProperties = style.StyleRunProperties;
+        var name = style.StyleName?.Val?.Value;
 
         return new StyleSettings(
             BasedOn: style.BasedOn?.Val?.Value,
             OutlineLevel: ReadOutlineLevel(style),
             List: ReadList(style.StyleParagraphProperties?.NumberingProperties),
-            IsQuote: style.StyleName?.Val?.Value is { } name && QuoteBuiltInNames.Contains(name) ? true : null,
+            LeftIndent: ReadLeftIndent(style.StyleParagraphProperties?.Indentation),
+            IsQuote: name is not null && QuoteBuiltInNames.Contains(name) ? true : null,
+            IsCode: name is not null && CodeStyleNames.Contains(name) ? true : null,
             IsBold: DocxToggle.Read(runProperties?.Bold),
             IsItalic: DocxToggle.Read(runProperties?.Italic),
             IsStruck: DocxToggle.Read(runProperties?.Strike),
-            IsDoubleStruck: DocxToggle.Read(runProperties?.DoubleStrike));
+            IsDoubleStruck: DocxToggle.Read(runProperties?.DoubleStrike),
+            VerticalPosition: ReadVerticalPosition(runProperties?.VerticalTextAlignment));
     }
 
     // Kept as written, 9 for body text included: a style that sets body text
@@ -183,15 +230,30 @@ internal sealed class DocxStyles
         string? BasedOn,
         int? OutlineLevel,
         DocxListReference? List,
+        int? LeftIndent,
         bool? IsQuote,
+        bool? IsCode,
         bool? IsBold,
         bool? IsItalic,
         bool? IsStruck,
-        bool? IsDoubleStruck);
+        bool? IsDoubleStruck,
+        DocxVerticalPosition? VerticalPosition);
 }
 
 // A list a paragraph is in: Word's numId, and its nesting level from 0.
 // numId 0 means the paragraph is in no list, cancelling one it would inherit.
 internal readonly record struct DocxListReference(int ListId, int Level);
 
-internal readonly record struct RunFormatting(bool IsBold, bool IsItalic, bool IsStruck);
+internal readonly record struct RunFormatting(
+    bool IsBold,
+    bool IsItalic,
+    bool IsStruck,
+    bool IsCode = false,
+    DocxVerticalPosition VerticalPosition = DocxVerticalPosition.Baseline);
+
+internal enum DocxVerticalPosition
+{
+    Baseline,
+    Superscript,
+    Subscript
+}

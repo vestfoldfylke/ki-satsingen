@@ -4,8 +4,8 @@ using static kisatsingen.Services.KnowledgeFiles.Conversion.Office.OpenXmlValues
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
-// Writes the document body as Markdown: headings, paragraphs, lists and
-// tables in document order, then the notes the body referenced.
+// Writes the document body as Markdown: headings, paragraphs, lists, quotes,
+// code and tables in document order, then the notes the body referenced.
 //
 // Walks into every element it doesn't know, so wrappers such as content
 // controls keep their text. Recursive, which is safe: CheckedParts refuses a
@@ -17,9 +17,6 @@ internal sealed class DocxBodyWriter
     private const int BodyTextOutlineLevel = 9;
     private const int DeepestMarkdownHeading = 6;
 
-    private const int IndentPerListLevel = 4;
-    private const string BulletMarker = "- ";
-
     private const string HardLineBreak = "  \n";
     private const string QuoteMarker = "> ";
 
@@ -27,12 +24,11 @@ internal sealed class DocxBodyWriter
     private readonly DocxBlockOutput _blocks;
     private readonly DocxParagraphReader _reader;
     private readonly DocxBlockText _cellText;
+    private readonly DocxListWriter _lists;
     private readonly CancellationToken _ct;
-    private int _previousListLevel;
 
-    // The number each list's levels are at. Word counts a list across the
-    // whole document, also past other paragraphs between its items.
-    private readonly Dictionary<int, Dictionary<int, int>> _numbersByLevelByListId = [];
+    // Code paragraphs in a row, written as one code block when something else comes.
+    private readonly List<string> _codeLines = [];
 
     private DocxBodyWriter(DocxContent content, DocxBlockOutput blocks, DocxParagraphReader reader, CancellationToken ct)
     {
@@ -40,6 +36,7 @@ internal sealed class DocxBodyWriter
         _blocks = blocks;
         _reader = reader;
         _cellText = new DocxBlockText(reader, ct);
+        _lists = new DocxListWriter(content, blocks);
         _ct = ct;
     }
 
@@ -51,7 +48,9 @@ internal sealed class DocxBodyWriter
         var noteReferences = new DocxNoteReferences(content.Footnotes, content.Endnotes);
 
         var bodyReader = new DocxParagraphReader(content.Styles, content.Hyperlinks, noteReferences, tally, ct);
-        new DocxBodyWriter(content, blocks, bodyReader, ct).WriteChildren(content.Body);
+        var bodyWriter = new DocxBodyWriter(content, blocks, bodyReader, ct);
+        bodyWriter.WriteChildren(content.Body);
+        bodyWriter.WriteCodeBlock();
 
         var footnoteText = new DocxBlockText(new DocxParagraphReader(content.Styles, content.Footnotes.Hyperlinks, noteReferences, tally, ct), ct);
         var endnoteText = new DocxBlockText(new DocxParagraphReader(content.Styles, content.Endnotes.Hyperlinks, noteReferences, tally, ct), ct);
@@ -88,6 +87,7 @@ internal sealed class DocxBodyWriter
                 WriteParagraph(paragraph);
                 break;
             case Table table:
+                WriteCodeBlock();
                 _blocks.Table(DocxTables.RowsOf(table, _cellText.CellTextOf, _ct));
                 break;
             default:
@@ -97,13 +97,23 @@ internal sealed class DocxBodyWriter
     }
 
     // A page break inside the paragraph starts a new paragraph: plain after a
-    // heading or a list item, still quoted in a quote.
+    // heading, still quoted in a quote, and part of the item in a list.
     private void WriteParagraph(Paragraph paragraph)
     {
         var properties = paragraph.ParagraphProperties;
         var styleId = properties?.ParagraphStyleId?.Val?.Value;
+        if (_content.Styles.IsCode(styleId))
+        {
+            AddCodeLines(paragraph);
+            return;
+        }
+
+        WriteCodeBlock();
+
         var headingLevel = HeadingLevelOf(properties, styleId);
         var isQuote = _content.Styles.IsQuote(styleId);
+        var listItem = _lists.ItemOf(properties, styleId);
+        var continuesItem = headingLevel is null && (listItem is not null || _lists.ContinuesItem(properties, styleId));
 
         var content = _reader.Read(paragraph, allowsEmphasis: headingLevel is null);
         var paragraphs = DocxInlineMarkdown.ParagraphsOf(DocxInlineMarkdown.Write(content.Pieces));
@@ -118,18 +128,46 @@ internal sealed class DocxBodyWriter
                 case true when headingLevel is { } level:
                     WriteHeading(level, lines);
                     break;
-                case true when ListItemOf(properties, styleId) is { } listItem:
-                    WriteListItem(listItem, lines);
+                case true when listItem is { } item:
+                    _lists.WriteItem(item, lines);
                     break;
                 case var _ when isQuote:
                     WriteQuote(lines);
                     break;
+                case var _ when continuesItem:
+                    _lists.WriteContinuation(lines);
+                    break;
                 default:
-                    _blocks.Paragraph(string.Join(HardLineBreak, lines.Select(DocxInlineMarkdown.EscapeBlockStart)));
+                    _blocks.Paragraph(string.Join(HardLineBreak, lines.Select(DocxMarkdownEscape.BlockStart)));
                     break;
             }
         }
 
+        WriteNestedBlocks(content);
+    }
+
+    // Code is kept as it is: its spaces, tabs and empty lines, and no escapes.
+    private void AddCodeLines(Paragraph paragraph)
+    {
+        var content = _reader.Read(paragraph, allowsEmphasis: false);
+        var code = string.Concat(content.Pieces.Select(piece => piece.Kind == DocxPieceKind.ParagraphBreak ? "\n" : piece.Text));
+        _codeLines.AddRange(code.Split('\n').Select(line => line.TrimEnd()));
+
+        WriteNestedBlocks(content);
+    }
+
+    private void WriteCodeBlock()
+    {
+        if (_codeLines.Any(line => line.Length > 0))
+        {
+            _blocks.Paragraph(DocxMarkdownCode.Block(_codeLines));
+        }
+
+        _codeLines.Clear();
+    }
+
+    private void WriteNestedBlocks(DocxParagraphContent content)
+    {
         foreach (var nested in content.NestedBlocks)
         {
             WriteBlock(nested);
@@ -147,31 +185,7 @@ internal sealed class DocxBodyWriter
     // Every line gets the marker, so a line break doesn't end the quote.
     private void WriteQuote(List<string> lines)
     {
-        _blocks.Paragraph(QuoteMarker + string.Join(HardLineBreak + QuoteMarker, lines.Select(DocxInlineMarkdown.EscapeBlockStart)));
-    }
-
-    // A list may skip levels in Word, but four spaces too many make a code
-    // block in Markdown, so an item is at most one level below the one before.
-    // A numbered item gets its number as Word shows it, since the model reads
-    // the Markdown as text, and a reference such as "punkt 5" needs it.
-    private void WriteListItem((DocxListReference List, DocxListKind Kind) listItem, List<string> lines)
-    {
-        var number = NextNumber(listItem.List);
-
-        var maxLevel = _blocks.IsAfterListItem
-            ? _previousListLevel + 1
-            : 0;
-        var level = Math.Clamp(listItem.List.Level, 0, maxLevel);
-        _previousListLevel = level;
-
-        var indent = new string(' ', level * IndentPerListLevel);
-        var marker = listItem.Kind == DocxListKind.Bulleted
-            ? BulletMarker
-            : $"{number}. ";
-        var continuationIndent = new string(' ', indent.Length + marker.Length);
-
-        var text = string.Join(HardLineBreak + continuationIndent, lines.Select(DocxInlineMarkdown.EscapeBlockStart));
-        _blocks.ListItem($"{indent}{marker}{text}");
+        _blocks.Paragraph(QuoteMarker + string.Join(HardLineBreak + QuoteMarker, lines.Select(DocxMarkdownEscape.BlockStart)));
     }
 
     // The paragraph's own outline level wins over its style's, also when it
@@ -185,51 +199,5 @@ internal sealed class DocxBodyWriter
         return outlineLevel is >= 0 and <= DeepestOutlineLevel
             ? outlineLevel
             : null;
-    }
-
-    // The paragraph's own list wins over its style's. A paragraph that sets
-    // only its level is at that level of its style's list.
-    private (DocxListReference List, DocxListKind Kind)? ListItemOf(ParagraphProperties? properties, string? styleId)
-    {
-        var ownList = properties?.NumberingProperties;
-        var ownListId = ValueOf(ownList?.NumberingId?.Val);
-        var ownLevel = ValueOf(ownList?.NumberingLevelReference?.Val);
-        var styleList = _content.Styles.ListOf(styleId);
-
-        var listId = ownListId ?? styleList?.ListId;
-        if (listId is null)
-        {
-            return null;
-        }
-
-        var list = new DocxListReference(listId.Value, ownLevel ?? (ownListId is null ? styleList?.Level : null) ?? 0);
-        return _content.Lists.KindOf(list) is { } kind
-            ? (list, kind)
-            : null;
-    }
-
-    // An item continues its level's count, or starts it at the level's start.
-    // It restarts the levels below it, as Word does by default: the "a." under
-    // a new "2." is "a." again. Bulleted items go through it too, so they
-    // restart the numbered levels below them.
-    private int NextNumber(DocxListReference list)
-    {
-        if (!_numbersByLevelByListId.TryGetValue(list.ListId, out var numbersByLevel))
-        {
-            numbersByLevel = [];
-            _numbersByLevelByListId[list.ListId] = numbersByLevel;
-        }
-
-        var number = numbersByLevel.TryGetValue(list.Level, out var previous)
-            ? previous + 1
-            : _content.Lists.StartOf(list);
-        numbersByLevel[list.Level] = number;
-
-        foreach (var deeperLevel in numbersByLevel.Keys.Where(level => level > list.Level).ToList())
-        {
-            numbersByLevel.Remove(deeperLevel);
-        }
-
-        return number;
     }
 }

@@ -1,7 +1,8 @@
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 // Writes Markdown blocks with a blank line between them. List items in a
-// row are kept on consecutive lines, so they read as one list.
+// row are kept on consecutive lines, so they read as one list; a paragraph
+// continuing an item has blank lines around it, as Markdown needs.
 internal sealed class DocxBlockOutput(MarkdownOutput output)
 {
     private const string BlankLine = "\n\n";
@@ -9,11 +10,13 @@ internal sealed class DocxBlockOutput(MarkdownOutput output)
 
     private BlockKind _previous = BlockKind.None;
 
-    public bool IsAfterListItem => _previous == BlockKind.ListItem;
+    public bool IsInList => _previous is BlockKind.ListItem or BlockKind.ListContinuation;
 
     public void Paragraph(string markdown) => Append(markdown, BlockKind.Paragraph);
 
     public void ListItem(string markdown) => Append(markdown, BlockKind.ListItem);
+
+    public void ListContinuation(string markdown) => Append(markdown, BlockKind.ListContinuation);
 
     // A table with no text in any cell is left out.
     public void Table(IReadOnlyList<IReadOnlyList<MarkdownTableCell>> rows)
@@ -54,6 +57,7 @@ internal sealed class DocxBlockOutput(MarkdownOutput output)
         None,
         Paragraph,
         ListItem,
+        ListContinuation,
         Table
     }
 }

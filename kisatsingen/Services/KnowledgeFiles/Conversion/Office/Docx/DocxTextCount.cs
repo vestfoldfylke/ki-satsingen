@@ -1,11 +1,13 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
+using M = DocumentFormat.OpenXml.Math;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 // How much text a document has, for noticing text a conversion lost without
-// a sound: the characters in its text elements, outside what DocxSkippedText
-// leaves out on purpose. Whitespace isn't counted, since the Markdown trims it.
+// a sound: the characters in its text elements, equations' included, outside
+// what DocxSkippedText leaves out on purpose. Whitespace isn't counted, since
+// the Markdown trims it.
 internal static class DocxTextCount
 {
     public static int Of(DocxContent content, CancellationToken ct) =>
@@ -30,7 +32,7 @@ internal static class DocxTextCount
                 continue;
             }
 
-            if (element is Text text)
+            if (element is (Text or M.Text) and OpenXmlLeafTextElement text)
             {
                 characters += NonWhitespaceCharacters(text.Text);
                 continue;

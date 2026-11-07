@@ -1,28 +1,45 @@
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 // Text from a paragraph's runs, with the formatting it has. Text may hold
-// "\n" for a line break; IsParagraphBreak is a page break, which ends the
-// paragraph and starts a new one.
-internal readonly record struct DocxPiece(string Text, RunFormatting Formatting, bool IsParagraphBreak = false)
+// "\n" for a line break. Markdown is written as it is, such as a link or an
+// equation; a paragraph break is a page break, which ends the paragraph and
+// starts a new one.
+internal readonly record struct DocxPiece(string Text, RunFormatting Formatting, DocxPieceKind Kind = DocxPieceKind.Text)
 {
-    public static readonly DocxPiece ParagraphBreak = new("", default, IsParagraphBreak: true);
+    public static readonly DocxPiece ParagraphBreak = new("", default, DocxPieceKind.ParagraphBreak);
+
+    public static DocxPiece Markdown(string markdown, RunFormatting formatting) => new(markdown, formatting, DocxPieceKind.Markdown);
 }
 
-// Writes pieces as inline Markdown: their text with **, * and ~~ around the
-// formatted parts. Lines are separated by "\n" and paragraphs by "\n\n"; the
-// caller decides how a block writes them.
+internal enum DocxPieceKind
+{
+    Text,
+    Markdown,
+    ParagraphBreak
+}
+
+// Writes pieces as inline Markdown: their text, escaped, with **, * and ~~
+// around the formatted parts, code in backticks, and raised and lowered text
+// in <sup> and <sub>. Lines are separated by "\n" and paragraphs by "\n\n";
+// the caller decides how a block writes them.
 //
 // A marker opens when the formatting starts and closes when it ends, not per
 // piece: Word splits text into runs at every edit, and markers per run give
-// "**H****envisning**". Text is not escaped otherwise: a stray * in the text
-// shows as a literal * at worst, which a reader reads past.
-internal static class DocxInlineMarkdown
+// "**H****envisning**". For the same reason, pieces with the same formatting
+// are joined before they are written, so "s" and "t" raised are one <sup>st</sup>.
+//
+// Spaces and tabs in a row are one space, as Markdown shows them; leaving
+// them would only add characters, such as two spaces where an image was.
+internal static partial class DocxInlineMarkdown
 {
     private const string BoldMarker = "**";
     private const string ItalicMarker = "*";
     private const string StrikeMarker = "~~";
+    private const string SuperscriptTags = "sup";
+    private const string SubscriptTags = "sub";
     private const string ParagraphSeparator = "\n\n";
     private const char LineBreak = '\n';
     private const char Space = ' ';
@@ -36,9 +53,9 @@ internal static class DocxInlineMarkdown
         // marker closes before it, so markers sit outside it: "**Viktig** tekst".
         var pendingWhitespace = new StringBuilder();
 
-        foreach (var piece in pieces)
+        foreach (var piece in Joined(pieces))
         {
-            if (piece.IsParagraphBreak)
+            if (piece.Kind == DocxPieceKind.ParagraphBreak)
             {
                 Close(markdown, openMarkers, keptCount: 0);
                 markdown.Append(ParagraphSeparator);
@@ -54,7 +71,7 @@ internal static class DocxInlineMarkdown
             }
 
             var trailingLength = piece.Text.Length - piece.Text.TrimEnd().Length;
-            var text = piece.Text[leadingLength..^trailingLength];
+            var text = WrittenText(piece with { Text = piece.Text[leadingLength..^trailingLength] });
             pendingWhitespace.Append(piece.Text[..leadingLength]);
 
             var markers = MarkersOf(piece.Formatting);
@@ -72,12 +89,7 @@ internal static class DocxInlineMarkdown
                 }
             }
 
-            // Two line breaks in a row would read as a paragraph break, which
-            // would split an open marker from its closing one.
-            var whitespace = pendingWhitespace.ToString();
-            markdown.Append(whitespace.Contains(LineBreak)
-                ? LineBreak
-                : whitespace);
+            markdown.Append(CollapsedWhitespace(pendingWhitespace.ToString()));
 
             pendingWhitespace.Clear();
 
@@ -100,6 +112,59 @@ internal static class DocxInlineMarkdown
         return markdown.ToString();
     }
 
+    private static IEnumerable<DocxPiece> Joined(IReadOnlyList<DocxPiece> pieces)
+    {
+        DocxPiece? pending = null;
+
+        foreach (var piece in pieces)
+        {
+            if (pending is { Kind: DocxPieceKind.Text } previous && piece.Kind == DocxPieceKind.Text && previous.Formatting == piece.Formatting)
+            {
+                pending = previous with { Text = previous.Text + piece.Text };
+                continue;
+            }
+
+            if (pending is { } written)
+            {
+                yield return written;
+            }
+
+            pending = piece;
+        }
+
+        if (pending is { } last)
+        {
+            yield return last;
+        }
+    }
+
+    // A piece's text as Markdown, without the markers around it.
+    private static string WrittenText(DocxPiece piece)
+    {
+        if (piece.Kind == DocxPieceKind.Markdown)
+        {
+            return piece.Text;
+        }
+
+        var text = LineBreakRun().Replace(piece.Text, LineBreak.ToString());
+        var span = piece.Formatting.IsCode
+            ? DocxMarkdownCode.Span(text)
+            : DocxMarkdownEscape.Inline(SpaceRun().Replace(text, Space.ToString()));
+
+        return piece.Formatting.VerticalPosition switch
+        {
+            DocxVerticalPosition.Superscript => $"<{SuperscriptTags}>{span}</{SuperscriptTags}>",
+            DocxVerticalPosition.Subscript => $"<{SubscriptTags}>{span}</{SubscriptTags}>",
+            _ => span
+        };
+    }
+
+    // Two line breaks in a row would read as a paragraph break, which
+    // would split an open marker from its closing one.
+    private static string CollapsedWhitespace(string whitespace) => whitespace.Contains(LineBreak)
+        ? LineBreak.ToString()
+        : SpaceRun().Replace(whitespace, Space.ToString());
+
     // Splits what Write wrote into its paragraphs, each its trimmed lines.
     // Empty lines and paragraphs are dropped.
     public static List<List<string>> ParagraphsOf(string markdown) => markdown
@@ -111,13 +176,6 @@ internal static class DocxInlineMarkdown
             .ToList())
         .Where(lines => lines.Count > 0)
         .ToList();
-
-    // A line starting with # would become a heading, and DocumentOutline makes
-    // sections from headings; one starting with > would become a quote.
-    public static string EscapeBlockStart(string line) =>
-        line.StartsWith('#') || line.StartsWith('>') || line.All(character => character == '=') || line.All(character => character == '-')
-            ? $"\\{line}"
-            : line;
 
     // In opening order, so bold and italic together give "***text***".
     private static List<string> MarkersOf(RunFormatting formatting)
@@ -158,4 +216,11 @@ internal static class DocxInlineMarkdown
     private static bool IsPunctuation(char character) => char.IsPunctuation(character) || char.IsSymbol(character);
 
     private static bool IsWordCharacter(char character) => !char.IsWhiteSpace(character) && !IsPunctuation(character);
+
+    // Spaces around a line break are dropped with it, as are further breaks.
+    [GeneratedRegex("[ \t]*\n[ \t\n]*")]
+    private static partial Regex LineBreakRun();
+
+    [GeneratedRegex("[ \t]+")]
+    private static partial Regex SpaceRun();
 }
