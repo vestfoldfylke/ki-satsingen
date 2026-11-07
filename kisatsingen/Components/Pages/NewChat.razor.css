@@ -1,9 +1,10 @@
-/* Greeting + composer as one vertically centered group. Nothing scrolls here,
-   so there's no scroll container, no sticky and no fade. */
+/* Greeting + composer as one vertically centered group, with no scroll
+   container, sticky or fade of its own. Safe: in a window too short for the
+   group, it starts at the top instead, where .content can scroll to all of it. */
 .new-chat {
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: safe center;
     flex: 1;
     min-height: 0;
     gap: 1.5rem;
