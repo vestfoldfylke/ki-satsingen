@@ -25,7 +25,7 @@ public sealed class DocxCancellationTests
         DocxNotes.None);
 
     private static DocxParagraphReader Reader(CancellationToken ct) =>
-        new(DocxStyles.FromXml(null), DocxHyperlinks.None, new DocxNoteReferences(DocxNotes.None, DocxNotes.None), new DocxTextTally(int.MaxValue), ct);
+        new(DocxStyles.FromXml(null), DocxHyperlinks.None, new DocxNoteReferences(DocxNotes.None, DocxNotes.None), new DocxTextTally(maxCharacters: int.MaxValue), ct);
 
     // Before the file is even opened, so a broken file isn't reported as unreadable.
     [Fact]
@@ -68,7 +68,7 @@ public sealed class DocxCancellationTests
     {
         var equation = new OfficeMath("<m:oMath xmlns:m=\"http://schemas.openxmlformats.org/officeDocument/2006/math\"><m:r><m:t>x</m:t></m:r></m:oMath>");
 
-        Assert.Throws<OperationCanceledException>(() => new DocxMath(new DocxTextTally(int.MaxValue), Cancelled).Latex(equation));
+        Assert.Throws<OperationCanceledException>(() => new DocxMath(new DocxTextTally(maxCharacters: int.MaxValue), Cancelled).Latex(equation));
     }
 
     [Fact]
