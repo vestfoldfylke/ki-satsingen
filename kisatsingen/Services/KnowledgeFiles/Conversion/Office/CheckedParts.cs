@@ -9,8 +9,8 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office;
 // reads must be loaded through RootOf: the SDK's own getters, such as
 // MainDocumentPart.Document, load without these checks.
 //
-// One instance per file, since the element limit counts every part the file
-// loads.
+// One instance per file, since the size and element limits count every part
+// the file loads.
 internal sealed class CheckedParts(CancellationToken ct)
 {
     // Real documents nest under 50 deep, even with tables in tables. Loading a
@@ -18,23 +18,26 @@ internal sealed class CheckedParts(CancellationToken ct)
     private const int MaxDepth = 256;
 
     // A loaded element takes a few hundred bytes. All of a file's parts are
-    // loaded at once, so the limit is for the file, not each part: per part,
-    // five parts near the limit took about a gigabyte. A 300-page document is
-    // around 600,000 elements in all.
+    // loaded at once, so the limit is for the file, not each part. A 300-page
+    // document is around 600,000 elements in all.
     private const int MaxElementsPerFile = 1_000_000;
 
-    // Bounds what the element limit can't, such as one huge text node.
-    // Fifty million characters is several times the largest real document.
-    private const int MaxCharactersPerPart = 50_000_000;
+    // Bounds what the element limit can't, such as one huge text node. Real
+    // documents have 30-45 bytes of XML per element, so a file at the element
+    // limit has about 45 MB. Counted by reading the part, since a zip entry
+    // can hold more than the size it declares.
+    private const long MaxBytesPerFile = 50_000_000;
+
+    private const int ReadBufferBytes = 16_384;
 
     // A DTD can expand entities to gigabytes, and nothing Office writes has one.
     private static readonly XmlReaderSettings CheckReaderSettings = new()
     {
         DtdProcessing = DtdProcessing.Prohibit,
         XmlResolver = null,
-        MaxCharactersInDocument = MaxCharactersPerPart,
     };
 
+    private long _bytesLeft = MaxBytesPerFile;
     private int _elementsLeft = MaxElementsPerFile;
 
     // A new instance each time, since OpenSettings is mutable. Alternate
@@ -42,7 +45,6 @@ internal sealed class CheckedParts(CancellationToken ct)
     // SDK keeps both, and a text box comes out twice.
     public static OpenSettings OpenSettings => new()
     {
-        MaxCharactersInPart = MaxCharactersPerPart,
         MarkupCompatibilityProcessSettings = new MarkupCompatibilityProcessSettings(
             MarkupCompatibilityProcessMode.ProcessLoadedPartsOnly,
             FileFormatVersions.Office2019),
@@ -50,11 +52,12 @@ internal sealed class CheckedParts(CancellationToken ct)
 
     // The part's root element, or null when there is no such part or its root
     // isn't a T. Throws XmlException when the part is too deep, or the file's
-    // parts together have too many elements.
+    // parts together are too large or have too many elements. A part loaded
+    // twice is counted twice.
     //
-    // ct is checked per element of the streaming pass and once before the SDK
-    // loads the part. That loading can't be cancelled; the limits keep it to
-    // about a second.
+    // ct is checked per buffer and per element of the streaming passes, and
+    // once before the SDK loads the part. That loading can't be cancelled;
+    // the limits keep it to about a second.
     public T? RootOf<T>(OpenXmlPart? part) where T : OpenXmlPartRootElement
     {
         if (part is null)
@@ -62,19 +65,38 @@ internal sealed class CheckedParts(CancellationToken ct)
             return null;
         }
 
-        // A streaming pass first: it reads at XmlReader's speed and memory,
-        // and refuses a part before the SDK spends minutes or gigabytes on it.
+        // Streaming passes first: they read in small buffers, and refuse a part
+        // before the SDK spends minutes or gigabytes on it.
+        RejectTooLarge(part);
+
         using (var stream = part.GetStream(FileMode.Open, FileAccess.Read))
         using (var reader = XmlReader.Create(stream, CheckReaderSettings))
         {
-            RejectTooDeepOrTooLarge(reader);
+            RejectTooDeepOrTooManyElements(reader);
         }
 
         ct.ThrowIfCancellationRequested();
         return part.RootElement as T;
     }
 
-    private void RejectTooDeepOrTooLarge(XmlReader reader)
+    private void RejectTooLarge(OpenXmlPart part)
+    {
+        using var stream = part.GetStream(FileMode.Open, FileAccess.Read);
+        var buffer = new byte[ReadBufferBytes];
+        int bytesRead;
+        while ((bytesRead = stream.Read(buffer)) > 0)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            _bytesLeft -= bytesRead;
+            if (_bytesLeft < 0)
+            {
+                throw new XmlException($"The file's parts together are larger than {MaxBytesPerFile} bytes.");
+            }
+        }
+    }
+
+    private void RejectTooDeepOrTooManyElements(XmlReader reader)
     {
         while (reader.Read())
         {

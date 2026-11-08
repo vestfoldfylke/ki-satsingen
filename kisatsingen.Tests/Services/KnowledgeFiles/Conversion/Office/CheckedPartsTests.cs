@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using kisatsingen.Services.KnowledgeFiles.Conversion.Office;
 using Xunit;
 using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.Docx.TestDocx;
+using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.TestPackage;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office;
 
@@ -64,8 +65,6 @@ public sealed class CheckedPartsTests
         Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
     }
 
-    // All of a file's parts are loaded at once, so five parts each just under a
-    // per-part limit would add up to about a gigabyte.
     [Fact]
     public void Parts_each_under_the_element_limit_are_refused_when_together_they_are_over_it()
     {
@@ -76,6 +75,27 @@ public sealed class CheckedPartsTests
         parts.RootOf<Document>(document.MainDocumentPart);
 
         Assert.Throws<XmlException>(() => parts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart));
+    }
+
+    // A huge text or attribute is one element, so only the size limit stops it.
+    [Fact]
+    public void Parts_each_under_the_size_limit_are_refused_when_together_they_are_over_it()
+    {
+        var text = new string('a', 26_000_000);
+        using var document = Open(WithParts(Paragraph(text), styles: $"<w:style><w:name w:val=\"{text}\"/></w:style>"));
+        var parts = new CheckedParts(CancellationToken.None);
+        parts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.Throws<XmlException>(() => parts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart));
+    }
+
+    [Fact]
+    public void A_part_is_counted_by_what_it_holds_not_by_the_size_it_declares()
+    {
+        var docx = WithDeclaredUncompressedSizes(WithStoredEntries(WithParagraphs(new string('a', 51_000_000))), ("word/document.xml", 1_000));
+        using var document = Open(docx);
+
+        Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
     }
 
     // Loading a large part takes a second or more, so a cancelled conversion stops before it.

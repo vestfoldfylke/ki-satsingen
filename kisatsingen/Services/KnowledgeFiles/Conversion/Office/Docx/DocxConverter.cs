@@ -15,7 +15,7 @@ internal static class DocxConverter
 
         try
         {
-            if (PackageCheck.ExceedsDeclaredSize(stream, limits.MaxUncompressedBytes))
+            if (PackageCheck.CanUnpackToMoreThan(stream, limits.MaxUncompressedBytes))
             {
                 return OfficeConversionResult.TooLarge(ConversionRejections.DocxTooLargeUncompressed);
             }
@@ -44,7 +44,6 @@ internal static class DocxConverter
 
     // The only code that touches the file. A missing main part or body is a
     // broken file, not a null for the writer to check.
-    // Every part is loaded through one CheckedParts.
     private static DocxContent Load(Stream stream, CancellationToken ct)
     {
         stream.Position = 0;
