@@ -45,6 +45,9 @@ internal sealed class DocxBodyWriter
     public static int Write(DocxContent content, MarkdownOutput output, CancellationToken ct)
     {
         var blocks = new DocxBlockOutput(output);
+        // The tally refuses a document as soon as its text passes the Markdown's
+        // limit, instead of after the Markdown is built. Every character it
+        // counts ends up in the Markdown, so it never refuses a document that fits.
         var tally = new DocxTextTally(output.MaxCharacters);
         var noteReferences = new DocxNoteReferences(content.Footnotes, content.Endnotes);
 

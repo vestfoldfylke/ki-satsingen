@@ -44,8 +44,7 @@ internal static class DocxConverter
 
     // The only code that touches the file. A missing main part or body is a
     // broken file, not a null for the writer to check.
-    // Every part is loaded through one CheckedParts, which counts elements
-    // across all of them and checks ct as it reads.
+    // Every part is loaded through one CheckedParts.
     private static DocxContent Load(Stream stream, CancellationToken ct)
     {
         stream.Position = 0;
