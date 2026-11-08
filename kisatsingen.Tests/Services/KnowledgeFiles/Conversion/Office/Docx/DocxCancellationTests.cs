@@ -68,7 +68,7 @@ public sealed class DocxCancellationTests
     {
         var equation = new OfficeMath("<m:oMath xmlns:m=\"http://schemas.openxmlformats.org/officeDocument/2006/math\"><m:r><m:t>x</m:t></m:r></m:oMath>");
 
-        Assert.Throws<OperationCanceledException>(() => new DocxMath(new DocxTextTally(), Cancelled).Latex(equation));
+        Assert.Throws<OperationCanceledException>(() => new DocxMath(new DocxTextTally(int.MaxValue), Cancelled).Latex(equation));
     }
 
     [Fact]
