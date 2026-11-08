@@ -22,9 +22,10 @@ public sealed class DocxMathTests
         { $"<m:sSubSup><m:e>{MathRun("x")}</m:e><m:sub>{MathRun("i")}</m:sub><m:sup>{MathRun("2")}</m:sup></m:sSubSup>", "x_{i}^{2}" },
         { $"<m:rad><m:radPr><m:degHide m:val=\"1\"/></m:radPr><m:deg/><m:e>{MathRun("x")}</m:e></m:rad>", @"\sqrt{x}" },
         { $"<m:rad><m:deg>{MathRun("3")}</m:deg><m:e>{MathRun("x")}</m:e></m:rad>", @"\sqrt[3]{x}" },
-        { $"<m:nary><m:naryPr><m:chr m:val=\"∑\"/></m:naryPr><m:sub>{MathRun("i=1")}</m:sub><m:sup>{MathRun("n")}</m:sup><m:e>{MathRun("i")}</m:e></m:nary>", @"\sum_{i=1}^{n}i" },
+        { $"<m:nary><m:naryPr><m:chr m:val=\"∑\"/></m:naryPr><m:sub>{MathRun("i=1")}</m:sub><m:sup>{MathRun("n")}</m:sup><m:e>{MathRun("i")}</m:e></m:nary>", @"\sum_{i=1}^{n} i" },
         // Word leaves the character out of an integral.
-        { $"<m:nary><m:sub>{MathRun("0")}</m:sub><m:sup>{MathRun("1")}</m:sup><m:e>{MathRun("f")}</m:e></m:nary>", @"\int_{0}^{1}f" },
+        { $"<m:nary><m:sub>{MathRun("0")}</m:sub><m:sup>{MathRun("1")}</m:sup><m:e>{MathRun("f")}</m:e></m:nary>", @"\int_{0}^{1} f" },
+        { $"<m:nary><m:e>{MathRun("f")}</m:e></m:nary>", @"\int f" },
         { $"<m:d><m:e>{MathRun("a+b")}</m:e></m:d>", "(a+b)" },
         { $"<m:d><m:dPr><m:begChr m:val=\"[\"/><m:endChr m:val=\"]\"/></m:dPr><m:e>{MathRun("a")}</m:e><m:e>{MathRun("b")}</m:e></m:d>", "[a|b]" },
         { $"<m:func><m:fName>{MathRun("sin")}</m:fName><m:e>{MathRun("x")}</m:e></m:func>", @"\sin x" },

@@ -193,7 +193,7 @@ I linje: $E=mc^{2}$.
 
 $x=\frac{-b±\sqrt{b^{2}-4ac}}{2a}$
 
-$\sum_{i=1}^{n}x_{i}$
+$\sum_{i=1}^{n} x_{i}$
 
 **Merknad:** Forventet: \$E=mc^{2}\$ og \$\$\frac{...}{...}\$\$ (Pandoc gjør OMML om til LaTeX).
 

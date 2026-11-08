@@ -155,7 +155,7 @@ internal sealed class DocxMath(DocxTextTally tally, CancellationToken ct)
         return NaryOperators.GetValueOrDefault(character, character) +
             (lower.Length > 0 ? $"_{{{lower}}}" : "") +
             (upper.Length > 0 ? $"^{{{upper}}}" : "") +
-            Latex(nary.Base);
+            " " + Latex(nary.Base);
     }
 
     // Brackets around one or more parts, such as (a+b) or |x|. An empty
