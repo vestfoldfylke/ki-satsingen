@@ -115,26 +115,28 @@ internal static partial class DocxInlineMarkdown
     private static IEnumerable<DocxPiece> Joined(IReadOnlyList<DocxPiece> pieces)
     {
         DocxPiece? pending = null;
+        var pendingText = new StringBuilder();
 
         foreach (var piece in pieces)
         {
             if (pending is { Kind: DocxPieceKind.Text } previous && piece.Kind == DocxPieceKind.Text && previous.Formatting == piece.Formatting)
             {
-                pending = previous with { Text = previous.Text + piece.Text };
+                pendingText.Append(piece.Text);
                 continue;
             }
 
             if (pending is { } written)
             {
-                yield return written;
+                yield return written with { Text = pendingText.ToString() };
             }
 
             pending = piece;
+            pendingText.Clear().Append(piece.Text);
         }
 
         if (pending is { } last)
         {
-            yield return last;
+            yield return last with { Text = pendingText.ToString() };
         }
     }
 
