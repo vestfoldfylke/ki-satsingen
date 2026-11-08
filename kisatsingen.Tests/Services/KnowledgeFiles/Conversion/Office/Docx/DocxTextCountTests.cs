@@ -26,9 +26,6 @@ public sealed class DocxTextCountTests
         Assert.Throws<MarkdownTooLongException>(() => tally.Add("def"));
     }
 
-    // The writer drops empty paragraphs and trims line ends, so whitespace
-    // read may never be written; counting it could refuse a document whose
-    // Markdown fits.
     [Fact]
     public void Whitespace_does_not_count_toward_the_output_limit()
     {
