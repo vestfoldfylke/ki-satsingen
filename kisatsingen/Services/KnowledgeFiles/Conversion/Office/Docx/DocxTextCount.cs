@@ -1,17 +1,19 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
+using M = DocumentFormat.OpenXml.Math;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
-// How much text a document has, for noticing text a conversion lost without
-// a sound: the characters in its text elements, outside what DocxSkippedText
-// leaves out on purpose. Whitespace isn't counted, since the Markdown trims it.
+// How much text a document's body has, for noticing text a conversion lost
+// without a sound: the characters in its text elements, equations' included,
+// outside what DocxSkippedText leaves out on purpose, deleted table rows and
+// the cells a merge covers. Whitespace isn't counted, since the Markdown trims it.
+//
+// Notes aren't counted: a note nothing references is left out on purpose,
+// and DocxBodyWriter.Write counts only the body's text too.
 internal static class DocxTextCount
 {
-    public static int Of(DocxContent content, CancellationToken ct) =>
-        CountIn(content.Body, ct)
-        + content.Footnotes.NotesById.Values.Sum(note => CountIn(note, ct))
-        + content.Endnotes.NotesById.Values.Sum(note => CountIn(note, ct));
+    public static int Of(DocxContent content, CancellationToken ct) => CountIn(content.Body, ct);
 
     public static int NonWhitespaceCharacters(string text) => text.Count(character => !char.IsWhiteSpace(character));
 
@@ -30,7 +32,17 @@ internal static class DocxTextCount
                 continue;
             }
 
-            if (element is Text text)
+            if (element is TableRow row && DocxTables.IsDeleted(row))
+            {
+                continue;
+            }
+
+            if (element is TableCell cell && DocxTables.IsCoveredByMerge(cell.TableCellProperties))
+            {
+                continue;
+            }
+
+            if (element is (Text or M.Text) and OpenXmlLeafTextElement text)
             {
                 characters += NonWhitespaceCharacters(text.Text);
                 continue;

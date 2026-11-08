@@ -2,6 +2,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using kisatsingen.Services.KnowledgeFiles.Conversion.Office;
 using kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 using Xunit;
+using OfficeMath = DocumentFormat.OpenXml.Math.OfficeMath;
 using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.Docx.TestDocx;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.Docx;
@@ -59,6 +60,15 @@ public sealed class DocxCancellationTests
         var content = ContentWithBody(WrappersOnly);
 
         Assert.Throws<OperationCanceledException>(() => new DocxBlockText(Reader(CancellationToken.None), Cancelled).ParagraphsOf(content.Body));
+    }
+
+    // The reader hands a whole equation, however large, to DocxMath.
+    [Fact]
+    public void Writing_an_equation_stops_when_it_is_cancelled()
+    {
+        var equation = new OfficeMath("<m:oMath xmlns:m=\"http://schemas.openxmlformats.org/officeDocument/2006/math\"><m:r><m:t>x</m:t></m:r></m:oMath>");
+
+        Assert.Throws<OperationCanceledException>(() => new DocxMath(new DocxTextTally(), Cancelled).Latex(equation));
     }
 
     [Fact]

@@ -1,5 +1,9 @@
+using System.Globalization;
+using System.Text;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Wordprocessing;
+using M = DocumentFormat.OpenXml.Math;
+using Wp = DocumentFormat.OpenXml.Drawing.Wordprocessing;
 
 namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
@@ -17,9 +21,17 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
     private const string LineBreak = "\n";
     private const string PageBreakType = "page";
 
-    // Within a paragraph, a tab is spacing; at a line's start it would make a code block.
-    private const string TabReplacement = " ";
+    // Kept, since code keeps it. DocxInlineMarkdown writes it as a space, as
+    // at a line's start it would make a code block.
+    private const string Tab = "\t";
     private const string NonBreakingHyphen = "-";
+
+    // A symbol font's characters are in the private use area from F000, and
+    // only mean something in that font, so they are left out. A w:sym below
+    // it is the Unicode character it shows.
+    private const int FirstSymbolFontCharacter = 0xF000;
+
+    private readonly DocxMath _math = new(tally, ct);
 
     // A heading's text has no bold or italic: the # already says it is
     // emphasized. Strikethrough is kept, since struck text is no longer valid.
@@ -57,7 +69,10 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
                     scope.Pieces.Add(new DocxPiece(text.Text, formatting));
                     break;
                 case TabChar or PositionalTab:
-                    scope.Pieces.Add(new DocxPiece(TabReplacement, formatting));
+                    scope.Pieces.Add(new DocxPiece(Tab, formatting));
+                    break;
+                case SymbolChar symbol:
+                    AddSymbol(symbol, formatting, scope);
                     break;
                 case Break lineBreak when lineBreak.Type?.InnerText == PageBreakType:
                     scope.Pieces.Add(DocxPiece.ParagraphBreak);
@@ -76,6 +91,16 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
                     break;
                 case Hyperlink hyperlink:
                     AddHyperlink(hyperlink, formatting, scope);
+                    break;
+                case M.Paragraph mathParagraph:
+                    AddMath(_math.Display(mathParagraph), "$$", formatting, scope);
+                    break;
+                case M.OfficeMath math:
+                    AddMath(_math.Latex(math), "$", formatting, scope);
+                    break;
+                // An image's or chart's description; a text box's paragraphs are further in.
+                case Wp.DocProperties drawing:
+                    AddImageDescription(drawing, scope);
                     break;
                 default:
                     Collect(element, formatting, scope);
@@ -100,10 +125,13 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
             ? styleFormatting.IsStruck
             : ownStrike == true || ownDoubleStrike == true;
 
-        var formatting = new RunFormatting(
-            IsBold: DocxToggle.Read(runProperties?.Bold) ?? styleFormatting.IsBold,
-            IsItalic: DocxToggle.Read(runProperties?.Italic) ?? styleFormatting.IsItalic,
-            IsStruck: isStruck);
+        var formatting = styleFormatting with
+        {
+            IsBold = DocxToggle.Read(runProperties?.Bold) ?? styleFormatting.IsBold,
+            IsItalic = DocxToggle.Read(runProperties?.Italic) ?? styleFormatting.IsItalic,
+            IsStruck = isStruck,
+            VerticalPosition = DocxStyles.ReadVerticalPosition(runProperties?.VerticalTextAlignment) ?? styleFormatting.VerticalPosition
+        };
 
         return scope.AllowsEmphasis
             ? formatting
@@ -114,7 +142,35 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
     {
         if (OpenXmlValues.ValueOf(id) is { } noteId && noteReferences.Reference(kind, noteId) is { } label)
         {
-            scope.Pieces.Add(new DocxPiece(label, formatting));
+            scope.Pieces.Add(DocxPiece.Markdown(label, formatting));
+        }
+    }
+
+    private static void AddSymbol(SymbolChar symbol, RunFormatting formatting, Scope scope)
+    {
+        if (int.TryParse(symbol.Char?.Value, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var codePoint) &&
+            codePoint < FirstSymbolFontCharacter && Rune.IsValid(codePoint))
+        {
+            scope.Pieces.Add(new DocxPiece(char.ConvertFromUtf32(codePoint), formatting));
+        }
+    }
+
+    private static void AddMath(string latex, string delimiter, RunFormatting formatting, Scope scope)
+    {
+        if (latex.Length > 0)
+        {
+            scope.Pieces.Add(DocxPiece.Markdown($"{delimiter}{latex}{delimiter}", formatting));
+        }
+    }
+
+    // The description is alt text written for this; the title is a fallback.
+    // An image with neither is left out, as there is nothing to say about it.
+    private static void AddImageDescription(Wp.DocProperties drawing, Scope scope)
+    {
+        var description = new[] { drawing.Description?.Value, drawing.Title?.Value }.FirstOrDefault(text => !string.IsNullOrWhiteSpace(text));
+        if (description is not null)
+        {
+            scope.Pieces.Add(DocxPiece.Markdown(DocxMarkdownLinks.Image(description), default));
         }
     }
 
@@ -137,7 +193,7 @@ internal sealed class DocxParagraphReader(DocxStyles styles, DocxHyperlinks hype
         var text = DocxInlineMarkdown.Write(linkScope.Pieces).ReplaceLineEndings(" ").Trim();
         if (text.Length > 0)
         {
-            scope.Pieces.Add(new DocxPiece(DocxMarkdownLinks.Link(text, url), default));
+            scope.Pieces.Add(DocxPiece.Markdown(DocxMarkdownLinks.Link(text, url), default));
         }
     }
 

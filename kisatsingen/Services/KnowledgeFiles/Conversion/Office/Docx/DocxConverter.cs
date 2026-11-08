@@ -7,8 +7,6 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion.Office.Docx;
 
 internal static class DocxConverter
 {
-    // Throws OperationCanceledException as soon as ct is cancelled, also
-    // before any work starts.
     public static OfficeConversionResult Convert(Stream stream, OfficeLimits limits, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -36,7 +34,6 @@ internal static class DocxConverter
             var writtenTextCharacters = DocxBodyWriter.Write(content, output, ct);
             var sourceTextCharacters = DocxTextCount.Of(content, ct);
 
-            // A table ends its last line itself.
             return OfficeConversionResult.Converted(output.ToString().TrimEnd('\n'), writtenTextCharacters, sourceTextCharacters);
         }
         catch (MarkdownTooLongException ex)
@@ -90,10 +87,10 @@ internal static class DocxConverter
     private static DocxHyperlinks ReadHyperlinks(OpenXmlPart part)
     {
         var urlsById = new Dictionary<string, string>(StringComparer.Ordinal);
+        // As written: Uri's own forms change it, such as a slash added after the host.
         foreach (var relationship in part.HyperlinkRelationships)
         {
-            var uri = relationship.Uri;
-            urlsById.TryAdd(relationship.Id, uri.IsAbsoluteUri ? uri.AbsoluteUri : uri.OriginalString);
+            urlsById.TryAdd(relationship.Id, relationship.Uri.OriginalString);
         }
 
         return new DocxHyperlinks(urlsById);

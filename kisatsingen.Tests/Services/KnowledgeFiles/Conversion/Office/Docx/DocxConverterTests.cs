@@ -107,4 +107,49 @@ public sealed class DocxConverterTests
 
         Assert.Equal((6, 6), (result.WrittenTextCharacters, result.SourceTextCharacters));
     }
+
+    // A note nothing references is left out on purpose, so notes count on neither side.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Only_the_body_s_text_is_counted_whether_its_notes_are_written_or_not(bool isReferenced)
+    {
+        var reference = isReferenced ? "<w:r><w:footnoteReference w:id=\"1\"/></w:r>" : "";
+        var docx = WithParts(
+            $"<w:p>{Run("Tekst")}{reference}</w:p>",
+            footnotes: $"<w:footnote w:id=\"1\">{Paragraph("Fotnote")}</w:footnote>",
+            endnotes: $"<w:endnote w:id=\"1\">{Paragraph("Sluttnote")}</w:endnote>");
+
+        var result = Convert(docx);
+
+        Assert.Equal((5, 5), (result.WrittenTextCharacters, result.SourceTextCharacters));
+    }
+
+    // Tracked changes are read as accepted, so the table leaves the row out.
+    [Fact]
+    public void Text_in_a_deleted_table_row_is_not_counted()
+    {
+        var docx = WithBody(
+            $"<w:tbl><w:tr><w:tc>{Paragraph("Beholdt")}</w:tc></w:tr>" +
+            $"<w:tr><w:trPr><w:del w:id=\"1\" w:author=\"A\"/></w:trPr><w:tc>{Paragraph("Slettet")}</w:tc></w:tr></w:tbl>");
+
+        var result = Convert(docx);
+
+        Assert.Equal((7, 7), (result.WrittenTextCharacters, result.SourceTextCharacters));
+    }
+
+    // The table writes a merged cell's text from the cell that starts the merge only.
+    [Theory]
+    [InlineData("<w:vMerge/>")]
+    [InlineData("<w:hMerge/>")]
+    public void Text_in_a_cell_a_merge_covers_is_not_counted(string merge)
+    {
+        var docx = WithBody(
+            $"<w:tbl><w:tr><w:tc>{Paragraph("Start")}</w:tc></w:tr>" +
+            $"<w:tr><w:tc><w:tcPr>{merge}</w:tcPr>{Paragraph("Dekket")}</w:tc></w:tr></w:tbl>");
+
+        var result = Convert(docx);
+
+        Assert.Equal((5, 5), (result.WrittenTextCharacters, result.SourceTextCharacters));
+    }
 }

@@ -18,8 +18,7 @@ internal static class DocxTables
         {
             ct.ThrowIfCancellationRequested();
 
-            // A tracked deletion of the whole row, read as accepted.
-            if (row.TableRowProperties?.GetFirstChild<Deleted>() is not null)
+            if (IsDeleted(row))
             {
                 continue;
             }
@@ -53,9 +52,12 @@ internal static class DocxTables
         return cells;
     }
 
+    // A tracked deletion of the whole row, read as accepted.
+    public static bool IsDeleted(TableRow row) => row.TableRowProperties?.GetFirstChild<Deleted>() is not null;
+
     // A merge's text is in the cell that starts it (val="restart"); a merge
     // element without that value continues the one before.
-    private static bool IsCoveredByMerge(TableCellProperties? properties) =>
+    public static bool IsCoveredByMerge(TableCellProperties? properties) =>
         properties?.VerticalMerge is { } verticalMerge && verticalMerge.Val?.InnerText != RestartMergeValue
         || properties?.HorizontalMerge is { } horizontalMerge && horizontalMerge.Val?.InnerText != RestartMergeValue;
 
