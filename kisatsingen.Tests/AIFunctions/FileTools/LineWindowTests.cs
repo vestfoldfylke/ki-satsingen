@@ -18,8 +18,8 @@ public sealed class LineWindowTests
         var window = Read("en\nto\ntre\nfire", start: 2, end: 3);
 
         Assert.Equal("2\tto\n3\ttre", window.Content);
-        Assert.Equal(2, window.FirstLine);
-        Assert.Equal(3, window.LastLine);
+        Assert.Equal(2, window.StartLine);
+        Assert.Equal(3, window.EndLine);
         Assert.Null(window.ContinueFromLine);
     }
 
@@ -28,7 +28,7 @@ public sealed class LineWindowTests
     {
         var window = Read("en\nto", start: 1, end: 50);
 
-        Assert.Equal(2, window.LastLine);
+        Assert.Equal(2, window.EndLine);
         Assert.Null(window.ContinueFromLine);
     }
 
@@ -41,7 +41,7 @@ public sealed class LineWindowTests
 
         var window = Read(string.Join('\n', Enumerable.Repeat(line, 5)), start: 1, end: 5, maxTokens: 30);
 
-        Assert.Equal(2, window.LastLine);
+        Assert.Equal(2, window.EndLine);
         Assert.Equal(3, window.ContinueFromLine);
     }
 
@@ -50,7 +50,7 @@ public sealed class LineWindowTests
     {
         var window = Read(new string('x', 60) + "\nneste", start: 1, end: 2, maxTokens: 1);
 
-        Assert.Equal(1, window.LastLine);
+        Assert.Equal(1, window.EndLine);
         Assert.Equal(2, window.ContinueFromLine);
     }
 
@@ -67,7 +67,7 @@ public sealed class LineWindowTests
     {
         var window = Read("Tekst\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n\nEtter", start: 1, end: 4);
 
-        Assert.Equal(6, window.LastLine);
+        Assert.Equal(6, window.EndLine);
         Assert.Null(window.ContinueFromLine);
     }
 
@@ -79,8 +79,8 @@ public sealed class LineWindowTests
 
         var window = Read(markdown, start: 1, end: 3, maxTokens: 50);
 
-        Assert.True(window.LastLine is > 3 and < 22, $"Expected the read to run past line 3 into the table but stop before its end, got {window.LastLine}.");
-        Assert.Equal(window.LastLine + 1, window.ContinueFromLine);
+        Assert.True(window.EndLine is > 3 and < 22, $"Expected the read to run past line 3 into the table but stop before its end, got {window.EndLine}.");
+        Assert.Equal(window.EndLine + 1, window.ContinueFromLine);
     }
 
     [Fact]

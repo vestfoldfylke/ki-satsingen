@@ -41,7 +41,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 
         var file = Assert.Single(result.GetProperty("files").EnumerateArray());
         Assert.Equal(fileId.ToString(), file.GetProperty("fileId").GetString());
-        Assert.Equal("budsjett.md", file.GetProperty("name").GetString());
+        Assert.Equal("budsjett.md", file.GetProperty("fileName").GetString());
         Assert.Equal(9, file.GetProperty("lineCount").GetInt32());
     }
 
@@ -66,7 +66,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var result = await InvokeAsync(OwnerId, chatId, "get_outline", new() { ["fileId"] = fileId.ToString() });
 
         var entries = result.GetProperty("entries").EnumerateArray()
-            .Select(entry => (entry.GetProperty("line").GetInt32(), entry.GetProperty("endLine").GetInt32(), entry.GetProperty("kind").GetString()));
+            .Select(entry => (entry.GetProperty("startLine").GetInt32(), entry.GetProperty("endLine").GetInt32(), entry.GetProperty("kind").GetString()));
         Assert.Equal([(1, 9, "heading"), (5, 9, "heading"), (7, 9, "table")], entries);
     }
 
@@ -76,7 +76,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var chatId = await CreateChatAsync(OwnerId);
         var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
 
-        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Equal("1\t# Budsjett\n2\t\n3\tInnledning.", result.GetProperty("content").GetString());
     }
@@ -88,7 +88,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var fileId = await SaveAsync(OwnerId, otherChatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
         var chatId = await CreateChatAsync(OwnerId);
 
-        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
     }
@@ -126,7 +126,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "list_files", []);
 
         var listed = result.GetProperty("files").EnumerateArray()
-            .Select(file => (file.GetProperty("name").GetString(), file.GetProperty("source").GetString()));
+            .Select(file => (file.GetProperty("fileName").GetString(), file.GetProperty("source").GetString()));
         Assert.Equal([("rundskriv.md", "assistant"), ("budsjett.md", "chat")], listed);
     }
 
@@ -137,7 +137,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var fileId = await SaveIntoAssistantAsync(OtherOwnerId, assistantId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
         var chatId = await CreateChatAsync(OwnerId);
 
-        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Equal("1\t# Budsjett\n2\t\n3\tInnledning.", result.GetProperty("content").GetString());
     }
@@ -149,7 +149,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var chatId = await CreateChatAsync(OwnerId);
         var fileId = await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
 
-        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+        var result = await InvokeAsync(new KnowledgeFileScope(OwnerId, chatId, assistantId), "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Equal("1\t# Budsjett\n2\t\n3\tInnledning.", result.GetProperty("content").GetString());
     }
@@ -161,7 +161,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var fileId = await SaveIntoAssistantAsync(OtherOwnerId, assistantId, KnowledgeFileFactory.NewFile("budsjett.md", Budget));
         var chatId = await CreateChatAsync(OwnerId);
 
-        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["start"] = 1, ["end"] = 3 });
+        var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
     }

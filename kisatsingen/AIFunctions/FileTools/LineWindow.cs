@@ -6,7 +6,7 @@ namespace kisatsingen.AIFunctions.FileTools;
 // Content is the lines numbered like `cat -n`, the form models already know
 // from reading code. ContinueFromLine is set when the cap cut the range short.
 // RangeEndLine is end clamped to the file and extended to a table's end.
-internal sealed record LineWindowResult(int FirstLine, int LastLine, string Content, int? ContinueFromLine, int RangeEndLine);
+internal sealed record LineWindowResult(int StartLine, int EndLine, string Content, int? ContinueFromLine, int RangeEndLine);
 
 // Which lines one read_file call returns. Pure: the tool validates the range
 // before calling, so start is a line of the file and end is not before it.
