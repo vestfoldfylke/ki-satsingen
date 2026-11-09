@@ -102,7 +102,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     public async Task UpdateAssistantDetailsAsync_leaves_the_instructions_as_they_are()
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
-        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.");
+        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.", areBaseInstructionsDisabled: false);
 
         await Repo.UpdateAssistantDetailsAsync(OwnerId, assistant.Id, "Ny saksbehandler", null, AssistantVisibility.Private);
 
@@ -115,7 +115,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
 
-        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.");
+        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.", areBaseInstructionsDisabled: false);
 
         var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
         Assert.Equal("Du er hjelpsom.", stored?.Instructions);
@@ -125,12 +125,23 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     public async Task UpdateAssistantInstructionsAsync_clears_the_instructions_when_given_blank()
     {
         var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
-        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.");
+        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.", areBaseInstructionsDisabled: false);
 
-        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "   ");
+        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "   ", areBaseInstructionsDisabled: false);
 
         var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
         Assert.Null(stored?.Instructions);
+    }
+
+    [Fact]
+    public async Task UpdateAssistantInstructionsAsync_stores_whether_the_base_instructions_are_disabled()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
+
+        await Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, "Du er hjelpsom.", areBaseInstructionsDisabled: true);
+
+        var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
+        Assert.True(stored?.AreBaseInstructionsDisabled);
     }
 
     [Fact]
@@ -140,7 +151,7 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var tooLong = new string('a', Assistant.MaxInstructionsLength + 1);
 
         await Assert.ThrowsAsync<ArgumentException>(
-            () => Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, tooLong));
+            () => Repo.UpdateAssistantInstructionsAsync(OwnerId, assistant.Id, tooLong, areBaseInstructionsDisabled: false));
     }
 
     [Fact]

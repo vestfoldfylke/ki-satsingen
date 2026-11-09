@@ -8,5 +8,6 @@ public static class AuthorizationPolicies
     public const string IsAdministrator = "IsAdministrator";
     public const string CanContributeOrganizationWide = "CanContributeOrganizationWide";
     public const string CanEditAssistant = "CanEditAssistant";
+    public const string CanDisableBaseInstructions = "CanDisableBaseInstructions";
     public const string CanReadMetrics = "CanReadMetrics";
 }
