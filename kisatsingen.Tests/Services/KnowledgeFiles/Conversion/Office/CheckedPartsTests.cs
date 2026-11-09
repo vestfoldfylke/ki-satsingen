@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Wordprocessing;
 using kisatsingen.Services.KnowledgeFiles.Conversion.Office;
 using Xunit;
 using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.Docx.TestDocx;
+using static kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office.TestPackage;
 
 namespace kisatsingen.Tests.Services.KnowledgeFiles.Conversion.Office;
 
@@ -20,7 +21,7 @@ public sealed class CheckedPartsTests
     {
         using var document = Open(WithBody("<w:p><w:r><w:t>Hei</w:t></w:r></w:p>"));
 
-        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None);
+        var root = new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart);
 
         Assert.Equal("Hei", root!.Body!.InnerText);
     }
@@ -30,7 +31,7 @@ public sealed class CheckedPartsTests
     {
         using var document = Open(WithBody("<w:p/>"));
 
-        var styles = CheckedParts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart, CancellationToken.None);
+        var styles = new CheckedParts(CancellationToken.None).RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart);
 
         Assert.Null(styles);
     }
@@ -40,7 +41,7 @@ public sealed class CheckedPartsTests
     {
         using var document = Open(WithBody(Nested(100)));
 
-        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None);
+        var root = new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart);
 
         Assert.NotNull(root);
     }
@@ -52,7 +53,7 @@ public sealed class CheckedPartsTests
     {
         using var document = Open(WithBody(Nested(50_000)));
 
-        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None));
+        Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
     }
 
     [Fact]
@@ -61,7 +62,40 @@ public sealed class CheckedPartsTests
         var millionAndOneRuns = "<w:p>" + string.Concat(Enumerable.Repeat("<w:r/>", 1_000_001)) + "</w:p>";
         using var document = Open(WithBody(millionAndOneRuns));
 
-        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None));
+        Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
+    }
+
+    [Fact]
+    public void Parts_each_under_the_element_limit_are_refused_when_together_they_are_over_it()
+    {
+        var body = "<w:p>" + string.Concat(Enumerable.Repeat("<w:r/>", 600_000)) + "</w:p>";
+        var styles = string.Concat(Enumerable.Repeat("<w:style/>", 600_000));
+        using var document = Open(WithParts(body, styles: styles));
+        var parts = new CheckedParts(CancellationToken.None);
+        parts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.Throws<XmlException>(() => parts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart));
+    }
+
+    // A huge text or attribute is one element, so only the size limit stops it.
+    [Fact]
+    public void Parts_each_under_the_size_limit_are_refused_when_together_they_are_over_it()
+    {
+        var text = new string('a', 26_000_000);
+        using var document = Open(WithParts(Paragraph(text), styles: $"<w:style><w:name w:val=\"{text}\"/></w:style>"));
+        var parts = new CheckedParts(CancellationToken.None);
+        parts.RootOf<Document>(document.MainDocumentPart);
+
+        Assert.Throws<XmlException>(() => parts.RootOf<Styles>(document.MainDocumentPart!.StyleDefinitionsPart));
+    }
+
+    [Fact]
+    public void A_part_is_counted_by_what_it_holds_not_by_the_size_it_declares()
+    {
+        var docx = WithDeclaredUncompressedSizes(WithStoredEntries(WithParagraphs(new string('a', 51_000_000))), ("word/document.xml", 1_000));
+        using var document = Open(docx);
+
+        Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
     }
 
     // Loading a large part takes a second or more, so a cancelled conversion stops before it.
@@ -70,7 +104,7 @@ public sealed class CheckedPartsTests
     {
         using var document = Open(WithBody("<w:p><w:r><w:t>Hei</w:t></w:r></w:p>"));
 
-        Assert.Throws<OperationCanceledException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart, new CancellationToken(canceled: true)));
+        Assert.Throws<OperationCanceledException>(() => new CheckedParts(new CancellationToken(canceled: true)).RootOf<Document>(document.MainDocumentPart));
     }
 
     // The "billion laughs" attack nests entities like these until they expand to gigabytes.
@@ -80,7 +114,7 @@ public sealed class CheckedPartsTests
         var documentWithDtd = $"""<?xml version="1.0"?><!DOCTYPE w:document [<!ENTITY lol "lol">]><w:document xmlns:w="{WordNamespace}"><w:body><w:p><w:r><w:t>&lol;</w:t></w:r></w:p></w:body></w:document>""";
         using var document = Open(WithDocumentXml(documentWithDtd));
 
-        Assert.Throws<XmlException>(() => CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None));
+        Assert.Throws<XmlException>(() => new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart));
     }
 
     // Without the setting, the SDK keeps both branches, and a text box's text comes out twice.
@@ -94,7 +128,7 @@ public sealed class CheckedPartsTests
             """;
         using var document = Open(WithBody(body));
 
-        var root = CheckedParts.RootOf<Document>(document.MainDocumentPart, CancellationToken.None);
+        var root = new CheckedParts(CancellationToken.None).RootOf<Document>(document.MainDocumentPart);
 
         Assert.Equal("Tekst", root!.Body!.InnerText);
     }

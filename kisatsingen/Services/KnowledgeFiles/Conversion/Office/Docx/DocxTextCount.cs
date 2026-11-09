@@ -58,10 +58,20 @@ internal static class DocxTextCount
     }
 }
 
-// Counts the document text a conversion wrote, to compare with DocxTextCount.
-internal sealed class DocxTextTally
+// Counts the document text a conversion reads, to compare with DocxTextCount.
+//
+// Throws MarkdownTooLongException once the count passes maxCharacters, so a
+// conversion stops while reading, before too much text is copied into strings.
+internal sealed class DocxTextTally(int maxCharacters)
 {
     public int Characters { get; private set; }
 
-    public void Add(string text) => Characters += DocxTextCount.NonWhitespaceCharacters(text);
+    public void Add(string text)
+    {
+        Characters += DocxTextCount.NonWhitespaceCharacters(text);
+        if (Characters > maxCharacters)
+        {
+            throw new MarkdownTooLongException(maxCharacters);
+        }
+    }
 }

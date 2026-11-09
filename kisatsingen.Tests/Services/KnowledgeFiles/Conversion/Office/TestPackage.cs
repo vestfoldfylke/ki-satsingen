@@ -28,6 +28,25 @@ internal static class TestPackage
         return buffer.ToArray();
     }
 
+    // The same package with every entry stored uncompressed. A stored entry is
+    // read to its end, whatever uncompressed size it declares.
+    public static byte[] WithStoredEntries(byte[] package)
+    {
+        using var source = new ZipArchive(new MemoryStream(package), ZipArchiveMode.Read);
+        using var buffer = new MemoryStream();
+        using (var archive = new ZipArchive(buffer, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            foreach (var entry in source.Entries)
+            {
+                using var from = entry.Open();
+                using var to = archive.CreateEntry(entry.FullName, CompressionLevel.NoCompression).Open();
+                from.CopyTo(to);
+            }
+        }
+
+        return buffer.ToArray();
+    }
+
     // A zip of one stored entry whose central directory declares its size in
     // a ZIP64 extra field, as declaredSize, which can be negative. Built by
     // hand, since .NET won't write a size it knows is wrong. The CRC is left

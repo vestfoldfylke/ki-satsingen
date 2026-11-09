@@ -8,8 +8,8 @@ public sealed class PackageCheckTests
 {
     private const string AnyPartContent = "<part/>";
 
-    private static bool ExceedsDeclaredSize(byte[] package, long maxUncompressedBytes) =>
-        PackageCheck.ExceedsDeclaredSize(new MemoryStream(package), maxUncompressedBytes);
+    private static bool CanUnpackToMoreThan(byte[] package, long maxUncompressedBytes) =>
+        PackageCheck.CanUnpackToMoreThan(new MemoryStream(package), maxUncompressedBytes);
 
     [Fact]
     public void A_package_whose_parts_together_declare_more_than_the_limit_exceeds_it()
@@ -19,7 +19,7 @@ public sealed class PackageCheckTests
             ("word/document.xml", 600),
             ("word/styles.xml", 600));
 
-        var exceeds = ExceedsDeclaredSize(package, maxUncompressedBytes: 1_000);
+        var exceeds = CanUnpackToMoreThan(package, maxUncompressedBytes: 1_000);
 
         Assert.True(exceeds);
     }
@@ -29,9 +29,20 @@ public sealed class PackageCheckTests
     {
         var package = WithDeclaredUncompressedSizes(Zip(("word/document.xml", AnyPartContent)), ("word/document.xml", 1_000));
 
-        var exceeds = ExceedsDeclaredSize(package, maxUncompressedBytes: 1_000);
+        var exceeds = CanUnpackToMoreThan(package, maxUncompressedBytes: 1_000);
 
         Assert.False(exceeds);
+    }
+
+    // A stored entry is read to its compressed size, whatever size it declares.
+    [Fact]
+    public void A_stored_entry_declaring_less_than_it_holds_counts_what_it_holds()
+    {
+        var package = WithDeclaredUncompressedSizes(WithStoredEntries(Zip(("word/document.xml", new string('a', 2_000)))), ("word/document.xml", 10));
+
+        var exceeds = CanUnpackToMoreThan(package, maxUncompressedBytes: 1_000);
+
+        Assert.True(exceeds);
     }
 
     // ZIP64's -1 means "unknown", which leaves .NET reading the entry without a bound.
@@ -42,7 +53,7 @@ public sealed class PackageCheckTests
     {
         var package = WithZip64DeclaredSize("word/document.xml", AnyPartContent, declaredSize);
 
-        var exceeds = ExceedsDeclaredSize(package, maxUncompressedBytes: long.MaxValue);
+        var exceeds = CanUnpackToMoreThan(package, maxUncompressedBytes: long.MaxValue);
 
         Assert.True(exceeds);
     }
@@ -53,7 +64,7 @@ public sealed class PackageCheckTests
         var entries = Enumerable.Range(0, 10_001).Select(index => ($"media/{index}.xml", AnyPartContent)).ToArray();
         var package = Zip(entries);
 
-        Assert.Throws<InvalidDataException>(() => ExceedsDeclaredSize(package, maxUncompressedBytes: long.MaxValue));
+        Assert.Throws<InvalidDataException>(() => CanUnpackToMoreThan(package, maxUncompressedBytes: long.MaxValue));
     }
 
     [Fact]
@@ -61,6 +72,6 @@ public sealed class PackageCheckTests
     {
         var notAZip = "Dette er ikke et Word-dokument."u8.ToArray();
 
-        Assert.Throws<InvalidDataException>(() => ExceedsDeclaredSize(notAZip, maxUncompressedBytes: long.MaxValue));
+        Assert.Throws<InvalidDataException>(() => CanUnpackToMoreThan(notAZip, maxUncompressedBytes: long.MaxValue));
     }
 }
