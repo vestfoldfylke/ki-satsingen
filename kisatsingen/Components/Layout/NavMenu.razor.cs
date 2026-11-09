@@ -33,6 +33,8 @@ public partial class NavMenu : ComponentBase, IDisposable
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
 
+    private bool _chatsOpen = true;
+
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;
 

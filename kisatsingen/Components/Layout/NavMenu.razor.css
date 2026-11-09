@@ -110,15 +110,23 @@
 
 .chat-list-header {
     top: 0;
+    text-decoration: none;
+    color: var(--ds-color-text-default);
+    display: flex;
     position: sticky;
     background: var(--ds-color-neutral-background-default);
-    padding: 0 0.5rem 0.5rem;
+    padding-left: 0.5rem;
     z-index: 1;
 }
 
-.chat-list-header h2 {
-    font-size: 1rem;
-    margin: 0;
+.chat-list-header span {
+    margin-top: 0.05rem;
+    font-size: 1.2rem;
+    transition: transform 0.05s ease-in-out;
+}
+
+.chat-list-header span.open {
+    transform: rotate(90deg);
 }
 
 .chat-list-empty {
