@@ -218,10 +218,9 @@ function onPillClick(): void {
     scrollToBottom(true);
 }
 
-// Opening or closing a <details> resizes the transcript, but it is the user
-// reading where they are, not new content to follow. Click, not toggle: click
-// runs before the <details> opens, while toggle is queued and can arrive after
-// the resize has already been followed. Enter and Space on a summary click too.
+// Opening a <details> is the user reading, not new content, so stop following.
+// On click, not toggle: toggle is queued and can arrive after the resize has
+// been followed. Enter and Space on a summary also click.
 function onSummaryClick(e: MouseEvent): void {
     if (e.target instanceof Element && e.target.closest('summary')) {
         following = false;
