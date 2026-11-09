@@ -16,16 +16,16 @@ else
     <PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
     <div class="chat-layout">
-        <ChatHeader
-            Title="@Title"
-            AssistantName="@Session.AssistantName"
-            AssistantId="Session.AssistantId"
-            FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count + Attachments.All.Count"
-            IsFilesPanelOpen="_isFilesPanelOpen"
-            OnToggleFiles="ToggleFilesPanel"
-        />
+        <div class="chat-column">
+            <ChatHeader
+                Title="@Title"
+                AssistantName="@Session.AssistantName"
+                AssistantId="Session.AssistantId"
+                FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count"
+                IsFilesPanelOpen="_isFilesPanelOpen"
+                OnOpenFilesPanel="OpenFilesPanel"
+            />
 
-        <div class="chat-body">
             <div class="chat-page">
                 <div class="chat-log" role="log" aria-live="polite">
                     <div class="chat-log-inner">
@@ -58,17 +58,19 @@ else
                     </div>
                 </div>
             </div>
-
-            @if (_isFilesPanelOpen)
-            {
-                <ChatFilesPanel
-                    AssistantFiles="Session.AssistantFiles"
-                    ChatFiles="Session.ChatFiles"
-                    Attachments="Attachments.All"
-                    OnRemove="Attachments.Remove"
-                    OnClose="ToggleFilesPanel"
-                />
-            }
         </div>
+
+        @if (_isFilesPanelOpen)
+        {
+            @* Keyed on the chat: the page stays when the chat changes, and
+               a file open in the panel must not stay open in the next one. *@
+            <ChatFilesPanel
+                @key="Session.ChatId"
+                AssistantFiles="Session.AssistantFiles"
+                ChatFiles="Session.ChatFiles"
+                ReadFileText="Session.ReadFileTextAsync"
+                OnClose="CloseFilesPanel"
+            />
+        }
     </div>
 }

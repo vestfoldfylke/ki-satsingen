@@ -68,6 +68,21 @@ h1, h2, h3, h4, h5, h6, .heading-font {
     font-family: var(--ds-font-family);
 }
 
+/* Monospace reads larger than Nunito Sans at the same size. The token's
+   .875rem floor keeps code inside a pre from shrinking a second step. */
+pre, code {
+    font-size: var(--ds-font-size-minus-1);
+}
+
+/* A knowledge file's formatted text, created by chatClient.renderMarkdown, so
+   global: scoped CSS never reaches elements Razor did not render. Blocks out
+   of view are not laid out until scrolled to, which about halves the layout
+   time of a long file. */
+.knowledge-file-viewer-reading > * {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 2rem;
+}
+
 /* Scrolling happens in .content and in the chat log - not in html */
 html {
     overflow-y: clip;

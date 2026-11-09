@@ -10,9 +10,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     public required ChatSession Session { get; set; }
 
     [Inject]
-    public required ChatAttachments Attachments { get; set; }
-
-    [Inject]
     public required ChatManager Manager { get; set; }
 
     [Inject]
@@ -33,14 +30,15 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private string? Title =>
         Manager.Entries.FirstOrDefault(entry => entry.Id == Session.ChatId)?.Title;
 
-    private void ToggleFilesPanel() => _isFilesPanelOpen = !_isFilesPanelOpen;
+    private void OpenFilesPanel() => _isFilesPanelOpen = true;
+
+    private void CloseFilesPanel() => _isFilesPanelOpen = false;
 
     protected override async Task OnParametersSetAsync()
     {
         if (!_stateWired)
         {
             Session.StateChanged += OnSessionChanged;
-            Attachments.Changed += OnSessionChanged;
             Manager.ChatListChanged += OnSessionChanged;
             _stateWired = true;
         }
@@ -74,7 +72,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
         if (_stateWired)
         {
             Session.StateChanged -= OnSessionChanged;
-            Attachments.Changed -= OnSessionChanged;
             Manager.ChatListChanged -= OnSessionChanged;
         }
         // No cancel: this also runs on circuit teardown, where the session's own

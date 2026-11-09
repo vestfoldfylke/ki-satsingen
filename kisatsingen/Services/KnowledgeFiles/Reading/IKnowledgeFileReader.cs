@@ -12,5 +12,8 @@ public interface IKnowledgeFileReader
     Task<IReadOnlyList<KnowledgeFileMetadata>> ListAssistantFilesAsync(KnowledgeFileScope scope, CancellationToken ct);
 
     // Null when the file is outside the scope.
+    Task<KnowledgeFileText?> ReadFileTextAsync(KnowledgeFileScope scope, Guid fileId, CancellationToken ct);
+
+    // Null when the file is outside the scope.
     Task<KnowledgeFileDocument?> OpenFileAsync(KnowledgeFileScope scope, Guid fileId, CancellationToken ct);
 }

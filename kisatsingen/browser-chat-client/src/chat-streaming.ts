@@ -21,6 +21,7 @@ import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
+import { showPlainText } from './file-viewer.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -59,10 +60,44 @@ const md = new MarkdownIt({
     typographer: false,
 });
 
+// An image shows as "[Bilde: alt text]", so rendered Markdown never makes the
+// browser fetch anything (the CSP would block other sites' images anyway), and
+// the reader still sees that an image was there.
+md.renderer.rules.image = (tokens, index) => {
+    const altText = tokens[index]?.content.trim() ?? '';
+    return md.utils.escapeHtml(altText ? `[Bilde: ${altText}]` : '[Bilde]');
+};
+
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
 // model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
 // linking those as before.
 md.linkify.set({ fuzzyLink: true });
+
+const WEB_LINK = /^https?:\/\//i;
+const MAIL_OR_PHONE_LINK = /^(mailto|tel):/i;
+
+// A web link opens in a new tab: leaving the page would stop an answer still
+// being written. Other links, such as a document's relative or #-links, lead
+// nowhere here, so they stay as text.
+DOMPurify.addHook('afterSanitizeAttributes', node => {
+    if (!(node instanceof HTMLAnchorElement)) {
+        return;
+    }
+
+    // The raw attribute: node.href would turn a relative link into a full URL.
+    const href = node.getAttribute('href');
+    if (href === null || MAIL_OR_PHONE_LINK.test(href)) {
+        return;
+    }
+
+    if (WEB_LINK.test(href)) {
+        node.setAttribute('target', '_blank');
+        node.setAttribute('rel', 'noopener noreferrer');
+        return;
+    }
+
+    node.removeAttribute('href');
+});
 
 interface StreamState {
     id: string;
@@ -249,6 +284,7 @@ declare global {
             setComposerUploading: typeof setComposerUploading;
             takeComposerValue: typeof takeComposerValue;
             hidePopover: typeof hidePopover;
+            showPlainText: typeof showPlainText;
         };
     }
 }
@@ -264,4 +300,5 @@ window.chatClient = {
     setComposerUploading,
     takeComposerValue,
     hidePopover,
+    showPlainText,
 };

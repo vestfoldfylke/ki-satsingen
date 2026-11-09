@@ -1,5 +1,4 @@
 @using kisatsingen.Data.Entities
-@using kisatsingen.Services.KnowledgeFiles.Conversion
 
 @* Saved knowledge files, a chat's or an assistant's alike: the list never
    knows whose they are. *@
@@ -7,24 +6,18 @@
     @foreach (var file in Files)
     {
         <li @key="file.Id" class="knowledge-file-list-item">
-            <span class="knowledge-file-list-name">@file.FileName</span>
-            @if (ContentOriginNotes.For(file.ContentOrigin) is string note)
-            {
+            <div class="knowledge-file-list-file">
                 <button
                     type="button"
-                    class="ds-button"
-                    data-variant="tertiary"
-                    data-size="sm"
-                    data-icon="true"
-                    popovertarget="@NoteId(file)"
-                    aria-label="@($"Om innholdet i {file.FileName}")"
+                    class="ds-link knowledge-file-list-name"
+                    command="@(ViewerDialogId is null ? null : "show-modal")"
+                    commandfor="@ViewerDialogId"
+                    @onclick="() => OnOpenRequested.InvokeAsync(file)"
                 >
-                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                    @file.FileName
                 </button>
-                <div class="ds-popover knowledge-file-list-note" id="@NoteId(file)" popover="auto" data-placement="top">
-                    @note
-                </div>
-            }
+                <span class="ds-paragraph knowledge-file-list-date" data-size="xs"><NorwegianDate Value="file.CreatedAt" /></span>
+            </div>
             @if (DeleteDialogId is not null)
             {
                 <button
@@ -48,9 +41,6 @@
 </ul>
 
 @code {
-    // Unique per instance, so two lists of the same files can share a page.
-    private readonly string _idPrefix = $"knowledge-file-list-{Guid.NewGuid():N}";
-
     [Parameter, EditorRequired]
     public required IReadOnlyList<KnowledgeFileMetadata> Files { get; set; }
 
@@ -59,9 +49,16 @@
     [Parameter]
     public string? DeleteDialogId { get; set; }
 
+    // Raised when a file name is clicked, with that file.
+    [Parameter, EditorRequired]
+    public required EventCallback<KnowledgeFileMetadata> OnOpenRequested { get; set; }
+
+    // The dialog that shows a file, owned by whoever owns the files. When set,
+    // clicking a file name also opens that dialog.
+    [Parameter]
+    public string? ViewerDialogId { get; set; }
+
     // Raised as the dialog opens, with the file to delete.
     [Parameter]
     public EventCallback<KnowledgeFileMetadata> OnDeleteRequested { get; set; }
-
-    private string NoteId(KnowledgeFileMetadata file) => $"{_idPrefix}-{file.Id:N}";
 }
