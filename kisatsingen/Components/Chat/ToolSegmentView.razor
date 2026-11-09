@@ -1,0 +1,11 @@
+@if (View.Outcome is ToolOutcome.Running)
+{
+    <p class="text-shimmer" data-color="neutral">@View.Title...</p>
+}
+else
+{
+    <details class="ds-details" data-color="@OutcomeColor">
+        <summary>@View.Title</summary>
+        <pre class="chat-tool-output">@View.ToolCallJson</pre>
+    </details>
+}

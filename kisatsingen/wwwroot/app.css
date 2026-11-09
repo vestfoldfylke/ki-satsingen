@@ -135,9 +135,9 @@ html {
     border: 0;
 }
 
-/* The same as the highlight.js theme's pre code.hljs, so a code block streams
-   in at the size it keeps once highlighting is applied at the end. Scrolls
-   rather than wraps, because a wrapped line of code reads as two. */
+/* Matches highlight.js's pre code.hljs, so a block keeps its size when
+   highlighting lands after streaming. Scrolls, since wrapped code reads as two
+   lines. */
 pre > code {
     display: block;
     padding: 1em;
