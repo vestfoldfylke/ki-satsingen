@@ -4,8 +4,6 @@ namespace kisatsingen.AIFunctions.FileTools;
 // Model behaviour depends on these shapes, so they are pinned by tests.
 internal static class FileToolResults
 {
-    public sealed record ToolError(string Error);
-
     public sealed record ListFilesResult(IReadOnlyList<ListedFile> Files);
 
     public sealed record ListedFile(string FileId, string Source, string FileName, int LineCount, string? Summary, string? OriginNote);

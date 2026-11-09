@@ -40,6 +40,6 @@ internal sealed class ToolInvoker(ILogger<ToolInvoker> logger)
 
     private static string ArgumentError(string reason, string toolName) =>
         JsonSerializer.Serialize(
-            new { error = $"{reason} Send argumentene med navn og typer slik skjemaet for {toolName} oppgir." },
+            new ToolError($"{reason} Send argumentene med navn og typer slik skjemaet for {toolName} oppgir."),
             AIJsonUtilities.DefaultOptions);
 }
