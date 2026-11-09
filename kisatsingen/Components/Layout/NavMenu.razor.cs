@@ -9,6 +9,8 @@ public partial class NavMenu : ComponentBase, IDisposable
 {
     private const int TooltipOnChatListTitleLengthThreshold = 22;
 
+    private const int MaxVisibleChats = 17;
+
     private const string SidebarPanelId = "sidebar-panel";
     private const string UserMenuId = "user-menu-dropdown";
     private static readonly string[] MenuIdsToHideOnNavigation = [SidebarPanelId, UserMenuId];
