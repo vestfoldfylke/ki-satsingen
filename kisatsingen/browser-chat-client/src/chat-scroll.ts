@@ -5,9 +5,9 @@
 //               Updated on every scroll event.
 //   following — user intent: does the user want the log to auto-scroll to bottom
 //               as new content arrives. Only toggled by USER-INITIATED actions
-//               (manual scroll, pill click, opening or closing a <details>).
-//               Programmatic scrolls (popToTop,
-//               scrollToBottom triggered by notifyContentChanged) never toggle it.
+//               (manual scroll, pill click, any click inside a <details>).
+//               Programmatic scrolls (popToTop, scrollToBottom triggered by
+//               notifyContentChanged) never toggle it.
 //
 // On send: popToTop places the new user bubble near the top of the viewport
 // (padding via scroll-padding-top on .chat-log). following is set to false —
@@ -218,11 +218,11 @@ function onPillClick(): void {
     scrollToBottom(true);
 }
 
-// Opening a <details> is the user reading, not new content, so stop following.
-// On click, not toggle: toggle is queued and can arrive after the resize has
-// been followed. Enter and Space on a summary also click.
-function onSummaryClick(e: MouseEvent): void {
-    if (e.target instanceof Element && e.target.closest('summary')) {
+// Opening a <details>, or switching what it shows, is the user reading, not new
+// content, so stop following. On click, not toggle: toggle is queued and can
+// arrive after the resize has been followed. Enter and Space also click.
+function onDetailsClick(e: MouseEvent): void {
+    if (e.target instanceof Element && e.target.closest('details')) {
         following = false;
     }
 }
@@ -301,7 +301,7 @@ export function initChatLog(): void {
             chatLogElement.removeEventListener('wheel', markUserActivity);
             chatLogElement.removeEventListener('touchstart', markUserActivity);
             chatLogElement.removeEventListener('pointerdown', markUserActivity);
-            chatLogElement.removeEventListener('click', onSummaryClick);
+            chatLogElement.removeEventListener('click', onDetailsClick);
             chatLogElement.removeEventListener('keydown', onKeyDown);
         }
         if (scrollToBottomPillElement) {
@@ -318,7 +318,7 @@ export function initChatLog(): void {
         log.addEventListener('wheel', markUserActivity, { passive: true });
         log.addEventListener('touchstart', markUserActivity, { passive: true });
         log.addEventListener('pointerdown', markUserActivity);
-        log.addEventListener('click', onSummaryClick);
+        log.addEventListener('click', onDetailsClick);
         log.addEventListener('keydown', onKeyDown);
 
         if (pill) {

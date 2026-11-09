@@ -91,9 +91,11 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     private static ToolCallText DescribeOutline(ToolOutcome outcome, JsonElement? result) => outcome switch
     {
         ToolOutcome.Running => new(Title: "Lager innholdsfortegnelse"),
-        ToolOutcome.Succeeded when ReadAs<GetOutlineResult>(result) is { FileName: { } fileName } outline => new(
+        ToolOutcome.Succeeded when ReadAs<GetOutlineResult>(result) is { FileName: { } fileName, Entries: { } entries } => new(
             Title: $"Laget innholdsfortegnelse for «{fileName}»",
-            UserFriendlyResult: string.Join('\n', outline.Entries.Select(entry => $"{entry.Title} (linje {entry.StartLine} til {entry.EndLine})"))),
+            UserFriendlyResult: entries.Count == 0
+                ? "Innholdsfortegnelsen er tom"
+                : string.Join('\n', entries.Select(entry => $"{entry.Title} (linje {entry.StartLine} til {entry.EndLine})"))),
         ToolOutcome.Succeeded => new(Title: "Laget innholdsfortegnelse"),
         _ => new(Title: "Kunne ikke lage innholdsfortegnelse")
     };
@@ -101,9 +103,9 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     private static ToolCallText DescribeReadFile(ToolOutcome outcome, JsonElement? result) => outcome switch
     {
         ToolOutcome.Running => new(Title: "Leser filen"),
-        ToolOutcome.Succeeded when ReadAs<ReadFileResult>(result) is { FileName: { } fileName } read => new(
+        ToolOutcome.Succeeded when ReadAs<ReadFileResult>(result) is { FileName: { } fileName, Content: { } content } read => new(
             Title: $"Leste «{fileName}», linje {read.StartLine} til {read.EndLine}",
-            UserFriendlyResult: WithoutLineNumbers(read.Content)),
+            UserFriendlyResult: WithoutLineNumbers(content)),
         ToolOutcome.Succeeded => new(Title: "Leste filen"),
         _ => new(Title: "Kunne ikke lese filen")
     };

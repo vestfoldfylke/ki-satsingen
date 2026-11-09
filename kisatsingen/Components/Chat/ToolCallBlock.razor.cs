@@ -24,7 +24,6 @@ public partial class ToolCallBlock : ComponentBase
         }
     }
 
-    // Without a user-friendly result there is nothing to toggle to, so the JSON is shown.
     private string ShownText => _isShowingRawData || View.UserFriendlyResult is null
         ? View.ToolCallJson
         : View.UserFriendlyResult;

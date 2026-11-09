@@ -10,5 +10,7 @@ internal sealed record ToolError(string Error)
     private const string ErrorProperty = "error";
 
     public static bool IsRefusal(JsonElement result) =>
-        result.ValueKind == JsonValueKind.Object && result.TryGetProperty(ErrorProperty, out _);
+        result.ValueKind == JsonValueKind.Object
+        && result.TryGetProperty(ErrorProperty, out var error)
+        && error.ValueKind == JsonValueKind.String;
 }

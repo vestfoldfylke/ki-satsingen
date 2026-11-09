@@ -23,6 +23,14 @@ public sealed class ToolErrorTests
     }
 
     [Fact]
+    public void A_result_whose_error_is_null_is_not_a_refusal()
+    {
+        var result = JsonElement.Parse("""{"error":null,"items":[]}""");
+
+        Assert.False(ToolError.IsRefusal(result));
+    }
+
+    [Fact]
     public void A_result_that_is_not_an_object_is_not_a_refusal()
     {
         var result = JsonElement.Parse("""["error"]""");

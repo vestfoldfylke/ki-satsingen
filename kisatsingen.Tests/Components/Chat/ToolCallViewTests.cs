@@ -28,28 +28,40 @@ public sealed class ToolCallViewTests
         Assert.Equal("# Notat\n\nHei.", view.UserFriendlyResult);
     }
 
-    [Fact]
-    public void A_finished_read_whose_result_lacks_the_file_name_is_titled_without_it()
+    [Theory]
+    [InlineData("""{"startLine":1,"endLine":80}""")]
+    [InlineData("""{"fileName":"notat.md","startLine":1,"endLine":2}""")]
+    public void A_finished_read_missing_what_its_texts_need_falls_back_to_the_plain_title(string result)
     {
-        var view = Build("read_file", """{"startLine":1,"endLine":80}""");
+        var view = Build("read_file", result);
 
-        Assert.Equal("Leste filen", view.Title);
+        Assert.Equal(("Leste filen", null), (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]
-    public void A_refused_read_is_marked_refused_and_says_the_file_could_not_be_read()
+    public void A_finished_outline_whose_result_lacks_the_entries_falls_back_instead_of_failing()
     {
-        var view = Build("read_file", """{"error":"Fant ikke filen."}""");
+        var view = Build("get_outline", """{"fileName":"notat.md"}""");
 
-        Assert.Equal((ToolOutcome.Refused, "Kunne ikke lese filen"), (view.Outcome, view.Title));
+        Assert.Equal(("Laget innholdsfortegnelse", null), (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]
-    public void A_refused_call_has_no_user_friendly_result()
+    public void An_outline_without_entries_says_it_is_empty()
+    {
+        var view = Build("get_outline", """{"fileName":"notat.md","entries":[]}""");
+
+        Assert.Equal("Innholdsfortegnelsen er tom", view.UserFriendlyResult);
+    }
+
+    [Fact]
+    public void A_refused_read_is_shown_as_a_refusal()
     {
         var view = Build("read_file", """{"error":"Fant ikke filen."}""");
 
-        Assert.Null(view.UserFriendlyResult);
+        Assert.Equal(
+            (ToolOutcome.Refused, "Kunne ikke lese filen", (string?)null),
+            (view.Outcome, view.Title, view.UserFriendlyResult));
     }
 
     [Fact]
@@ -89,7 +101,7 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
-    public void An_interrupted_call_says_it_was_interrupted_whatever_the_tool()
+    public void An_interrupted_call_says_it_was_interrupted()
     {
         var view = Build("read_file", result: null, ToolStatus.Interrupted);
 
