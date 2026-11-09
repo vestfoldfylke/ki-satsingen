@@ -8,6 +8,7 @@ public partial class ToolCallBlock : ComponentBase
     [Parameter, EditorRequired] public required ToolCall ToolCall { get; set; }
 
     private ToolCallView? _view;
+    private bool _isShowingRawData;
 
     // Built once per tool call, not per render: a result can be pages of text.
     private ToolCallView View
@@ -22,6 +23,11 @@ public partial class ToolCallBlock : ComponentBase
             return _view;
         }
     }
+
+    // Without a user-friendly result there is nothing to toggle to, so the JSON is shown.
+    private string ShownText => _isShowingRawData || View.UserFriendlyResult is null
+        ? View.ToolCallJson
+        : View.UserFriendlyResult;
 
     private string OutcomeColor => View.Outcome switch
     {
