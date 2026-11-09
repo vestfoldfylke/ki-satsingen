@@ -3,7 +3,7 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
-public partial class ToolSegmentView : ComponentBase
+public partial class ToolCallBlock : ComponentBase
 {
     [Parameter, EditorRequired] public required ToolCall ToolCall { get; set; }
 

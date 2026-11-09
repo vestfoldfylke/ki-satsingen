@@ -11,10 +11,10 @@
         switch (segment)
         {
             case TextSegment text:
-                <TextSegmentView @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
+                <TextBlock @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
                 break;
             case ToolCall toolCall:
-                <ToolSegmentView @key="toolCall.Id" ToolCall="toolCall" />
+                <ToolCallBlock @key="toolCall.Id" ToolCall="toolCall" />
                 break;
         }
     }
