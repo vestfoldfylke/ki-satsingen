@@ -13,6 +13,7 @@ public static class AttachmentContentTypes
     private const string TextFiles = "tekstfiler";
     private const string Images = "bilder";
     private const string PdfFiles = "PDF-filer";
+    private const string DocxFiles = "Word-dokumenter";
 
     // See magic bytes / file type signatures here: https://www.garykessler.net/library/file_sigs_GCK_latest.html
     public static readonly AttachmentType PlainText = new("text/plain", Signature: null);
@@ -20,6 +21,7 @@ public static class AttachmentContentTypes
     public static readonly AttachmentType Png = new("image/png", [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
     public static readonly AttachmentType Jpeg = new("image/jpeg", [0xFF, 0xD8, 0xFF]);
     public static readonly AttachmentType Pdf = new("application/pdf", [.. "%PDF"u8]);
+    public static readonly AttachmentType Docx = new("application/vnd.openxmlformats-officedocument.wordprocessingml.document", [0x50, 0x4B, 0x03, 0x04]);
 
     private sealed record AllowedExtension(string Extension, AttachmentType Type, string KindName);
 
@@ -33,7 +35,8 @@ public static class AttachmentContentTypes
         new(".png", Png, Images),
         new(".jpg", Jpeg, Images),
         new(".jpeg", Jpeg, Images),
-        new(".pdf", Pdf, PdfFiles)
+        new(".pdf", Pdf, PdfFiles),
+        new(".docx", Docx, DocxFiles)
     ];
 
     private static readonly Dictionary<string, AttachmentType> ByExtension =
