@@ -146,6 +146,7 @@
     border-radius: 0.375rem;
     height: var(--ds-size-12);
     overflow: hidden;
+    cursor: pointer;
 }
 
 .user-menu-item {
