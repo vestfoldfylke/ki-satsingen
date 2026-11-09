@@ -20,13 +20,13 @@ public sealed partial class DeleteChatFileDialog : ComponentBase
     private KnowledgeFileMetadata? _file;
     private bool _isNotFound;
 
-    // The chat the file was listed in. The page stays when the chat changes,
-    // so the dialog can still be open in the next one.
-    private Guid _chatId;
+    // Stored rather than read at delete time: another chat can open before the
+    // user confirms.
+    private Guid _chatIdWhenOpened;
 
     public void Load(KnowledgeFileMetadata file)
     {
-        _chatId = Session.ChatId;
+        _chatIdWhenOpened = Session.ChatId;
         _file = file;
         _isNotFound = false;
         StateHasChanged();
@@ -39,7 +39,7 @@ public sealed partial class DeleteChatFileDialog : ComponentBase
             return;
         }
 
-        if (!await Session.DeleteChatFileAsync(_chatId, file.Id))
+        if (!await Session.DeleteChatFileAsync(_chatIdWhenOpened, file.Id))
         {
             _isNotFound = true;
             return;

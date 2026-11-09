@@ -3,19 +3,18 @@
    not hidden, since hidden can still be scrolled by code. */
 .chat-layout {
     display: flex;
-    flex-direction: column;
     flex: 1;
     min-height: 0;
     width: 100%;
     overflow: clip;
 }
 
-/* The files panel sits beside the chat, not over it, so the transcript
-   narrows rather than hiding behind it. */
-.chat-body {
+.chat-column {
     display: flex;
+    flex-direction: column;
     flex: 1;
     min-height: 0;
+    min-width: 0;
 }
 
 /* --chat-surface / --chat-surface-fade are declared as a pair on purpose:

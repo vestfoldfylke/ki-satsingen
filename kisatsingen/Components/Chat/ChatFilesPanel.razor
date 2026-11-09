@@ -1,60 +1,64 @@
 @using kisatsingen.Components.KnowledgeFiles
 @using kisatsingen.Data.Entities
-@using kisatsingen.Services
-@using kisatsingen.Services.Attachments
 
-@* The assistant's knowledge files, the chat's, then the ones not sent yet.
-   The assistant's are read-only here: they are managed on its page. *@
-<aside id="chat-files-panel" class="chat-files-panel" aria-label="Filer i samtalen">
+<aside
+    id="chat-files-panel"
+    class="chat-files-panel"
+    data-showing-file="@(_shownFile is not null)"
+    aria-label="Filer i samtalen"
+>
     <div class="chat-files-panel-header">
-        <h2 class="ds-heading" data-size="xs">Filer</h2>
+        @if (_shownFile is not null)
+        {
+            <button
+                type="button"
+                class="ds-button"
+                data-variant="tertiary"
+                data-icon="true"
+                aria-label="Tilbake til filene"
+                data-tooltip="Tilbake til filene"
+                @onclick="ShowFileList"
+            >
+                <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+            </button>
+        }
+        <h2 class="ds-heading chat-files-panel-title" data-size="xs">@(_shownFile?.FileName ?? "Filer")</h2>
         <button type="button" class="ds-button" data-variant="tertiary" data-icon="true" aria-label="Lukk filpanelet" data-tooltip="Lukk filpanelet" @onclick="OnClose">
             <span class="material-symbols-outlined" aria-hidden="true">close</span>
         </button>
     </div>
 
-    @if (AssistantFiles.Count == 0 && ChatFiles.Count == 0 && Attachments.Count == 0)
-    {
-        <p class="ds-paragraph" data-size="sm">Ingen filer i denne samtalen ennå. Legg ved en fil med + i meldingsfeltet.</p>
-    }
-
-    @if (AssistantFiles.Count > 0)
-    {
-        <h3 class="ds-heading" data-size="2xs">Fra assistenten</h3>
-        <KnowledgeFileList Files="AssistantFiles" />
-    }
-
-    @if (ChatFiles.Count > 0)
-    {
-        <h3 class="ds-heading" data-size="2xs">I samtalen</h3>
-        <KnowledgeFileList Files="ChatFiles" DeleteDialogId="@DeleteDialogId" OnDeleteRequested="file => _deleteDialog?.Load(file)" />
-    }
-
-    @if (Attachments.Count > 0)
-    {
-        <h3 class="ds-heading" data-size="2xs">Ikke sendt ennå</h3>
-        <ul class="chat-files-list">
-            @foreach (var attachment in Attachments)
+    <div class="chat-files-panel-body">
+        @if (_shownFile is { } shownFile)
+        {
+            <KnowledgeFileViewer @key="shownFile.Id" FileId="shownFile.Id" ReadFileText="ReadFileText" />
+        }
+        else
+        {
+            @if (AssistantFiles.Count == 0 && ChatFiles.Count == 0)
             {
-                <li @key="attachment.AttachmentId" class="chat-files-item">
-                    <span class="chat-files-item-name">@attachment.FileName</span>
-                    <span class="chat-files-item-meta">@ByteSize.Format(attachment.DeclaredSizeBytes)</span>
-                    <span class="chat-files-item-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
-                        @AttachmentStatusTexts.DescribeStatus(attachment)
-                    </span>
-                    <button
-                        type="button"
-                        class="ds-button"
-                        data-variant="tertiary"
-                        data-size="sm"
-                        @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)"
-                    >
-                        Fjern
-                    </button>
-                </li>
+                <p class="ds-paragraph" data-size="sm">Filer du sender i samtalen, vises her.</p>
             }
-        </ul>
-    }
+
+            @if (AssistantFiles.Count > 0)
+            {
+                <h3 class="ds-heading" data-size="2xs">Fra assistenten</h3>
+                @* No delete here: the assistant's files are managed on its page. *@
+                <KnowledgeFileList Files="AssistantFiles" OnOpenRequested="ShowFile" />
+            }
+
+            @if (ChatFiles.Count > 0)
+            {
+                <h3 class="ds-heading" data-size="2xs">I samtalen</h3>
+                <KnowledgeFileList
+                    Files="ChatFiles"
+                    OnOpenRequested="ShowFile"
+                    DeleteDialogId="@DeleteDialogId"
+                    OnDeleteRequested="file => _deleteDialog?.Load(file)"
+                />
+            }
+        }
+    </div>
 
     @* Outside the chat files' section, so deleting the last file doesn't remove
        the dialog while it shows that the file was not found. *@
@@ -66,18 +70,22 @@
 
     private DeleteChatFileDialog? _deleteDialog;
 
+    // Null while the file list is shown.
+    private KnowledgeFileMetadata? _shownFile;
+
     [Parameter]
     public IReadOnlyList<KnowledgeFileMetadata> AssistantFiles { get; set; } = [];
 
     [Parameter]
     public IReadOnlyList<KnowledgeFileMetadata> ChatFiles { get; set; } = [];
 
-    [Parameter]
-    public IReadOnlyList<ComposerAttachment> Attachments { get; set; } = [];
-
-    [Parameter]
-    public EventCallback<Guid> OnRemove { get; set; }
+    [Parameter, EditorRequired]
+    public required Func<Guid, CancellationToken, Task<KnowledgeFileText?>> ReadFileText { get; set; }
 
     [Parameter]
     public EventCallback OnClose { get; set; }
+
+    private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
+
+    private void ShowFileList() => _shownFile = null;
 }

@@ -4,6 +4,7 @@ using kisatsingen.Components;
 using kisatsingen.Components.Usage;
 using kisatsingen.Data;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Security;
 using kisatsingen.Services;
 using kisatsingen.Services.Assistants;
 using kisatsingen.Services.Chat;
@@ -300,29 +301,17 @@ app.UseRequestLocalization(new RequestLocalizationOptions()
     .AddSupportedUICultures(appCulture));
 
 // ─── Security response headers (apply to every response) ───
-var scriptSrc = app.Environment.IsDevelopment()
-    ? "'self' 'unsafe-inline'"                          // dotnet-watch injects an inline bootstrapper
-    : "'self'";
-var connectSrc = app.Environment.IsDevelopment()
-    ? "'self' ws://localhost:* wss://localhost:*"       // browser-refresh WebSocket on a random port
-    : "'self'";
+var contentSecurityPolicy = ContentSecurityPolicy.Build(isDevelopment: app.Environment.IsDevelopment());
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.ContentSecurityPolicy =
-        "default-src 'self'; " +
-        $"script-src {scriptSrc}; " +
-        "style-src 'self' 'unsafe-inline' https://altinncdn.no; " +
-        "font-src 'self' https://altinncdn.no; " +
-        "img-src 'self' data:; " +
-        $"connect-src {connectSrc}; " +
-        "frame-ancestors 'none'; " +
-        "base-uri 'self'; " +
-        "form-action 'self'; " +
-        "object-src 'none'";
+    context.Response.Headers.ContentSecurityPolicy = contentSecurityPolicy;
 
     context.Response.Headers.XContentTypeOptions = "nosniff";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    // Not the clipboard: the copy buttons write to it.
+    context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+    context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
 
     await next();
 });
@@ -355,7 +344,7 @@ app.MapStaticAssets();
 app.MapGet("/", () => Results.Redirect("/new"));
 
 var razorComponents = app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(options => options.ContentSecurityFrameAncestorsPolicy = ContentSecurityPolicy.FrameAncestors);
 
 /*
 .NET 11 - for the CloseOnAuthenticationExpiration

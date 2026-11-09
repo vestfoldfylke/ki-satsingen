@@ -3,6 +3,7 @@ using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
+using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.JSInterop;
 using Vestfold.Extensions.Metrics.Services;
 
@@ -20,6 +21,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly TurnRunner _runner;
     private readonly ChatAttachments _attachments;
     private readonly IKnowledgeFileRepository _knowledgeFileRepository;
+    private readonly IKnowledgeFileReader _knowledgeFileReader;
     private readonly IAssistantRepository _assistantRepository;
     private readonly ILogger<ChatSession> _logger;
 
@@ -86,6 +88,7 @@ public sealed class ChatSession : IAsyncDisposable
         ILogger<ChatSession> logger,
         IUserTokenUsageRepository userTokenUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
+        IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
         FileToolFactory fileTools,
         IAssistantRepository assistantRepository)
@@ -98,6 +101,7 @@ public sealed class ChatSession : IAsyncDisposable
         _repo = repo;
         _attachments = attachments;
         _knowledgeFileRepository = knowledgeFileRepository;
+        _knowledgeFileReader = knowledgeFileReader;
         _assistantRepository = assistantRepository;
         _logger = logger;
 
@@ -435,6 +439,16 @@ public sealed class ChatSession : IAsyncDisposable
         _chatFiles = [.. _chatFiles.Where(file => file.Id != fileId)];
         Notify();
         return isDeleted;
+    }
+
+    // Null when the file is not one the open chat can reach: its own files and
+    // its assistant's, the same ones its file tools read.
+    public async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
+    {
+        var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
+        var scope = new KnowledgeFileScope(userObjectId, _chatId, AssistantId);
+
+        return await _knowledgeFileReader.ReadFileTextAsync(scope, fileId, ct);
     }
 
     private void ShowSnapshot(Turn snapshot)

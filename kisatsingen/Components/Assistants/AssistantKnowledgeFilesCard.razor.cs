@@ -1,5 +1,7 @@
 using kisatsingen.Authorization;
 using kisatsingen.Data.Entities;
+using kisatsingen.Data.Repositories;
+using kisatsingen.Services;
 using kisatsingen.Services.Assistants;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components;
@@ -9,10 +11,10 @@ using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Assistants;
 
-// An assistant's knowledge files: the list for everyone who can use it, and
-// adding and deleting files when CanEditAssistant allows. Adding checks the
-// policy again, since a picker that was allowed when it rendered may no longer
-// be; DeleteAssistantFileDialog does the same for deleting.
+// An assistant's knowledge files: the list and viewing a file for everyone who
+// can use it, and adding and deleting files when CanEditAssistant allows. Adding
+// checks the policy again, since a picker that was allowed when it rendered may
+// no longer be; DeleteAssistantFileDialog does the same for deleting.
 //
 // Shows one assistant for its whole life: its uploads go to that assistant
 // until the card is disposed, which resets them.
@@ -23,6 +25,12 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
 
     [Inject]
     public required AssistantFileUploads Uploads { get; init; }
+
+    [Inject]
+    public required IKnowledgeFileRepository KnowledgeFileRepository { get; init; }
+
+    [Inject]
+    public required IAuthenticationService AuthenticationService { get; init; }
 
     [Inject]
     public required IJSRuntime JS { get; init; }
@@ -47,13 +55,29 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
     private ElementReference _menu;
     private DeleteAssistantFileDialog? _deleteDialog;
 
+    // Cleared when the dialog closes, so the next file never opens showing this
+    // one: the dialog opens in the browser before the click reaches the server.
+    private KnowledgeFileMetadata? _shownFile;
+
     private bool IsFull => Files.Count >= Assistant.MaxKnowledgeFiles;
 
     private string MenuId => $"assistant-files-menu-{Assistant.Id}";
 
     private string DeleteDialogId => $"delete-assistant-file-dialog-{Assistant.Id}";
 
+    private string ViewerDialogId => $"assistant-file-viewer-dialog-{Assistant.Id}";
+
     protected override void OnInitialized() => Uploads.Changed += OnUploadsChanged;
+
+    private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
+
+    private void ClearShownFile() => _shownFile = null;
+
+    private async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
+    {
+        var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
+        return await KnowledgeFileRepository.GetAssistantFileTextAsync(userId, Assistant.Id, fileId, ct);
+    }
 
     private async Task AddFilesAsync(InputFileChangeEventArgs selection)
     {

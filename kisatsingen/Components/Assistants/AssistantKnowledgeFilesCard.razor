@@ -43,10 +43,16 @@
         {
             <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
                 <Authorized>
-                    <KnowledgeFileList Files="Files" DeleteDialogId="@DeleteDialogId" OnDeleteRequested="file => _deleteDialog?.Load(file)" />
+                    <KnowledgeFileList
+                        Files="Files"
+                        OnOpenRequested="ShowFile"
+                        ViewerDialogId="@ViewerDialogId"
+                        DeleteDialogId="@DeleteDialogId"
+                        OnDeleteRequested="file => _deleteDialog?.Load(file)"
+                    />
                 </Authorized>
                 <NotAuthorized>
-                    <KnowledgeFileList Files="Files" />
+                    <KnowledgeFileList Files="Files" OnOpenRequested="ShowFile" ViewerDialogId="@ViewerDialogId" />
                 </NotAuthorized>
             </AuthorizeView>
         }
@@ -54,6 +60,20 @@
         {
             <p class="ds-paragraph" data-size="sm">Ingen filer ennå.</p>
         }
+
+        @* Outside the lists, so the dialog stays while the files change, and outside
+           AuthorizeView, since everyone who can use the assistant may view its files. *@
+        <ModalDialog
+            Id="@ViewerDialogId"
+            Heading="@(_shownFile?.FileName ?? string.Empty)"
+            IsWide="true"
+            OnClosed="ClearShownFile"
+        >
+            @if (_shownFile is { } shownFile)
+            {
+                <KnowledgeFileViewer @key="shownFile.Id" FileId="shownFile.Id" ReadFileText="ReadFileTextAsync" />
+            }
+        </ModalDialog>
 
         <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
             <Authorized>
