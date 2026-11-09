@@ -5,18 +5,18 @@ namespace kisatsingen.Components.Chat;
 
 public partial class ToolSegmentView : ComponentBase
 {
-    [Parameter, EditorRequired] public required ToolSegment Segment { get; set; }
+    [Parameter, EditorRequired] public required ToolCall ToolCall { get; set; }
 
     private ToolCallView? _view;
 
-    // Built once per segment, not per render: a result can be pages of text.
+    // Built once per tool call, not per render: a result can be pages of text.
     private ToolCallView View
     {
         get
         {
-            if (_view is null || _view.Segment != Segment)
+            if (_view is null || _view.ToolCall != ToolCall)
             {
-                _view = ToolCallView.Build(Segment);
+                _view = ToolCallView.Build(ToolCall);
             }
 
             return _view;

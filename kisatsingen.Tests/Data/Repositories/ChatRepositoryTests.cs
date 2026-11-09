@@ -393,7 +393,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
             Status = TurnStatus.Completed,
             Answer =
             [
-                new ToolSegment(Guid.NewGuid(), 0, "call-1", "get_current_time_utc", JsonSerializer.SerializeToElement(new { }), ToolStatus.Completed, "12:00"),
+                new ToolCall(Guid.NewGuid(), 0, "call-1", "get_current_time_utc", JsonSerializer.SerializeToElement(new { }), ToolStatus.Completed, "12:00"),
                 new TextSegment(Guid.NewGuid(), 1, "Den er tolv.")
             ]
         };
@@ -403,8 +403,8 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
         var reloaded = await Repo.GetChatAsync(OwnerId, chat.Id);
         var restored = ChatTurnMapper.FromEntity(Assert.Single(reloaded!.Turns), DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
 
-        var tool = Assert.IsType<ToolSegment>(restored.Answer[0]);
-        Assert.Equal(("call-1", ToolStatus.Completed, "12:00"), (tool.CallId, tool.Status, tool.Result));
+        var toolCall = Assert.IsType<ToolCall>(restored.Answer[0]);
+        Assert.Equal(("call-1", ToolStatus.Completed, "12:00"), (toolCall.CallId, toolCall.Status, toolCall.Result));
         Assert.Equal("Den er tolv.", Assert.IsType<TextSegment>(restored.Answer[1]).Text);
     }
 

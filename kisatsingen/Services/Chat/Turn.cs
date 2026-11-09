@@ -59,8 +59,8 @@ public sealed record Turn
     };
 
     private static TurnSegment InterruptIfRunning(TurnSegment segment) =>
-        segment is ToolSegment { Status: ToolStatus.Running } tool
-            ? tool with { Status = ToolStatus.Interrupted }
+        segment is ToolCall { Status: ToolStatus.Running } toolCall
+            ? toolCall with { Status = ToolStatus.Interrupted }
             : segment;
 
     private static TurnAttachment InterruptIfProcessing(TurnAttachment attachment) =>

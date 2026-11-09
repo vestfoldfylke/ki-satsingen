@@ -189,7 +189,7 @@ public sealed class TurnBuilderTests
 
         var stopped = builder.Finish(TurnStatus.Stopped);
 
-        Assert.Equal(ToolStatus.Interrupted, Assert.IsType<ToolSegment>(Assert.Single(stopped.Answer)).Status);
+        Assert.Equal(ToolStatus.Interrupted, Assert.IsType<ToolCall>(Assert.Single(stopped.Answer)).Status);
     }
 
     [Fact]
@@ -304,8 +304,8 @@ public sealed class TurnBuilderTests
         return builder;
     }
 
-    private static ToolSegment SingleTool(TurnBuilder builder) =>
-        Assert.IsType<ToolSegment>(Assert.Single(builder.Snapshot().Answer));
+    private static ToolCall SingleTool(TurnBuilder builder) =>
+        Assert.IsType<ToolCall>(Assert.Single(builder.Snapshot().Answer));
 
     private static ChatResponseUpdate Text(string text) => new(ChatRole.Assistant, text);
 

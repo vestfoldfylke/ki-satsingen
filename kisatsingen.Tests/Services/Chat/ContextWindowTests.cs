@@ -172,7 +172,7 @@ public sealed class ContextTokenEstimatorTests
         var withoutCall = ContextTokenEstimator.Estimate([User("hei")], systemPrompt: null);
 
         var withCall = ContextTokenEstimator.Estimate(
-            [User("hei"), ToolCall("search", new string('q', 3_000))],
+            [User("hei"), ToolCallMessage("search", new string('q', 3_000))],
             systemPrompt: null);
 
         Assert.True(withCall > withoutCall + 900);
@@ -183,7 +183,7 @@ public sealed class ContextTokenEstimatorTests
     private static AiMessage ToolResult(string result) =>
         new(ChatRole.Tool, [new FunctionResultContent("call-1", result)]);
 
-    private static AiMessage ToolCall(string name, string argument) =>
+    private static AiMessage ToolCallMessage(string name, string argument) =>
         new(ChatRole.Assistant,
         [
             new FunctionCallContent("call-1", name, new Dictionary<string, object?> { ["query"] = argument })

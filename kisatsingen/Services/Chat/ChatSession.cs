@@ -411,7 +411,7 @@ public sealed class ChatSession : IAsyncDisposable
     // An attachment counts once it became a file; one that failed asks for no tool.
     private static bool HasUsedFiles(Turn turn) =>
         turn.Attachments.Any(attachment => attachment.FileId is not null)
-        || turn.Answer.OfType<ToolSegment>().Any(tool => FileToolFactory.ToolNames.Contains(tool.ToolName));
+        || turn.Answer.OfType<ToolCall>().Any(toolCall => FileToolFactory.ToolNames.Contains(toolCall.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddChatFile(KnowledgeFileMetadata file)

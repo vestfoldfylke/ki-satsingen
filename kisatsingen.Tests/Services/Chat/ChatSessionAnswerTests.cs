@@ -108,7 +108,7 @@ public sealed class ChatSessionAnswerTests
         Assert.Collection(
             harness.VisibleTurn.Answer,
             segment => Assert.Equal("Sjekker klokka.", Assert.IsType<TextSegment>(segment).Text),
-            segment => Assert.Equal(ToolStatus.Completed, Assert.IsType<ToolSegment>(segment).Status),
+            segment => Assert.Equal(ToolStatus.Completed, Assert.IsType<ToolCall>(segment).Status),
             segment => Assert.Equal("Den er tolv.", Assert.IsType<TextSegment>(segment).Text));
     }
 
@@ -128,7 +128,7 @@ public sealed class ChatSessionAnswerTests
         await sending;
 
         Assert.True(shownMidTurn.IsLive);
-        Assert.Equal(ToolStatus.Running, Assert.IsType<ToolSegment>(Assert.Single(shownMidTurn.Turn.Answer)).Status);
+        Assert.Equal(ToolStatus.Running, Assert.IsType<ToolCall>(Assert.Single(shownMidTurn.Turn.Answer)).Status);
     }
 
     [Fact]
@@ -147,8 +147,8 @@ public sealed class ChatSessionAnswerTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Contains(shownAnswers, answer => answer is [TextSegment, ToolSegment { Status: ToolStatus.Running }]);
-        Assert.Contains(shownAnswers, answer => answer is [TextSegment, ToolSegment { Status: ToolStatus.Completed }]);
+        Assert.Contains(shownAnswers, answer => answer is [TextSegment, ToolCall { Status: ToolStatus.Running }]);
+        Assert.Contains(shownAnswers, answer => answer is [TextSegment, ToolCall { Status: ToolStatus.Completed }]);
     }
 
     // Kept for the reader, though it is never sent back: see TranscriptRequest.
@@ -164,7 +164,7 @@ public sealed class ChatSessionAnswerTests
         harness.Session.Cancel();
         await sending;
 
-        Assert.Equal(ToolStatus.Interrupted, Assert.IsType<ToolSegment>(Assert.Single(harness.StoredTurn.Answer)).Status);
+        Assert.Equal(ToolStatus.Interrupted, Assert.IsType<ToolCall>(Assert.Single(harness.StoredTurn.Answer)).Status);
     }
 
     // Proves the pruning rule is wired into the request, not just tested beside it.

@@ -137,7 +137,7 @@ public sealed class ToolCallViewTests
     }
 
     private static ToolCallView Build(string toolName, string? result, ToolStatus status = ToolStatus.Completed) =>
-        ToolCallView.Build(new ToolSegment(
+        ToolCallView.Build(new ToolCall(
             Guid.NewGuid(),
             Round: 0,
             CallId: "call-1",

@@ -13,8 +13,8 @@
             case TextSegment text:
                 <TextSegmentView @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
                 break;
-            case ToolSegment tool:
-                <ToolSegmentView @key="tool.Id" Segment="tool" />
+            case ToolCall toolCall:
+                <ToolSegmentView @key="toolCall.Id" ToolCall="toolCall" />
                 break;
         }
     }
