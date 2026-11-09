@@ -5,7 +5,8 @@
 //               Updated on every scroll event.
 //   following — user intent: does the user want the log to auto-scroll to bottom
 //               as new content arrives. Only toggled by USER-INITIATED actions
-//               (manual scroll, pill click). Programmatic scrolls (popToTop,
+//               (manual scroll, pill click, opening or closing a <details>).
+//               Programmatic scrolls (popToTop,
 //               scrollToBottom triggered by notifyContentChanged) never toggle it.
 //
 // On send: popToTop places the new user bubble near the top of the viewport
@@ -217,6 +218,16 @@ function onPillClick(): void {
     scrollToBottom(true);
 }
 
+// Opening or closing a <details> resizes the transcript, but it is the user
+// reading where they are, not new content to follow. Click, not toggle: click
+// runs before the <details> opens, while toggle is queued and can arrive after
+// the resize has already been followed. Enter and Space on a summary click too.
+function onSummaryClick(e: MouseEvent): void {
+    if (e.target instanceof Element && e.target.closest('summary')) {
+        following = false;
+    }
+}
+
 function onKeyDown(e: KeyboardEvent): void {
     if (SCROLL_KEYS.has(e.key)) {
         markUserActivity();
@@ -291,6 +302,7 @@ export function initChatLog(): void {
             chatLogElement.removeEventListener('wheel', markUserActivity);
             chatLogElement.removeEventListener('touchstart', markUserActivity);
             chatLogElement.removeEventListener('pointerdown', markUserActivity);
+            chatLogElement.removeEventListener('click', onSummaryClick);
             chatLogElement.removeEventListener('keydown', onKeyDown);
         }
         if (scrollToBottomPillElement) {
@@ -307,6 +319,7 @@ export function initChatLog(): void {
         log.addEventListener('wheel', markUserActivity, { passive: true });
         log.addEventListener('touchstart', markUserActivity, { passive: true });
         log.addEventListener('pointerdown', markUserActivity);
+        log.addEventListener('click', onSummaryClick);
         log.addEventListener('keydown', onKeyDown);
 
         if (pill) {
