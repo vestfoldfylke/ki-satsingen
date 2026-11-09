@@ -21,6 +21,8 @@ public sealed class Assistant
     // Null until written: an assistant is created without them.
     public string? Instructions { get; init; }
 
+    public bool AreBaseInstructionsDisabled { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }

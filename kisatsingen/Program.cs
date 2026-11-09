@@ -138,6 +138,7 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(AuthorizationPolicies.IsAdministrator, policy => policy.RequireRole(administratorRole))
     .AddPolicy(AuthorizationPolicies.CanContributeOrganizationWide, policy => policy.RequireRole(administratorRole, contributorRole))
     .AddPolicy(AuthorizationPolicies.CanEditAssistant, policy => policy.AddRequirements(new CanEditAssistantRequirement(administratorRole)))
+    .AddPolicy(AuthorizationPolicies.CanDisableBaseInstructions, policy => policy.RequireRole(administratorRole))
     .AddPolicy(AuthorizationPolicies.CanReadMetrics, policy => policy
         .AddAuthenticationSchemes(cookieOrBearerScheme)
         .RequireAuthenticatedUser()
@@ -222,6 +223,7 @@ builder.Services.AddSingleton(pipelineOptions);
 builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
 builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
 builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
+builder.Services.AddSingleton<IDocumentConverter, DocxDocumentConverter>();
 builder.Services.AddSingleton<DocumentConverterRegistry>();
 builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
 builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();

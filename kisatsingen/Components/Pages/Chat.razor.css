@@ -1,11 +1,12 @@
-/* The files panel sits beside the chat, not over it, so the transcript
-   narrows rather than hiding behind it. It is beside the whole column,
-   header included, so it runs from top to bottom like the sidebar. */
+/* Clipped so nothing inside can make .content scrollable: scrollIntoView and
+   focus scroll every scrollable ancestor, which shifts the whole chat. Clip,
+   not hidden, since hidden can still be scrolled by code. */
 .chat-layout {
     display: flex;
     flex: 1;
     min-height: 0;
     width: 100%;
+    overflow: clip;
 }
 
 .chat-column {

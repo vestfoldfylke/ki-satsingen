@@ -45,6 +45,14 @@ html, body {
     margin: 0;
 }
 
+/* Radzen's base stylesheet styles input outside any cascade layer, which beats
+   every Designsystemet rule, since they are all layered. revert-layer hands
+   these properties back to Designsystemet. */
+input {
+    color: revert-layer;
+    font-size: revert-layer;
+}
+
 h1, h2, h3, h4, h5, h6, blockquote, .heading-font {
     font-family: 'Nunito', 'Helvetica Neue', Helvetica, Arial, sans-serif;
 }
@@ -75,18 +83,20 @@ pre, code {
     contain-intrinsic-size: auto 2rem;
 }
 
-/* Scrolling happens in the chat window and internally in other blocks - not in html */
+/* Scrolling happens in .content and in the chat log - not in html */
 html {
     overflow-y: clip;
 }
 
 /* No padding: each page owns its spacing, so a page can reach the edges (the
-   chat header sits flush with the top). */
+   chat header sits flush with the top). Scrolls when a page is taller than the
+   window; the chat clips itself so it never makes this scroll. */
 .content {
     display: flex;
     flex-direction: column;
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
 }
 
 /* For plain text pages (not found, error) that want the spacing the layout

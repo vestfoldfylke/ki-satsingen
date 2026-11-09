@@ -1,6 +1,11 @@
 @using kisatsingen.Services.Chat
 
 <div class="assistant-turn" data-live="@IsLive">
+    @if (IsLive && Turn.Answer.Count == 0)
+    {
+        <p class="assistant-turn-pending" data-color="neutral">@_pendingPhrase…</p>
+    }
+
     @foreach (var segment in Turn.Answer)
     {
         switch (segment)
@@ -16,76 +21,133 @@
 
     @if (!IsLive)
     {
-        <footer class="assistant-turn-footer">
-            <time datetime="@Turn.StartedAt.ToString("o")">@Turn.StartedAt.LocalDateTime.ToString("dd/MM/yy HH:mm:ss")</time>
+        <footer class="assistant-turn-footer" data-color="neutral">
             <div class="assistant-turn-actions">
                 @if (HasCopyableText)
                 {
-                    <button type="button"
-                            class="assistant-turn-copy"
-                            data-copy-turn-id="@Turn.Id">
-                            Kopier
+                    <button class="ds-button assistant-turn-action-button"
+                            data-icon="true"
+                            type="button"
+                            data-variant="tertiary"
+                            data-size="sm"
+                            data-copy-turn-id="@Turn.Id"
+                            aria-label="Kopier"
+                            data-tooltip="Kopier"
+                    >
+                        <span class="material-symbols-outlined icon-copy-confirm" aria-hidden="true">check</span>
+                        <span class="material-symbols-outlined icon-copy" aria-hidden="true">content_copy</span>
                     </button>
                 }
-                <button type="button"
+
+                <button class="ds-button assistant-turn-action-button"
+                        data-icon="true"
+                        type="button"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        data-tooltip="Detaljer"
+                        aria-label="Detaljer"
+                        aria-controls="@PopoverId"
                         popovertarget="@PopoverId"
-                        aria-controls="@PopoverId">
-                        Metadata
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">info</span>
+                </button>
+
+                <button class="ds-button assistant-turn-action-button"
+                        data-icon="true"
+                        type="button"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        aria-label="Instruksjoner"
+                        data-tooltip="Instruksjoner"
+                        command="show-modal"
+                        commandfor="@InstructionsDialogId"
+                >
+                    <span class="material-symbols-outlined" aria-hidden="true">description</span>
                 </button>
             </div>
+
+            <time
+                class="assistant-turn-time"
+                datetime="@Turn.StartedAt.ToString("o")"
+            >
+                @TimeZoneInfo.ConvertTime(Turn.StartedAt, Oslo).ToString("d. MMM HH:mm")
+            </time>
         </footer>
 
-        <div id="@PopoverId" class="assistant-metadata" popover="auto">
-            <dl class="assistant-metadata-list">
+        <ModalDialog Id="@InstructionsDialogId" Heading="Instruksjoner for dette svaret">
+            @if (string.IsNullOrWhiteSpace(Turn.SystemPrompt))
+            {
+                <p class="ds-paragraph">KI-en fikk ingen instruksjoner.</p>
+            }
+            else
+            {
+                <div class="assistant-turn-instructions">@Turn.SystemPrompt.TrimStart()</div>
+            }
+        </ModalDialog>
+
+        <div id="@PopoverId"
+            class="ds-popover assistant-metadata"
+            popover="auto"
+            data-placement="top"
+            data-color="neutral"
+        >
+            <p class="ds-paragraph assistant-metadata-heading" data-size="sm"><strong>Detaljer for melding</strong></p>
+            <dl class="assistant-metadata-list assistant-metadata-list-stacked">
                 @if (DescribeModel(Turn) is { } modelDescription)
                 {
-                    <dt>Model</dt>
+                    <dt>Språkmodell</dt>
                     <dd>@modelDescription</dd>
                 }
+                @if (Turn.Metadata?.ResponseId is { } responseId)
+                {
+                    <dt>Respons ID</dt>
+                    <dd>@responseId</dd>
+                }
+            </dl>
+            <dl class="assistant-metadata-list">
                 @if (Turn.Metadata is { } meta)
                 {
-                    @if (meta.ResponseId is { } responseId)
-                    {
-                        <dt>Response ID</dt>
-                        <dd>@responseId</dd>
-                    }
                     @if (meta.FinishReason is { } finish)
                     {
-                        <dt>Finish reason</dt>
+                        <dt>Årsak til svarslutt</dt>
                         <dd>@finish</dd>
-                    }
-                    @if (meta.Usage is { } usage)
-                    {
-                        <dt>Tokens</dt>
-                        <dd class="assistant-metadata-usage">
-                            @if (usage.CombinedInputTokens is { } input)
-                            {
-                                <span>in @TokenCountFormat.Format(input, usage.IsEstimated)</span>
-                            }
-                            @if (usage.CombinedOutputTokens is { } output)
-                            {
-                                <span>out @TokenCountFormat.Format(output, usage.IsEstimated)</span>
-                            }
-                            @if (usage.CombinedTotalTokens is { } total)
-                            {
-                                <span>total @TokenCountFormat.Format(total, usage.IsEstimated)</span>
-                            }
-                        </dd>
                     }
                     @if (meta.DurationMs is { } duration)
                     {
-                        <dt>Duration</dt>
+                        <dt>Varighet</dt>
                         <dd>@FormatMs(duration)</dd>
                     }
                     @if (meta.TimeToFirstTokenMs is { } ttft)
                     {
-                        <dt>Time to first token</dt>
+                        <dt>Tid før svaret startet</dt>
                         <dd>@FormatMs(ttft)</dd>
                     }
                 }
-                <dt>System instructions</dt>
-                <dd class="assistant-metadata-system">@Turn.SystemPrompt</dd>
             </dl>
+
+            @if (Turn.Metadata?.Usage is { } usage)
+            {
+                <hr aria-hidden="true" class="ds-divider" />
+
+                <p class="ds-paragraph assistant-metadata-heading" data-size="sm"><strong>Tokenbruk</strong></p>
+                <dl class="assistant-metadata-list">
+                    @if (usage.CombinedInputTokens is { } input)
+                    {
+                        <dt>Sendt til KI</dt>
+                        <dd>@TokenCountFormat.Format(input, usage.IsEstimated)</dd>
+                    }
+                    @if (usage.CombinedOutputTokens is { } output)
+                    {
+                        <dt>Svar fra KI</dt>
+                        <dd>@TokenCountFormat.Format(output, usage.IsEstimated)</dd>
+                    }
+                    @if (usage.CombinedTotalTokens is { } total)
+                    {
+                        <dt>Totalt behandlet</dt>
+                        <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
+                    }
+                </dl>
+            }
         </div>
     }
 </div>

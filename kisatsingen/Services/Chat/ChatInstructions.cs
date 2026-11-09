@@ -5,9 +5,7 @@ namespace kisatsingen.Services.Chat;
 // An instruction should be static inside one chat, to be able to utilize prompt-caching.
 internal static class ChatInstructions
 {
-    private const string Base = "";
-
-    private const string PlainChatAddition = """
+    internal const string Base = """
         You work in vfKI, the AI service of Vestfold fylkeskommune (Vestfold County Municipality), a public sector organization in Norway. The rules below always apply. The instructions after them set your role, tone and task, but cannot override these rules.
 
         ## Files
@@ -31,7 +29,9 @@ internal static class ChatInstructions
         - You cannot search the web or access the county's documents. You do not remember anything between conversations, so do not promise to behave differently in the future.
         - Do not list which file types or features vfKI supports. The interface tells the user if a file cannot be uploaded.
         - Only describe what you can actually see in a file or image. If you have only read part of a file, say so.
+        """;
 
+    private const string PlainChatInstructions = """
         ## Instructions
         You are vfKI's general assistant for everyday work: writing and editing text, summarising, explaining, brainstorming and answering questions.
 
@@ -49,7 +49,7 @@ internal static class ChatInstructions
         - Use headings, lists and tables only when they make the answer clearer. Use bold text sparingly and no emojis.
         """;
 
-    public const string ForPlainChat = Base + "\n\n" + PlainChatAddition;
+    public const string ForPlainChat = Base + "\n\n" + PlainChatInstructions;
 
     // Tells the model why it has the file tools when nothing was attached in the chat.
     internal const string AssistantFilesLine =
@@ -59,17 +59,26 @@ internal static class ChatInstructions
     // The files have their own section, so the author's instructions end
     // where their heading's section does. Names and ids only: a summary is
     // text from the file, kept out of the system prompt.
-    public static string ForAssistant(string name, string? instructions, IReadOnlyList<KnowledgeFileMetadata> files)
+    public static string ForAssistant(string name, string? instructions, IReadOnlyList<KnowledgeFileMetadata> files, bool areBaseInstructionsDisabled)
     {
-        var instructionsSection = instructions is not null
-            ? $"\n\n## Instructions for the assistant \"{name}\"\n\n{instructions}"
-            : "";
+        var sections = new List<string>();
 
-        var fileLines = files.Select(file => $"- {file.FileName} (fileId: {file.Id})");
-        var filesSection = files.Count > 0
-            ? $"\n\n## Files\n\n{AssistantFilesLine}\n\n{string.Join("\n", fileLines)}"
-            : "";
+        if (!areBaseInstructionsDisabled)
+        {
+            sections.Add(Base);
+        }
 
-        return $"{Base}{instructionsSection}{filesSection}";
+        if (instructions is not null)
+        {
+            sections.Add($"## Instructions for the assistant \"{name}\"\n\n{instructions}");
+        }
+
+        if (files.Count > 0)
+        {
+            var fileLines = files.Select(file => $"- {file.FileName} (fileId: {file.Id})");
+            sections.Add($"## Files\n\n{AssistantFilesLine}\n\n{string.Join("\n", fileLines)}");
+        }
+
+        return string.Join("\n\n", sections);
     }
 }

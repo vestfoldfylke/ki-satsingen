@@ -2,3 +2,104 @@
     align-self: stretch;
     padding: 0.25rem 0;
 }
+
+.assistant-turn-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.assistant-turn-time {
+    color: var(--ds-color-text-subtle);
+    user-select: none;
+}
+
+.assistant-turn-actions {
+    display: flex;
+}
+
+.icon-copy-confirm,
+.assistant-turn-action-button.is-copied .icon-copy {
+    display: none;
+}
+
+.assistant-turn-action-button.is-copied .icon-copy-confirm {
+    display: inline-block;
+}
+
+.assistant-metadata {
+    font-size: var(--ds-body-sm-font-size);
+    line-height: var(--ds-body-sm-line-height);
+}
+
+.assistant-metadata hr {
+    margin: 1rem 0;
+}
+
+.assistant-metadata-list {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.5rem 1rem;
+    margin: 0;
+}
+
+.assistant-metadata-list dt {
+    color: var(--ds-color-text-subtle);
+}
+
+.assistant-metadata-list dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    overflow-wrap: anywhere;
+}
+
+.assistant-metadata-list-stacked {
+    grid-template-columns: 1fr;
+    gap: 0;
+}
+
+.assistant-metadata-list-stacked dd {
+    text-align: left;
+    margin-bottom: 0.5rem;
+}
+
+.assistant-turn-instructions {
+    white-space: pre-wrap;
+}
+
+.assistant-turn-pending {
+    width: fit-content;
+    color: var(--ds-color-text-subtle);
+}
+
+/* Without text clipping, transparent text would leave the line empty. */
+@supports (background-clip: text) {
+    .assistant-turn-pending {
+        color: transparent;
+        background: linear-gradient(
+            90deg,
+            var(--ds-color-text-subtle) 43%,
+            var(--ds-color-text-default) 47% 53%,
+            var(--ds-color-text-subtle) 57%
+        );
+        background-size: 300% 100%;
+        background-clip: text;
+        animation: assistant-turn-pending-shimmer 2s linear infinite;
+    }
+}
+
+@keyframes assistant-turn-pending-shimmer {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: 0 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .assistant-turn-pending {
+        animation: none;
+    }
+}

@@ -168,7 +168,7 @@ public sealed class ChatSession : IAsyncDisposable
     // what is estimated can never differ.
     private string SystemPrompt =>
         _assistant is Assistant assistant
-            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles)
+            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles, assistant.AreBaseInstructionsDisabled)
             : ChatInstructions.ForPlainChat;
 
     // Estimated from the request we would send, not from usage: usage sums every

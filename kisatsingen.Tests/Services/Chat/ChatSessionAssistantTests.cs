@@ -22,6 +22,28 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
+    public async Task A_chat_with_an_assistant_whose_base_instructions_are_disabled_is_sent_only_the_assistants_own()
+    {
+        await using var harness = new ChatSessionHarness();
+        var assistant = new Assistant
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Name = "Saksbehandler",
+            Instructions = AssistantInstructions,
+            Visibility = AssistantVisibility.Private,
+            AreBaseInstructionsDisabled = true
+        };
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: []);
+
+        await harness.Session.SendAsync("hei");
+
+        Assert.Equal(
+            "## Instructions for the assistant \"Saksbehandler\"\n\n" + AssistantInstructions,
+            harness.Client.LastOptions?.Instructions);
+    }
+
+    [Fact]
     public async Task A_new_chat_with_an_assistant_is_saved_with_that_assistant()
     {
         await using var harness = new ChatSessionHarness();
