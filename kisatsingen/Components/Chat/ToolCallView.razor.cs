@@ -1,6 +1,7 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components;
+using kisatsingen.AIFunctions;
 using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
@@ -17,28 +18,18 @@ public partial class ToolCallView : ComponentBase
 
     [Parameter, EditorRequired] public required ToolSegment Segment { get; set; }
 
-    // Formatted once per segment, not per render: a result can be pages of text.
+    // Worked out once per segment, not per render: a result can be pages of text.
     private ToolSegment? _formattedFor;
+    private ToolOutcome _outcome;
+    private string _title = string.Empty;
     private string _arguments = string.Empty;
     private string? _result;
 
-    // Mapped explicitly, so renaming a member can't silently rename a CSS hook.
-    private string StatusName => Segment.Status switch
+    private string OutcomeColor => _outcome switch
     {
-        ToolStatus.Running => "running",
-        ToolStatus.Completed => "completed",
-        ToolStatus.Failed => "failed",
-        ToolStatus.Interrupted => "interrupted",
-        _ => "unknown"
-    };
-
-    private string StatusText => Segment.Status switch
-    {
-        ToolStatus.Running => "Kjører …",
-        ToolStatus.Completed => "Ferdig",
-        ToolStatus.Failed => "Feilet",
-        ToolStatus.Interrupted => "Avbrutt",
-        _ => "Ukjent"
+        ToolOutcome.Refused => "warning",
+        ToolOutcome.Failed => "danger",
+        _ => "neutral"
     };
 
     protected override void OnParametersSet()
@@ -49,29 +40,42 @@ public partial class ToolCallView : ComponentBase
         }
 
         _formattedFor = Segment;
+        var resultJson = ParseResult(Segment.Result);
+        _outcome = ClassifyOutcome(Segment.Status, resultJson);
+        _title = ToolCallTitle.Describe(Segment.ToolName, _outcome, resultJson);
         _arguments = FormatArguments(Segment.Arguments);
-        _result = Segment.Result is { } result ? FormatResult(result) : null;
+        _result = resultJson is { } json ? JsonSerializer.Serialize(json, IndentedJson) : Segment.Result;
     }
+
+    private static ToolOutcome ClassifyOutcome(ToolStatus status, JsonElement? result) => status switch
+    {
+        ToolStatus.Running => ToolOutcome.Running,
+        ToolStatus.Completed when result is { } json && ToolError.IsRefusal(json) => ToolOutcome.Refused,
+        ToolStatus.Completed => ToolOutcome.Succeeded,
+        ToolStatus.Failed => ToolOutcome.Failed,
+        ToolStatus.Interrupted => ToolOutcome.Interrupted,
+        _ => throw new ArgumentOutOfRangeException(nameof(status), status, "A tool status with no outcome.")
+    };
 
     // Undefined when a stored segment has no arguments at all.
     private static string FormatArguments(JsonElement arguments) =>
         arguments.ValueKind == JsonValueKind.Undefined ? string.Empty : JsonSerializer.Serialize(arguments, IndentedJson);
 
-    private static string FormatResult(string result)
+    // Null unless the result is a JSON object or array.
+    private static JsonElement? ParseResult(string? result)
     {
-        if (result.AsSpan().TrimStart() is not ['{' or '[', ..])
+        if (result is null || result.AsSpan().TrimStart() is not ['{' or '[', ..])
         {
-            return result;
+            return null;
         }
 
         try
         {
-            using var document = JsonDocument.Parse(result);
-            return JsonSerializer.Serialize(document.RootElement, IndentedJson);
+            return JsonElement.Parse(result);
         }
         catch (JsonException)
         {
-            return result;
+            return null;
         }
     }
 }

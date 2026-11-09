@@ -3,7 +3,7 @@ using System.Text.Json;
 namespace kisatsingen.AIFunctions;
 
 // What a tool answers when it refuses a call: the reason, written to the model
-// so it can correct the call. IsRefusal reads one back from a stored result.
+// so it can correct the call.
 internal sealed record ToolError(string Error)
 {
     // Error as it is written: tool results are serialised in camelCase.

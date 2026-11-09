@@ -1,0 +1,14 @@
+/* A running call cannot be opened, so it shows no chevron. Hidden rather than
+   removed, so the title does not move when the chevron appears. */
+.ds-details[inert] > summary::before {
+    visibility: hidden;
+}
+
+/* Results are mostly text from files, so they wrap. The cap keeps a page-long
+   result from burying the rest of the answer. */
+.chat-tool-output {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-block-size: 20rem;
+    overflow-y: auto;
+}

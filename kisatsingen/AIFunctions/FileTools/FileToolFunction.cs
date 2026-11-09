@@ -27,6 +27,20 @@ internal static class FileToolFunction
     private static ValueTask<object?> SerializeResult(object? result, Type? _, CancellationToken __) =>
         ValueTask.FromResult<object?>(JsonSerializer.Serialize(result, result?.GetType() ?? typeof(object), ResultJson));
 
+    // Read with the options the result was written with. Null for a result
+    // that is not the shape asked for.
+    public static T? ReadResult<T>(JsonElement result) where T : class
+    {
+        try
+        {
+            return result.Deserialize<T>(ResultJson);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static JsonSerializerOptions CreateResultJson()
     {
         var options = new JsonSerializerOptions(AIJsonUtilities.DefaultOptions)
