@@ -3,13 +3,12 @@ using Microsoft.EntityFrameworkCore;
 
 namespace kisatsingen.Data.Repositories;
 
-// DatabaseCleanupRepositoryTests makes sure that only allowed callers have the
-// implemented interface.
+// Not registered in DI on purpose; Program.cs builds it for DatabaseCleanupBackgroundService only.
 public class DatabaseCleanupRepository(IDbContextFactory<AppDbContext> factory, ILogger<DatabaseCleanupRepository> logger) : IDatabaseCleanupRepository
 {
     public async Task<int> CleanupChats(TimeSpan interval, CancellationToken ct = default)
     {
-        var retentionPeriod = GetRetentionDateTime(interval);
+        var retentionPeriod = GetRetentionDateTime(DateTimeOffset.UtcNow, interval);
         await using var db = await factory.CreateDbContextAsync(ct);
 
         logger.LogInformation("Starting to clean up chats older than {RetentionPeriod}", DateTimeService.GetTimeZonedDateTimeOffsetString(retentionPeriod));
@@ -20,5 +19,5 @@ public class DatabaseCleanupRepository(IDbContextFactory<AppDbContext> factory, 
         return totalRowsDeleted;
     }
 
-    private static DateTimeOffset GetRetentionDateTime(TimeSpan interval) => DateTimeOffset.UtcNow.Add(-interval);
+    internal static DateTimeOffset GetRetentionDateTime(DateTimeOffset now, TimeSpan interval) => now.Add(-interval);
 }

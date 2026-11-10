@@ -188,9 +188,15 @@ builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
 builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
-builder.Services.AddSingleton<IDatabaseCleanupRepository, DatabaseCleanupRepository>();
-builder.Services.AddSingleton(databaseCleanupConfigurations);
-builder.Services.AddHostedService<DatabaseCleanupBackgroundService>();
+
+// The cleanup repository deletes data in bulk, so it is deliberately left out of
+// the container: only the background service gets one, and nothing can inject it.
+builder.Services.AddHostedService(sp => new DatabaseCleanupBackgroundService(
+    databaseCleanupConfigurations,
+    new DatabaseCleanupRepository(
+        sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
+        sp.GetRequiredService<ILogger<DatabaseCleanupRepository>>()),
+    sp.GetRequiredService<ILogger<DatabaseCleanupBackgroundService>>()));
 
 // Radzen Charts depend on scoped UI services (TooltipService et al.) injected
 // via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical

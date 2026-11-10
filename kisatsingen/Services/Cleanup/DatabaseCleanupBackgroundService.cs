@@ -29,9 +29,8 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
         await Task.WhenAll(cleanUpJobTask);
     }
 
-    private static TimeSpan CalculateDelayToNextOccurence(TimeSpan targetTime)
+    internal static TimeSpan CalculateDelayToNextOccurence(DateTime now, TimeSpan targetTime)
     {
-        var now = DateTime.Now;
         var nextRun = now.Date + targetTime;
 
         if (now >= nextRun)
@@ -46,7 +45,7 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = CalculateDelayToNextOccurence(timeTarget);
+            var delay = CalculateDelayToNextOccurence(DateTime.Now, timeTarget);
 
             var jobName = jobMethod.GetMethodInfo().Name;
 
