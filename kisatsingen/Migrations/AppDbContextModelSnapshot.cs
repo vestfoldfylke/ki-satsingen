@@ -272,6 +272,12 @@ namespace kisatsingen.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssistantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<long?>("EstimatedInputTokens")
                         .HasColumnType("bigint");
 
@@ -304,6 +310,9 @@ namespace kisatsingen.Migrations
 
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TurnId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 

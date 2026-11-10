@@ -12,8 +12,8 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261110133149_AddTurnCachedInputTokens")]
-    partial class AddTurnCachedInputTokens
+    [Migration("20261110184157_AddCachedInputTokensAndUsageLinks")]
+    partial class AddCachedInputTokensAndUsageLinks
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -275,6 +275,12 @@ namespace kisatsingen.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssistantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<long?>("EstimatedInputTokens")
                         .HasColumnType("bigint");
 
@@ -307,6 +313,9 @@ namespace kisatsingen.Migrations
 
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("TurnId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
