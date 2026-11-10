@@ -12,9 +12,9 @@ internal static class OutlineSelection
     // headings are ## still shows two levels at depth 2. Counted from the
     // whole file rather than the range, so a continuation shows the same
     // levels as the page before it. Tables and blocks are always shown.
-    public static OutlineSelectionResult Select(IReadOnlyList<OutlineEntry> outline, int start, int end, int depth, int maxEntries)
+    public static OutlineSelectionResult Select(IReadOnlyList<OutlineEntry> outline, int startLine, int endLine, int depth, int maxEntries)
     {
-        var inRange = outline.Where(entry => entry.Line >= start && entry.Line <= end).ToList();
+        var inRange = outline.Where(entry => entry.Line >= startLine && entry.Line <= endLine).ToList();
 
         var shownLevels = outline
             .Where(entry => entry.Kind == OutlineKind.Heading)
