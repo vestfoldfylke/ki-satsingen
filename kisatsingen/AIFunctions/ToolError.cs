@@ -1,12 +1,12 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace kisatsingen.AIFunctions;
 
-// What a tool answers when it refuses a call: the reason, written to the model
-// so it can correct the call.
-internal sealed record ToolError(string Error)
+// A tool's refusal, with the reason the model needs to correct its call.
+// The JSON name is pinned so any serialiser writes what IsRefusal reads.
+internal sealed record ToolError([property: JsonPropertyName(ToolError.ErrorProperty)] string Error)
 {
-    // Error as it is written: tool results are serialised in camelCase.
     private const string ErrorProperty = "error";
 
     public static bool IsRefusal(JsonElement result) =>
