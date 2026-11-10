@@ -2,6 +2,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
+using kisatsingen.Components.Chat;
 
 namespace kisatsingen.Components.Layout;
 

@@ -1,0 +1,49 @@
+<button
+    type="button"
+    class="ds-button chat-list-item-option-button"
+    data-variant="tertiary"
+    data-size="sm"
+    data-icon="true"
+    popovertarget="@MenuId"
+    aria-label="Valg for samtalen"
+    data-tooltip="Valg for samtalen"
+>
+    <span class="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+</button>
+<div
+    class="ds-dropdown chat-list-item-option-dropdown-menu"
+    data-placement="bottom-end"
+    id="@MenuId"
+    popover
+>
+    <ul>
+        <li>
+            <button
+                type="button"
+                class="ds-button"
+                data-variant="tertiary"
+                data-color="accent"
+                command="show-modal"
+                commandfor="@RenameDialogId"
+                @onclick="() => OnRename.InvokeAsync(Entry)"
+            >
+                <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                Endre navn
+            </button>
+        </li>
+        <li>
+            <button
+                type="button"
+                class="ds-button"
+                data-variant="tertiary"
+                data-color="danger"
+                command="show-modal"
+                commandfor="@DeleteDialogId"
+                @onclick="() => OnDelete.InvokeAsync(Entry)"
+            >
+                <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                Slett samtale
+            </button>
+        </li>
+    </ul>
+</div>

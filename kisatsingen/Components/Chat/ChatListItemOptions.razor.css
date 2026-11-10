@@ -1,0 +1,26 @@
+.chat-list-item-option-button {
+    --dsc-button-size: 2.1rem;
+    display: flex;
+    opacity: 0;
+}
+
+.chat-list-item-option-button:hover {
+    background-color: var(--ds-color-border-subtle);
+}
+
+.chat-list-item-option-button > span.material-symbols-outlined {
+    font-size: 1.4rem;
+    color: var(--ds-color-text-default)
+}
+
+@media (hover: none) {
+    .chat-list-item-option-button {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 800px) {
+    .chat-list-item-option-button {
+        opacity: 1;
+    }
+}

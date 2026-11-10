@@ -1,0 +1,79 @@
+@using kisatsingen.Components.Chat
+@page "/chats"
+
+<PageTitle>Alle samtaler</PageTitle>
+
+<div>
+    <div class="chats-page">
+        <div class="chats-header">
+            <h1 class="ds-heading" data-size="md">Samtaler</h1>
+            <div class="chats-actions">
+                <a href="/new" class="ds-button" data-variant="primary" data-size="sm">Ny samtale</a>
+            </div>
+        </div>
+
+        @if (ChatList.Count == 0)
+        {
+            <p class="ds-paragraph chat-list-empty">Ingen samtaler enda</p>
+        }
+        else
+        {
+            <ul class="ds-list chat-list-items" data-color="neutral">
+                @foreach (var entry in ChatList)
+                {
+                    var menuId = $"chats-page-menu-{entry.Id}";
+                    var linkId = $"chats-page-link-{entry.Id}";
+
+                    <li @key="entry.Id">
+                        <div
+                            class="chat-list-item"
+                            data-clickdelegatefor="@linkId"
+                        >
+                            <span class="material-symbols-outlined chat-list-bullet" aria-hidden="true">@(entry.AssistantId is not null ? "smart_toy" : "fiber_manual_record")</span>
+
+                            <a
+                                class="ds-link chat-list-link"
+                                id="@linkId"
+                                href="@($"/chat/{entry.Id}")"
+                                data-tooltip="@(entry.Title?.Length > TooltipOnChatListTitleLengthThreshold ? entry.Title : null)"
+                                data-placement="top"
+                            >
+                                @if (entry.AssistantId is not null)
+                                {
+                                    <span class="ds-sr-only">Assistent: </span>
+                                }
+                                <span class="chat-list-title">@entry.Title</span>
+                            </a>
+
+                            <span class="ds-paragraph chat-time">
+                                <time datetime="@entry.UpdatedAt.ToString("o")">
+                                    @(TimeZoneInfo.ConvertTime(entry.UpdatedAt, Oslo).ToString("d. MMM yyyy"))
+                                </time>
+                            </span>
+
+                            <ChatListItemOptions
+                                MenuId="@menuId"
+                                Entry="@entry"
+                                RenameDialogId="chats-rename-dialog"
+                                DeleteDialogId="chats-delete-dialog"
+                                OnRename="@(e => _renameDialog?.Load(e))"
+                                OnDelete="@(e => _deleteDialog?.Load(e))"
+                            />
+                        </div>
+
+                        <hr aria-hidden="true" class="ds-divider chat-list-divider"/>
+                    </li>
+                }
+            </ul>
+        }
+
+        <RenameChatDialog
+            @ref="_renameDialog"
+            Id="chats-rename-dialog"
+        />
+        <DeleteChatDialog
+            @ref="_deleteDialog"
+            Id="chats-delete-dialog"
+        />
+    </div>
+</div>

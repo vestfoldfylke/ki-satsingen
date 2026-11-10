@@ -2,7 +2,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using kisatsingen.Components.Shared;
 
-namespace kisatsingen.Components.Layout;
+namespace kisatsingen.Components.Chat;
 
 public sealed partial class DeleteChatDialog : ComponentBase
 {
@@ -28,6 +28,10 @@ public sealed partial class DeleteChatDialog : ComponentBase
 
     [Parameter, EditorRequired]
     public required string Id { get; set; }
+
+    private bool IsViewing(Guid chatId) =>
+    new Uri(Navigation.Uri).AbsolutePath
+        .Equals($"/chat/{chatId}", StringComparison.OrdinalIgnoreCase);
 
     public void Load(ChatListEntry chat)
     {
@@ -65,7 +69,7 @@ public sealed partial class DeleteChatDialog : ComponentBase
         _dialog?.Close();
 
         // Same check again: the user can navigate with back/forward while the delete runs.
-        if (Session.ChatId == chat.Id)
+        if (Session.ChatId == chat.Id && IsViewing(chat.Id))
         {
             // Replaced, so back doesn't lead to the deleted chat.
             Navigation.NavigateTo($"/{NewChatPath}", replace: true);

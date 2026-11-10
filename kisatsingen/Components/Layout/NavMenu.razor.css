@@ -172,41 +172,13 @@
     background: var(--ds-color-neutral-surface-hover);
 }
 
-.chat-list-item:is(:hover, :focus-within) .chat-list-item-option-button {
+.chat-list-item:is(:hover, :focus-within) ::deep .chat-list-item-option-button {
     opacity: 1;
-    transition: opacity 0.02s ease-in-out;
 }
+
 
 .chat-list-item-active {
     background: var(--ds-color-accent-surface-tinted);
-}
-
-.chat-list-item-option-button {
-    --dsc-button-size: 2rem;
-    display: flex;
-    opacity: 0;
-}
-
-.chat-list-item-option-button > span.material-symbols-outlined {
-    font-size: 1.3rem;
-}
-
-.chat-list-item-option-dropdown-menu {
-    --dsc-dropdown-padding: 0.25rem;
-    --dsc-dropdown-item-size: 1rem;
-    --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem 0.3rem;
-    min-width: 0;
-    width: max-content;
-}
-
-.chat-list-item-option-dropdown-menu ul {
-    width: auto;
-    margin: 0;
-    padding: 0;
-}
-
-.chat-list-item-option-dropdown-menu ul > li > button {
-    font-size: 0.925rem;
 }
 
 .chat-list-link {
@@ -248,6 +220,5 @@
 }
 
 .chat-list-bullet {
-    font-size: 1rem;
-    opacity: 0.6;
+    color: var(--ds-color-text-subtle);
 }
