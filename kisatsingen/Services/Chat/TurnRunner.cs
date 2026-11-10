@@ -333,6 +333,7 @@ internal sealed class TurnRunner
             var ownerId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
             var entry = new TokenUsageEntry(
                 OwnerId: ownerId,
+                ChatId: row.ChatId,
                 TurnId: attempt.Turn.Id,
                 AssistantId: row.AssistantId,
                 Provider: model.Provider,

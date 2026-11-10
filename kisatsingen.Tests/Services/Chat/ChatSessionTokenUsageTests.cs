@@ -50,6 +50,19 @@ public sealed class ChatSessionTokenUsageTests
     }
 
     [Fact]
+    public async Task Every_turn_in_a_chat_records_that_chat()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
+
+        await harness.Session.SendAsync("hei");
+        await harness.Session.SendAsync("igjen");
+
+        var chatId = Assert.Single(harness.Repository.CreatedChatIds);
+        Assert.Equal([chatId, chatId], harness.UserTokenUsageRepository.Entries.Select(entry => entry.ChatId));
+    }
+
+    [Fact]
     public async Task The_entry_names_the_turn_it_was_spent_on()
     {
         await using var harness = new ChatSessionHarness();

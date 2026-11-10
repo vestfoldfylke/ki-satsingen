@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261110184157_AddCachedInputTokensAndUsageLinks")]
+    [Migration("20261110185641_AddCachedInputTokensAndUsageLinks")]
     partial class AddCachedInputTokensAndUsageLinks
     {
         /// <inheritdoc />
@@ -280,6 +280,9 @@ namespace kisatsingen.Migrations
 
                     b.Property<long?>("CachedInputTokens")
                         .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ChatId")
+                        .HasColumnType("uuid");
 
                     b.Property<long?>("EstimatedInputTokens")
                         .HasColumnType("bigint");

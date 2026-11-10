@@ -278,6 +278,9 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("CachedInputTokens")
                         .HasColumnType("bigint");
 
+                    b.Property<Guid?>("ChatId")
+                        .HasColumnType("uuid");
+
                     b.Property<long?>("EstimatedInputTokens")
                         .HasColumnType("bigint");
 

@@ -11,7 +11,8 @@ public sealed class TokenUsage
     public Guid Id { get; init; }
     public required Guid OwnerId { get; init; }
 
-    // No foreign keys: the row must outlive the turn and assistant it names.
+    // No foreign keys: the row must outlive the chat, turn and assistant it names.
+    public Guid? ChatId { get; init; }
     public Guid? TurnId { get; init; }
     public Guid? AssistantId { get; init; }
 

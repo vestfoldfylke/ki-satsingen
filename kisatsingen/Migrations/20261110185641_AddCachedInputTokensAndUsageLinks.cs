@@ -24,6 +24,12 @@ namespace kisatsingen.Migrations
                 nullable: true);
 
             migrationBuilder.AddColumn<Guid>(
+                name: "ChatId",
+                table: "TokenUsages",
+                type: "uuid",
+                nullable: true);
+
+            migrationBuilder.AddColumn<Guid>(
                 name: "TurnId",
                 table: "TokenUsages",
                 type: "uuid",
@@ -45,6 +51,10 @@ namespace kisatsingen.Migrations
 
             migrationBuilder.DropColumn(
                 name: "CachedInputTokens",
+                table: "TokenUsages");
+
+            migrationBuilder.DropColumn(
+                name: "ChatId",
                 table: "TokenUsages");
 
             migrationBuilder.DropColumn(

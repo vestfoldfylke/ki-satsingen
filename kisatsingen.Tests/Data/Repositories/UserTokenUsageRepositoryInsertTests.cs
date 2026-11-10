@@ -24,11 +24,13 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     [Fact]
     public async Task Stores_the_entry_with_the_provided_values()
     {
+        var chatId = Guid.Parse("55555555-5555-5555-5555-555555555555");
         var turnId = Guid.Parse("33333333-3333-3333-3333-333333333333");
         var assistantId = Guid.Parse("44444444-4444-4444-4444-444444444444");
         var before = DateTimeOffset.UtcNow;
 
         await InsertAsync(Entry(
+            chatId: chatId,
             turnId: turnId,
             assistantId: assistantId,
             usage: new MessageUsage(30, 12, 5, 2, CachedInputTokens: 20)));
@@ -38,6 +40,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
 
         Assert.NotEqual(Guid.Empty, stored.Id);
         Assert.Equal(OwnerId, stored.OwnerId);
+        Assert.Equal(chatId, stored.ChatId);
         Assert.Equal(turnId, stored.TurnId);
         Assert.Equal(assistantId, stored.AssistantId);
         Assert.Equal("openai", stored.Provider);
@@ -233,6 +236,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     // Defaults for everything a test is not about, so each names only its subject.
     private static TokenUsageEntry Entry(
         Guid? ownerId = null,
+        Guid? chatId = null,
         Guid? turnId = null,
         Guid? assistantId = null,
         string provider = "openai",
@@ -241,6 +245,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         TurnStatus status = TurnStatus.Completed) =>
         new(
             OwnerId: ownerId ?? OwnerId,
+            ChatId: chatId ?? Guid.NewGuid(),
             TurnId: turnId ?? Guid.NewGuid(),
             AssistantId: assistantId,
             Provider: provider,

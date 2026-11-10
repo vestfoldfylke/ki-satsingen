@@ -21,6 +21,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
         {
             Id = Guid.NewGuid(),
             OwnerId = entry.OwnerId,
+            ChatId = entry.ChatId,
             TurnId = entry.TurnId,
             AssistantId = entry.AssistantId,
             Timestamp = DateTimeOffset.UtcNow,
