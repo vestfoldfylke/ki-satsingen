@@ -67,14 +67,13 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
 
     private sealed record ToolCallText(string Title, string? UserFriendlyResult = null);
 
-    // Interrupted is the running title marked as such, handled here so each
-    // tool's _ arm covers only refused and failed.
     private static ToolCallText Describe(string toolName, ToolOutcome outcome, JsonElement? result)
     {
-        if (outcome is ToolOutcome.Interrupted)
+        if (outcome is ToolOutcome.Interrupted or ToolOutcome.Failed)
         {
             var runningTitle = Describe(toolName, ToolOutcome.Running, result).Title;
-            return new(Title: $"{runningTitle} (avbrutt)");
+            var stoppedBy = outcome is ToolOutcome.Interrupted ? "avbrutt" : "feilet";
+            return new(Title: $"{runningTitle} ({stoppedBy})");
         }
 
         return toolName switch
@@ -94,7 +93,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             Title: "Sjekket hva klokka er",
             UserFriendlyResult: time.GetString()),
         ToolOutcome.Succeeded => new(Title: "Sjekket hva klokka er"),
-        _ => new(Title: "Kunne ikke sjekke hva klokka er")
+        _ => new(Title: "Prøvde å sjekke hva klokka er")
     };
 
     private static ToolCallText DescribeListFiles(ToolOutcome outcome, JsonElement? result) => outcome switch
@@ -104,7 +103,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             Title: "Så hvilke filer som er tilgjengelige",
             UserFriendlyResult: files.Count == 0 ? "Ingen filer" : string.Join('\n', files.Select(file => file.FileName))),
         ToolOutcome.Succeeded => new(Title: "Så hvilke filer som er tilgjengelige"),
-        _ => new(Title: "Kunne ikke se hvilke filer som er tilgjengelige")
+        _ => new(Title: "Prøvde å se hvilke filer som er tilgjengelige")
     };
 
     private static ToolCallText DescribeOutline(ToolOutcome outcome, JsonElement? result) => outcome switch
@@ -116,7 +115,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
                 ? "Innholdsfortegnelsen er tom"
                 : string.Join('\n', entries.Select(entry => $"{entry.Title} (linje {entry.StartLine} til {entry.EndLine})"))),
         ToolOutcome.Succeeded => new(Title: "Laget innholdsfortegnelse"),
-        _ => new(Title: "Kunne ikke lage innholdsfortegnelse")
+        _ => new(Title: "Prøvde å lage innholdsfortegnelse")
     };
 
     private static ToolCallText DescribeReadFile(ToolOutcome outcome, JsonElement? result) => outcome switch
@@ -126,14 +125,14 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             Title: $"Leste «{fileName}», linje {read.StartLine} til {read.EndLine}",
             UserFriendlyResult: WithoutLineNumbers(content)),
         ToolOutcome.Succeeded => new(Title: "Leste filen"),
-        _ => new(Title: "Kunne ikke lese filen")
+        _ => new(Title: "Prøvde å lese filen")
     };
 
     private static ToolCallText DescribeUnknownTool(string toolName, ToolOutcome outcome) => outcome switch
     {
         ToolOutcome.Running => new(Title: $"Bruker verktøyet {toolName}"),
         ToolOutcome.Succeeded => new(Title: $"Brukte verktøyet {toolName}"),
-        _ => new(Title: $"Kunne ikke bruke verktøyet {toolName}")
+        _ => new(Title: $"Prøvde å bruke verktøyet {toolName}")
     };
 
     private static T? ReadAs<T>(JsonElement? result) where T : class =>

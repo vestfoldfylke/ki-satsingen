@@ -28,10 +28,6 @@ public partial class ToolCallBlock : ComponentBase
         ? View.FormatToolCallJson()
         : View.UserFriendlyResult;
 
-    private string OutcomeColor => View.Outcome switch
-    {
-        ToolOutcome.Refused => "warning",
-        ToolOutcome.Failed => "danger",
-        _ => "neutral"
-    };
+    // A refusal is neutral: the model usually corrects its call in the next step.
+    private string OutcomeColor => View.Outcome is ToolOutcome.Failed ? "danger" : "neutral";
 }

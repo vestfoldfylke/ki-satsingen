@@ -60,7 +60,7 @@ public sealed class ToolCallViewTests
         var view = Build("read_file", """{"error":"Fant ikke filen."}""");
 
         Assert.Equal(
-            (ToolOutcome.Refused, "Kunne ikke lese filen", (string?)null),
+            (ToolOutcome.Refused, "Prøvde å lese filen", (string?)null),
             (view.Outcome, view.Title, view.UserFriendlyResult));
     }
 
@@ -106,6 +106,14 @@ public sealed class ToolCallViewTests
         var view = Build("read_file", result: null, ToolStatus.Interrupted);
 
         Assert.Equal("Leser filen (avbrutt)", view.Title);
+    }
+
+    [Fact]
+    public void A_failed_call_says_what_failed()
+    {
+        var view = Build("read_file", "Error: Function failed.", ToolStatus.Failed);
+
+        Assert.Equal("Leser filen (feilet)", view.Title);
     }
 
     [Fact]
