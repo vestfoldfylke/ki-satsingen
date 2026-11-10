@@ -1,7 +1,7 @@
 @using kisatsingen.Services
 
-@* The date as it is in Norway, not on the server: the server runs in UTC, so a
-   time just after midnight in Oslo would otherwise show as the day before. *@
+@* The date as it is in Norway, so a time just after midnight in Oslo would
+   otherwise show as the day before. *@
 <time class="@Class" datetime="@Value.ToString("o")">@DateTimeService.GetTimeZonedDateTimeOffsetString(Value, DateTimeFormat)</time>
 
 @code {

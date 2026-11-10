@@ -10,7 +10,7 @@ public sealed class DatabaseCleanupRepositoryTests
     {
         var now = new DateTimeOffset(2026, 11, 10, 3, 0, 0, TimeSpan.Zero);
 
-        var cutoff = DatabaseCleanupRepository.GetRetentionDateTime(now, TimeSpan.FromDays(30));
+        var cutoff = DatabaseCleanupRepository.GetCutoffDateTime(now, TimeSpan.FromDays(30));
 
         Assert.Equal(new DateTimeOffset(2026, 10, 11, 3, 0, 0, TimeSpan.Zero), cutoff);
     }
@@ -21,7 +21,7 @@ public sealed class DatabaseCleanupRepositoryTests
     {
         var now = new DateTimeOffset(2026, 11, 10, 3, 0, 0, TimeSpan.Zero);
 
-        var cutoff = DatabaseCleanupRepository.GetRetentionDateTime(now, TimeSpan.FromSeconds(1));
+        var cutoff = DatabaseCleanupRepository.GetCutoffDateTime(now, TimeSpan.FromSeconds(1));
 
         Assert.True(cutoff < now);
     }

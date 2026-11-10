@@ -29,7 +29,7 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
         await Task.WhenAll(cleanUpJobTask);
     }
 
-    internal static TimeSpan CalculateDelayToNextOccurence(DateTime now, TimeSpan targetTime)
+    internal static TimeSpan CalculateDelayToNextOccurrence(DateTime now, TimeSpan targetTime)
     {
         var nextRun = now.Date + targetTime;
 
@@ -43,19 +43,22 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
 
     private async Task RunDelayedJobAsync(TimeSpan timeTarget, Func<CancellationToken, Task> jobMethod, CancellationToken stoppingToken)
     {
+        var jobName = jobMethod.GetMethodInfo().Name;
+
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = CalculateDelayToNextOccurence(DateTime.Now, timeTarget);
-
-            var jobName = jobMethod.GetMethodInfo().Name;
+            var delay = CalculateDelayToNextOccurrence(DateTime.Now, timeTarget);
 
             try
             {
                 _logger.LogInformation("Starting {JobName} task delay of {Delay}", jobName, delay);
                 await Task.Delay(delay, stoppingToken);
 
-                _logger.LogInformation("Calling {JobName} task", jobName);
                 await jobMethod(stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                _logger.LogInformation("Task {JobName} was requested to be canceled", jobName);
             }
             catch (OperationCanceledException)
             {

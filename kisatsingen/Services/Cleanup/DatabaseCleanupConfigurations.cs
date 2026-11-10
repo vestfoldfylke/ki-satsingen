@@ -38,9 +38,9 @@ public sealed class DatabaseChatCleanupConfiguration
             throw new FormatException($"Invalid format on setting {ConfigPath}.{nameof(Retention)} in configuration. Expected format: 'd.HH:mm:ss'.");
         }
 
-        if (retentionTimeSpan <= TimeSpan.Zero)
+        if (retentionTimeSpan < TimeSpan.FromDays(1))
         {
-            throw new ArgumentOutOfRangeException(nameof(Retention), $"{ConfigPath}.{nameof(Retention)} must be greater than zero.");
+            throw new ArgumentOutOfRangeException(nameof(Retention), $"{ConfigPath}.{nameof(Retention)} must be at least 1 day.");
         }
 
         RetentionTimeSpan = retentionTimeSpan;

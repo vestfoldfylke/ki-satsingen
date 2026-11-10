@@ -12,7 +12,7 @@ public sealed class DatabaseCleanupBackgroundServiceTests
     {
         var now = new DateTime(2026, 11, 10, 1, 30, 0);
 
-        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurence(now, ThreeAm);
+        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurrence(now, ThreeAm);
 
         Assert.Equal(TimeSpan.FromMinutes(90), delay);
     }
@@ -22,7 +22,7 @@ public sealed class DatabaseCleanupBackgroundServiceTests
     {
         var now = new DateTime(2026, 11, 10, 14, 0, 0);
 
-        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurence(now, ThreeAm);
+        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurrence(now, ThreeAm);
 
         Assert.Equal(TimeSpan.FromHours(13), delay);
     }
@@ -33,7 +33,7 @@ public sealed class DatabaseCleanupBackgroundServiceTests
     {
         var now = new DateTime(2026, 11, 10, 3, 0, 0);
 
-        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurence(now, ThreeAm);
+        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurrence(now, ThreeAm);
 
         Assert.Equal(TimeSpan.FromDays(1), delay);
     }
@@ -43,7 +43,7 @@ public sealed class DatabaseCleanupBackgroundServiceTests
     {
         var now = new DateTime(2026, 11, 10, 23, 30, 0);
 
-        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurence(now, TimeSpan.Zero);
+        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurrence(now, TimeSpan.Zero);
 
         Assert.Equal(TimeSpan.FromMinutes(30), delay);
     }
@@ -53,7 +53,7 @@ public sealed class DatabaseCleanupBackgroundServiceTests
     {
         var now = new DateTime(2026, 11, 10, 23, 0, 0);
 
-        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurence(now, new TimeSpan(23, 59, 59));
+        var delay = DatabaseCleanupBackgroundService.CalculateDelayToNextOccurrence(now, new TimeSpan(23, 59, 59));
 
         Assert.Equal(new TimeSpan(0, 59, 59), delay);
     }
