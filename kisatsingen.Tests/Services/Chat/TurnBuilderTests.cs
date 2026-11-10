@@ -205,6 +205,18 @@ public sealed class TurnBuilderTests
     }
 
     [Fact]
+    public void Cached_input_tokens_are_summed_across_the_round_trips_of_a_turn()
+    {
+        var builder = Builder();
+        builder.DurationMs = 10;
+
+        builder.Apply(Usage(100, 10, cachedInput: 40));
+        builder.Apply(Usage(200, 20, cachedInput: 150));
+
+        Assert.Equal(190, builder.Finish(TurnStatus.Completed).Metadata?.Usage?.CachedInputTokens);
+    }
+
+    [Fact]
     public void A_stopped_turn_the_provider_never_reported_on_estimates_its_request_and_what_was_written()
     {
         var builder = Builder(requestTokens: 50);
@@ -315,9 +327,15 @@ public sealed class TurnBuilderTests
     private static ChatResponseUpdate Result(string callId, string result = "ok") =>
         new(ChatRole.Tool, [new FunctionResultContent(callId, result)]);
 
-    private static ChatResponseUpdate Usage(long input, long output) =>
+    private static ChatResponseUpdate Usage(long input, long output, long? cachedInput = null) =>
         new(ChatRole.Assistant,
         [
-            new UsageContent(new UsageDetails { InputTokenCount = input, OutputTokenCount = output, TotalTokenCount = input + output })
+            new UsageContent(new UsageDetails
+            {
+                InputTokenCount = input,
+                OutputTokenCount = output,
+                TotalTokenCount = input + output,
+                CachedInputTokenCount = cachedInput
+            })
         ]);
 }

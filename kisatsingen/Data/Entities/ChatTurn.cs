@@ -45,6 +45,7 @@ public sealed class ChatTurn
     public long? OutputTokens { get; init; }
     public long? EstimatedInputTokens { get; init; }
     public long? EstimatedOutputTokens { get; init; }
+    public long? CachedInputTokens { get; init; }
     public long? DurationMs { get; init; }
     public long? TimeToFirstTokenMs { get; init; }
 }

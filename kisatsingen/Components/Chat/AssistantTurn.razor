@@ -146,6 +146,11 @@
                         <dt>Totalt behandlet</dt>
                         <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
                     }
+                    @if (usage.CachedInputTokens is { } cached)
+                    {
+                        <dt>Fra mellomlager</dt>
+                        <dd>@TokenCountFormat.Format(cached)</dd>
+                    }
                 </dl>
             }
         </div>

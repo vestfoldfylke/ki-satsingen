@@ -115,6 +115,9 @@ namespace kisatsingen.Migrations
                     b.Property<string>("AttachmentsJson")
                         .HasColumnType("text");
 
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("ChatId")
                         .HasColumnType("uuid");
 

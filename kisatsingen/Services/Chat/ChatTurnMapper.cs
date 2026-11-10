@@ -42,6 +42,7 @@ internal static class ChatTurnMapper
         OutputTokens = turn.Metadata?.Usage?.OutputTokens,
         EstimatedInputTokens = turn.Metadata?.Usage?.EstimatedInputTokens,
         EstimatedOutputTokens = turn.Metadata?.Usage?.EstimatedOutputTokens,
+        CachedInputTokens = turn.Metadata?.Usage?.CachedInputTokens,
         DurationMs = turn.Metadata?.DurationMs,
         TimeToFirstTokenMs = turn.Metadata?.TimeToFirstTokenMs
     };
@@ -165,7 +166,8 @@ internal static class ChatTurnMapper
                 stored.InputTokens,
                 stored.OutputTokens,
                 stored.EstimatedInputTokens,
-                stored.EstimatedOutputTokens),
+                stored.EstimatedOutputTokens,
+                stored.CachedInputTokens),
             stored.DurationMs,
             stored.TimeToFirstTokenMs);
 }
