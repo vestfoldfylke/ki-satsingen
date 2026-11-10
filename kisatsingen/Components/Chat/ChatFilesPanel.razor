@@ -23,9 +23,6 @@
             </button>
         }
         <h2 class="ds-heading chat-files-panel-title" data-size="xs">@(_shownFile?.FileName ?? "Filer")</h2>
-        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true" aria-label="Lukk filpanelet" data-tooltip="Lukk filpanelet" @onclick="OnClose">
-            <span class="material-symbols-outlined" aria-hidden="true">close</span>
-        </button>
     </div>
 
     <div class="chat-files-panel-body">
@@ -81,9 +78,6 @@
 
     [Parameter, EditorRequired]
     public required Func<Guid, CancellationToken, Task<KnowledgeFileText?>> ReadFileText { get; set; }
-
-    [Parameter]
-    public EventCallback OnClose { get; set; }
 
     private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
 
