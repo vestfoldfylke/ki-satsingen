@@ -12,6 +12,7 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
+using kisatsingen.Services.Cleanup;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -173,6 +174,9 @@ if (maxKnowledgeFileTokens <= 0)
     throw new InvalidOperationException($"Configuration 'KnowledgeFile:MaxEstimatedTokenCount' must be positive (got {maxKnowledgeFileTokens}).");
 }
 
+var databaseCleanupConfigurations = builder.Configuration.GetSection(DatabaseCleanupConfigurations.SectionName).Get<DatabaseCleanupConfigurations>() ?? new DatabaseCleanupConfigurations();
+databaseCleanupConfigurations.Validate();
+
 // ─── Application services ──────────────────────────────
 builder.Services.AddSingleton<IGraphService, GraphService>();
 builder.Services.AddSingleton<IUserInfoCache, UserInfoCache>();
@@ -184,6 +188,9 @@ builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
 builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
+builder.Services.AddSingleton<IDatabaseCleanupRepository, DatabaseCleanupRepository>();
+builder.Services.AddSingleton(databaseCleanupConfigurations);
+builder.Services.AddHostedService<DatabaseCleanupBackgroundService>();
 
 // Radzen Charts depend on scoped UI services (TooltipService et al.) injected
 // via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical

@@ -14,6 +14,23 @@ This app requires the following `Microsoft Graph` permissions:
 - Application
   - User.Read.All
 
+## Database cleanup
+
+Database cleanup is performed at given time targets set in **DatabaseCleanup** configuration section.
+
+### TargetTime
+
+The `TargetTime` configuration is specified as "`hour`:`minute`:`second`", representing when the cleanup should start.
+
+### Retention
+
+The `Retention` configuration is specified as "`days`:`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.
+
+#### ChatCleanup
+
+Chat cleanup is performed at the given `TargetTime` set in **DatabaseCleanup.ChatCleanup.TargetTime** configuration.<br />
+Chats older than the specified retention given by `Retention` set in **DatabaseCleanup.ChatCleanup.Retention** configuration, will be deleted at the given `TargetTime`.
+
 ## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json
@@ -23,6 +40,12 @@ This app requires the following `Microsoft Graph` permissions:
     "LogLevel": {
       "Default": "Information",
       "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "DatabaseCleanup": {
+    "ChatCleanup": {
+      "Retention": "30:00:00:00",
+      "TargetTime": "03:00:00"
     }
   },
   "EntraAuthConfiguration": {
