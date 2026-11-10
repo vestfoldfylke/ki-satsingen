@@ -3,7 +3,7 @@
 <div class="assistant-turn" data-live="@IsLive">
     @if (IsLive && Turn.Answer.Count == 0)
     {
-        <p class="text-shimmer" data-color="neutral">@_pendingPhrase...</p>
+        <p class="text-shimmer" data-color="neutral">@_pendingPhrase…</p>
     }
 
     @foreach (var segment in Turn.Answer)
