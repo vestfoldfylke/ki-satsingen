@@ -67,12 +67,14 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
 
     private sealed record ToolCallText(string Title, string? UserFriendlyResult = null);
 
-    // Interrupted is handled here, so each tool's _ arm covers refused and failed.
+    // Interrupted is the running title marked as such, handled here so each
+    // tool's _ arm covers only refused and failed.
     private static ToolCallText Describe(string toolName, ToolOutcome outcome, JsonElement? result)
     {
         if (outcome is ToolOutcome.Interrupted)
         {
-            return new(Title: "Avbrutt");
+            var runningTitle = Describe(toolName, ToolOutcome.Running, result).Title;
+            return new(Title: $"{runningTitle} (avbrutt)");
         }
 
         return toolName switch

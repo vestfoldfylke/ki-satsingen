@@ -101,11 +101,11 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
-    public void An_interrupted_call_says_it_was_interrupted()
+    public void An_interrupted_call_says_what_was_interrupted()
     {
         var view = Build("read_file", result: null, ToolStatus.Interrupted);
 
-        Assert.Equal("Avbrutt", view.Title);
+        Assert.Equal("Leser filen (avbrutt)", view.Title);
     }
 
     [Fact]
