@@ -20,7 +20,7 @@ internal enum ToolOutcome
 
 // A tool call as shown to the user. A result missing the fields a text needs,
 // such as one stored in an older shape, falls back to a text without them.
-internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, string ToolCallJson)
+internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult)
 {
     // Relaxed so æ, ø and å stay readable. Safe: Blazor HTML-encodes what it
     // renders, and this JSON never reaches a script.
@@ -35,7 +35,24 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         var result = ParseResult(toolCall.Result);
         var outcome = ClassifyOutcome(toolCall.Status, result);
         var (title, userFriendlyResult) = Describe(toolCall.ToolName, outcome, result);
-        return new ToolCallView(toolCall, outcome, title, userFriendlyResult, FormatToolCallJson(toolCall, result));
+        return new ToolCallView(toolCall, outcome, title, userFriendlyResult);
+    }
+
+    // On demand rather than in Build: few open the raw data, so no copy is kept
+    // unless it is shown. As stored, not interpreted: a refusal keeps its status
+    // Completed here.
+    public string FormatToolCallJson()
+    {
+        var result = ParseResult(ToolCall.Result);
+        var document = new
+        {
+            tool = ToolCall.ToolName,
+            status = ToolCall.Status,
+            // Undefined when a stored tool call has no arguments at all.
+            arguments = ToolCall.Arguments.ValueKind == JsonValueKind.Undefined ? (JsonElement?)null : ToolCall.Arguments,
+            result = result is { } json ? (object)json : ToolCall.Result
+        };
+        return JsonSerializer.Serialize(document, IndentedJson);
     }
 
     private static ToolOutcome ClassifyOutcome(ToolStatus status, JsonElement? result) => status switch
@@ -123,20 +140,6 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     // Lines come as "12<tab>text"; the title already gives the range.
     private static string WithoutLineNumbers(string content) =>
         string.Join('\n', content.Split('\n').Select(line => line[(line.IndexOf('\t') + 1)..]));
-
-    // As stored, not interpreted: a refusal keeps its status Completed here.
-    private static string FormatToolCallJson(ToolCall toolCall, JsonElement? result)
-    {
-        var document = new
-        {
-            tool = toolCall.ToolName,
-            status = toolCall.Status,
-            // Undefined when a stored tool call has no arguments at all.
-            arguments = toolCall.Arguments.ValueKind == JsonValueKind.Undefined ? (JsonElement?)null : toolCall.Arguments,
-            result = result is { } json ? (object)json : toolCall.Result
-        };
-        return JsonSerializer.Serialize(document, IndentedJson);
-    }
 
     // Null unless the result is a JSON object, array or string.
     private static JsonElement? ParseResult(string? result)

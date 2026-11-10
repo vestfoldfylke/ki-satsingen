@@ -25,7 +25,7 @@ public partial class ToolCallBlock : ComponentBase
     }
 
     private string ShownText => _isShowingRawData || View.UserFriendlyResult is null
-        ? View.ToolCallJson
+        ? View.FormatToolCallJson()
         : View.UserFriendlyResult;
 
     private string OutcomeColor => View.Outcome switch

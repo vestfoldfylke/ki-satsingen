@@ -130,7 +130,7 @@ public sealed class ToolCallViewTests
     {
         var view = Build("read_file", """{"error":"Fant ikke filen."}""");
 
-        var toolCall = JsonElement.Parse(view.ToolCallJson);
+        var toolCall = JsonElement.Parse(view.FormatToolCallJson());
         Assert.Equal(
             ("read_file", "Completed", "f", "Fant ikke filen."),
             (toolCall.GetProperty("tool").GetString(),
@@ -144,7 +144,7 @@ public sealed class ToolCallViewTests
     {
         var view = Build("read_file", "Error: Function failed.", ToolStatus.Failed);
 
-        var toolCall = JsonElement.Parse(view.ToolCallJson);
+        var toolCall = JsonElement.Parse(view.FormatToolCallJson());
         Assert.Equal("Error: Function failed.", toolCall.GetProperty("result").GetString());
     }
 
