@@ -33,8 +33,6 @@ public partial class AssistantTurn : ComponentBase
 
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
 
-    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-
     // Blanks count as absent, so nothing renders as " ()".
     private static string? DescribeModel(Turn turn)
     {

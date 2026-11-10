@@ -66,12 +66,7 @@
                 </button>
             </div>
 
-            <time
-                class="assistant-turn-time"
-                datetime="@Turn.StartedAt.ToString("o")"
-            >
-                @TimeZoneInfo.ConvertTime(Turn.StartedAt, Oslo).ToString("d. MMM HH:mm")
-            </time>
+            <NorwegianDate Value="Turn.StartedAt" />
         </footer>
 
         <ModalDialog Id="@InstructionsDialogId" Heading="Instruksjoner for dette svaret">
