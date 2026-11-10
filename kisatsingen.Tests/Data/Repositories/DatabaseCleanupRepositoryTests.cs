@@ -1,5 +1,6 @@
 using System.Reflection;
 using kisatsingen.Data.Repositories;
+using kisatsingen.Services.Cleanup;
 using Xunit;
 
 namespace kisatsingen.Tests.Data.Repositories;
@@ -8,19 +9,21 @@ public sealed class DatabaseCleanupRepositoryTests
 {
     private const BindingFlags AllMembers = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
+    private static Type[] AllowedCallers { get; } = [typeof(DatabaseCleanupBackgroundService)];
+
     [Fact]
     public void Only_allowed_services_may_use_IDatabaseCleanupRepository()
     {
         var restrictedInterfaceType = typeof(IDatabaseCleanupRepository);
 
         var violations = GetLoadableTypes(restrictedInterfaceType.Assembly)
-            .Where(type => !IsAllowed(type, restrictedInterfaceType, DatabaseCleanupRepository.AllowedCallers))
+            .Where(type => !IsAllowed(type, restrictedInterfaceType, AllowedCallers))
             .SelectMany(type => FindUsages(type, restrictedInterfaceType))
             .ToList();
 
         Assert.True(violations.Count == 0,
             $"{restrictedInterfaceType.Name} may ONLY be used by " +
-            $"{string.Join(", ", DatabaseCleanupRepository.AllowedCallers.Select(caller => caller.Name))}. Violations:" +
+            $"{string.Join(", ", AllowedCallers.Select(caller => caller.Name))}. Violations:" +
             Environment.NewLine + string.Join(Environment.NewLine, violations));
     }
 

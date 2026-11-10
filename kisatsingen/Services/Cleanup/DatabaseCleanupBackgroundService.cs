@@ -48,36 +48,34 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
         {
             var delay = CalculateDelayToNextOccurence(timeTarget);
 
+            var jobName = jobMethod.GetMethodInfo().Name;
+
             try
             {
-                _logger.LogInformation("Starting {JobName} task delay of {Delay}", jobMethod.GetMethodInfo().Name, delay);
+                _logger.LogInformation("Starting {JobName} task delay of {Delay}", jobName, delay);
                 await Task.Delay(delay, stoppingToken);
 
-                _logger.LogInformation("Calling {JobName} task", jobMethod.GetMethodInfo().Name);
+                _logger.LogInformation("Calling {JobName} task", jobName);
                 await jobMethod(stoppingToken);
             }
             catch (OperationCanceledException)
             {
                 break;
             }
-
-            // To avoid possible multiple triggering in the same second
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error occured while executing task {JobName}", jobName);
+            }
         }
     }
 
     private async Task RunChatCleanupJobAsync(CancellationToken stoppingToken)
     {
-        try
-        {
-            stoppingToken.ThrowIfCancellationRequested();
-            _logger.LogInformation("{MethodName} job called", nameof(RunChatCleanupJobAsync));
+        stoppingToken.ThrowIfCancellationRequested();
+        _logger.LogInformation("{MethodName} job called", nameof(RunChatCleanupJobAsync));
 
-            await _databaseCleanupRepository.CleanupChats(_chatCleanupRetention, stoppingToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "Error occured while executing job {MethodName}", nameof(RunChatCleanupJobAsync));
-        }
+        await _databaseCleanupRepository.CleanupChats(_chatCleanupRetention, stoppingToken);
+
+        _logger.LogInformation("{MethodName} job finished", nameof(RunChatCleanupJobAsync));
     }
 }

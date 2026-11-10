@@ -24,7 +24,7 @@ The `TargetTime` configuration is specified as "`hour`:`minute`:`second`", repre
 
 ### Retention
 
-The `Retention` configuration is specified as "`days`:`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.
+The `Retention` configuration is specified as "`days`.`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.
 
 #### ChatCleanup
 
@@ -44,7 +44,7 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   },
   "DatabaseCleanup": {
     "ChatCleanup": {
-      "Retention": "30:00:00:00",
+      "Retention": "30.00:00:00",
       "TargetTime": "03:00:00"
     }
   },
