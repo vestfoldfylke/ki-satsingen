@@ -15,7 +15,7 @@ public partial class ToolCallBlock : ComponentBase
     {
         get
         {
-            if (_view is null || _view.ToolCall != ToolCall)
+            if (_view is null || !ReferenceEquals(_view.ToolCall, ToolCall))
             {
                 _view = ToolCallView.Build(ToolCall);
             }
