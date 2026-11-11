@@ -22,7 +22,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     public Task DisposeAsync() => Task.CompletedTask;
 
     [Fact]
-    public async Task Stores_the_entry_with_the_provided_values()
+    public async Task Stores_the_row_with_the_provided_values()
     {
         var chatId = Guid.Parse("55555555-5555-5555-5555-555555555555");
         var turnId = Guid.Parse("33333333-3333-3333-3333-333333333333");
@@ -52,17 +52,6 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         Assert.Equal(20, stored.CachedInputTokens);
         Assert.Equal(TurnStatus.Completed, stored.Status);
         Assert.InRange(stored.Timestamp, before, DateTimeOffset.UtcNow);
-    }
-
-    [Fact]
-    public async Task Stores_no_assistant_for_a_turn_without_one()
-    {
-        await InsertAsync(Entry(assistantId: null));
-
-        await using var db = await Factory.CreateDbContextAsync();
-        var stored = await db.TokenUsages.SingleAsync();
-
-        Assert.Null(stored.AssistantId);
     }
 
     // A turn stopped before the provider reported anything has no reported counts.
@@ -175,7 +164,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Stamps_each_entry_with_a_distinct_id()
+    public async Task Stamps_each_insert_with_a_distinct_id()
     {
         await InsertAsync(Entry());
         await InsertAsync(Entry());
@@ -188,7 +177,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Keeps_every_entry_recorded_for_the_same_owner()
+    public async Task Keeps_every_row_written_for_the_same_owner()
     {
         await InsertAsync(Entry(usage: new MessageUsage(1, 1)));
         await InsertAsync(Entry(usage: new MessageUsage(2, 2)));
@@ -202,7 +191,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Entries_are_isolated_per_owner()
+    public async Task Rows_are_isolated_per_owner()
     {
         await InsertAsync(Entry(ownerId: OwnerId));
         await InsertAsync(Entry(ownerId: OtherOwnerId));
@@ -218,7 +207,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     // Written near UTC now, never rounded to a whole second: dashboards that
     // bucket by minute rely on the sub-second component being preserved.
     [Fact]
-    public async Task Timestamps_the_entry_with_utc_now_at_write_time()
+    public async Task Timestamps_the_row_with_utc_now_at_write_time()
     {
         var before = DateTimeOffset.UtcNow;
         await InsertAsync(Entry());

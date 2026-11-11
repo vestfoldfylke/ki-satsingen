@@ -243,7 +243,7 @@ internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 // usage the model reported and the status it landed on.
 internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 {
-    public List<TokenUsageEntry> Entries { get; } = [];
+    public List<TokenUsageEntry> Inserts { get; } = [];
 
     // Lets a test simulate the repository being down without breaking the send.
     public Exception? InsertFailure { get; set; }
@@ -255,7 +255,7 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
             return Task.FromException(InsertFailure);
         }
 
-        Entries.Add(entry);
+        Inserts.Add(entry);
         return Task.CompletedTask;
     }
 

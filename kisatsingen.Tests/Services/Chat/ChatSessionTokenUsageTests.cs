@@ -11,16 +11,16 @@ namespace kisatsingen.Tests.Services.Chat;
 public sealed class ChatSessionTokenUsageTests
 {
     [Fact]
-    public async Task A_completed_turn_records_the_counts_the_provider_reported()
+    public async Task A_completed_turn_writes_the_counts_the_provider_reported()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 120, outputTokens: 45, cachedInputTokens: 80);
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(new MessageUsage(120, 45, CachedInputTokens: 80), entry.Usage);
-        Assert.Equal(TurnStatus.Completed, entry.Status);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(new MessageUsage(120, 45, CachedInputTokens: 80), insert.Usage);
+        Assert.Equal(TurnStatus.Completed, insert.Status);
     }
 
     [Fact]
@@ -32,21 +32,21 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(expected.Provider, entry.Provider);
-        Assert.Equal(expected.ModelId, entry.ModelId);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(expected.Provider, insert.Provider);
+        Assert.Equal(expected.ModelId, insert.ModelId);
     }
 
     [Fact]
-    public async Task The_entry_is_owned_by_the_signed_in_caller()
+    public async Task The_row_is_owned_by_the_signed_in_caller()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(ChatSessionHarness.OwnerUnderTest, entry.OwnerId);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(ChatSessionHarness.OwnerUnderTest, insert.OwnerId);
     }
 
     [Fact]
@@ -59,19 +59,19 @@ public sealed class ChatSessionTokenUsageTests
         await harness.Session.SendAsync("igjen");
 
         var chatId = Assert.Single(harness.Repository.CreatedChatIds);
-        Assert.Equal([chatId, chatId], harness.UserTokenUsageRepository.Entries.Select(entry => entry.ChatId));
+        Assert.Equal([chatId, chatId], harness.UserTokenUsageRepository.Inserts.Select(insert => insert.ChatId));
     }
 
     [Fact]
-    public async Task The_entry_names_the_turn_it_was_spent_on()
+    public async Task The_row_names_the_turn_it_was_spent_on()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(harness.StoredTurn.Id, entry.TurnId);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(harness.StoredTurn.Id, insert.TurnId);
     }
 
     [Fact]
@@ -91,8 +91,8 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(assistant.Id, entry.AssistantId);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(assistant.Id, insert.AssistantId);
     }
 
     [Fact]
@@ -103,13 +103,13 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Null(entry.AssistantId);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Null(insert.AssistantId);
     }
 
     // A stop before the provider reported anything still costs: the request was sent.
     [Fact]
-    public async Task A_stopped_turn_records_an_estimate_when_the_provider_never_reported()
+    public async Task A_stopped_turn_writes_an_estimate_when_the_provider_never_reported()
     {
         await using var harness = new ChatSessionHarness();
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -120,17 +120,17 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(TurnStatus.Stopped, entry.Status);
-        Assert.Null(entry.Usage.InputTokens);
-        Assert.Null(entry.Usage.OutputTokens);
-        Assert.NotNull(entry.Usage.EstimatedInputTokens);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(TurnStatus.Stopped, insert.Status);
+        Assert.Null(insert.Usage.InputTokens);
+        Assert.Null(insert.Usage.OutputTokens);
+        Assert.NotNull(insert.Usage.EstimatedInputTokens);
     }
 
     // A round the provider did report keeps its reported counts and adds no
     // estimate for the same round, so the two are not double-counted.
     [Fact]
-    public async Task A_stopped_turn_records_reported_usage_as_is_when_the_provider_reported_it()
+    public async Task A_stopped_turn_writes_reported_usage_as_is_when_the_provider_reported_it()
     {
         await using var harness = new ChatSessionHarness();
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -142,24 +142,24 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(new MessageUsage(200, 50), entry.Usage);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(new MessageUsage(200, 50), insert.Usage);
     }
 
     [Fact]
-    public async Task A_failed_turn_records_an_entry_with_the_failed_status()
+    public async Task A_failed_turn_writes_a_row_with_the_failed_status()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.FailingAfter("halvferdig", new InvalidOperationException("provider exploded"));
 
         await harness.Session.SendAsync("hei");
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(TurnStatus.Failed, entry.Status);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(TurnStatus.Failed, insert.Status);
     }
 
     [Fact]
-    public async Task A_disconnected_turn_records_an_entry_with_the_disconnected_status()
+    public async Task A_disconnected_turn_writes_a_row_with_the_disconnected_status()
     {
         await using var harness = new ChatSessionHarness();
         var reached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -170,37 +170,37 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.CancelForDisconnect();
         await send;
 
-        var entry = Assert.Single(harness.UserTokenUsageRepository.Entries);
-        Assert.Equal(TurnStatus.Disconnected, entry.Status);
+        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Equal(TurnStatus.Disconnected, insert.Status);
     }
 
-    // A turn whose metadata never carries a usage — nothing sent, nothing to record.
+    // A turn whose metadata never carries a usage — nothing sent, nothing to store.
     [Fact]
-    public async Task A_turn_the_model_was_never_asked_records_no_token_usage()
+    public async Task A_turn_the_model_was_never_asked_writes_no_token_usage()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Empty(harness.UserTokenUsageRepository.Entries);
+        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
     }
 
-    // Unauthenticated: rethrown, so the composer's finally never reaches the usage store.
+    // Unauthenticated: rethrown, so the composer's finally never reaches the store.
     [Fact]
-    public async Task An_unauthenticated_attempt_records_no_token_usage()
+    public async Task An_unauthenticated_attempt_writes_no_token_usage()
     {
         await using var harness = new ChatSessionHarness();
         harness.Authentication.Failure = new UserNotAuthenticatedException();
 
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
 
-        Assert.Empty(harness.UserTokenUsageRepository.Entries);
+        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
     }
 
-    // The usage store is a side channel: its outage cannot take the turn with it.
+    // The store is a side channel: its outage cannot take the turn with it.
     [Fact]
-    public async Task A_usage_store_failure_does_not_escape_the_send()
+    public async Task A_store_failure_does_not_escape_the_send()
     {
         await using var harness = new ChatSessionHarness();
         harness.UserTokenUsageRepository.InsertFailure = new InvalidOperationException("usage store away");
@@ -211,27 +211,15 @@ public sealed class ChatSessionTokenUsageTests
         Assert.Equal(TurnStatus.Completed, harness.StoredTurn.Status);
     }
 
-    // Sanity for the metric-versus-store reconciliation: one send, one entry.
+    // Sanity for the metric-versus-store reconciliation: one send, one row.
     [Fact]
-    public async Task A_completed_turn_records_exactly_one_entry()
+    public async Task A_completed_turn_writes_exactly_one_token_usage_row()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.UserTokenUsageRepository.Entries);
-    }
-
-    [Fact]
-    public async Task Two_turns_in_a_row_record_two_entries()
-    {
-        await using var harness = new ChatSessionHarness();
-        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
-
-        await harness.Session.SendAsync("hei");
-        await harness.Session.SendAsync("igjen");
-
-        Assert.Equal(2, harness.UserTokenUsageRepository.Entries.Count);
+        Assert.Single(harness.UserTokenUsageRepository.Inserts);
     }
 }
