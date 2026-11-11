@@ -3,8 +3,11 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
-public partial class ChatListItemOptions : ComponentBase
+public partial class ChatListItemDetails : ComponentBase
 {
+    [Parameter]
+    public bool ShowTimeDetails { get; set; }
+
     [Parameter, EditorRequired]
     public required string RenameDialogId { get; set; }
 

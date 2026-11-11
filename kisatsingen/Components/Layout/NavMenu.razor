@@ -82,7 +82,7 @@
                 }
                 else
                 {
-                    <ul class="ds-list chat-list-items" data-color="neutral">
+                    <ul id="chat-list-items" class="ds-list chat-list-items" data-color="neutral">
                         @foreach (var entry in ChatList.Take(MaxVisibleChats))
                         {
                             var menuId = $"chat-menu-{entry.Id}";
@@ -113,7 +113,7 @@
 
                                         <span class="chat-list-title">@entry.Title</span>
                                     </a>
-                                    <ChatListItemOptions
+                                    <ChatListItemDetails
                                         MenuId="@menuId"
                                         Entry="@entry"
                                         RenameDialogId="rename-chat-dialog"

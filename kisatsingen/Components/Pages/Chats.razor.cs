@@ -18,8 +18,6 @@ public partial class Chats : ComponentBase, IDisposable
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;
 
-    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-
     protected override async Task OnInitializedAsync()
     {
         if (!_stateWired)

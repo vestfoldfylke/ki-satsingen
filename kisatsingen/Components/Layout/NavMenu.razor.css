@@ -178,11 +178,6 @@ stays in the row; Else it can mess with page size and scrolling */
     background: var(--ds-color-neutral-surface-hover);
 }
 
-.chat-list-item:is(:hover, :focus-within) ::deep .chat-list-item-option-button {
-    opacity: 1;
-}
-
-
 .chat-list-item-active {
     background: var(--ds-color-accent-surface-tinted);
 }

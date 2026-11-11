@@ -1,3 +1,12 @@
+@if (ShowTimeDetails)
+{
+    <span class="ds-paragraph chat-time">
+        <time datetime="@Entry.UpdatedAt.ToString("o")">
+            <NorwegianDate Value="Entry.UpdatedAt" />
+        </time>
+    </span>
+}
+
 <button
     type="button"
     class="ds-button chat-list-item-option-button"

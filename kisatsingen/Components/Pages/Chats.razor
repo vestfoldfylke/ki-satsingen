@@ -45,13 +45,8 @@
                                 <span class="chat-list-title">@entry.Title</span>
                             </a>
 
-                            <span class="ds-paragraph chat-time">
-                                <time datetime="@entry.UpdatedAt.ToString("o")">
-                                    @(TimeZoneInfo.ConvertTime(entry.UpdatedAt, Oslo).ToString("d. MMM yyyy"))
-                                </time>
-                            </span>
-
-                            <ChatListItemOptions
+                            <ChatListItemDetails
+                                ShowTimeDetails="true"
                                 MenuId="@menuId"
                                 Entry="@entry"
                                 RenameDialogId="chats-rename-dialog"
