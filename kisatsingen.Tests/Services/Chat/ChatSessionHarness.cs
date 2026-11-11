@@ -262,7 +262,7 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
     // Chat-session tests only exercise the insert path; the owner-scoped query
     // methods are stubbed so the fake still satisfies the interface.
     public Task<TokenUsageSummary> GetTotalsAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
+        Task.FromResult(TokenUsageSummary.Empty);
 
     public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);

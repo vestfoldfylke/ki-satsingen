@@ -35,6 +35,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         long? outputTokens = 20,
         long? estimatedInputTokens = null,
         long? estimatedOutputTokens = null,
+        long? cachedInputTokens = null,
         TurnStatus status = TurnStatus.Completed)
     {
         await using var db = await Factory.CreateDbContextAsync();
@@ -49,9 +50,22 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
             OutputTokens = outputTokens,
             EstimatedInputTokens = estimatedInputTokens,
             EstimatedOutputTokens = estimatedOutputTokens,
+            CachedInputTokens = cachedInputTokens,
             Status = status
         });
         await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Totals_sum_cached_input_tokens_across_owners()
+    {
+        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, cachedInputTokens: 8);
+        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, cachedInputTokens: 5);
+        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, cachedInputTokens: null);
+
+        var totals = await Repo.GetTotalsAsync(since: null);
+
+        Assert.Equal(13, totals.TotalCachedInputTokens);
     }
 
     [Fact]

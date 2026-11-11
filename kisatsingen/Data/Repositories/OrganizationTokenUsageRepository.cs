@@ -34,6 +34,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "TotalOutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "TotalEstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
+                 COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
@@ -197,6 +198,34 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "ModelId"
              ORDER BY COUNT(*) DESC
+             """
+        ).ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AssistantUsage>> GetTopOrganizationAssistantsAsync(
+        DateTimeOffset? since,
+        int topN,
+        CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+        var visibility = AssistantVisibility.Organization.ToString();
+
+        return await db.Database.SqlQuery<AssistantUsage>(
+            $"""
+             SELECT
+                 u."AssistantId" AS "AssistantId",
+                 a."Name" AS "Name",
+                 COUNT(DISTINCT u."ChatId")::int AS "ChatCount",
+                 COUNT(DISTINCT u."OwnerId")::int AS "UserCount",
+                 COALESCE(SUM(u."InputTokens"), 0)::bigint AS "InputTokens",
+                 COALESCE(SUM(u."OutputTokens"), 0)::bigint AS "OutputTokens"
+             FROM "TokenUsages" u
+             JOIN "Assistants" a ON a."Id" = u."AssistantId"
+             WHERE a."Visibility" = {visibility}
+               AND ({since}::timestamptz IS NULL OR u."Timestamp" >= {since})
+             GROUP BY u."AssistantId", a."Name"
+             ORDER BY COUNT(DISTINCT u."ChatId") DESC, COUNT(DISTINCT u."OwnerId") DESC, a."Name"
+             LIMIT {topN}
              """
         ).ToListAsync(ct);
     }

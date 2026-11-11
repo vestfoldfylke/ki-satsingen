@@ -33,6 +33,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         long? outputTokens = 20,
         long? estimatedInputTokens = null,
         long? estimatedOutputTokens = null,
+        long? cachedInputTokens = null,
         TurnStatus status = TurnStatus.Completed)
     {
         await using var db = await Factory.CreateDbContextAsync();
@@ -47,6 +48,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
             OutputTokens = outputTokens,
             EstimatedInputTokens = estimatedInputTokens,
             EstimatedOutputTokens = estimatedOutputTokens,
+            CachedInputTokens = cachedInputTokens,
             Status = status
         });
         await db.SaveChangesAsync();
@@ -55,9 +57,9 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     [Fact]
     public async Task Sums_totals_across_all_rows_for_the_owner()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4);
+        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4, cachedInputTokens: 8);
         await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7, estimatedInputTokens: 1, estimatedOutputTokens: 2);
-        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
+        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200, cachedInputTokens: 90);
 
         var totals = await Repo.GetTotalsAsync(OwnerId, since: null);
 
@@ -65,6 +67,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         Assert.Equal(27, totals.TotalOutputTokens);
         Assert.Equal(4, totals.TotalEstimatedInputTokens);
         Assert.Equal(6, totals.TotalEstimatedOutputTokens);
+        Assert.Equal(8, totals.TotalCachedInputTokens);
         Assert.Equal(2, totals.TurnCount);
     }
 

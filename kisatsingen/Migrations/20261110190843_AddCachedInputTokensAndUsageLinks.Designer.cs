@@ -12,7 +12,7 @@ using kisatsingen.Data;
 namespace kisatsingen.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261110185641_AddCachedInputTokensAndUsageLinks")]
+    [Migration("20261110190843_AddCachedInputTokensAndUsageLinks")]
     partial class AddCachedInputTokensAndUsageLinks
     {
         /// <inheritdoc />
@@ -321,6 +321,8 @@ namespace kisatsingen.Migrations
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("AssistantId", "Timestamp");
 
                     b.HasIndex("OwnerId", "Timestamp");
 

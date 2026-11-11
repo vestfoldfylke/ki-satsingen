@@ -319,6 +319,8 @@ namespace kisatsingen.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("AssistantId", "Timestamp");
+
                     b.HasIndex("OwnerId", "Timestamp");
 
                     b.ToTable("TokenUsages");

@@ -40,11 +40,20 @@ namespace kisatsingen.Migrations
                 table: "ChatTurns",
                 type: "bigint",
                 nullable: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TokenUsages_AssistantId_Timestamp",
+                table: "TokenUsages",
+                columns: new[] { "AssistantId", "Timestamp" });
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropIndex(
+                name: "IX_TokenUsages_AssistantId_Timestamp",
+                table: "TokenUsages");
+
             migrationBuilder.DropColumn(
                 name: "AssistantId",
                 table: "TokenUsages");

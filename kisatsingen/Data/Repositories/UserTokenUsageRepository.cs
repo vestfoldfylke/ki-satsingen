@@ -52,6 +52,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "TotalOutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "TotalEstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
+                 COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("OwnerId" = {ownerId})
