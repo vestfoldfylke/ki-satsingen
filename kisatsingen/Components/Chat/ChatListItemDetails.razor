@@ -1,9 +1,7 @@
-@if (ShowTimeDetails)
+@if (ShouldShowTime)
 {
-    <span class="ds-paragraph chat-time">
-        <time datetime="@Entry.UpdatedAt.ToString("o")">
-            <NorwegianDate Value="Entry.UpdatedAt" />
-        </time>
+    <span class="ds-paragraph chat-time" data-size="sm">
+        <NorwegianDate Value="Entry.UpdatedAt" />
     </span>
 }
 

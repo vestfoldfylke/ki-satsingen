@@ -6,7 +6,7 @@ namespace kisatsingen.Components.Chat;
 public partial class ChatListItemDetails : ComponentBase
 {
     [Parameter]
-    public bool ShowTimeDetails { get; set; }
+    public bool ShouldShowTime { get; set; }
 
     [Parameter, EditorRequired]
     public required string RenameDialogId { get; set; }

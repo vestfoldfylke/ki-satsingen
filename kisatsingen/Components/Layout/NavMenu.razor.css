@@ -151,7 +151,6 @@
 
 /* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
 stays in the row; Else it can mess with page size and scrolling */
-
 .chat-list-item {
     position: relative;
     display: flex;
