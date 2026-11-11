@@ -163,7 +163,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         tokenUsage.Property(u => u.ModelId).HasMaxLength(TokenUsage.MaxModelIdLength).IsRequired();
         tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength).IsRequired();
         tokenUsage.HasIndex(u => new { u.OwnerId, u.Timestamp });
-        tokenUsage.HasIndex(u => new { u.AssistantId, u.Timestamp });
+        tokenUsage.HasIndex(u => new { u.AssistantId, u.Timestamp }).HasFilter("\"AssistantId\" IS NOT NULL");
     }
 
     // The Ignore behaviours keep Seq out of every INSERT and UPDATE, so only the

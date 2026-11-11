@@ -319,7 +319,8 @@ namespace kisatsingen.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AssistantId", "Timestamp");
+                    b.HasIndex("AssistantId", "Timestamp")
+                        .HasFilter("\"AssistantId\" IS NOT NULL");
 
                     b.HasIndex("OwnerId", "Timestamp");
 

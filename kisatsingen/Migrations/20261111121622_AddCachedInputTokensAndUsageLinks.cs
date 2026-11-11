@@ -44,7 +44,8 @@ namespace kisatsingen.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_TokenUsages_AssistantId_Timestamp",
                 table: "TokenUsages",
-                columns: new[] { "AssistantId", "Timestamp" });
+                columns: new[] { "AssistantId", "Timestamp" },
+                filter: "\"AssistantId\" IS NOT NULL");
         }
 
         /// <inheritdoc />
