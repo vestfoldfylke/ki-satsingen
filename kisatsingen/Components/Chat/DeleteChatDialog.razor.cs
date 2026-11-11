@@ -68,10 +68,15 @@ public sealed partial class DeleteChatDialog : ComponentBase
 
         _dialog?.Close();
 
-        // Same check again: the user can navigate with back/forward while the delete runs.
-        if (Session.ChatId == chat.Id && IsViewing(chat.Id))
+        // Reset to NewPlainChat, so back can't load deleted chat
+        if (Session.ChatId == chat.Id)
         {
-            // Replaced, so back doesn't lead to the deleted chat.
+            await Session.StartNewPlainChatAsync();
+        }
+
+        // Replaced, so back doesn't lead to the deleted chat.
+        if (IsViewing(chat.Id))
+        {
             Navigation.NavigateTo($"/{NewChatPath}", replace: true);
         }
     }
