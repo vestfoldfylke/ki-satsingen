@@ -8,6 +8,9 @@ public partial class ChatListItemDetails : ComponentBase
     [Parameter]
     public bool ShouldShowTime { get; set; }
 
+    [Parameter]
+    public bool UseHorizontalOptionIcon { get; set; }
+
     [Parameter, EditorRequired]
     public required string RenameDialogId { get; set; }
 
