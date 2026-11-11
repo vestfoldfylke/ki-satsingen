@@ -15,14 +15,17 @@
         @(Title ?? LoadingTitle)
     </h1>
 
-    @* Only while the panel is closed: the panel closes itself. *@
-    @if (!IsFilesPanelOpen)
-    {
-        <button type="button" class="ds-button chat-header-files" data-variant="tertiary" @onclick="OnOpenFilesPanel">
-            <span class="material-symbols-outlined" aria-hidden="true">folder</span>
-            Filer@(FileCount > 0 ? $" ({FileCount})" : null)
-        </button>
-    }
+    <button
+        type="button"
+        class="ds-button chat-header-files"
+        data-variant="tertiary"
+        aria-expanded="@(IsFilesPanelOpen ? "true" : "false")"
+        aria-controls="chat-files-panel"
+        @onclick="OnToggleFilesPanel"
+    >
+        <span class="material-symbols-outlined" aria-hidden="true">@(IsFilesPanelOpen ? "folder_open" : "folder")</span>
+        Filer@(FileCount > 0 ? $" ({FileCount})" : null)
+    </button>
 </header>
 
 @code {
@@ -47,5 +50,5 @@
     public bool IsFilesPanelOpen { get; set; }
 
     [Parameter]
-    public EventCallback OnOpenFilesPanel { get; set; }
+    public EventCallback OnToggleFilesPanel { get; set; }
 }
