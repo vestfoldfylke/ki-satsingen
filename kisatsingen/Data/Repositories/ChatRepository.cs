@@ -93,17 +93,23 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
             .ToListAsync(ct);
     }
 
-    public async Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    // False when the chat is gone or not the owner's, and nothing is written. Not
+    // an exception: the retention cleanup can delete a chat that is still open.
+    public async Task<bool> InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
         turn.ChatId = chatId;
-        await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct);
+        if (!await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct))
+        {
+            return false;
+        }
 
         db.ChatTurns.Add(turn);
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
+        return true;
     }
 
     // Identity, prompt and ordering are fixed at insert, so only the ending is written.
@@ -112,7 +118,10 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await using var db = await factory.CreateDbContextAsync(ct);
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct);
+        if (!await TouchChatAsync(db, ownerId, chatId, DateTimeOffset.UtcNow, ct))
+        {
+            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
+        }
 
         var updatedTurnCount = await db.ChatTurns
             .Where(t => t.Id == turn.Id && t.ChatId == chatId)
@@ -140,21 +149,18 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
         await transaction.CommitAsync(ct);
     }
 
-    // Callers depend on all three things this does: it bumps UpdatedAt, fails when
-    // the chat is not the caller's, and — easy to lose — locks the chat row until
+    // Callers depend on all three things this does: it bumps UpdatedAt, returns false
+    // when the chat is not the caller's, and — easy to lose — locks the chat row until
     // commit. The lock orders inserts: Seq is drawn at insert but visible only at
     // commit, so two concurrent inserts could otherwise commit out of Seq order and
     // drop a turn into a transcript a reader has already seen. Keep it ahead of the insert.
-    private static async Task TouchChatAsync(AppDbContext db, Guid ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
+    private static async Task<bool> TouchChatAsync(AppDbContext db, Guid ownerId, Guid chatId, DateTimeOffset updatedAt, CancellationToken ct)
     {
         var updatedChatCount = await db.Chats
             .Where(c => c.Id == chatId && c.OwnerId == ownerId)
             .ExecuteUpdateAsync(s => s.SetProperty(c => c.UpdatedAt, updatedAt), ct);
 
-        if (updatedChatCount == 0)
-        {
-            throw new InvalidOperationException($"Chat {chatId} was not found for the specified owner.");
-        }
+        return updatedChatCount > 0;
     }
 
     public async Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default)

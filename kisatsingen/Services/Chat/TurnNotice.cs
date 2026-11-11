@@ -17,6 +17,7 @@ internal static class TurnNotice
         // A closed tab and a lost connection look the same on the server.
         { Status: TurnStatus.Disconnected } => "Generering stoppet fordi siden ble lukket eller mistet forbindelsen",
         { Status: TurnStatus.Unfinished } => "Svaret ble ikke fullført",
+        { Status: TurnStatus.ChatDeleted } => "Meldingen ble ikke sendt fordi samtalen er slettet",
         { Status: TurnStatus.Failed, FailedAt: { } stage } => TurnStageNotice.Describe(stage),
         _ => "Noe gikk galt under generering"
     };

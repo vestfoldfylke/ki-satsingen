@@ -17,6 +17,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatModelCatalog _catalog;
     private readonly IChatRepository _repo;
+    private readonly ChatManager _chatManager;
     private readonly ChatClientChannel _channel;
     private readonly TurnRunner _runner;
     private readonly ChatAttachments _attachments;
@@ -45,7 +46,11 @@ public sealed class ChatSession : IAsyncDisposable
         Opening,
 
         Saved,
-        NotFound
+        NotFound,
+
+        // Deleted while open, found out when a message could not be saved in it.
+        // The transcript stays so the user keeps what they wrote.
+        Deleted
     }
 
     private IReadOnlyList<KnowledgeFileMetadata> _chatFiles = [];
@@ -99,6 +104,7 @@ public sealed class ChatSession : IAsyncDisposable
         _chatId = Guid.NewGuid();
         _requestedChatId = _chatId;
         _repo = repo;
+        _chatManager = chatManager;
         _attachments = attachments;
         _knowledgeFileRepository = knowledgeFileRepository;
         _knowledgeFileReader = knowledgeFileReader;
@@ -115,6 +121,9 @@ public sealed class ChatSession : IAsyncDisposable
 
     // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
     public bool IsChatNotFound => _chatState == ChatState.NotFound;
+
+    // Set when a message could not be sent because the chat had been deleted.
+    public bool IsChatDeleted => _chatState == ChatState.Deleted;
 
     // Null for a chat that never had an assistant.
     public string? AssistantName => _assistant?.Name ?? _assistantNameSnapshot;
@@ -229,6 +238,7 @@ public sealed class ChatSession : IAsyncDisposable
         if (chat is null)
         {
             _chatState = ChatState.NotFound;
+            _chatManager.Forget(chatId);
             Notify();
             return;
         }
@@ -254,7 +264,8 @@ public sealed class ChatSession : IAsyncDisposable
     public Task StartNewAssistantChatAsync(Assistant assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles) =>
         StartNewChatAsync(assistant, assistantFiles);
 
-    private async Task StartNewChatAsync(Assistant? assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles)
+    // Null model: the catalogue's default.
+    private async Task StartNewChatAsync(Assistant? assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles, ChatModel? model = null)
     {
         var newChatId = Guid.NewGuid();
         var requestNumber = RequestChat(newChatId);
@@ -267,7 +278,22 @@ public sealed class ChatSession : IAsyncDisposable
         ResetToNewChat(newChatId);
         _assistant = assistant;
         _assistantFiles = assistantFiles;
+        _selectedModel = model ?? _catalog.Default;
         Notify();
+    }
+
+    // Keeps the deleted chat's assistant and model, and returns the message that could not be
+    // sent, for the caller to send in the new chat. Null unless the chat was deleted.
+    public async Task<string?> StartNewChatForUnsentMessageAsync()
+    {
+        if (_chatState != ChatState.Deleted)
+        {
+            return null;
+        }
+
+        var unsentMessage = _turns.LastOrDefault(turn => turn.Status == TurnStatus.ChatDeleted)?.Prompt;
+        await StartNewChatAsync(_assistant, _assistantFiles, _selectedModel);
+        return unsentMessage;
     }
 
     // Ignored unless the chat is with this assistant, so an edit never gives a chat
@@ -382,6 +408,11 @@ public sealed class ChatSession : IAsyncDisposable
 
             var ended = await _runner.RunAsync(input, cancellation, observer);
             UpdateTurn(ended);
+
+            if (ended.Status == TurnStatus.ChatDeleted)
+            {
+                _chatState = ChatState.Deleted;
+            }
         }
         finally
         {

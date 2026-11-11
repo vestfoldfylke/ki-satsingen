@@ -12,7 +12,8 @@ public interface IChatRepository
     Task<IReadOnlyList<ChatSummary>> ListChatsAsync(Guid ownerId, CancellationToken ct = default);
 
     // Both fail when the chat is not the owner's.
-    Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
+    // False when the chat is gone or not the owner's; nothing is written then.
+    Task<bool> InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
     Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
 
     Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default);
