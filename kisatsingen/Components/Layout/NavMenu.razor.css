@@ -173,7 +173,7 @@ stays in the row; Else it can mess with page size and scrolling */
     overflow: hidden;
 }
 
-.chat-list-item:hover, .user-menu-item:hover {
+.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)), .user-menu-item:hover {
     background: var(--ds-color-neutral-surface-hover);
 }
 

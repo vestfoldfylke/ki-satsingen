@@ -33,8 +33,9 @@
     margin-inline: var(--ds-size-18);
 }
 
-.chat-list-item:hover +.chat-list-divider,
-li:has(+ li .chat-list-item:hover) .chat-list-divider {
+.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)) + .chat-list-divider,
+li:has(+ li .chat-list-item:hover) .chat-list-divider,
+li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-divider {
     opacity: 0;
 }
 
@@ -61,7 +62,7 @@ stays in the row; Else it can mess with page size and scrolling */
     margin-inline: var(--ds-size-15);
 }
 
-.chat-list-item:hover {
+.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)) {
     background: var(--ds-color-neutral-surface-hover);
 }
 
