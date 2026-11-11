@@ -35,7 +35,7 @@
                                 class="ds-link chat-list-link"
                                 id="@linkId"
                                 href="@($"/chat/{entry.Id}")"
-                                data-tooltip="@(entry.Title?.Length > TooltipOnChatListTitleLengthThreshold ? entry.Title : null)"
+                                data-tooltip="@(entry.Title.Length > TooltipOnChatListTitleLengthThreshold ? entry.Title : null)"
                                 data-placement="top"
                             >
                                 @if (entry.AssistantId is not null)
