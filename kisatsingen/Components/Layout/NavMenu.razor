@@ -60,19 +60,20 @@
         </div>
 
         <aside class="chat-list" aria-label="Samtaler">
-            <button type="button"
-                    class="ds-button chat-list-header nav-primary-button"
-                    data-variant="tertiary"
-                    aria-expanded="@_chatsOpen.ToString().ToLowerInvariant()"
-                    aria-controls="chat-list-items"
-                    @onclick="() => _chatsOpen = !_chatsOpen"
-            >
-                <h2 class="ds-heading" data-size="2xs">Samtaler</h2>
-                <span class="material-symbols-outlined @(_chatsOpen ? "open" : null )" aria-hidden="true">
-                    keyboard_arrow_right
-                </span>
-            </button>
-
+            <h2 class="ds-heading chat-list-header" data-size="xs">
+                <button type="button"
+                        class="ds-button nav-primary-button"
+                        data-variant="tertiary"
+                        aria-expanded="@_chatsOpen.ToString().ToLowerInvariant()"
+                        aria-controls="chat-list-items"
+                        @onclick="() => _chatsOpen = !_chatsOpen"
+                >
+                    Samtaler
+                    <span class="material-symbols-outlined @(_chatsOpen ? "open" : null )" aria-hidden="true">
+                        keyboard_arrow_right
+                    </span>
+                </button>
+            </h2>
             @if (_chatsOpen)
             {
                 @if (ChatList.Count == 0)

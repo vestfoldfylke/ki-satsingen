@@ -111,12 +111,15 @@
 .chat-list-header {
     top: 0;
     text-decoration: none;
-    color: var(--ds-color-text-default);
-    display: flex;
     position: sticky;
-    background: var(--ds-color-neutral-background-default);
-    padding-left: 0.5rem;
+    display: flex;
     z-index: 1;
+}
+
+.chat-list-header > button {
+    color: var(--ds-color-text-default);
+    background: var(--ds-color-neutral-background-default);
+    font: inherit;
 }
 
 .chat-list-header span {
@@ -145,6 +148,9 @@
 .chat-list-items > li {
     margin-top: 0.3rem;
 }
+
+/* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
+stays in the row; Else it can mess with page size and scrolling */
 
 .chat-list-item {
     position: relative;
