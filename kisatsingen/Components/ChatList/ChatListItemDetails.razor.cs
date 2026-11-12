@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using kisatsingen.Services.Chat;
 
-namespace kisatsingen.Components.Chat;
+namespace kisatsingen.Components.ChatList;
 
 public partial class ChatListItemDetails : ComponentBase
 {

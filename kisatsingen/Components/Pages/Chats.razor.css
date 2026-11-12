@@ -5,7 +5,7 @@
     margin: var(--ds-size-8) auto;
     display: flex;
     flex-direction: column;
-    gap: var(--ds-size-6);
+    gap: var(--ds-size-2);
     max-height: calc(100dvh - 2 * var(--ds-size-8));
 }
 
@@ -14,7 +14,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--ds-size-4);
-    margin-inline: var(--ds-size-18);
+    margin-inline: var(--ds-size-14);
 }
 
 .chats-actions {
@@ -23,80 +23,7 @@
     gap: var(--ds-size-2);
 }
 
-.chat-list-empty {
-    margin: 0.5rem var(--ds-size-18);
-}
-
-.chat-list-divider {
-    margin-block: 0;
-    width: auto;
-    margin-inline: var(--ds-size-18);
-}
-
-.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)) + .chat-list-divider,
-li:has(+ li .chat-list-item:hover) .chat-list-divider,
-li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-divider {
-    opacity: 0;
-}
-
-.chat-list-items {
-    --dsc-list-padding-inline: 0;
-    --dsc-list-margin-top: 0;
-    list-style: none;
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-}
-
-/* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
-stays in the row; Else it can mess with page size and scrolling */
-
-.chat-list-item {
-    position: relative;
-    display: flex;
-    gap: var(--ds-size-4);
-    align-items: center;
-    padding: 0.8rem var(--ds-size-3);
-    border-radius: var(--ds-border-radius-md);
-    cursor: pointer;
-    margin-inline: var(--ds-size-15);
-}
-
-.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)) {
-    background: var(--ds-color-neutral-surface-hover);
-}
-
-.chat-list-link {
-    display: flex;
-    flex: 1;
-    min-width: 0;
-    text-decoration: none;
-    color: inherit;
-    grid-area: link;
-}
-
-.chat-list-bullet {
-    grid-area: icon;
-}
-
-.chat-list-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
 @media (max-width: 800px) {
-
-    /* The areas 'time' and 'options' are assigned in ChatListItemDetails.razor.css
-       Remember to rename in both files */
-    .chat-list-item {
-        display: grid;
-        grid-template-columns: auto 1fr auto;
-        grid-template-areas: "icon link options" "icon time options";
-        align-items: center;
-        row-gap: 0;
-    }
-
     .chats-header {
         flex-direction: column;
         align-items: flex-start;

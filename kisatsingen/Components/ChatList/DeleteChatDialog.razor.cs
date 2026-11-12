@@ -2,7 +2,7 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using kisatsingen.Components.Shared;
 
-namespace kisatsingen.Components.Chat;
+namespace kisatsingen.Components.ChatList;
 
 public sealed partial class DeleteChatDialog : ComponentBase
 {

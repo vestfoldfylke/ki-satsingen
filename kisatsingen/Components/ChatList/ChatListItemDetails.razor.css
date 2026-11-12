@@ -1,5 +1,5 @@
 /* Assumes this component is rendered inside '.chat-list-item', and that the parent
-   defines the grid areas 'time' and 'options' (Chats.razor.css) */
+   defines the grid areas 'time' and 'options' (ChatListItems.razor.css) */
 .chat-list-item-option-button {
     --dsc-button-size: 2.1rem;
     display: flex;
