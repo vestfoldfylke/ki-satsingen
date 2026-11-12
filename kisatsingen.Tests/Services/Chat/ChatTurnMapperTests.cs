@@ -12,7 +12,7 @@ public sealed class ChatTurnMapperTests
     {
         var turn = TurnWith(
             new TextSegment(Guid.NewGuid(), 0, "Sjekker."),
-            new ToolSegment(
+            new ToolCall(
                 Guid.NewGuid(),
                 0,
                 "call-1",

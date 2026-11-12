@@ -7,8 +7,8 @@ using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 namespace kisatsingen.Services.Chat;
 
 // Split by how often things fire: text goes per token to the browser's stream for
-// its segment, with no Blazor render; a segment or tool starting or finishing
-// re-renders the page, which is rare enough to afford.
+// its segment, with no Blazor render; a text segment or tool call starting or
+// finishing re-renders the page, which is rare enough to afford.
 internal sealed class TurnStreamer
 {
     private readonly ChatClientChannel _channel;

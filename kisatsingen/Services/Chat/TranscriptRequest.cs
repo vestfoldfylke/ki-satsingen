@@ -53,9 +53,9 @@ internal static class TranscriptRequest
                     case TextSegment text when !string.IsNullOrWhiteSpace(text.Text):
                         said.Add(new TextContent(text.Text));
                         break;
-                    case ToolSegment { Result: { } result } tool:
-                        said.Add(new FunctionCallContent(tool.CallId, tool.ToolName, ToArguments(tool)));
-                        results.Add(new FunctionResultContent(tool.CallId, result));
+                    case ToolCall { Result: { } result } toolCall:
+                        said.Add(new FunctionCallContent(toolCall.CallId, toolCall.ToolName, ToArguments(toolCall)));
+                        results.Add(new FunctionResultContent(toolCall.CallId, result));
                         break;
                 }
             }
@@ -101,8 +101,8 @@ internal static class TranscriptRequest
         return -1;
     }
 
-    private static Dictionary<string, object?>? ToArguments(ToolSegment tool) =>
-        tool.Arguments.ValueKind == JsonValueKind.Object
-            ? tool.Arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value)
+    private static Dictionary<string, object?>? ToArguments(ToolCall toolCall) =>
+        toolCall.Arguments.ValueKind == JsonValueKind.Object
+            ? toolCall.Arguments.EnumerateObject().ToDictionary(property => property.Name, property => (object?)property.Value)
             : null;
 }

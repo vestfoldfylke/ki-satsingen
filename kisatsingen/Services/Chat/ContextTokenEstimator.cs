@@ -44,18 +44,18 @@ internal static class ContextTokenEstimator
     public static long EstimateGenerated(TurnSegment segment) => segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,
-        ToolSegment tool => CountCall(tool) / TokenLengthInCharacters,
+        ToolCall toolCall => CountCall(toolCall) / TokenLengthInCharacters,
         _ => 0
     };
 
     public static long EstimateResent(TurnSegment segment) => TokensPerMessage + segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,
-        ToolSegment tool => (CountCall(tool) + (tool.Result?.Length ?? 0)) / TokenLengthInCharacters,
+        ToolCall toolCall => (CountCall(toolCall) + (toolCall.Result?.Length ?? 0)) / TokenLengthInCharacters,
         _ => 0
     };
 
-    private static long CountCall(ToolSegment tool) => tool.ToolName.Length + tool.Arguments.GetRawText().Length;
+    private static long CountCall(ToolCall toolCall) => toolCall.ToolName.Length + toolCall.Arguments.GetRawText().Length;
 
     private static long CountCharacters(ChatMessage message)
     {

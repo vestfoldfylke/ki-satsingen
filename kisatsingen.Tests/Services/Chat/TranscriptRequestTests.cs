@@ -103,9 +103,9 @@ public sealed class TranscriptRequestTests
     public void A_call_is_sent_with_the_arguments_the_model_gave_it()
     {
         var arguments = JsonSerializer.SerializeToElement(new Dictionary<string, string> { ["query"] = "vær" });
-        var tool = Tool(0, "call-1", ToolStatus.Completed, "sol") with { Arguments = arguments };
+        var toolCall = Tool(0, "call-1", ToolStatus.Completed, "sol") with { Arguments = arguments };
 
-        var request = TranscriptRequest.Build([TurnWith("hei", tool, Text(1, "Sol."))]);
+        var request = TranscriptRequest.Build([TurnWith("hei", toolCall, Text(1, "Sol."))]);
 
         var call = Assert.Single(request.SelectMany(message => message.Contents).OfType<FunctionCallContent>());
         Assert.Equal("vær", ((JsonElement)call.Arguments!["query"]!).GetString());
@@ -125,7 +125,7 @@ public sealed class TranscriptRequestTests
 
     private static TextSegment Text(int round, string text) => new(Guid.NewGuid(), round, text);
 
-    private static ToolSegment Tool(int round, string callId, ToolStatus status, string? result) => new(
+    private static ToolCall Tool(int round, string callId, ToolStatus status, string? result) => new(
         Guid.NewGuid(),
         round,
         callId,

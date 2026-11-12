@@ -4,13 +4,13 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
-public partial class TextSegmentView : ComponentBase
+public partial class TextBlock : ComponentBase
 {
     [Inject]
     public required IJSRuntime JS { get; set; }
 
     [Inject]
-    public required ILogger<TextSegmentView> Logger { get; set; }
+    public required ILogger<TextBlock> Logger { get; set; }
 
     [Parameter, EditorRequired] public required TextSegment Segment { get; set; }
 
