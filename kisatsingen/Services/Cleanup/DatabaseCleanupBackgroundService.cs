@@ -8,6 +8,7 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
     private readonly IDatabaseCleanupRepository _databaseCleanupRepository;
     private readonly ILogger<DatabaseCleanupBackgroundService> _logger;
 
+    private readonly bool _chatCleanupEnabled;
     private readonly TimeSpan _chatCleanupRetention;
     private readonly TimeSpan _chatCleanupTargetTime;
 
@@ -16,15 +17,16 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
         _databaseCleanupRepository = databaseCleanupRepository;
         _logger = logger;
 
-        _chatCleanupRetention = databaseCleanupConfigurations.ChatCleanup.RetentionTimeSpan;
-        _chatCleanupTargetTime = databaseCleanupConfigurations.ChatCleanup.TargetTimeTimeSpan;
+        _chatCleanupEnabled = databaseCleanupConfigurations.ChatCleanup.Enabled;
+        _chatCleanupRetention = databaseCleanupConfigurations.ChatCleanup.Retention ?? TimeSpan.Zero;
+        _chatCleanupTargetTime = databaseCleanupConfigurations.ChatCleanup.TargetTime ?? TimeSpan.Zero;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Starting {ClassName} jobs", nameof(DatabaseCleanupBackgroundService));
 
-        var cleanUpJobTask = RunDelayedJobAsync(_chatCleanupTargetTime, RunChatCleanupJobAsync, stoppingToken);
+        var cleanUpJobTask = GetExecuteTask(_chatCleanupEnabled, _chatCleanupTargetTime, RunChatCleanupJobAsync, stoppingToken);
 
         await Task.WhenAll(cleanUpJobTask);
     }
@@ -39,6 +41,20 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
         }
 
         return nextRun - now;
+    }
+
+    private Task GetExecuteTask(bool cleanUpEnabled, TimeSpan cleanUpTargetTime, Func<CancellationToken, Task> jobMethod, CancellationToken stoppingToken)
+    {
+        var jobName = jobMethod.GetMethodInfo().Name;
+
+        if (cleanUpEnabled)
+        {
+            _logger.LogInformation("{JobName} is enabled and will run at {TargetTime}", jobName, cleanUpTargetTime);
+            return RunDelayedJobAsync(cleanUpTargetTime, jobMethod, stoppingToken);
+        }
+
+        _logger.LogInformation("{JobName} is disabled", jobName);
+        return Task.CompletedTask;
     }
 
     private async Task RunDelayedJobAsync(TimeSpan timeTarget, Func<CancellationToken, Task> jobMethod, CancellationToken stoppingToken)

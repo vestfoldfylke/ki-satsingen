@@ -16,15 +16,20 @@ This app requires the following `Microsoft Graph` permissions:
 
 ## Database cleanup
 
-Database cleanup is performed at given time targets set in **DatabaseCleanup** configuration section.
+Database cleanup is performed at given time targets set in **DatabaseCleanup** configuration sections.
+
+Both `TargetTime` and `Retention` needs to be defined and have valid values for a configuration section to be enabled.
 
 ### TargetTime
 
-The `TargetTime` configuration is specified as "`hour`:`minute`:`second`", representing when the cleanup should start.
+The `TargetTime` configuration is specified as "`hour`:`minute`:`second`", representing when the cleanup should start.<br />
+Allowed value range: **>= *00:00:00* and <= *23:59:59***
 
 ### Retention
 
-The `Retention` configuration is specified as "`days`.`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.
+The `Retention` configuration is specified as "`days`.`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.<br />
+Minimum value: **1.00:00:00** - Needs to be at least 1 day.<br />
+Maximum value: Go nuts
 
 #### ChatCleanup
 

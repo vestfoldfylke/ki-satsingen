@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace kisatsingen.Services.Cleanup;
 
 public sealed class DatabaseCleanupConfigurations
@@ -11,50 +9,26 @@ public sealed class DatabaseCleanupConfigurations
     public void Validate() => ChatCleanup.Validate();
 }
 
-public sealed class DatabaseChatCleanupConfiguration
+public sealed class DatabaseChatCleanupConfiguration : IDatabaseCleanupConfiguration
 {
-    public string Retention { get; init; } = "";
-    public TimeSpan RetentionTimeSpan { get; private set; } = TimeSpan.Zero;
+    public TimeSpan? Retention { get; init; }
 
-    public string TargetTime { get; init; } = "";
-    public TimeSpan TargetTimeTimeSpan { get; private set; } = TimeSpan.Zero;
+    public TimeSpan? TargetTime { get; init; }
+
+    public bool Enabled => Retention is not null && TargetTime is not null;
 
     private const string ConfigPath = $"{DatabaseCleanupConfigurations.SectionName}.{nameof(DatabaseCleanupConfigurations.ChatCleanup)}";
 
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Retention))
+        if (Retention is { } retention && retention < TimeSpan.FromDays(1))
         {
-            throw new InvalidOperationException($"{nameof(Retention)} setting is missing in section {ConfigPath} in configuration.");
+            throw new ArgumentOutOfRangeException(nameof(Retention), $"{ConfigPath}.{nameof(Retention)} must be at least 1 day. Got {retention}");
         }
 
-        if (string.IsNullOrWhiteSpace(TargetTime))
+        if (TargetTime is { } targetTime && (targetTime < TimeSpan.Zero || targetTime >= TimeSpan.FromDays(1)))
         {
-            throw new InvalidOperationException($"{nameof(TargetTime)} setting is missing in section {ConfigPath} in configuration.");
+            throw new ArgumentOutOfRangeException(nameof(TargetTime), $"{ConfigPath}.{nameof(TargetTime)} must be a time of day between 00:00:00 and 23:59:59. Got {targetTime}");
         }
-
-        if (!TimeSpan.TryParse(Retention, CultureInfo.InvariantCulture, out var retentionTimeSpan))
-        {
-            throw new FormatException($"Invalid format on setting {ConfigPath}.{nameof(Retention)} in configuration. Expected format: 'd.HH:mm:ss'.");
-        }
-
-        if (retentionTimeSpan < TimeSpan.FromDays(1))
-        {
-            throw new ArgumentOutOfRangeException(nameof(Retention), $"{ConfigPath}.{nameof(Retention)} must be at least 1 day.");
-        }
-
-        RetentionTimeSpan = retentionTimeSpan;
-
-        if (!TimeSpan.TryParse(TargetTime, CultureInfo.InvariantCulture, out var targetTimeTimeSpan))
-        {
-            throw new FormatException($"Invalid format on setting {ConfigPath}.{nameof(TargetTime)} in configuration. Expected format: 'HH:mm:ss'.");
-        }
-
-        if (targetTimeTimeSpan < TimeSpan.Zero || targetTimeTimeSpan >= TimeSpan.FromDays(1))
-        {
-            throw new ArgumentOutOfRangeException(nameof(TargetTime), $"{ConfigPath}.{nameof(TargetTime)} must be a time of day between 00:00:00 and 23:59:59.");
-        }
-
-        TargetTimeTimeSpan = targetTimeTimeSpan;
     }
 }
