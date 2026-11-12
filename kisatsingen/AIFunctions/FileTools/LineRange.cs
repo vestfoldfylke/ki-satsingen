@@ -6,21 +6,21 @@ internal static class LineRange
 {
     // Null when the range is usable. An end past the last line is not an
     // error; both tools clamp it. A start past the last line is checked before
-    // the order of the two, because get_outline defaults end to the last line,
-    // and the line count is the answer that helps.
-    public static string? FindError(int start, int end, int lineCount)
+    // the order of the two, because get_outline defaults endLine to the last
+    // line, and the line count is the answer that helps.
+    public static string? FindError(int startLine, int endLine, int lineCount)
     {
-        if (start < 1 || end < 1)
+        if (startLine < 1 || endLine < 1)
         {
             return FileToolTexts.InvalidLineNumber;
         }
 
-        if (start > lineCount)
+        if (startLine > lineCount)
         {
             return FileToolTexts.StartPastLastLine(lineCount);
         }
 
-        if (end < start)
+        if (endLine < startLine)
         {
             return FileToolTexts.EndBeforeStart;
         }

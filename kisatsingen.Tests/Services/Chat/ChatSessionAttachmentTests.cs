@@ -272,7 +272,7 @@ public sealed class ChatSessionAttachmentTests
 
         var result = await listFiles.InvokeAsync(new AIFunctionArguments());
 
-        Assert.Contains("\"name\":\"notat.md\"", Assert.IsType<string>(result));
+        Assert.Contains("\"fileName\":\"notat.md\"", Assert.IsType<string>(result));
     }
 
     // The path the model takes: copy the id from the line, read the file. The
@@ -286,7 +286,7 @@ public sealed class ChatSessionAttachmentTests
         var fileId = Regex.Match(LastUserMessage(harness), "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}").Value;
         var readFile = harness.Client.LastOptions!.Tools!.OfType<AIFunction>().Single(tool => tool.Name == "read_file");
 
-        var result = await readFile.InvokeAsync(new AIFunctionArguments { ["fileId"] = fileId, ["start"] = 1, ["end"] = 3 });
+        var result = await readFile.InvokeAsync(new AIFunctionArguments { ["fileId"] = fileId, ["startLine"] = 1, ["endLine"] = 3 });
 
         Assert.Contains("Møtet er flyttet til torsdag.", Assert.IsType<string>(result));
     }

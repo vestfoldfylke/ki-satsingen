@@ -23,7 +23,7 @@ else
                 AssistantId="Session.AssistantId"
                 FileCount="Session.AssistantFiles.Count + Session.ChatFiles.Count"
                 IsFilesPanelOpen="_isFilesPanelOpen"
-                OnOpenFilesPanel="OpenFilesPanel"
+                OnToggleFilesPanel="ToggleFilesPanel"
             />
 
             <div class="chat-page">
@@ -69,7 +69,6 @@ else
                 AssistantFiles="Session.AssistantFiles"
                 ChatFiles="Session.ChatFiles"
                 ReadFileText="Session.ReadFileTextAsync"
-                OnClose="CloseFilesPanel"
             />
         }
     </div>

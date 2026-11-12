@@ -30,9 +30,7 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private string? Title =>
         Manager.Entries.FirstOrDefault(entry => entry.Id == Session.ChatId)?.Title;
 
-    private void OpenFilesPanel() => _isFilesPanelOpen = true;
-
-    private void CloseFilesPanel() => _isFilesPanelOpen = false;
+    private void ToggleFilesPanel() => _isFilesPanelOpen = !_isFilesPanelOpen;
 
     protected override async Task OnParametersSetAsync()
     {

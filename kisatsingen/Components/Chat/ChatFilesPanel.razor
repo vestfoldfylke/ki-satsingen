@@ -22,10 +22,7 @@
                 <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
             </button>
         }
-        <h2 class="ds-heading chat-files-panel-title" data-size="xs">@(_shownFile?.FileName ?? "Filer")</h2>
-        <button type="button" class="ds-button" data-variant="tertiary" data-icon="true" aria-label="Lukk filpanelet" data-tooltip="Lukk filpanelet" @onclick="OnClose">
-            <span class="material-symbols-outlined" aria-hidden="true">close</span>
-        </button>
+        <h2 @ref="_title" tabindex="-1" class="ds-heading chat-files-panel-title" data-size="xs">@(_shownFile?.FileName ?? "Filer")</h2>
     </div>
 
     <div class="chat-files-panel-body">
@@ -73,6 +70,11 @@
     // Null while the file list is shown.
     private KnowledgeFileMetadata? _shownFile;
 
+    // Switching views removes the button that was pressed, so focus moves to the
+    // heading of the view that replaces it.
+    private ElementReference _title;
+    private bool _shouldFocusTitle;
+
     [Parameter]
     public IReadOnlyList<KnowledgeFileMetadata> AssistantFiles { get; set; } = [];
 
@@ -82,10 +84,24 @@
     [Parameter, EditorRequired]
     public required Func<Guid, CancellationToken, Task<KnowledgeFileText?>> ReadFileText { get; set; }
 
-    [Parameter]
-    public EventCallback OnClose { get; set; }
+    private void ShowFile(KnowledgeFileMetadata file)
+    {
+        _shownFile = file;
+        _shouldFocusTitle = true;
+    }
 
-    private void ShowFile(KnowledgeFileMetadata file) => _shownFile = file;
+    private void ShowFileList()
+    {
+        _shownFile = null;
+        _shouldFocusTitle = true;
+    }
 
-    private void ShowFileList() => _shownFile = null;
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_shouldFocusTitle)
+        {
+            _shouldFocusTitle = false;
+            await _title.FocusAsync();
+        }
+    }
 }

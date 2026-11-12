@@ -22,6 +22,16 @@ public sealed class ToolInvokerTests
     }
 
     [Fact]
+    public async Task An_argument_refusal_is_recognised_as_a_refusal()
+    {
+        var function = AIFunctionFactory.Create((int count) => count, "count_things");
+
+        var result = await InvokeAsync(function, []);
+
+        Assert.True(ToolError.IsRefusal(JsonElement.Parse(Assert.IsType<string>(result))));
+    }
+
+    [Fact]
     public async Task An_argument_of_the_wrong_type_is_answered_with_the_tool_name()
     {
         var function = AIFunctionFactory.Create((int count) => count, "count_things");

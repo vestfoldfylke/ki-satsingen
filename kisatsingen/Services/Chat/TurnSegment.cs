@@ -10,7 +10,7 @@ namespace kisatsingen.Services.Chat;
 // one ended: a tool result closes a round.
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(TextSegment), "text")]
-[JsonDerivedType(typeof(ToolSegment), "tool")]
+[JsonDerivedType(typeof(ToolCall), "tool")]
 public abstract record TurnSegment(Guid Id, int Round);
 
 public sealed record TextSegment(Guid Id, int Round, string Text) : TurnSegment(Id, Round);
@@ -20,7 +20,7 @@ public sealed record TextSegment(Guid Id, int Round, string Text) : TurnSegment(
 //
 // Result is the text the provider was sent, not the value behind it: a value would
 // be serialised again on replay, and a string result would arrive quoted.
-public sealed record ToolSegment(
+public sealed record ToolCall(
     Guid Id,
     int Round,
     string CallId,

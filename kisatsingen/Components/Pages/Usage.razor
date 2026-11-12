@@ -25,7 +25,8 @@
         TotalInputTokenUsage="Totals.TotalInputTokens"
         TotalOutputTokenUsage="Totals.TotalOutputTokens"
         TotalEstimatedInputTokenUsage="Totals.TotalEstimatedInputTokens"
-        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens" />
+        TotalEstimatedOutputTokenUsage="Totals.TotalEstimatedOutputTokens"
+        TotalCachedInputTokenUsage="Totals.TotalCachedInputTokens" />
 
     <div class="usage-chart-row">
         <ProviderUsageChart Breakdown="ProviderBreakdown" @key="(nameof(ProviderBreakdown), ProviderBreakdown)" />
@@ -60,6 +61,40 @@
             @TopTokenUsage(TopTokenUsageByEstimatedOutputTokens)
         </ds-tabpanel>
     </ds-tabs>
+
+    <h3>Top @TopAssistantCount felles assistenter</h3>
+    @if (TopOrganizationAssistants.Count == 0)
+    {
+        <p class="ds-paragraph">Ingen bruk av felles assistenter i valgt periode.</p>
+    }
+    else
+    {
+        <div class="usage-table-scroll">
+            <table class="ds-table">
+                <thead>
+                    <tr>
+                        <th>Assistent</th>
+                        <th>Samtaler</th>
+                        <th>Brukere</th>
+                        <th>Input tokens</th>
+                        <th>Output tokens</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in TopOrganizationAssistants)
+                    {
+                        <tr>
+                            <td>@row.Name</td>
+                            <td>@row.ChatCount</td>
+                            <td>@row.UserCount</td>
+                            <td>@TokenCountFormat.Format(row.InputTokens)</td>
+                            <td>@TokenCountFormat.Format(row.OutputTokens)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>
 
 @code {

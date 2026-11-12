@@ -1,4 +1,4 @@
-/* Only the body scrolls, so the header's back and close buttons stay in view. */
+/* Only the body scrolls, so the header's back button stays in view. */
 .chat-files-panel {
     display: flex;
     flex-direction: column;

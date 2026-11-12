@@ -5,16 +5,7 @@ namespace kisatsingen.Data.Repositories;
 
 public interface IUserTokenUsageRepository
 {
-    Task InsertTokenUsageAsync(
-        Guid ownerId,
-        string provider,
-        string modelId,
-        long? inputTokens,
-        long? outputTokens,
-        long? estimatedInputTokens,
-        long? estimatedOutputTokens,
-        TurnStatus status,
-        CancellationToken ct = default);
+    Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default);
 
     Task<TokenUsageSummary> GetTotalsAsync(
         Guid ownerId,

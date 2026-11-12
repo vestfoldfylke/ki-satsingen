@@ -5,9 +5,11 @@ namespace kisatsingen.AIFunctions;
 
 internal static class ChatTools
 {
+    public const string GetCurrentTimeUtcToolName = "get_current_time_utc";
+
     public static readonly AIFunction GetCurrentTimeUtcTool = AIFunctionFactory.Create(
         GetCurrentTimeUtc,
-        name: "get_current_time_utc",
+        name: GetCurrentTimeUtcToolName,
         description: "Returns the current UTC time as an ISO 8601 string. Use this when the user asks about the current time.");
 
     // Given to every selectable model: an invariant, not a per-model flag that

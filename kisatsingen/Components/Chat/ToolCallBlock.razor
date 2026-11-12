@@ -1,0 +1,35 @@
+@if (View.Outcome is ToolOutcome.Running)
+{
+    <p class="text-shimmer" data-color="neutral">@View.Title…</p>
+}
+else
+{
+    <details class="ds-details" data-color="@OutcomeColor">
+        <summary>@View.Title</summary>
+        <div>
+            <pre class="chat-tool-output">@ShownText</pre>
+            @if (View.UserFriendlyResult is not null)
+            {
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="secondary"
+                    data-size="sm"
+                    data-color="neutral"
+                    @onclick="() => _isShowingRawData = !_isShowingRawData"
+                >
+                    @if (_isShowingRawData)
+                    {
+                        <span class="material-symbols-outlined" aria-hidden="true">article</span>
+                        <text>Vis lesevisning</text>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined" aria-hidden="true">data_object</span>
+                        <text>Vis rådata</text>
+                    }
+                </button>
+            }
+        </div>
+    </details>
+}

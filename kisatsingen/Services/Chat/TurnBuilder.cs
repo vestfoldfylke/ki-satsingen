@@ -125,7 +125,7 @@ internal sealed class TurnBuilder
         OpenNextRoundIfClosed();
         CloseText(changes);
 
-        var tool = new ToolSegment(
+        var toolCall = new ToolCall(
             Guid.NewGuid(),
             _round,
             call.CallId,
@@ -135,8 +135,8 @@ internal sealed class TurnBuilder
             Result: null);
 
         _toolIndexByCallId[call.CallId] = _segments.Count;
-        _segments.Add(tool);
-        changes.Add(new TurnChange.ToolStarted(tool.Id));
+        _segments.Add(toolCall);
+        changes.Add(new TurnChange.ToolStarted(toolCall.Id));
     }
 
     private void FinishTool(FunctionResultContent result, List<TurnChange> changes)
@@ -147,17 +147,17 @@ internal sealed class TurnBuilder
         _isRoundClosed = true;
 
         // A result for a call this stream never carried has nothing to attach to.
-        if (!_toolIndexByCallId.TryGetValue(result.CallId, out var index) || _segments[index] is not ToolSegment tool)
+        if (!_toolIndexByCallId.TryGetValue(result.CallId, out var index) || _segments[index] is not ToolCall toolCall)
         {
             return;
         }
 
-        _segments[index] = tool with
+        _segments[index] = toolCall with
         {
             Status = result.Exception is null ? ToolStatus.Completed : ToolStatus.Failed,
             Result = AsSentToProvider(result.Result)
         };
-        changes.Add(new TurnChange.ToolFinished(tool.Id));
+        changes.Add(new TurnChange.ToolFinished(toolCall.Id));
     }
 
     // The OpenAI adapter's rule, which every model here goes through, so the stored
@@ -240,7 +240,8 @@ internal sealed class TurnBuilder
                 _usage?.InputTokenCount,
                 _usage?.OutputTokenCount,
                 estimatedInput,
-                estimatedOutput),
+                estimatedOutput,
+                _usage?.CachedInputTokenCount),
             DurationMs,
             TimeToFirstTokenMs);
     }

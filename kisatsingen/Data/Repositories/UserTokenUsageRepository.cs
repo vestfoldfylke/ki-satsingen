@@ -13,31 +13,26 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     // parameter, so the bucket size is interpolated as a value, not SQL text.
     private const string OsloTz = "Europe/Oslo";
 
-    public async Task InsertTokenUsageAsync(
-        Guid ownerId,
-        string provider,
-        string modelId,
-        long? inputTokens,
-        long? outputTokens,
-        long? estimatedInputTokens,
-        long? estimatedOutputTokens,
-        TurnStatus status,
-        CancellationToken ct = default)
+    public async Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
-            OwnerId = ownerId,
+            OwnerId = entry.OwnerId,
+            ChatId = entry.ChatId,
+            TurnId = entry.TurnId,
+            AssistantId = entry.AssistantId,
             Timestamp = DateTimeOffset.UtcNow,
-            Provider = provider,
-            ModelId = modelId,
-            InputTokens = inputTokens,
-            OutputTokens = outputTokens,
-            EstimatedInputTokens = estimatedInputTokens,
-            EstimatedOutputTokens = estimatedOutputTokens,
-            Status = status
+            Provider = entry.Provider,
+            ModelId = entry.ModelId,
+            InputTokens = entry.Usage.InputTokens,
+            OutputTokens = entry.Usage.OutputTokens,
+            EstimatedInputTokens = entry.Usage.EstimatedInputTokens,
+            EstimatedOutputTokens = entry.Usage.EstimatedOutputTokens,
+            CachedInputTokens = entry.Usage.CachedInputTokens,
+            Status = entry.Status
         });
 
         await db.SaveChangesAsync(ct);
@@ -57,6 +52,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "TotalOutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "TotalEstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
+                 COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("OwnerId" = {ownerId})

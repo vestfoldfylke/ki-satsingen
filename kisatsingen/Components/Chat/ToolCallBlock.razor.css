@@ -1,0 +1,8 @@
+/* Wrapped, since a file's paragraph can be one long line. Capped, so a long
+   result doesn't bury the answer. */
+.chat-tool-output {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-block-size: 20rem;
+    overflow-y: auto;
+}

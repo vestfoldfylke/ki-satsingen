@@ -5,4 +5,8 @@ public record TokenUsageSummary(
     long TotalOutputTokens,
     long TotalEstimatedInputTokens,
     long TotalEstimatedOutputTokens,
-    int TurnCount);
+    long TotalCachedInputTokens,
+    int TurnCount)
+{
+    public static TokenUsageSummary Empty { get; } = new(0, 0, 0, 0, 0, 0);
+}

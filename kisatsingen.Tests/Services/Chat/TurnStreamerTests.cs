@@ -27,7 +27,7 @@ public sealed class TurnStreamerTests
 
         var before = builder.Snapshot().Answer.OfType<TextSegment>().First().Id;
         var endOfText = log.FindIndex(entry => entry is JsCall { Method: "chatClient.streamEnd" } call && call.SegmentId == before);
-        var firstToolRender = log.FindIndex(entry => entry is Render { Answer: [.., ToolSegment] });
+        var firstToolRender = log.FindIndex(entry => entry is Render { Answer: [.., ToolCall] });
         Assert.InRange(endOfText, 0, firstToolRender - 1);
     }
 

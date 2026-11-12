@@ -149,3 +149,56 @@ html {
     white-space: nowrap;
     border: 0;
 }
+
+/* Matches highlight.js's pre code.hljs, so a block keeps its size when
+   highlighting lands after streaming. Scrolls, since wrapped code reads as two
+   lines. */
+pre > code {
+    display: block;
+    padding: 1em;
+    overflow-x: auto;
+}
+
+/* An unbroken identifier or URL would otherwise push past the chat column. */
+:not(pre) > code {
+    overflow-wrap: anywhere;
+}
+
+/* Text for something the assistant is working on right now. Global because it
+   is also used in child components, which a component's scoped CSS cannot
+   reach. */
+.text-shimmer {
+    width: fit-content;
+    color: var(--ds-color-text-subtle);
+}
+
+/* Without text clipping, transparent text would leave the line empty. */
+@supports (background-clip: text) {
+    .text-shimmer {
+        color: transparent;
+        background: linear-gradient(
+            90deg,
+            var(--ds-color-text-subtle) 43%,
+            var(--ds-color-text-default) 47% 53%,
+            var(--ds-color-text-subtle) 57%
+        );
+        background-size: 300% 100%;
+        background-clip: text;
+        animation: text-shimmer 2s linear infinite;
+    }
+}
+
+@keyframes text-shimmer {
+    from {
+        background-position: 100% 0;
+    }
+    to {
+        background-position: 0 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .text-shimmer {
+        animation: none;
+    }
+}

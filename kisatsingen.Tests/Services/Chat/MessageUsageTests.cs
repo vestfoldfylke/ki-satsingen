@@ -36,6 +36,14 @@ public sealed class MessageUsageTests
         Assert.Equal(isEstimated, usage.IsEstimated);
     }
 
+    [Fact]
+    public void Cached_input_tokens_are_part_of_the_input_and_never_added_to_it()
+    {
+        var usage = new MessageUsage(900, 100, CachedInputTokens: 600);
+
+        Assert.Equal((long?)900, usage.CombinedInputTokens);
+    }
+
     // A provider may report input without output; that must not read as 0 output.
     [Fact]
     public void A_count_neither_reported_nor_estimated_stays_absent()

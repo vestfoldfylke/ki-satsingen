@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using kisatsingen.AIFunctions;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -50,19 +51,6 @@ internal static class ChatModelServiceCollectionExtensions
         IconName = "placeholder-code"
     };
 
-    private static readonly ChatModel TestModel = new()
-    {
-        Key = ChatModelKeys.Testing,
-        DisplayName = "Test",
-        ShortDescription = "Bare for testing, billig drit",
-        LongDescription =
-            "Kan alt og ingenting på en gang.",
-        Provider = "OpenAI",
-        ModelId = "gpt-4o-mini",
-        ContextWindowTokens = 128_000,
-        IconName = "placeholder-dust"
-    };
-
     public static IServiceCollection AddChatModels(this IServiceCollection services)
     {
         // Built in the factory so its warnings reach the real logging pipeline.
@@ -81,6 +69,11 @@ internal static class ChatModelServiceCollectionExtensions
         return services;
     }
 
+    // Prompt caching needs nothing from us on either model: tested on 2026-11-10,
+    // both cached the repeated start of a chat on their own. OpenAI from 1,024
+    // input tokens; Mistral from about 5,500, and prompt_cache_key did not increase
+    // cache hits when testing. Cached input tokens are stored with every
+    // turn, so caching can be observed there.
     private static IReadOnlyList<ChatModelDefinition> BuildDefinitions(IConfiguration configuration, ILogger logger)
     {
         var definitions = new List<ChatModelDefinition>();
@@ -93,7 +86,7 @@ internal static class ChatModelServiceCollectionExtensions
             OpenAiConfigurationPath,
             providerCredential => (
                 OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
-                WithToolsNoChatCompletionsStoreNoReasoning()));
+                LunaOptions()));
 
         AddIfConfigured(
             definitions,
@@ -103,17 +96,7 @@ internal static class ChatModelServiceCollectionExtensions
             MistralConfigurationPath,
             providerCredential => (
                 OpenAiCompatibleChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
-                WithTools()));
-
-        AddIfConfigured(
-            definitions,
-            configuration,
-            logger,
-            TestModel,
-            OpenAiConfigurationPath,
-            providerCredential => (
-                OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, TestModel.ModelId),
-                WithToolsNoChatCompletionsStore()));
+                MistralOptions()));
 
         return definitions;
     }
@@ -143,23 +126,13 @@ internal static class ChatModelServiceCollectionExtensions
         definitions.Add(new ChatModelDefinition(model, client, options));
     }
 
-    // The only way in, so no model reaches the catalogue without its tools.
-    // No `store` here: it is an OpenAI extension, not ours to send elsewhere.
-    private static ChatOptions WithTools() => new() { Tools = [.. ChatTools.All] };
-
+    // For gpt-6-luna, Chat Completions rejects tools with any reasoning effort but
+    // none, and reasoning with tools needs /v1/responses, which stores by default.
+    //
     // store=false is already the default, but set so a default change can't start
-    // retaining conversations. RawRepresentationFactory because the adapter drops
-    // AdditionalProperties.
-    private static ChatOptions WithToolsNoChatCompletionsStore() =>
-        new()
-        {
-            Tools = [.. ChatTools.All],
-            RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
-        };
-
-    // For gpt-6-luna, Chat Completions rejects tools with any effort but none.
-    // Reasoning with tools needs /v1/responses, which stores by default.
-    private static ChatOptions WithToolsNoChatCompletionsStoreNoReasoning() =>
+    // retaining conversations. Through RawRepresentationFactory, since the adapter
+    // drops AdditionalProperties.
+    internal static ChatOptions LunaOptions() =>
         new()
         {
             Tools = [.. ChatTools.All],
@@ -167,20 +140,17 @@ internal static class ChatModelServiceCollectionExtensions
             RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
         };
 
+    // No `store`: it is an OpenAI extension, not ours to send elsewhere.
+    internal static ChatOptions MistralOptions() => new() { Tools = [.. ChatTools.All] };
+
     // Shared by every OpenAI-compatible provider; one that isn't brings its own.
-    //
-    // Verified against Microsoft.Extensions.AI.OpenAI 10.9.0 by capturing the
-    // request body — re-check both on upgrade:
-    //   ChatOptions.ModelId must stay unset: it silently overrides the id given here.
-    //   ChatOptions.Instructions becomes exactly one system message, and none when
-    //   unset. A note rather than a test, because moving to the Responses API
-    //   would change the body without changing the behaviour.
-    private static Func<IServiceProvider, IChatClient> OpenAiCompatibleChat(
+    internal static Func<IServiceProvider, IChatClient> OpenAiCompatibleChat(
         string providerCredential,
         Uri endpoint,
-        string modelId)
+        string modelId,
+        PipelineTransport? transport = null)
     {
-        var clientOptions = new OpenAIClientOptions { Endpoint = endpoint };
+        var clientOptions = new OpenAIClientOptions { Endpoint = endpoint, Transport = transport };
 
         return serviceProvider => new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
             .GetChatClient(modelId)

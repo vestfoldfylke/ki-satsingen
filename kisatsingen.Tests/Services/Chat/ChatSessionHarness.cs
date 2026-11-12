@@ -251,35 +251,26 @@ internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 // usage the model reported and the status it landed on.
 internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 {
-    public List<TokenUsageInsert> Inserts { get; } = [];
+    public List<TokenUsageEntry> Inserts { get; } = [];
 
     // Lets a test simulate the repository being down without breaking the send.
     public Exception? InsertFailure { get; set; }
 
-    public Task InsertTokenUsageAsync(
-        Guid ownerId,
-        string provider,
-        string modelId,
-        long? inputTokens,
-        long? outputTokens,
-        long? estimatedInputTokens,
-        long? estimatedOutputTokens,
-        TurnStatus status,
-        CancellationToken ct = default)
+    public Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
     {
         if (InsertFailure is not null)
         {
             return Task.FromException(InsertFailure);
         }
 
-        Inserts.Add(new TokenUsageInsert(ownerId, provider, modelId, inputTokens, outputTokens, estimatedInputTokens, estimatedOutputTokens, status));
+        Inserts.Add(entry);
         return Task.CompletedTask;
     }
 
     // Chat-session tests only exercise the insert path; the owner-scoped query
     // methods are stubbed so the fake still satisfies the interface.
     public Task<TokenUsageSummary> GetTotalsAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult(new TokenUsageSummary(0, 0, 0, 0, 0));
+        Task.FromResult(TokenUsageSummary.Empty);
 
     public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
@@ -293,16 +284,6 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
     public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 }
-
-internal sealed record TokenUsageInsert(
-    Guid OwnerId,
-    string Provider,
-    string ModelId,
-    long? InputTokens,
-    long? OutputTokens,
-    long? EstimatedInputTokens,
-    long? EstimatedOutputTokens,
-    TurnStatus Status);
 
 internal sealed class FakeChatClient : IChatClient
 {
@@ -403,10 +384,14 @@ internal static class ModelStream
     }
 
     // Usage as a trailing chunk, the way providers send it.
-    public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringWithUsage(string text, long inputTokens, long outputTokens)
+    public static async IAsyncEnumerable<ChatResponseUpdate> AnsweringWithUsage(
+        string text,
+        long inputTokens,
+        long outputTokens,
+        long? cachedInputTokens = null)
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, text);
-        yield return Usage(inputTokens, outputTokens);
+        yield return Usage(inputTokens, outputTokens, cachedInputTokens);
         await Task.CompletedTask;
     }
 
@@ -475,14 +460,15 @@ internal static class ModelStream
         yield break;
     }
 
-    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens) =>
+    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens, long? cachedInputTokens = null) =>
         new(ChatRole.Assistant,
         [
             new UsageContent(new UsageDetails
             {
                 InputTokenCount = inputTokens,
                 OutputTokenCount = outputTokens,
-                TotalTokenCount = inputTokens + outputTokens
+                TotalTokenCount = inputTokens + outputTokens,
+                CachedInputTokenCount = cachedInputTokens
             })
         ]);
 }

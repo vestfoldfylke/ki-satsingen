@@ -122,8 +122,8 @@ public sealed class FileToolContractTests
         Assert.Equal(
             [
                 "list_files()",
-                "get_outline(fileId: string required, start: integer|null 1.., end: integer|null 1.., depth: integer|null 1..6)",
-                "read_file(fileId: string required, start: integer required 1.., end: integer required 1..)"
+                "get_outline(fileId: string required, startLine: integer|null 1.., endLine: integer|null 1.., depth: integer|null 1..6)",
+                "read_file(fileId: string required, startLine: integer required 1.., endLine: integer required 1..)"
             ],
             Tools().Select(DescribeArguments));
     }
@@ -134,7 +134,7 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("list_files", Arguments());
 
         Assert.Equal(
-            """{"files":[{"fileId":"11111111-1111-1111-1111-111111111111","source":"chat","name":"notat.md","lineCount":3,"summary":"Utdrag."}]}""",
+            """{"files":[{"fileId":"11111111-1111-1111-1111-111111111111","source":"chat","fileName":"notat.md","lineCount":3,"summary":"Utdrag."}]}""",
             result);
     }
 
@@ -144,24 +144,24 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString())));
 
         Assert.Equal(
-            """{"fileId":"11111111-1111-1111-1111-111111111111","name":"notat.md","summary":"Utdrag.","lineCount":3,"entries":[{"line":1,"endLine":3,"kind":"heading","level":1,"title":"Notat"}]}""",
+            """{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","summary":"Utdrag.","lineCount":3,"entries":[{"startLine":1,"endLine":3,"kind":"heading","level":1,"title":"Notat"}]}""",
             result);
     }
 
     [Fact]
     public async Task The_read_file_result_shape_is_pinned()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", 1), ("end", 3)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 1), ("endLine", 3)));
 
         Assert.Equal(
-            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","name":"notat.md","startLine":1,"endLine":3,"totalLines":3,"contentNotice":"{{FileToolTexts.ContentNotice}}","content":"1\t# Notat\n2\t\n3\tHei."}""",
+            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","startLine":1,"endLine":3,"lineCount":3,"contentNotice":"{{FileToolTexts.ContentNotice}}","content":"1\t# Notat\n2\t\n3\tHei."}""",
             result);
     }
 
     [Fact]
     public async Task The_error_result_shape_is_pinned()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", Guid.NewGuid().ToString()), ("start", 1), ("end", 3)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", Guid.NewGuid().ToString()), ("startLine", 1), ("endLine", 3)));
 
         Assert.Equal(
             $$"""{"error":"{{FileToolTexts.FileNotFound}}"}""",
@@ -189,7 +189,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task Line_numbers_sent_as_strings_are_accepted()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", "3"), ("end", "3")));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", "3"), ("endLine", "3")));
 
         Assert.Contains("\"content\":\"3\\tHei.\"", result);
     }
@@ -199,7 +199,7 @@ public sealed class FileToolContractTests
     [InlineData(null)]
     public async Task A_line_number_below_1_or_null_is_refused_with_what_to_send(object? start)
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", start), ("end", 3)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", start), ("endLine", 3)));
 
         Assert.Contains(FileToolTexts.InvalidLineNumber, result);
     }
@@ -209,7 +209,7 @@ public sealed class FileToolContractTests
     [InlineData(1.5)]
     public async Task A_line_number_that_is_not_an_integer_is_refused_as_unreadable(object start)
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", start), ("end", 3)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", start), ("endLine", 3)));
 
         Assert.Contains($"Argumentene til read_file {UnreadableArguments}", result);
     }
@@ -217,7 +217,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task An_explicit_null_for_an_optional_argument_means_its_default()
     {
-        var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("start", null), ("end", null), ("depth", null)));
+        var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("startLine", null), ("endLine", null), ("depth", null)));
 
         Assert.Contains("\"title\":\"Notat\"", result);
     }
@@ -225,15 +225,15 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task A_read_without_an_end_is_refused_with_the_missing_argument_named()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", 1)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 1)));
 
-        Assert.Contains("'end'", result);
+        Assert.Contains("'endLine'", result);
     }
 
     [Fact]
     public async Task A_range_that_ends_before_it_starts_is_refused()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("start", 3), ("end", 1)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 3), ("endLine", 1)));
 
         Assert.Contains(FileToolTexts.EndBeforeStart, result);
     }
@@ -241,7 +241,7 @@ public sealed class FileToolContractTests
     [Fact]
     public async Task A_start_past_the_last_line_is_refused_with_the_files_line_count()
     {
-        var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("start", 10)));
+        var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("startLine", 10)));
 
         Assert.Contains(FileToolTexts.StartPastLastLine(3), result);
     }
@@ -254,7 +254,7 @@ public sealed class FileToolContractTests
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
 
-        Assert.Contains(FileToolTexts.OutlineContinuation(shownCount: 1, nextLine: 2, end: 3, depth: 2), Assert.IsType<string>(result));
+        Assert.Contains(FileToolTexts.OutlineContinuation(shownCount: 1, nextLine: 2, endLine: 3, depth: 2), Assert.IsType<string>(result));
     }
 
     [Fact]
@@ -263,9 +263,9 @@ public sealed class FileToolContractTests
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre");
         var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
-        var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("start", 1), ("end", 50)));
+        var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("startLine", 1), ("endLine", 50)));
 
-        Assert.Contains(FileToolTexts.ReadContinuation(nextLine: 2, end: 3), Assert.IsType<string>(result));
+        Assert.Contains(FileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
     }
 
     [Theory]

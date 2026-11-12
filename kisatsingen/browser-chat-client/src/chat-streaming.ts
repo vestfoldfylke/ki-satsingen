@@ -5,7 +5,7 @@
 //   streamStart(id)                → init buffer for a new stream (once).
 //   streamAppend(id, text) × N     → server pushes tokens over SignalR.
 //   streamEnd(id)                  → drop buffer. The stream-{id} div stays;
-//                                    Blazor's <TextSegmentView> now renders it
+//                                    Blazor's <TextBlock> now renders it
 //                                    from the segment's text via renderMarkdown.
 //   renderMarkdown(el, source)     → final render of a finished segment,
 //                                    with hljs syntax highlighting and code-copy
@@ -265,7 +265,7 @@ export function streamEnd(id: string): void {
     streamStates.delete(id);
 }
 
-// Called by TextSegmentView for each finished segment. The only path that runs
+// Called by TextBlock for each finished segment. The only path that runs
 // hljs and injects copy buttons.
 export function renderMarkdown(element: HTMLElement | null, source: string): void {
     renderInto(element, source, {highlight: true});

@@ -3,7 +3,7 @@
 <div class="assistant-turn" data-live="@IsLive">
     @if (IsLive && Turn.Answer.Count == 0)
     {
-        <p class="assistant-turn-pending" data-color="neutral">@_pendingPhrase…</p>
+        <p class="text-shimmer" data-color="neutral">@_pendingPhrase…</p>
     }
 
     @foreach (var segment in Turn.Answer)
@@ -11,10 +11,10 @@
         switch (segment)
         {
             case TextSegment text:
-                <TextSegmentView @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
+                <TextBlock @key="text.Id" Segment="text" IsStreaming="text.Id == StreamingSegmentId" />
                 break;
-            case ToolSegment tool:
-                <ToolCallView @key="tool.Id" Segment="tool" />
+            case ToolCall toolCall:
+                <ToolCallBlock @key="toolCall.Id" ToolCall="toolCall" />
                 break;
         }
     }
@@ -140,6 +140,11 @@
                     {
                         <dt>Totalt behandlet</dt>
                         <dd>@TokenCountFormat.Format(total, usage.IsEstimated)</dd>
+                    }
+                    @if (usage.CachedInputTokens is { } cached)
+                    {
+                        <dt>Fra mellomlager</dt>
+                        <dd>@TokenCountFormat.Format(cached)</dd>
                     }
                 </dl>
             }
