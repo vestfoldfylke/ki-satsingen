@@ -24,7 +24,7 @@ public partial class MyUsage : ComponentBase, IDisposable
 
     private Guid? _ownerId;
 
-    private TokenUsageSummary Totals { get; set; } = new(0, 0, 0, 0, 0);
+    private TokenUsageSummary Totals { get; set; } = TokenUsageSummary.Empty;
     private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];

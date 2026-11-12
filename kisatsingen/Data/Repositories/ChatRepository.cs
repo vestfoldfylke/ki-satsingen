@@ -128,6 +128,7 @@ public sealed class ChatRepository(IDbContextFactory<AppDbContext> factory) : IC
                 .SetProperty(t => t.OutputTokens, turn.OutputTokens)
                 .SetProperty(t => t.EstimatedInputTokens, turn.EstimatedInputTokens)
                 .SetProperty(t => t.EstimatedOutputTokens, turn.EstimatedOutputTokens)
+                .SetProperty(t => t.CachedInputTokens, turn.CachedInputTokens)
                 .SetProperty(t => t.DurationMs, turn.DurationMs)
                 .SetProperty(t => t.TimeToFirstTokenMs, turn.TimeToFirstTokenMs), ct);
 

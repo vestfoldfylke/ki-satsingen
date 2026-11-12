@@ -115,6 +115,9 @@ namespace kisatsingen.Migrations
                     b.Property<string>("AttachmentsJson")
                         .HasColumnType("text");
 
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<Guid>("ChatId")
                         .HasColumnType("uuid");
 
@@ -269,6 +272,15 @@ namespace kisatsingen.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("AssistantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long?>("CachedInputTokens")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ChatId")
+                        .HasColumnType("uuid");
+
                     b.Property<long?>("EstimatedInputTokens")
                         .HasColumnType("bigint");
 
@@ -302,7 +314,13 @@ namespace kisatsingen.Migrations
                     b.Property<DateTimeOffset>("Timestamp")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("TurnId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("AssistantId", "Timestamp")
+                        .HasFilter("\"AssistantId\" IS NOT NULL");
 
                     b.HasIndex("OwnerId", "Timestamp");
 

@@ -18,17 +18,19 @@ public partial class Usage : ComponentBase, IDisposable
     public required IUserUsageResolver UserUsageResolver { get; init; }
 
     private const int TopUserCount = 5;
+    private const int TopAssistantCount = 10;
 
     private UsageRange Range { get; set; } = UsageRange.Last7Days;
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;
 
-    private TokenUsageSummary Totals { get; set; } = new(0, 0, 0, 0, 0);
+    private TokenUsageSummary Totals { get; set; } = TokenUsageSummary.Empty;
     private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ModelBreakdown { get; set; } = [];
     private IReadOnlyList<UserUsage> TopUsersByTurns { get; set; } = [];
+    private IReadOnlyList<AssistantUsage> TopOrganizationAssistants { get; set; } = [];
 
     private IEnumerable<UserUsage> TopTokenUsageByInputTokens { get; set; } = [];
     private IEnumerable<UserUsage> TopTokenUsageByOutputTokens { get; set; } = [];
@@ -71,18 +73,20 @@ public partial class Usage : ComponentBase, IDisposable
             var topTokenUsageByOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.OutputTokens, TopUserCount, ct);
             var topTokenUsageByEstimatedInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedInputTokens, TopUserCount, ct);
             var topTokenUsageByEstimatedOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedOutputTokens, TopUserCount, ct);
+            var topOrganizationAssistantsTask = OrganizationTokenUsageRepository.GetTopOrganizationAssistantsAsync(since, TopAssistantCount, ct);
 
             await Task.WhenAll(
                 totalsTask, timeSeriesTask, statusTask, providerTask,
                 modelTask, topUsersTask, topTokenUsageByInputTokensTask,
                 topTokenUsageByOutputTokensTask, topTokenUsageByEstimatedInputTokensTask,
-                topTokenUsageByEstimatedOutputTokensTask);
+                topTokenUsageByEstimatedOutputTokensTask, topOrganizationAssistantsTask);
 
             Totals = await totalsTask;
             TimeSeries = await timeSeriesTask;
             StatusBreakdown = await statusTask;
             ProviderBreakdown = await providerTask;
             ModelBreakdown = await modelTask;
+            TopOrganizationAssistants = await topOrganizationAssistantsTask;
 
             TopUsersByTurns = await UserUsageResolver.ResolveAsync(await topUsersTask, ct);
             TopTokenUsageByInputTokens = await UserUsageResolver.ResolveAsync(await topTokenUsageByInputTokensTask, ct);

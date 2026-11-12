@@ -63,7 +63,7 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var row = new TurnRow(input.ChatId, input.IsChatSaved);
+        var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
         // Starts as Failed so an exception nothing classified lands in the alerted bucket.
@@ -110,7 +110,7 @@ internal sealed class TurnRunner
             row.OwnerId = ownerId;
 
             stage = TurnStage.SavingMessage;
-            var inserted = await InsertAsync(row, ownerId, turn, input.AssistantId, observer, cancellation.Token);
+            var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
 
             stage = TurnStage.ProcessingAttachments;
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
@@ -192,7 +192,7 @@ internal sealed class TurnRunner
 
     // Sets row.Inserted before reporting the turn saved, so a listener that throws
     // cannot leave a written turn that the ending path never updates.
-    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, Guid? assistantId, TurnObserver observer, CancellationToken ct)
+    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
@@ -203,7 +203,7 @@ internal sealed class TurnRunner
         {
             if (isNewChat)
             {
-                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, assistantId, ct);
+                await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, row.AssistantId, ct);
             }
 
             await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);
@@ -331,16 +331,16 @@ internal sealed class TurnRunner
         try
         {
             var ownerId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
-            await _userTokenUsageRepository.InsertTokenUsageAsync(
-                ownerId,
-                model.Provider,
-                model.ModelId,
-                usage.InputTokens,
-                usage.OutputTokens,
-                usage.EstimatedInputTokens,
-                usage.EstimatedOutputTokens,
-                attempt.Turn.Status,
-                CancellationToken.None);
+            var entry = new TokenUsageEntry(
+                OwnerId: ownerId,
+                ChatId: row.ChatId,
+                TurnId: attempt.Turn.Id,
+                AssistantId: row.AssistantId,
+                Provider: model.Provider,
+                ModelId: model.ModelId,
+                Usage: usage,
+                Status: attempt.Turn.Status);
+            await _userTokenUsageRepository.InsertTokenUsageAsync(entry, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -365,9 +365,11 @@ internal sealed class TurnRunner
 
     // What is known of the turn's row so far; a turn that ends early may never
     // learn the rest.
-    private sealed class TurnRow(Guid chatId, bool isChatSaved)
+    private sealed class TurnRow(Guid chatId, Guid? assistantId, bool isChatSaved)
     {
         public Guid ChatId { get; } = chatId;
+
+        public Guid? AssistantId { get; } = assistantId;
 
         // False for a new chat: it is saved with this turn.
         public bool IsChatSaved { get; } = isChatSaved;

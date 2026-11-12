@@ -10,6 +10,12 @@ public sealed class TokenUsage
 
     public Guid Id { get; init; }
     public required Guid OwnerId { get; init; }
+
+    // No foreign keys: the row must outlive the chat, turn and assistant it names.
+    public Guid? ChatId { get; init; }
+    public Guid? TurnId { get; init; }
+    public Guid? AssistantId { get; init; }
+
     public DateTimeOffset Timestamp { get; init; }
     public required string Provider { get; init; }
     public required string ModelId { get; init; }
@@ -17,5 +23,9 @@ public sealed class TokenUsage
     public long? OutputTokens { get; init; }
     public long? EstimatedInputTokens { get; init; }
     public long? EstimatedOutputTokens { get; init; }
+
+    // Part of InputTokens, never added to it.
+    public long? CachedInputTokens { get; init; }
+
     public required TurnStatus Status { get; init; }
 }

@@ -65,7 +65,7 @@ public sealed class ToolResultReplayTests
             new(ChatRole.Assistant, [new FunctionCallContent("call-1", "probe")]),
             new(ChatRole.Tool, [result])
         ];
-        await Assert.ThrowsAnyAsync<Exception>(() => client.GetResponseAsync(messages));
+        await client.GetResponseAsync(messages);
 
         using var body = JsonDocument.Parse(capture.Body!);
         return body.RootElement.GetProperty("messages")[2].GetProperty("content").GetRawText();
@@ -83,15 +83,21 @@ public sealed class ToolResultReplayTests
         IconName = "icon"
     };
 
-    // Keeps the request and refuses to send it: only the body is under test.
+    // Keeps the request and answers with a minimal completion: only the body is under test.
     private sealed class CapturingHandler : HttpMessageHandler
     {
+        private const string Completion =
+            """{"id":"x","object":"chat.completion","created":0,"model":"model-under-test","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}""";
+
         public string? Body { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Body = await request.Content!.ReadAsStringAsync(ct);
-            throw new HttpRequestException("Captured; not sent.");
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(Completion, System.Text.Encoding.UTF8, "application/json")
+            };
         }
     }
 }

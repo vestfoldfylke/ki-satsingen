@@ -36,4 +36,11 @@ public interface IOrganizationTokenUsageRepository
     Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
         DateTimeOffset? since,
         CancellationToken ct = default);
+
+    // Uses the assistant's current name and visibility, not those at the time
+    // of each turn; deleted assistants are left out.
+    Task<IReadOnlyList<AssistantUsage>> GetTopOrganizationAssistantsAsync(
+        DateTimeOffset? since,
+        int topN,
+        CancellationToken ct = default);
 }

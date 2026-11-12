@@ -240,7 +240,8 @@ internal sealed class TurnBuilder
                 _usage?.InputTokenCount,
                 _usage?.OutputTokenCount,
                 estimatedInput,
-                estimatedOutput),
+                estimatedOutput,
+                _usage?.CachedInputTokenCount),
             DurationMs,
             TimeToFirstTokenMs);
     }
