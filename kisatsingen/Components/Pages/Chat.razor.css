@@ -134,10 +134,3 @@
 .chat-jump-latest[hidden] {
     display: none;
 }
-
-.chat-deleted-notice {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-}

@@ -113,7 +113,6 @@ internal sealed class TurnRunner
             if (await InsertAsync(row, ownerId, turn, input.AssistantId, observer, cancellation.Token) is not { } inserted)
             {
                 _logger.LogInformation("Chat {ChatId} no longer exists, so the message sent in it was not saved", row.ChatId);
-                _chatManager.Forget(row.ChatId);
                 return new TurnAttempt(builder.Finish(TurnStatus.ChatDeleted));
             }
 

@@ -13,7 +13,7 @@
 }
 else
 {
-    <PageTitle>@(Session.IsChatDeleted ? "Samtalen er slettet" : string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
+    <PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "Ny chat" : Title)</PageTitle>
 
     <div class="chat-layout">
         <div class="chat-column">
@@ -54,23 +54,7 @@ else
                     </div>
 
                     <div class="chat-tail">
-                        @if (Session.IsChatDeleted)
-                        {
-                            <div class="ds-alert chat-deleted-notice" data-color="warning" role="status">
-                                <p class="ds-paragraph">Samtalen er slettet automatisk fordi den ikke var brukt på en stund. Meldingen din ble ikke sendt.</p>
-                                <button type="button"
-                                        class="ds-button"
-                                        data-variant="primary"
-                                        data-size="sm"
-                                        @onclick="SendInNewChatAsync">
-                                    Send meldingen i en ny samtale
-                                </button>
-                            </div>
-                        }
-                        else
-                        {
-                            <ChatComposer />
-                        }
+                        <ChatComposer />
                     </div>
                 </div>
             </div>

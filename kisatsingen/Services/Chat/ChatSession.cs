@@ -46,11 +46,7 @@ public sealed class ChatSession : IAsyncDisposable
         Opening,
 
         Saved,
-        NotFound,
-
-        // Deleted while open, found out when a message could not be saved in it.
-        // The transcript stays so the user keeps what they wrote.
-        Deleted
+        NotFound
     }
 
     private IReadOnlyList<KnowledgeFileMetadata> _chatFiles = [];
@@ -65,7 +61,7 @@ public sealed class ChatSession : IAsyncDisposable
     // The name the chat was saved with, shown once its assistant is no longer usable.
     private string? _assistantNameSnapshot;
 
-    // Snapshotted by SendAsync, so switching mid-stream only affects the next turn.
+    // Captured by SendAsync, so switching mid-stream only affects the next turn.
     private ChatModel _selectedModel;
 
     // Null between turns, which is what makes a late Cancel() a harmless no-op.
@@ -122,9 +118,6 @@ public sealed class ChatSession : IAsyncDisposable
     // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
     public bool IsChatNotFound => _chatState == ChatState.NotFound;
 
-    // Set when a message could not be sent because the chat had been deleted.
-    public bool IsChatDeleted => _chatState == ChatState.Deleted;
-
     // Null for a chat that never had an assistant.
     public string? AssistantName => _assistant?.Name ?? _assistantNameSnapshot;
 
@@ -176,7 +169,7 @@ public sealed class ChatSession : IAsyncDisposable
     // The one place the prompt for the next turn is chosen, so what is sent and
     // what is estimated can never differ.
     private string SystemPrompt =>
-        _assistant is Assistant assistant
+        _assistant is { } assistant
             ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles, assistant.AreBaseInstructionsDisabled)
             : ChatInstructions.ForPlainChat;
 
@@ -225,7 +218,7 @@ public sealed class ChatSession : IAsyncDisposable
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();
         var chat = await _repo.GetChatAsync(userObjectId, chatId);
         var chatFiles = chat is null ? [] : await _knowledgeFileRepository.ListFilesForChatAsync(userObjectId, chatId);
-        var assistant = chat?.AssistantId is Guid assistantId
+        var assistant = chat?.AssistantId is { } assistantId
             ? await _assistantRepository.GetAssistantAsync(userObjectId, assistantId)
             : null;
         var assistantFiles = assistant is null ? [] : await _knowledgeFileRepository.ListFilesForAssistantAsync(userObjectId, assistant.Id);
@@ -237,8 +230,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         if (chat is null)
         {
-            _chatState = ChatState.NotFound;
-            _chatManager.Forget(chatId);
+            MarkChatNotFound(chatId);
             Notify();
             return;
         }
@@ -264,8 +256,13 @@ public sealed class ChatSession : IAsyncDisposable
     public Task StartNewAssistantChatAsync(Assistant assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles) =>
         StartNewChatAsync(assistant, assistantFiles);
 
-    // Null model: the catalogue's default.
-    private async Task StartNewChatAsync(Assistant? assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles, ChatModel? model = null)
+    private void MarkChatNotFound(Guid chatId)
+    {
+        _chatState = ChatState.NotFound;
+        _chatManager.Forget(chatId);
+    }
+
+    private async Task StartNewChatAsync(Assistant? assistant, IReadOnlyList<KnowledgeFileMetadata> assistantFiles)
     {
         var newChatId = Guid.NewGuid();
         var requestNumber = RequestChat(newChatId);
@@ -278,22 +275,7 @@ public sealed class ChatSession : IAsyncDisposable
         ResetToNewChat(newChatId);
         _assistant = assistant;
         _assistantFiles = assistantFiles;
-        _selectedModel = model ?? _catalog.Default;
         Notify();
-    }
-
-    // Keeps the deleted chat's assistant and model, and returns the message that could not be
-    // sent, for the caller to send in the new chat. Null unless the chat was deleted.
-    public async Task<string?> StartNewChatForUnsentMessageAsync()
-    {
-        if (_chatState != ChatState.Deleted)
-        {
-            return null;
-        }
-
-        var unsentMessage = _turns.LastOrDefault(turn => turn.Status == TurnStatus.ChatDeleted)?.Prompt;
-        await StartNewChatAsync(_assistant, _assistantFiles, _selectedModel);
-        return unsentMessage;
     }
 
     // Ignored unless the chat is with this assistant, so an edit never gives a chat
@@ -382,7 +364,7 @@ public sealed class ChatSession : IAsyncDisposable
         IsBusy = true;
 
         // The branches below read this local, never the field: the field is what
-        // Cancel() reaches, and it is nulled before this turn's teardown is done.
+        // Cancel() reaches, and it is null before this turn's teardown is done.
         var cancellation = new TurnCancellation();
         _turnCancellation = cancellation;
 
@@ -411,7 +393,7 @@ public sealed class ChatSession : IAsyncDisposable
 
             if (ended.Status == TurnStatus.ChatDeleted)
             {
-                _chatState = ChatState.Deleted;
+                MarkChatNotFound(_chatId);
             }
         }
         finally
@@ -423,7 +405,7 @@ public sealed class ChatSession : IAsyncDisposable
                 _liveTurnId = null;
                 IsBusy = false;
 
-                // The only place it is disposed. Nulled first, so a Cancel() arriving
+                // The only place it is disposed. Set as null first, so a Cancel() arriving
                 // now no-ops instead of reaching disposed sources.
                 _turnCancellation = null;
                 cancellation.Dispose();

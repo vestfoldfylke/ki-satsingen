@@ -18,9 +18,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     [Inject]
     public required IJSRuntime JS { get; set; }
 
-    [Inject]
-    public required NavigationManager Navigation { get; set; }
-
     [Parameter]
     public Guid ChatId { get; set; }
 
@@ -36,19 +33,6 @@ public sealed partial class Chat : ComponentBase, IAsyncDisposable
     private void OpenFilesPanel() => _isFilesPanelOpen = true;
 
     private void CloseFilesPanel() => _isFilesPanelOpen = false;
-
-    // Navigates before sending, like a new chat's first message, so the answer
-    // streams into the page of the chat it belongs to.
-    private async Task SendInNewChatAsync()
-    {
-        if (await Session.StartNewChatForUnsentMessageAsync() is not { } unsentMessage)
-        {
-            return;
-        }
-
-        Navigation.NavigateTo($"/chat/{Session.ChatId}");
-        await Session.SendAsync(unsentMessage);
-    }
 
     protected override async Task OnParametersSetAsync()
     {
