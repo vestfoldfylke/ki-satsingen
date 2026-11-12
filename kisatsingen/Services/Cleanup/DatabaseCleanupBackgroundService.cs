@@ -62,6 +62,7 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
             }
             catch (OperationCanceledException)
             {
+                _logger.LogInformation("Task {JobName} was canceled for some reason. {ClassName} will not run any more background jobs", jobName, nameof(DatabaseCleanupBackgroundService));
                 break;
             }
             catch (Exception ex)
