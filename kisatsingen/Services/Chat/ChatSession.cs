@@ -115,7 +115,6 @@ public sealed class ChatSession : IAsyncDisposable
 
     public Guid ChatId => _chatId;
 
-    // Set when OpenChatAsync was asked for a chat that doesn't exist or isn't the user's.
     public bool IsChatNotFound => _chatState == ChatState.NotFound;
 
     // Null for a chat that never had an assistant.
