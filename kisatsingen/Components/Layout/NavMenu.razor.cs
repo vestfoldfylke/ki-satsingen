@@ -1,4 +1,3 @@
-using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
@@ -7,17 +6,9 @@ namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
-    private const int TooltipOnChatListTitleLengthThreshold = 22;
-
     private const string SidebarPanelId = "sidebar-panel";
     private const string UserMenuId = "user-menu-dropdown";
     private static readonly string[] MenuIdsToHideOnNavigation = [SidebarPanelId, UserMenuId];
-
-    [Inject]
-    public required ChatSession Session { get; set; }
-
-    [Inject]
-    public required ChatManager Manager { get; set; }
 
     [Inject]
     public required ILogger<NavMenu> Logger { get; set; }
@@ -28,11 +19,7 @@ public partial class NavMenu : ComponentBase, IDisposable
     [Inject]
     public required IJSRuntime JS { get; set; }
 
-    private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
-    private bool _stateWired;
-
-    private RenameChatDialog? _renameDialog;
-    private DeleteChatDialog? _deleteDialog;
+    private bool _chatsOpen = true;
 
     private async Task HideMenusAsync()
     {
@@ -55,34 +42,19 @@ public partial class NavMenu : ComponentBase, IDisposable
         }
     }
 
-    protected override async Task OnParametersSetAsync()
+    protected override async Task OnInitializedAsync()
     {
-        if (!_stateWired)
-        {
-            Session.StateChanged += OnStateChanged;
-            Manager.ChatListChanged += OnStateChanged;
-            Navigation.LocationChanged += OnLocationChanged;
-            _stateWired = true;
-        }
+        Navigation.LocationChanged += OnLocationChanged;
+    }
 
-        await Manager.EnsureLoadedAsync();
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
         await HideMenusAsync();
-    }
-
-    private void OnStateChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-        if (_stateWired)
-        {
-            Session.StateChanged -= OnStateChanged;
-            Manager.ChatListChanged -= OnStateChanged;
-            Navigation.LocationChanged -= OnLocationChanged;
-        }
     }
 }

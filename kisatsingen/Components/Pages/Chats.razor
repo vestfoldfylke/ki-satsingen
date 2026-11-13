@@ -1,0 +1,17 @@
+@using kisatsingen.Components.ChatList
+@page "/chats"
+
+<PageTitle>Alle samtaler</PageTitle>
+
+<div>
+    <div class="chats-page">
+        <div class="chats-header">
+            <h1 class="ds-heading" data-size="md">Samtaler</h1>
+            <div class="chats-actions">
+                <a href="/new" class="ds-button" data-variant="primary" data-size="sm">Ny samtale</a>
+            </div>
+        </div>
+
+        <ChatListItems UseDetailedFormatting="true" />
+    </div>
+</div>

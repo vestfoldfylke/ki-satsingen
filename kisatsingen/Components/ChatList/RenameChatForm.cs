@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using kisatsingen.Services.Chat;
 
-namespace kisatsingen.Components.Layout;
+namespace kisatsingen.Components.ChatList;
 
 internal sealed class RenameChatForm
 {
