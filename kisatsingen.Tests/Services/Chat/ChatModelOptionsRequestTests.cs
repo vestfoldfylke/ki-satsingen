@@ -89,13 +89,13 @@ public sealed class ChatModelOptionsRequestTests
     }
 
     [Theory]
-    [InlineData("mistral")]
-    [InlineData("mistral-small")]
-    public async Task Mistral_requests_ask_for_medium_reasoning_effort(string model)
+    [InlineData("mistral", "medium")]
+    [InlineData("mistral-small", "high")]
+    public async Task Mistral_requests_ask_for_the_reasoning_effort_the_model_is_set_to(string model, string effort)
     {
         using var body = await StreamedRequestBodyAsync(model);
 
-        Assert.Equal("medium", body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
+        Assert.Equal(effort, body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
     }
 
     // Mistral's Responses API is stateless and rejects previous_response_id.

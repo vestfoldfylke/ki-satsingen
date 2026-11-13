@@ -165,8 +165,7 @@ internal static class ChatModelServiceCollectionExtensions
             RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
         };
 
-    // Mistral Large 4 always reasons and rejects effort none. Medium, the same as
-    // Mistral Small, so the two can be compared.
+    // Mistral Large 4 always reasons and rejects effort none.
     //
     // store=false: Mistral's Responses API is stateless, so every round, tool rounds
     // included, resends the whole history rather than pointing at a previous response
@@ -181,8 +180,8 @@ internal static class ChatModelServiceCollectionExtensions
         };
 #pragma warning restore OPENAI001
 
-    // Mistral Small 4 accepts effort none, but reasons here at the same effort as
-    // Mistral Large, so the two can be compared.
+    // Mistral Small 4 takes only effort none or high. High rather than none, so its
+    // reasoning can be compared with Mistral Large's.
     //
     // store=false for the same reason as Mistral Large (pinned by ChatModelOptionsRequestTests).
 #pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
@@ -190,7 +189,7 @@ internal static class ChatModelServiceCollectionExtensions
         new()
         {
             Tools = [.. ChatTools.All],
-            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.High },
             RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
         };
 #pragma warning restore OPENAI001
