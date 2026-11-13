@@ -33,6 +33,11 @@ public partial class AssistantTurn : ComponentBase
 
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;
 
+    // Taken as still running while it is last: text or a tool call ends it by adding
+    // the next segment. Reasoning between a call and its result stays last after it
+    // ends, until the next round writes something.
+    private Guid? ReasoningSegmentId => IsLive && Turn.Answer is [.., ReasoningSegment last] ? last.Id : null;
+
     private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
 
     // Blanks count as absent, so nothing renders as " ()".

@@ -8,9 +8,10 @@ namespace kisatsingen.Tests.Services.Chat;
 public sealed class ChatTurnMapperTests
 {
     [Fact]
-    public void An_answer_with_text_and_a_tool_survives_the_round_trip_through_its_entity()
+    public void An_answer_with_reasoning_text_and_a_tool_survives_the_round_trip_through_its_entity()
     {
         var turn = TurnWith(
+            new ReasoningSegment(Guid.NewGuid(), 0, "Brukeren spør om været."),
             new TextSegment(Guid.NewGuid(), 0, "Sjekker."),
             new ToolCall(
                 Guid.NewGuid(),
@@ -70,6 +71,19 @@ public sealed class ChatTurnMapperTests
 
         Assert.True(restored.IsAnswerUnreadable);
         Assert.Empty(restored.Answer);
+    }
+
+    // Stored rows carry this kind, so renaming it would make them unreadable.
+    [Fact]
+    public void Stored_reasoning_reads_back_as_reasoning()
+    {
+        var stored = Copy(
+            ChatTurnMapper.ToEntity(TurnWith()),
+            answerJson: """[{"kind":"reasoning","id":"00000000-0000-0000-0000-000000000000","round":0,"text":"tenker"}]""");
+
+        var restored = ChatTurnMapper.FromEntity(stored, DateTimeOffset.UtcNow, key => key.Value, NullLogger.Instance);
+
+        Assert.Equal("tenker", Assert.IsType<ReasoningSegment>(Assert.Single(restored.Answer)).Text);
     }
 
     [Fact]
