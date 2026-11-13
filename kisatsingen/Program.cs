@@ -211,30 +211,7 @@ builder.Services.AddScoped<ChatAttachments>();
 builder.Services.AddScoped<AssistantFileUploads>();
 
 // ─── Knowledge-file pipeline ───────────────────────────
-// Defaults live in KnowledgeFilePipelineOptions; the section overrides them.
-var pipelineOptions = builder.Configuration.GetSection(KnowledgeFilePipelineOptions.SectionName).Get<KnowledgeFilePipelineOptions>()
-    ?? new KnowledgeFilePipelineOptions();
-pipelineOptions.Validate();
-
-builder.Services.AddSingleton(pipelineOptions);
-
-// One converter per content type. Moving a type to a remote converter means
-// swapping its registration here for one that calls that service.
-builder.Services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
-builder.Services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
-builder.Services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
-builder.Services.AddSingleton<IDocumentConverter, DocxDocumentConverter>();
-builder.Services.AddSingleton<DocumentConverterRegistry>();
-builder.Services.AddSingleton<IDocumentSummarizer, OpeningExcerptSummarizer>();
-builder.Services.AddSingleton<KnowledgeFilePipelineMetrics>();
-builder.Services.AddSingleton(sp => new KnowledgeFilePipeline(
-    sp.GetRequiredService<DocumentConverterRegistry>(),
-    sp.GetRequiredService<IDocumentSummarizer>(),
-    sp.GetRequiredService<AttachmentStorage>(),
-    pipelineOptions,
-    sp.GetRequiredService<KnowledgeFilePipelineMetrics>(),
-    maxKnowledgeFileTokens,
-    sp.GetRequiredService<ILogger<KnowledgeFilePipeline>>()));
+builder.Services.AddKnowledgeFilePipeline(builder.Configuration, maxKnowledgeFileTokens);
 
 // ─── File tools ────────────────────────────────────────
 var fileToolOptions = new FileToolOptions();
