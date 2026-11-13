@@ -6,9 +6,9 @@ namespace kisatsingen.Data.Repositories;
 // Not registered in DI on purpose; Program.cs builds it for DatabaseCleanupBackgroundService only.
 public class DatabaseCleanupRepository(IDbContextFactory<AppDbContext> factory, ILogger<DatabaseCleanupRepository> logger) : IDatabaseCleanupRepository
 {
-    public async Task<int> CleanupChats(TimeSpan interval, CancellationToken ct = default)
+    public async Task<int> CleanupChats(TimeSpan retention, CancellationToken ct = default)
     {
-        var cutoff = GetCutoffDateTime(DateTimeOffset.UtcNow, interval);
+        var cutoff = GetCutoffDateTime(DateTimeOffset.UtcNow, retention);
         await using var db = await factory.CreateDbContextAsync(ct);
 
         logger.LogInformation("Starting to clean up chats older than {Cutoff}", DateTimeService.GetTimeZonedDateTimeOffsetString(cutoff));
@@ -19,5 +19,5 @@ public class DatabaseCleanupRepository(IDbContextFactory<AppDbContext> factory, 
         return totalRowsDeleted;
     }
 
-    internal static DateTimeOffset GetCutoffDateTime(DateTimeOffset now, TimeSpan interval) => now.Add(-interval);
+    internal static DateTimeOffset GetCutoffDateTime(DateTimeOffset now, TimeSpan retention) => now.Add(-retention);
 }

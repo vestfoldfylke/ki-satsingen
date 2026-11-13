@@ -47,12 +47,6 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
       "Microsoft.AspNetCore": "Warning"
     }
   },
-  "DatabaseCleanup": {
-    "ChatCleanup": {
-      "Retention": "30.00:00:00",
-      "TargetTime": "03:00:00"
-    }
-  },
   "EntraAuthConfiguration": {
     "Instance": "https://login.microsoftonline.com",
     "TenantId": "<tenant-id>",
@@ -89,6 +83,12 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   // "KnowledgeFilePipeline": {
   //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
   //   "ConversionTimeout": "00:02:00"
+  // },
+  // "DatabaseCleanup": {
+  //   "ChatCleanup": {
+  //     "Retention": "30.00:00:00",
+  //     "TargetTime": "03:00:00"
+  //   }
   // },
   // "Graph": {
   //   "BaseUrl": "https://graph.microsoft.com/v1.0",
