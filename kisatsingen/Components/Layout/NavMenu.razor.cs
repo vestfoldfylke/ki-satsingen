@@ -2,12 +2,15 @@ using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
+using kisatsingen.Components.Chat;
 
 namespace kisatsingen.Components.Layout;
 
 public partial class NavMenu : ComponentBase, IDisposable
 {
     private const int TooltipOnChatListTitleLengthThreshold = 22;
+
+    private const int MaxVisibleChats = 17;
 
     private const string SidebarPanelId = "sidebar-panel";
     private const string UserMenuId = "user-menu-dropdown";
@@ -30,6 +33,8 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
     private bool _stateWired;
+
+    private bool _chatsOpen = true;
 
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;

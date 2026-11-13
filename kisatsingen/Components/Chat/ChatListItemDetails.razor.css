@@ -1,0 +1,45 @@
+/* Assumes this component is rendered inside '.chat-list-item', and that the parent
+   defines the grid areas 'time' and 'options' (Chats.razor.css) */
+.chat-list-item-option-button {
+    --dsc-button-size: 2.1rem;
+    display: flex;
+    grid-area: options;
+}
+
+.chat-list-item-option-button:hover {
+    background-color: var(--ds-color-border-subtle);
+}
+
+.chat-list-item-option-button > span.material-symbols-outlined {
+    font-size: 1.4rem;
+    color: var(--ds-color-text-default);
+}
+
+.chat-time {
+    margin-inline-end: 0.5rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+    color: var(--ds-color-neutral-text-subtle);
+    grid-area: time;
+}
+
+/* Wide screens with hover: show the options button in place of the time on hover/focus.
+   Everywhere else both are always visible. */
+@media (hover: hover) and (min-width: 801px) {
+    .chat-list-item-option-button {
+        opacity: 0;
+    }
+
+    .chat-time {
+        margin-inline-end: -2rem;
+    }
+
+    .chat-list-item:is(:hover, :focus-within, :has(.chat-list-item-option-dropdown-menu:popover-open)) .chat-list-item-option-button {
+        opacity: 1;
+        z-index: 1;
+    }
+
+    .chat-list-item:is(:hover, :focus-within, :has(.chat-list-item-option-dropdown-menu:popover-open)) .chat-time {
+        opacity: 0;
+    }
+}

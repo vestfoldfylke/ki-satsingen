@@ -20,7 +20,7 @@
         flex: 1;
         min-height: 0;
         position: static;
-        margin: 0;
+        margin: 0 0.2rem;
         padding: 0;
         background: transparent;
         border: 0;
@@ -103,22 +103,33 @@
 }
 
 .chat-list {
-    padding: 0 0.5rem;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
 }
 
 .chat-list-header {
+    top: 0;
+    text-decoration: none;
+    position: sticky;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 0.5rem;
+    z-index: 1;
 }
 
-.chat-list-header h2 {
-    font-size: 1rem;
-    margin: 0;
+.chat-list-header > button {
+    color: var(--ds-color-text-default);
+    background: var(--ds-color-neutral-background-default);
+    font: inherit;
+}
+
+.chat-list-header span {
+    margin-top: 0.05rem;
+    font-size: 1.2rem;
+    transition: transform 0.05s ease-in-out;
+}
+
+.chat-list-header span.open {
+    transform: rotate(90deg);
 }
 
 .chat-list-empty {
@@ -139,66 +150,35 @@
 }
 
 /* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
-   stays in the row; otherwise it is placed against .page, outside the list's
-   scrolling, and makes the page itself scrollable. */
+stays in the row; Else it can mess with page size and scrolling */
 .chat-list-item {
     position: relative;
+    display: flex;
+    align-items: center;
+    padding: 0 0.5rem;
+    border-radius: 0.375rem;
+    height: var(--ds-size-12);
+    overflow: hidden;
+    cursor: pointer;
 }
 
-.chat-list-item, .user-menu-item {
+.user-menu-item {
     display: flex;
     align-items: center;
     gap: 0.25rem;
     padding: 0.3rem 0.5rem;
+    margin-bottom: 0.5rem;
     border-radius: 0.375rem;
     height: 2rem;
     overflow: hidden;
 }
 
-.chat-list-item:hover, .user-menu-item:hover {
+.chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)), .user-menu-item:hover {
     background: var(--ds-color-neutral-surface-hover);
-}
-
-.chat-list-item:is(:hover, :focus-within) .chat-list-item-option-button {
-    opacity: 1;
-    transition: opacity 0.02s ease-in-out;
 }
 
 .chat-list-item-active {
     background: var(--ds-color-accent-surface-tinted);
-}
-
-.chat-list-item-option-button {
-    --dsc-button-size: 1.7rem;
-    flex: 0 0 auto;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    margin: 0.2rem 0.4rem;
-    opacity: 0;
-}
-
-.chat-list-item-option-button > span.material-symbols-outlined {
-    font-size: 1.3rem;
-}
-
-.chat-list-item-option-dropdown-menu {
-    --dsc-dropdown-padding: 0.25rem;
-    --dsc-dropdown-item-size: 1rem;
-    --dsc-dropdown-item-padding: 0.1rem 2rem 0.1rem 0.3rem;
-    min-width: 0;
-    width: max-content;
-}
-
-.chat-list-item-option-dropdown-menu ul {
-    width: auto;
-    margin: 0;
-    padding: 0;
-}
-
-.chat-list-item-option-dropdown-menu ul > li > button {
-    font-size: 0.925rem;
 }
 
 .chat-list-link {
@@ -213,7 +193,6 @@
 }
 
 .chat-list-title, .user-menu-button-title {
-    font-size: 0.85rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -223,19 +202,15 @@
     flex-shrink: 0;
 }
 
-.user-menu-item {
-    margin-bottom: 0.5rem;
-}
-
 .user-menu-button {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
     padding: 0;
-    background: transparent;
 }
 
 .user-menu-button-title {
+    font-size: 0.85rem;
     flex: 1;
     text-align: left;
 }
@@ -245,6 +220,5 @@
 }
 
 .chat-list-bullet {
-    font-size: 1rem;
-    opacity: 0.6;
+    color: var(--ds-color-text-subtle);
 }

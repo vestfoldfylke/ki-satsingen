@@ -2,7 +2,7 @@ using kisatsingen.Components.Shared;
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
 
-namespace kisatsingen.Components.Layout;
+namespace kisatsingen.Components.Chat;
 
 public sealed partial class RenameChatDialog : ComponentBase
 {
