@@ -10,8 +10,9 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 namespace kisatsingen.Tests.Services.Chat;
 
 // TurnBuilder stores a tool result as the text it assumes the OpenAI adapter sent.
-// Pinned against the adapter's real request body, so an upgrade that changes the
-// rule fails here instead of replaying results the model never saw.
+// Pinned against both adapters' real request bodies, Chat Completions and
+// Responses, so an upgrade that changes either rule fails here instead of
+// replaying results the model never saw.
 public sealed class ToolResultReplayTests
 {
     public static TheoryData<object> Results => new()
@@ -24,11 +25,22 @@ public sealed class ToolResultReplayTests
 
     [Theory]
     [MemberData(nameof(Results))]
-    public async Task A_replayed_result_reaches_the_provider_exactly_as_the_original_did(object result)
+    public async Task A_replayed_result_reaches_Chat_Completions_exactly_as_the_original_did(object result)
     {
-        var original = await WireContentOfResultAsync(new FunctionResultContent("call-1", result));
+        var original = await ChatCompletionsWireContentAsync(new FunctionResultContent("call-1", result));
 
-        var replayed = await WireContentOfResultAsync(Replay(result));
+        var replayed = await ChatCompletionsWireContentAsync(Replay(result));
+
+        Assert.Equal(original, replayed);
+    }
+
+    [Theory]
+    [MemberData(nameof(Results))]
+    public async Task A_replayed_result_reaches_Responses_exactly_as_the_original_did(object result)
+    {
+        var original = await ResponsesWireContentAsync(new FunctionResultContent("call-1", result));
+
+        var replayed = await ResponsesWireContentAsync(Replay(result));
 
         Assert.Equal(original, replayed);
     }
@@ -47,29 +59,49 @@ public sealed class ToolResultReplayTests
             .Single();
     }
 
-    private static async Task<string> WireContentOfResultAsync(FunctionResultContent result)
+    private static async Task<string> ChatCompletionsWireContentAsync(FunctionResultContent result)
     {
-        var capture = new CapturingHandler();
-        var options = new OpenAIClientOptions
-        {
-            Endpoint = new Uri("https://provider.invalid/v1"),
-            Transport = new HttpClientPipelineTransport(new HttpClient(capture))
-        };
-        using var client = new OpenAIClient(new ApiKeyCredential("not-used"), options)
+        var capture = new CapturingHandler(ChatCompletion);
+        using var client = OpenAiClient(capture)
             .GetChatClient("model-under-test")
             .AsIChatClient();
 
-        AiMessage[] messages =
-        [
-            new(ChatRole.User, "hei"),
-            new(ChatRole.Assistant, [new FunctionCallContent("call-1", "probe")]),
-            new(ChatRole.Tool, [result])
-        ];
-        await client.GetResponseAsync(messages);
+        await client.GetResponseAsync(MessagesEndingOn(result));
 
         using var body = JsonDocument.Parse(capture.Body!);
         return body.RootElement.GetProperty("messages")[2].GetProperty("content").GetRawText();
     }
+
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    private static async Task<string> ResponsesWireContentAsync(FunctionResultContent result)
+    {
+        var capture = new CapturingHandler(ResponsesResult);
+        using var client = OpenAiClient(capture)
+            .GetResponsesClient()
+            .AsIChatClient("model-under-test");
+
+        await client.GetResponseAsync(MessagesEndingOn(result));
+
+        using var body = JsonDocument.Parse(capture.Body!);
+        return body.RootElement.GetProperty("input")[2].GetProperty("output").GetRawText();
+    }
+#pragma warning restore OPENAI001
+
+    private static OpenAIClient OpenAiClient(CapturingHandler capture) =>
+        new(
+            new ApiKeyCredential("not-used"),
+            new OpenAIClientOptions
+            {
+                Endpoint = new Uri("https://provider.invalid/v1"),
+                Transport = new HttpClientPipelineTransport(new HttpClient(capture))
+            });
+
+    private static AiMessage[] MessagesEndingOn(FunctionResultContent result) =>
+    [
+        new(ChatRole.User, "hei"),
+        new(ChatRole.Assistant, [new FunctionCallContent("call-1", "probe")]),
+        new(ChatRole.Tool, [result])
+    ];
 
     private static readonly ChatModel ModelUnderTest = new()
     {
@@ -83,12 +115,15 @@ public sealed class ToolResultReplayTests
         IconName = "icon"
     };
 
-    // Keeps the request and answers with a minimal completion: only the body is under test.
-    private sealed class CapturingHandler : HttpMessageHandler
-    {
-        private const string Completion =
-            """{"id":"x","object":"chat.completion","created":0,"model":"model-under-test","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}""";
+    private const string ChatCompletion =
+        """{"id":"x","object":"chat.completion","created":0,"model":"model-under-test","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}""";
 
+    private const string ResponsesResult =
+        """{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[]}""";
+
+    // Keeps the request and answers with a minimal result: only the body is under test.
+    private sealed class CapturingHandler(string answer) : HttpMessageHandler
+    {
         public string? Body { get; private set; }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
@@ -96,7 +131,7 @@ public sealed class ToolResultReplayTests
             Body = await request.Content!.ReadAsStringAsync(ct);
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
             {
-                Content = new StringContent(Completion, System.Text.Encoding.UTF8, "application/json")
+                Content = new StringContent(answer, System.Text.Encoding.UTF8, "application/json")
             };
         }
     }
