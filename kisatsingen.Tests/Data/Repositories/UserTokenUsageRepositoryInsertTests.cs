@@ -10,8 +10,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -39,7 +39,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         var stored = await db.TokenUsages.SingleAsync();
 
         Assert.NotEqual(Guid.Empty, stored.Id);
-        Assert.Equal(OwnerId, stored.OwnerId);
+        Assert.Equal(UserId, stored.UserId);
         Assert.Equal(chatId, stored.ChatId);
         Assert.Equal(turnId, stored.TurnId);
         Assert.Equal(assistantId, stored.AssistantId);
@@ -177,31 +177,31 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     }
 
     [Fact]
-    public async Task Keeps_every_row_written_for_the_same_owner()
+    public async Task Keeps_every_row_written_for_the_same_user()
     {
         await InsertAsync(Entry(usage: new MessageUsage(1, 1)));
         await InsertAsync(Entry(usage: new MessageUsage(2, 2)));
         await InsertAsync(Entry(usage: new MessageUsage(3, 3), status: TurnStatus.Failed));
 
         await using var db = await Factory.CreateDbContextAsync();
-        var rows = await db.TokenUsages.Where(u => u.OwnerId == OwnerId).ToListAsync();
+        var rows = await db.TokenUsages.Where(u => u.UserId == UserId).ToListAsync();
 
         Assert.Equal(3, rows.Count);
         Assert.Equal([1L, 2L, 3L], rows.OrderBy(u => u.InputTokens).Select(u => u.InputTokens));
     }
 
     [Fact]
-    public async Task Rows_are_isolated_per_owner()
+    public async Task Rows_are_isolated_per_user()
     {
-        await InsertAsync(Entry(ownerId: OwnerId));
-        await InsertAsync(Entry(ownerId: OtherOwnerId));
+        await InsertAsync(Entry(userId: UserId));
+        await InsertAsync(Entry(userId: OtherUserId));
 
         await using var db = await Factory.CreateDbContextAsync();
-        var ownerIds = await db.TokenUsages.Select(u => u.OwnerId).ToListAsync();
+        var userIds = await db.TokenUsages.Select(u => u.UserId).ToListAsync();
 
-        Assert.Equal(2, ownerIds.Count);
-        Assert.Contains(OwnerId, ownerIds);
-        Assert.Contains(OtherOwnerId, ownerIds);
+        Assert.Equal(2, userIds.Count);
+        Assert.Contains(UserId, userIds);
+        Assert.Contains(OtherUserId, userIds);
     }
 
     // Written near UTC now, never rounded to a whole second: dashboards that
@@ -224,7 +224,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
 
     // Defaults for everything a test is not about, so each names only its subject.
     private static TokenUsageEntry Entry(
-        Guid? ownerId = null,
+        Guid? userId = null,
         Guid? chatId = null,
         Guid? turnId = null,
         Guid? assistantId = null,
@@ -233,7 +233,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         MessageUsage? usage = null,
         TurnStatus status = TurnStatus.Completed) =>
         new(
-            OwnerId: ownerId ?? OwnerId,
+            UserId: userId ?? UserId,
             ChatId: chatId ?? Guid.NewGuid(),
             TurnId: turnId ?? Guid.NewGuid(),
             AssistantId: assistantId,

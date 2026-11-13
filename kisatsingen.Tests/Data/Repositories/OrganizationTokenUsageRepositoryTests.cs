@@ -10,8 +10,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid AliceId = Guid.Parse("33333333-3333-3333-3333-333333333333");
     private static readonly Guid BobId = Guid.Parse("44444444-4444-4444-4444-444444444444");
     private static readonly Guid CarolId = Guid.Parse("55555555-5555-5555-5555-555555555555");
@@ -25,9 +25,9 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     public Task DisposeAsync() => Task.CompletedTask;
 
     // Seeds a row straight through the DbContext: this repo has no insert path,
-    // and the aggregation queries need rows at specific timestamps/owners/models.
+    // and the aggregation queries need rows at specific timestamps/users/models.
     private async Task SeedRowAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset timestamp,
         string provider = "openai",
         string modelId = "gpt-5-mini",
@@ -42,7 +42,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
-            OwnerId = ownerId,
+            UserId = userId,
             Timestamp = timestamp,
             Provider = provider,
             ModelId = modelId,
@@ -57,11 +57,11 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
-    public async Task Totals_sum_cached_input_tokens_across_owners()
+    public async Task Totals_sum_cached_input_tokens_across_users()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, cachedInputTokens: 8);
-        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, cachedInputTokens: 5);
-        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, cachedInputTokens: null);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, cachedInputTokens: 8);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, cachedInputTokens: 5);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, cachedInputTokens: null);
 
         var totals = await Repo.GetTotalsAsync(since: null);
 
@@ -71,7 +71,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     [Fact]
     public async Task Totals_treat_null_token_counts_as_zero_and_still_count_the_turn()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: null, outputTokens: null, status: TurnStatus.Failed);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: null, outputTokens: null, status: TurnStatus.Failed);
 
         var totals = await Repo.GetTotalsAsync(since: null);
 
@@ -83,9 +83,9 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     [Fact]
     public async Task Groups_usage_by_provider_with_summed_tokens_and_turn_count()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 10, outputTokens: 20);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 5, outputTokens: 7);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, provider: "anthropic", inputTokens: 3, outputTokens: 4);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 10, outputTokens: 20);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, provider: "openai", inputTokens: 5, outputTokens: 7);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, provider: "anthropic", inputTokens: 3, outputTokens: 4);
 
         var rows = (await Repo.GetUsageByProviderAsync(since: null))
             .ToDictionary(r => r.Key);
@@ -101,9 +101,9 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     [Fact]
     public async Task Groups_usage_by_status_and_parses_back_to_enum()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, status: TurnStatus.Failed);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, status: TurnStatus.Completed);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, status: TurnStatus.Failed);
 
         var rows = (await Repo.GetUsageByStatusAsync(since: null))
             .ToDictionary(r => r.Key);
@@ -113,23 +113,23 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     }
 
     [Fact]
-    public async Task Top_users_by_token_usage_sums_tokens_and_turns_for_each_owner()
+    public async Task Top_users_by_token_usage_sums_tokens_and_turns_for_each_user()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7);
-        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200);
 
         var perUser = (await Repo.GetTopUsersByTokenUsageAsync(since: null, TopUsersByTokenUsageType.InputTokens, topN: 10))
             .ToDictionary(r => r.Key);
 
         Assert.Equal(2, perUser.Count);
-        Assert.Equal(15, perUser[OwnerId].InputTokens);
-        Assert.Equal(27, perUser[OwnerId].OutputTokens);
-        Assert.Equal(2, perUser[OwnerId].TurnCount);
-        Assert.Equal(100, perUser[OtherOwnerId].InputTokens);
+        Assert.Equal(15, perUser[UserId].InputTokens);
+        Assert.Equal(27, perUser[UserId].OutputTokens);
+        Assert.Equal(2, perUser[UserId].TurnCount);
+        Assert.Equal(100, perUser[OtherUserId].InputTokens);
     }
 
-    // Each owner leads a different column, so every usage type yields its own ranking.
+    // Each user leads a different column, so every usage type yields its own ranking.
     [Theory]
     [InlineData(TopUsersByTokenUsageType.InputTokens, "33333333-3333-3333-3333-333333333333", "44444444-4444-4444-4444-444444444444")]
     [InlineData(TopUsersByTokenUsageType.OutputTokens, "44444444-4444-4444-4444-444444444444", "55555555-5555-5555-5555-555555555555")]
@@ -150,10 +150,10 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         Assert.Equal([Guid.Parse(expectedFirst), Guid.Parse(expectedSecond)], top.Select(r => r.Key));
     }
 
-    // Postgres puts NULLs first on DESC by default, which would push owners with no
+    // Postgres puts NULLs first on DESC by default, which would push users with no
     // estimates at all to the top of the estimated-token tables.
     [Fact]
-    public async Task Top_users_by_token_usage_ranks_owners_with_only_null_values_last()
+    public async Task Top_users_by_token_usage_ranks_users_with_only_null_values_last()
     {
         var now = DateTimeOffset.UtcNow;
         await SeedRowAsync(AliceId, now, estimatedInputTokens: null);
@@ -204,9 +204,9 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
     [Fact]
     public async Task Per_model_aggregation_sums_tokens_and_turns_for_each_model()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 10, outputTokens: 20);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 5, outputTokens: 7);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, modelId: "claude-5", inputTokens: 1, outputTokens: 2);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 10, outputTokens: 20);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, modelId: "gpt-5-mini", inputTokens: 5, outputTokens: 7);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, modelId: "claude-5", inputTokens: 1, outputTokens: 2);
 
         var perModel = (await Repo.GetUsageByModelAsync(since: null))
             .ToDictionary(r => r.Key);

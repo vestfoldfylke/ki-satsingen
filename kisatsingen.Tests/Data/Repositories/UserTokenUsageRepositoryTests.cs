@@ -10,8 +10,8 @@ namespace kisatsingen.Tests.Data.Repositories;
 [Collection(PostgresCollection.Name)]
 public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
-    private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-    private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+    private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+    private static readonly Guid OtherUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
@@ -25,7 +25,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     // query tests below need rows backdated past the `since` cutoff, which the
     // repository's InsertTokenUsageAsync (always now) can't produce.
     private async Task SeedRowAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset timestamp,
         string provider = "openai",
         string modelId = "gpt-5-mini",
@@ -40,7 +40,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
-            OwnerId = ownerId,
+            UserId = userId,
             Timestamp = timestamp,
             Provider = provider,
             ModelId = modelId,
@@ -55,13 +55,13 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     }
 
     [Fact]
-    public async Task Sums_totals_across_all_rows_for_the_owner()
+    public async Task Sums_totals_across_all_rows_for_the_user()
     {
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4, cachedInputTokens: 8);
-        await SeedRowAsync(OwnerId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7, estimatedInputTokens: 1, estimatedOutputTokens: 2);
-        await SeedRowAsync(OtherOwnerId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200, cachedInputTokens: 90);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20, estimatedInputTokens: 3, estimatedOutputTokens: 4, cachedInputTokens: 8);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 5, outputTokens: 7, estimatedInputTokens: 1, estimatedOutputTokens: 2);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, inputTokens: 100, outputTokens: 200, cachedInputTokens: 90);
 
-        var totals = await Repo.GetTotalsAsync(OwnerId, since: null);
+        var totals = await Repo.GetTotalsAsync(UserId, since: null);
 
         Assert.Equal(15, totals.TotalInputTokens);
         Assert.Equal(27, totals.TotalOutputTokens);
@@ -75,10 +75,10 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Totals_exclude_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now.AddDays(-10), inputTokens: 100, outputTokens: 100);
-        await SeedRowAsync(OwnerId, now.AddDays(-1), inputTokens: 7, outputTokens: 11);
+        await SeedRowAsync(UserId, now.AddDays(-10), inputTokens: 100, outputTokens: 100);
+        await SeedRowAsync(UserId, now.AddDays(-1), inputTokens: 7, outputTokens: 11);
 
-        var totals = await Repo.GetTotalsAsync(OwnerId, since: now.AddDays(-7));
+        var totals = await Repo.GetTotalsAsync(UserId, since: now.AddDays(-7));
 
         Assert.Equal(7, totals.TotalInputTokens);
         Assert.Equal(11, totals.TotalOutputTokens);
@@ -92,13 +92,13 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     {
         // Oslo is UTC+1 in January. These two UTC times both land on 2026-01-15
         // in Oslo (23:00 and 23:30 local), so they must share one Day bucket.
-        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 0, 0, TimeSpan.Zero), inputTokens: 10);
-        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 5);
+        await SeedRowAsync(UserId, new DateTimeOffset(2026, 1, 15, 22, 0, 0, TimeSpan.Zero), inputTokens: 10);
+        await SeedRowAsync(UserId, new DateTimeOffset(2026, 1, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 5);
 
         // Oslo 00:30 on 2026-01-16 — a different local day.
-        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 1, 15, 23, 30, 0, TimeSpan.Zero), inputTokens: 2);
+        await SeedRowAsync(UserId, new DateTimeOffset(2026, 1, 15, 23, 30, 0, TimeSpan.Zero), inputTokens: 2);
 
-        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
+        var series = await Repo.GetTimeSeriesAsync(UserId, since: null, UsageBucket.Day);
 
         Assert.Equal(2, series.Count);
         Assert.Equal(new DateTimeOffset(2026, 1, 14, 23, 0, 0, TimeSpan.Zero), series[0].Bucket);
@@ -115,12 +115,12 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Time_series_bucket_boundary_tracks_summer_time_offset()
     {
         // Oslo 22:00 on 2026-07-15 (both still on the same local day).
-        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 7, 15, 20, 0, 0, TimeSpan.Zero), inputTokens: 10);
+        await SeedRowAsync(UserId, new DateTimeOffset(2026, 7, 15, 20, 0, 0, TimeSpan.Zero), inputTokens: 10);
 
         // Oslo 00:30 on 2026-07-16 — crosses local midnight.
-        await SeedRowAsync(OwnerId, new DateTimeOffset(2026, 7, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 3);
+        await SeedRowAsync(UserId, new DateTimeOffset(2026, 7, 15, 22, 30, 0, TimeSpan.Zero), inputTokens: 3);
 
-        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
+        var series = await Repo.GetTimeSeriesAsync(UserId, since: null, UsageBucket.Day);
 
         Assert.Equal(2, series.Count);
         Assert.Equal(new DateTimeOffset(2026, 7, 14, 22, 0, 0, TimeSpan.Zero), series[0].Bucket);
@@ -128,13 +128,13 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     }
 
     [Fact]
-    public async Task Time_series_excludes_rows_for_other_owners()
+    public async Task Time_series_excludes_rows_for_other_users()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now, inputTokens: 7);
-        await SeedRowAsync(OtherOwnerId, now, inputTokens: 1000);
+        await SeedRowAsync(UserId, now, inputTokens: 7);
+        await SeedRowAsync(OtherUserId, now, inputTokens: 1000);
 
-        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: null, UsageBucket.Day);
+        var series = await Repo.GetTimeSeriesAsync(UserId, since: null, UsageBucket.Day);
 
         Assert.Single(series);
         Assert.Equal(7, series[0].InputTokens);
@@ -145,23 +145,23 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Time_series_excludes_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now.AddDays(-10), inputTokens: 100);
-        await SeedRowAsync(OwnerId, now.AddDays(-1), inputTokens: 7);
+        await SeedRowAsync(UserId, now.AddDays(-10), inputTokens: 100);
+        await SeedRowAsync(UserId, now.AddDays(-1), inputTokens: 7);
 
-        var series = await Repo.GetTimeSeriesAsync(OwnerId, since: now.AddDays(-7), UsageBucket.Day);
+        var series = await Repo.GetTimeSeriesAsync(UserId, since: now.AddDays(-7), UsageBucket.Day);
 
         Assert.Single(series);
         Assert.Equal(7, series[0].InputTokens);
     }
 
     [Fact]
-    public async Task Usage_by_provider_excludes_rows_for_other_owners()
+    public async Task Usage_by_provider_excludes_rows_for_other_users()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now, provider: "openai", inputTokens: 7);
-        await SeedRowAsync(OtherOwnerId, now, provider: "anthropic", inputTokens: 1000);
+        await SeedRowAsync(UserId, now, provider: "openai", inputTokens: 7);
+        await SeedRowAsync(OtherUserId, now, provider: "anthropic", inputTokens: 1000);
 
-        var rows = await Repo.GetUsageByProviderAsync(OwnerId, since: null);
+        var rows = await Repo.GetUsageByProviderAsync(UserId, since: null);
 
         var only = Assert.Single(rows);
         Assert.Equal("openai", only.Key);
@@ -172,10 +172,10 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Usage_by_provider_excludes_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now.AddDays(-10), provider: "openai", inputTokens: 100);
-        await SeedRowAsync(OwnerId, now.AddDays(-1), provider: "openai", inputTokens: 7);
+        await SeedRowAsync(UserId, now.AddDays(-10), provider: "openai", inputTokens: 100);
+        await SeedRowAsync(UserId, now.AddDays(-1), provider: "openai", inputTokens: 7);
 
-        var rows = await Repo.GetUsageByProviderAsync(OwnerId, since: now.AddDays(-7));
+        var rows = await Repo.GetUsageByProviderAsync(UserId, since: now.AddDays(-7));
 
         var only = Assert.Single(rows);
         Assert.Equal(7, only.InputTokens);
@@ -183,13 +183,13 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     }
 
     [Fact]
-    public async Task Usage_by_status_excludes_rows_for_other_owners()
+    public async Task Usage_by_status_excludes_rows_for_other_users()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now, status: TurnStatus.Completed);
-        await SeedRowAsync(OtherOwnerId, now, status: TurnStatus.Failed);
+        await SeedRowAsync(UserId, now, status: TurnStatus.Completed);
+        await SeedRowAsync(OtherUserId, now, status: TurnStatus.Failed);
 
-        var rows = await Repo.GetUsageByStatusAsync(OwnerId, since: null);
+        var rows = await Repo.GetUsageByStatusAsync(UserId, since: null);
 
         var only = Assert.Single(rows);
         Assert.Equal(TurnStatus.Completed, only.Key);
@@ -199,23 +199,23 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Usage_by_status_excludes_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now.AddDays(-10), status: TurnStatus.Completed);
-        await SeedRowAsync(OwnerId, now.AddDays(-1), status: TurnStatus.Failed);
+        await SeedRowAsync(UserId, now.AddDays(-10), status: TurnStatus.Completed);
+        await SeedRowAsync(UserId, now.AddDays(-1), status: TurnStatus.Failed);
 
-        var rows = await Repo.GetUsageByStatusAsync(OwnerId, since: now.AddDays(-7));
+        var rows = await Repo.GetUsageByStatusAsync(UserId, since: now.AddDays(-7));
 
         var only = Assert.Single(rows);
         Assert.Equal(TurnStatus.Failed, only.Key);
     }
 
     [Fact]
-    public async Task Usage_by_model_excludes_rows_for_other_owners()
+    public async Task Usage_by_model_excludes_rows_for_other_users()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now, modelId: "gpt-5-mini", inputTokens: 7);
-        await SeedRowAsync(OtherOwnerId, now, modelId: "claude-5", inputTokens: 1000);
+        await SeedRowAsync(UserId, now, modelId: "gpt-5-mini", inputTokens: 7);
+        await SeedRowAsync(OtherUserId, now, modelId: "claude-5", inputTokens: 1000);
 
-        var rows = await Repo.GetUsageByModelAsync(OwnerId, since: null);
+        var rows = await Repo.GetUsageByModelAsync(UserId, since: null);
 
         var only = Assert.Single(rows);
         Assert.Equal("gpt-5-mini", only.Key);
@@ -226,10 +226,10 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Usage_by_model_excludes_rows_older_than_the_since_cutoff()
     {
         var now = DateTimeOffset.UtcNow;
-        await SeedRowAsync(OwnerId, now.AddDays(-10), modelId: "gpt-5-mini", inputTokens: 100);
-        await SeedRowAsync(OwnerId, now.AddDays(-1), modelId: "gpt-5-mini", inputTokens: 7);
+        await SeedRowAsync(UserId, now.AddDays(-10), modelId: "gpt-5-mini", inputTokens: 100);
+        await SeedRowAsync(UserId, now.AddDays(-1), modelId: "gpt-5-mini", inputTokens: 7);
 
-        var rows = await Repo.GetUsageByModelAsync(OwnerId, since: now.AddDays(-7));
+        var rows = await Repo.GetUsageByModelAsync(UserId, since: now.AddDays(-7));
 
         var only = Assert.Single(rows);
         Assert.Equal(7, only.InputTokens);

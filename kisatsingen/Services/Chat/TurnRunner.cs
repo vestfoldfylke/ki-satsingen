@@ -330,9 +330,9 @@ internal sealed class TurnRunner
 
         try
         {
-            var ownerId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
+            var userId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
             var entry = new TokenUsageEntry(
-                OwnerId: ownerId,
+                UserId: userId,
                 ChatId: row.ChatId,
                 TurnId: attempt.Turn.Id,
                 AssistantId: row.AssistantId,

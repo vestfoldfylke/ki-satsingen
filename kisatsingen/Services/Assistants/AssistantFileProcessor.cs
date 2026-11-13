@@ -29,12 +29,12 @@ internal sealed class AssistantFileProcessor(
     private const string NotSavedReason = "Filen kunne ikke lagres. Prøv igjen.";
 
     // Releases the file once it settles, so it stops counting against the
-    // owner's quota.
-    public async Task<AssistantFileResult> ProcessAsync(Guid ownerId, Guid assistantId, ReadyAttachment attachment, CancellationToken ct)
+    // user's quota.
+    public async Task<AssistantFileResult> ProcessAsync(Guid userId, Guid assistantId, ReadyAttachment attachment, CancellationToken ct)
     {
         try
         {
-            return await RunPipelineAsync(ownerId, assistantId, attachment, ct);
+            return await RunPipelineAsync(userId, assistantId, attachment, ct);
         }
         finally
         {
@@ -43,7 +43,7 @@ internal sealed class AssistantFileProcessor(
     }
 
     // A converter bug is that file's reason, not a failure of the page.
-    private async Task<AssistantFileResult> RunPipelineAsync(Guid ownerId, Guid assistantId, ReadyAttachment attachment, CancellationToken ct)
+    private async Task<AssistantFileResult> RunPipelineAsync(Guid userId, Guid assistantId, ReadyAttachment attachment, CancellationToken ct)
     {
         KnowledgeFilePipelineResult result;
         try
@@ -59,7 +59,7 @@ internal sealed class AssistantFileProcessor(
         switch (result)
         {
             case KnowledgeFilePipelineResult.Completed completed:
-                return await SaveAsync(ownerId, assistantId, completed.File, ct);
+                return await SaveAsync(userId, assistantId, completed.File, ct);
             case KnowledgeFilePipelineResult.Rejected pipelineRejection:
                 return new AssistantFileResult.Rejected(pipelineRejection.Reason);
             default:
@@ -69,12 +69,12 @@ internal sealed class AssistantFileProcessor(
 
     // A failed save, such as the assistant deleted meanwhile, is logged and
     // becomes that file's reason.
-    private async Task<AssistantFileResult> SaveAsync(Guid ownerId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct)
+    private async Task<AssistantFileResult> SaveAsync(Guid userId, Guid assistantId, NewKnowledgeFile newFile, CancellationToken ct)
     {
         KnowledgeFileSaveResult saveResult;
         try
         {
-            saveResult = await knowledgeFiles.CreateFileForAssistantAsync(ownerId, assistantId, newFile, ct);
+            saveResult = await knowledgeFiles.CreateFileForAssistantAsync(userId, assistantId, newFile, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {

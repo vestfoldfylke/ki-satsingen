@@ -298,9 +298,6 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("OutputTokens")
                         .HasColumnType("bigint");
 
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -317,12 +314,15 @@ namespace kisatsingen.Migrations
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssistantId", "Timestamp")
                         .HasFilter("\"AssistantId\" IS NOT NULL");
 
-                    b.HasIndex("OwnerId", "Timestamp");
+                    b.HasIndex("UserId", "Timestamp");
 
                     b.ToTable("TokenUsages");
                 });
