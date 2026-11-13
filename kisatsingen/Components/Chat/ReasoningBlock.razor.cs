@@ -7,5 +7,5 @@ public partial class ReasoningBlock : ComponentBase
 {
     [Parameter, EditorRequired] public required ReasoningSegment Segment { get; set; }
 
-    [Parameter] public bool IsReasoning { get; set; }
+    [Parameter] public bool IsRunning { get; set; }
 }

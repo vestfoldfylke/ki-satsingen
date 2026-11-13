@@ -17,7 +17,7 @@
                 <ToolCallBlock @key="toolCall.Id" ToolCall="toolCall" />
                 break;
             case ReasoningSegment reasoning:
-                <ReasoningBlock @key="reasoning.Id" Segment="reasoning" IsReasoning="reasoning.Id == ReasoningSegmentId" />
+                <ReasoningBlock @key="reasoning.Id" Segment="reasoning" IsRunning="reasoning.Id == RunningReasoningSegmentId" />
                 break;
         }
     }
