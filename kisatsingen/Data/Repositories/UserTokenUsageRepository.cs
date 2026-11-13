@@ -32,6 +32,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
             EstimatedInputTokens = entry.Usage.EstimatedInputTokens,
             EstimatedOutputTokens = entry.Usage.EstimatedOutputTokens,
             CachedInputTokens = entry.Usage.CachedInputTokens,
+            ReasoningTokens = entry.Usage.ReasoningTokens,
             Status = entry.Status
         });
 
@@ -53,6 +54,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "TotalEstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
+                 COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})

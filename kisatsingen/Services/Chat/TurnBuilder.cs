@@ -237,11 +237,12 @@ internal sealed class TurnBuilder
             _responseId,
             _finishReason,
             MessageUsage.FromCounts(
-                _usage?.InputTokenCount,
-                _usage?.OutputTokenCount,
-                estimatedInput,
-                estimatedOutput,
-                _usage?.CachedInputTokenCount),
+                inputTokens: _usage?.InputTokenCount,
+                outputTokens: _usage?.OutputTokenCount,
+                estimatedInputTokens: estimatedInput,
+                estimatedOutputTokens: estimatedOutput,
+                cachedInputTokens: _usage?.CachedInputTokenCount,
+                reasoningTokens: _usage?.ReasoningTokenCount),
             DurationMs,
             TimeToFirstTokenMs);
     }

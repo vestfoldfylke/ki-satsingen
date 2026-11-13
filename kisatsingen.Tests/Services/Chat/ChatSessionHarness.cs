@@ -380,10 +380,11 @@ internal static class ModelStream
         string text,
         long inputTokens,
         long outputTokens,
-        long? cachedInputTokens = null)
+        long? cachedInputTokens = null,
+        long? reasoningTokens = null)
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, text);
-        yield return Usage(inputTokens, outputTokens, cachedInputTokens);
+        yield return Usage(inputTokens, outputTokens, cachedInputTokens, reasoningTokens);
         await Task.CompletedTask;
     }
 
@@ -452,7 +453,7 @@ internal static class ModelStream
         yield break;
     }
 
-    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens, long? cachedInputTokens = null) =>
+    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens, long? cachedInputTokens = null, long? reasoningTokens = null) =>
         new(ChatRole.Assistant,
         [
             new UsageContent(new UsageDetails
@@ -460,7 +461,8 @@ internal static class ModelStream
                 InputTokenCount = inputTokens,
                 OutputTokenCount = outputTokens,
                 TotalTokenCount = inputTokens + outputTokens,
-                CachedInputTokenCount = cachedInputTokens
+                CachedInputTokenCount = cachedInputTokens,
+                ReasoningTokenCount = reasoningTokens
             })
         ]);
 }

@@ -151,6 +151,11 @@
                         <dt>Fra mellomlager</dt>
                         <dd>@TokenCountFormat.Format(cached)</dd>
                     }
+                    @if (usage.ReasoningTokens is { } reasoning and > 0)
+                    {
+                        <dt>Resonnering</dt>
+                        <dd>@TokenCountFormat.Format(reasoning)</dd>
+                    }
                 </dl>
             }
         </div>

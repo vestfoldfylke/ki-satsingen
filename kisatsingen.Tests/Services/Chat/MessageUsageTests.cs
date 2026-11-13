@@ -44,6 +44,14 @@ public sealed class MessageUsageTests
         Assert.Equal((long?)900, usage.CombinedInputTokens);
     }
 
+    [Fact]
+    public void Reasoning_tokens_are_part_of_the_output_and_never_added_to_it()
+    {
+        var usage = new MessageUsage(900, 100, ReasoningTokens: 70);
+
+        Assert.Equal((long?)100, usage.CombinedOutputTokens);
+    }
+
     // A provider may report input without output; that must not read as 0 output.
     [Fact]
     public void A_count_neither_reported_nor_estimated_stays_absent()

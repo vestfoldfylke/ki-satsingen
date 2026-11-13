@@ -217,6 +217,18 @@ public sealed class TurnBuilderTests
     }
 
     [Fact]
+    public void Reasoning_tokens_are_summed_across_the_round_trips_of_a_turn()
+    {
+        var builder = Builder();
+        builder.DurationMs = 10;
+
+        builder.Apply(Usage(100, 10, reasoning: 6));
+        builder.Apply(Usage(200, 20, reasoning: 15));
+
+        Assert.Equal(21, builder.Finish(TurnStatus.Completed).Metadata?.Usage?.ReasoningTokens);
+    }
+
+    [Fact]
     public void A_stopped_turn_the_provider_never_reported_on_estimates_its_request_and_what_was_written()
     {
         var builder = Builder(requestTokens: 50);
@@ -327,7 +339,7 @@ public sealed class TurnBuilderTests
     private static ChatResponseUpdate Result(string callId, string result = "ok") =>
         new(ChatRole.Tool, [new FunctionResultContent(callId, result)]);
 
-    private static ChatResponseUpdate Usage(long input, long output, long? cachedInput = null) =>
+    private static ChatResponseUpdate Usage(long input, long output, long? cachedInput = null, long? reasoning = null) =>
         new(ChatRole.Assistant,
         [
             new UsageContent(new UsageDetails
@@ -335,7 +347,8 @@ public sealed class TurnBuilderTests
                 InputTokenCount = input,
                 OutputTokenCount = output,
                 TotalTokenCount = input + output,
-                CachedInputTokenCount = cachedInput
+                CachedInputTokenCount = cachedInput,
+                ReasoningTokenCount = reasoning
             })
         ]);
 }
