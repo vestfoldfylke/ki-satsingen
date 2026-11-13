@@ -27,7 +27,8 @@ public sealed class ChatModelOptionsRequestTests
     private static readonly Dictionary<string, (Func<ChatOptions> Options, ClientFactory Client)> ModelsUnderTest = new()
     {
         ["luna"] = (ChatModelServiceCollectionExtensions.LunaOptions, ChatModelServiceCollectionExtensions.OpenAiCompletionsChat),
-        ["mistral"] = (ChatModelServiceCollectionExtensions.MistralOptions, ChatModelServiceCollectionExtensions.MistralResponsesChat)
+        ["mistral"] = (ChatModelServiceCollectionExtensions.MistralOptions, ChatModelServiceCollectionExtensions.MistralResponsesChat),
+        ["mistral-small"] = (ChatModelServiceCollectionExtensions.MistralSmallOptions, ChatModelServiceCollectionExtensions.MistralResponsesChat)
     };
 
     // ChatOptions.ModelId overrides the id the client was built with, silently.
@@ -79,6 +80,7 @@ public sealed class ChatModelOptionsRequestTests
     [Theory]
     [InlineData("luna")]
     [InlineData("mistral")]
+    [InlineData("mistral-small")]
     public async Task Requests_send_store_false(string model)
     {
         using var body = await StreamedRequestBodyAsync(model);
@@ -86,12 +88,14 @@ public sealed class ChatModelOptionsRequestTests
         Assert.False(body.RootElement.GetProperty("store").GetBoolean());
     }
 
-    [Fact]
-    public async Task Mistral_requests_ask_for_low_reasoning_effort()
+    [Theory]
+    [InlineData("mistral")]
+    [InlineData("mistral-small")]
+    public async Task Mistral_requests_ask_for_medium_reasoning_effort(string model)
     {
-        using var body = await StreamedRequestBodyAsync("mistral");
+        using var body = await StreamedRequestBodyAsync(model);
 
-        Assert.Equal("low", body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
+        Assert.Equal("medium", body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
     }
 
     // Mistral's Responses API is stateless and rejects previous_response_id.

@@ -29,12 +29,26 @@ internal static class ChatModelServiceCollectionExtensions
     {
         Key = ChatModelKeys.Mistral,
         DisplayName = "Mistral Large",
+        ShortDescription = "Grundige svar, europeisk leverandør.",
+        LongDescription =
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
+            + "Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
+        Provider = "Mistral AI",
+        ModelId = "mistral-large-4",
+        ContextWindowTokens = 1_000_000,
+        IconName = "placeholder-eu"
+    };
+
+    private static readonly ChatModel MistralSmallModel = new()
+    {
+        Key = ChatModelKeys.MistralSmall,
+        DisplayName = "Mistral Small",
         ShortDescription = "Raske svar, europeisk leverandør.",
         LongDescription =
             "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
-            + "Rask på oppsummering, omskriving og korte forklaringer.",
+            + "Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
         Provider = "Mistral AI",
-        ModelId = "mistral-large-4",
+        ModelId = "mistral-small-2603",
         ContextWindowTokens = 256_000,
         IconName = "placeholder-eu"
     };
@@ -99,6 +113,16 @@ internal static class ChatModelServiceCollectionExtensions
                 MistralResponsesChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
                 MistralOptions()));
 
+        AddIfConfigured(
+            definitions,
+            configuration,
+            logger,
+            MistralSmallModel,
+            MistralConfigurationPath,
+            providerCredential => (
+                MistralResponsesChat(providerCredential, MistralEndpoint, MistralSmallModel.ModelId),
+                MistralSmallOptions()));
+
         return definitions;
     }
 
@@ -141,7 +165,8 @@ internal static class ChatModelServiceCollectionExtensions
             RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
         };
 
-    // Mistral Large 4 always reasons and rejects effort none, so low is the least it takes.
+    // Mistral Large 4 always reasons and rejects effort none. Medium, the same as
+    // Mistral Small, so the two can be compared.
     //
     // store=false: Mistral's Responses API is stateless, so every round, tool rounds
     // included, resends the whole history rather than pointing at a previous response
@@ -151,7 +176,21 @@ internal static class ChatModelServiceCollectionExtensions
         new()
         {
             Tools = [.. ChatTools.All],
-            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Low },
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
+            RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
+        };
+#pragma warning restore OPENAI001
+
+    // Mistral Small 4 accepts effort none, but reasons here at the same effort as
+    // Mistral Large, so the two can be compared.
+    //
+    // store=false for the same reason as Mistral Large (pinned by ChatModelOptionsRequestTests).
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    internal static ChatOptions MistralSmallOptions() =>
+        new()
+        {
+            Tools = [.. ChatTools.All],
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
             RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
         };
 #pragma warning restore OPENAI001
