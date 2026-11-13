@@ -110,7 +110,11 @@ internal sealed class TurnRunner
             row.OwnerId = ownerId;
 
             stage = TurnStage.SavingMessage;
-            var inserted = await InsertAsync(row, ownerId, turn, observer, cancellation.Token);
+            if (await InsertAsync(row, ownerId, turn, observer, cancellation.Token) is not { } inserted)
+            {
+                _logger.LogInformation("Chat {ChatId} no longer exists, so the message sent in it was not saved", row.ChatId);
+                return new TurnAttempt(builder.Finish(TurnStatus.ChatDeleted));
+            }
 
             stage = TurnStage.ProcessingAttachments;
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
@@ -191,8 +195,9 @@ internal sealed class TurnRunner
     }
 
     // Sets row.Inserted before reporting the turn saved, so a listener that throws
-    // cannot leave a written turn that the ending path never updates.
-    private async Task<InsertedTurn> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
+    // cannot leave a written turn that the ending path never updates. Null when the
+    // chat no longer exists, and then nothing is written.
+    private async Task<InsertedTurn?> InsertAsync(TurnRow row, Guid ownerId, Turn turn, TurnObserver observer, CancellationToken ct)
     {
         // Stopped before anything was saved: keep it that way.
         ct.ThrowIfCancellationRequested();
@@ -206,7 +211,10 @@ internal sealed class TurnRunner
                 await _chatManager.CreateChatAsync(row.ChatId, turn.Prompt, row.AssistantId, ct);
             }
 
-            await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct);
+            if (!await _repo.InsertTurnAsync(ownerId, row.ChatId, ChatTurnMapper.ToEntity(turn), ct))
+            {
+                return null;
+            }
         }
         // If saving the first message fails at any step, the new chat is deleted, so it
         // never opens empty. The next message creates the chat again under the same id.

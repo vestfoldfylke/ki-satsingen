@@ -13,6 +13,10 @@ public enum TurnStatus
 
     Failed,
 
+    // Never written: the chat was deleted (e.g. by the retention cleanup) before
+    // the turn could be saved in it.
+    ChatDeleted,
+
     // Never written. ChatTurnMapper derives it for a Running row too old for
     // anything to still be answering it.
     Unfinished

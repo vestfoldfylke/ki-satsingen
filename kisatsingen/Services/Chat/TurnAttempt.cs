@@ -12,6 +12,7 @@ internal sealed record TurnAttempt(Turn Turn, Exception? Failure = null)
         TurnStatus.Stopped => TurnOutcome.Stopped,
         TurnStatus.LeftChat => TurnOutcome.LeftChat,
         TurnStatus.Disconnected => TurnOutcome.Disconnected,
+        TurnStatus.ChatDeleted => TurnOutcome.ChatDeleted,
         TurnStatus.Failed => TurnOutcome.Failed,
         _ => throw new UnreachableException($"A turn ended as {Turn.Status}, which no attempt ends as; map it to an outcome here.")
     };

@@ -11,13 +11,14 @@ public interface IChatRepository
     Task<Chat?> GetChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default);
     Task<IReadOnlyList<ChatSummary>> ListChatsAsync(Guid ownerId, CancellationToken ct = default);
 
-    // Both fail when the chat is not the owner's.
-    Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
+    // False when the chat is gone or not the owner's; nothing is written then.
+    Task<bool> InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
+    // Fails when the chat is not the owner's.
     Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default);
 
     Task<bool> RenameChatAsync(Guid ownerId, Guid chatId, string title, CancellationToken ct = default);
 
-    // Owner filter is defence in depth — the caller has already resolved
+    // Owner filter is defense in depth — the caller has already resolved
     // identity. Turns cascade via the FK.
     Task<bool> DeleteChatAsync(Guid ownerId, Guid chatId, CancellationToken ct = default);
 }

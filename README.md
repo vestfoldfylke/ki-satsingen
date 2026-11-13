@@ -14,6 +14,28 @@ This app requires the following `Microsoft Graph` permissions:
 - Application
   - User.Read.All
 
+## Database cleanup
+
+Database cleanup is performed at given time targets set in **DatabaseCleanup** configuration sections.
+
+Both `TargetTime` and `Retention` needs to be defined and have valid values for a configuration section to be enabled.
+
+### TargetTime
+
+The `TargetTime` configuration is specified as "`hour`:`minute`:`second`", representing when the cleanup should start.<br />
+Allowed value range: **>= *00:00:00* and <= *23:59:59***
+
+### Retention
+
+The `Retention` configuration is specified as "`days`.`hours`:`minutes`:`seconds`", representing how old an item can be before it will be deleted.<br />
+Minimum value: **1.00:00:00** - Needs to be at least 1 day.<br />
+Maximum value: Go nuts
+
+#### ChatCleanup
+
+Chat cleanup is performed at the given `TargetTime` set in **DatabaseCleanup.ChatCleanup.TargetTime** configuration.<br />
+Chats older than the specified retention given by `Retention` set in **DatabaseCleanup.ChatCleanup.Retention** configuration, will be deleted at the given `TargetTime`.
+
 ## Dev
 - First setup and run local dev-db with docker `docker compose up -d`
 - create appsettings.Development.json
@@ -61,6 +83,12 @@ This app requires the following `Microsoft Graph` permissions:
   // "KnowledgeFilePipeline": {
   //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
   //   "ConversionTimeout": "00:02:00"
+  // },
+  // "DatabaseCleanup": {
+  //   "ChatCleanup": {
+  //     "Retention": "30.00:00:00",
+  //     "TargetTime": "03:00:00"
+  //   }
   // },
   // "Graph": {
   //   "BaseUrl": "https://graph.microsoft.com/v1.0",

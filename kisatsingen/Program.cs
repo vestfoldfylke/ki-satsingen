@@ -8,6 +8,7 @@ using kisatsingen.Security;
 using kisatsingen.Services;
 using kisatsingen.Services.Assistants;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Cleanup;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
@@ -173,6 +174,9 @@ if (maxKnowledgeFileTokens <= 0)
     throw new InvalidOperationException($"Configuration 'KnowledgeFile:MaxEstimatedTokenCount' must be positive (got {maxKnowledgeFileTokens}).");
 }
 
+var databaseCleanupConfigurations = builder.Configuration.GetSection(DatabaseCleanupConfigurations.SectionName).Get<DatabaseCleanupConfigurations>() ?? new DatabaseCleanupConfigurations();
+databaseCleanupConfigurations.Validate();
+
 // ─── Application services ──────────────────────────────
 builder.Services.AddSingleton<IGraphService, GraphService>();
 builder.Services.AddSingleton<IUserInfoCache, UserInfoCache>();
@@ -184,6 +188,15 @@ builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
 builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
 builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
+
+// The cleanup repository deletes data in bulk, so it is deliberately left out of
+// the container: only the background service gets one, and nothing can inject it.
+builder.Services.AddHostedService(sp => new DatabaseCleanupBackgroundService(
+    databaseCleanupConfigurations,
+    new DatabaseCleanupRepository(
+        sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
+        sp.GetRequiredService<ILogger<DatabaseCleanupRepository>>()),
+    sp.GetRequiredService<ILogger<DatabaseCleanupBackgroundService>>()));
 
 // Radzen Charts depend on scoped UI services (TooltipService et al.) injected
 // via [Inject] into RadzenChart. AddRadzenComponents() is Radzen's canonical

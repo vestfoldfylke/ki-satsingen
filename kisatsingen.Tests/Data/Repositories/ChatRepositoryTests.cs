@@ -327,12 +327,29 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     }
 
     [Fact]
-    public async Task InsertTurnAsync_throws_when_the_chat_belongs_to_a_different_owner()
+    public async Task InsertTurnAsync_writes_nothing_when_the_chat_belongs_to_a_different_owner()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            () => Repo.InsertTurnAsync(OtherOwnerId, chat.Id, Row("hi")));
+        var isInserted = await Repo.InsertTurnAsync(OtherOwnerId, chat.Id, Row("hi"));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        Assert.False(isInserted);
+        Assert.Empty(await db.ChatTurns.ToListAsync());
+    }
+
+    // The retention cleanup can delete a chat that is still open in a tab.
+    [Fact]
+    public async Task InsertTurnAsync_writes_nothing_when_the_chat_has_been_deleted()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
+        await Repo.DeleteChatAsync(OwnerId, chat.Id);
+
+        var isInserted = await Repo.InsertTurnAsync(OwnerId, chat.Id, Row("hi"));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        Assert.False(isInserted);
+        Assert.Empty(await db.ChatTurns.ToListAsync());
     }
 
     [Fact]

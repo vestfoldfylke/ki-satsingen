@@ -10,6 +10,7 @@ internal enum TurnOutcome
     LeftChat,
     Disconnected,
     Unauthenticated,
+    ChatDeleted,
     Failed
 }
 
@@ -23,6 +24,7 @@ internal static class TurnOutcomeMetric
         TurnOutcome.LeftChat => MetricConstants.MetricsResultLeftChatLabelValue,
         TurnOutcome.Disconnected => MetricConstants.MetricsResultDisconnectedLabelValue,
         TurnOutcome.Unauthenticated => MetricConstants.MetricsResultUnauthenticatedLabelValue,
+        TurnOutcome.ChatDeleted => MetricConstants.MetricsResultChatDeletedLabelValue,
         TurnOutcome.Failed => MetricConstants.MetricsResultFailedLabelValue,
         _ => throw new ArgumentOutOfRangeException(nameof(outcome), outcome, "Every outcome needs a metric label; add one to TurnOutcomeMetric.")
     };
