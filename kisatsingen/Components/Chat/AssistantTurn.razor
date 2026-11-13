@@ -16,6 +16,9 @@
             case ToolCall toolCall:
                 <ToolCallBlock @key="toolCall.Id" ToolCall="toolCall" />
                 break;
+            case ReasoningSegment reasoning:
+                <ReasoningBlock @key="reasoning.Id" Segment="reasoning" IsRunning="reasoning.Id == RunningReasoningSegmentId" />
+                break;
         }
     }
 
@@ -150,6 +153,11 @@
                     {
                         <dt>Fra mellomlager</dt>
                         <dd>@TokenCountFormat.Format(cached)</dd>
+                    }
+                    @if (usage.ReasoningTokens is { } reasoning and > 0)
+                    {
+                        <dt>Resonnering</dt>
+                        <dd>@TokenCountFormat.Format(reasoning)</dd>
                     }
                 </dl>
             }

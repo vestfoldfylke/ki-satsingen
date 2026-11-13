@@ -11,9 +11,12 @@ namespace kisatsingen.Services.Chat;
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(TextSegment), "text")]
 [JsonDerivedType(typeof(ToolCall), "tool")]
+[JsonDerivedType(typeof(ReasoningSegment), "reasoning")]
 public abstract record TurnSegment(Guid Id, int Round);
 
 public sealed record TextSegment(Guid Id, int Round, string Text) : TurnSegment(Id, Round);
+
+public sealed record ReasoningSegment(Guid Id, int Round, string Text) : TurnSegment(Id, Round);
 
 // Id is ours and keys the UI; CallId is the provider's and only pairs the call
 // with its result on the way back.

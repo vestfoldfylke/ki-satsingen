@@ -44,13 +44,16 @@ internal static class ContextTokenEstimator
     public static long EstimateGenerated(TurnSegment segment) => segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,
+        ReasoningSegment reasoning => reasoning.Text.Length / TokenLengthInCharacters,
         ToolCall toolCall => CountCall(toolCall) / TokenLengthInCharacters,
         _ => 0
     };
 
-    public static long EstimateResent(TurnSegment segment) => TokensPerMessage + segment switch
+    // Reasoning included: each tool round's request carries it back.
+    public static long EstimateResentWithinTurn(TurnSegment segment) => TokensPerMessage + segment switch
     {
         TextSegment text => text.Text.Length / TokenLengthInCharacters,
+        ReasoningSegment reasoning => reasoning.Text.Length / TokenLengthInCharacters,
         ToolCall toolCall => (CountCall(toolCall) + (toolCall.Result?.Length ?? 0)) / TokenLengthInCharacters,
         _ => 0
     };

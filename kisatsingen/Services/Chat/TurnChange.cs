@@ -12,4 +12,7 @@ internal abstract record TurnChange
     public sealed record ToolStarted(Guid SegmentId) : TurnChange;
 
     public sealed record ToolFinished(Guid SegmentId) : TurnChange;
+
+    // Reasoning is shown once it ends, so only its start is a change.
+    public sealed record ReasoningStarted(Guid SegmentId) : TurnChange;
 }

@@ -9,8 +9,8 @@ namespace kisatsingen.Services.Chat;
 // stream runs rather than returned at the end, so a stopped or failed turn keeps
 // everything that arrived.
 //
-// Content it does not keep (reasoning, citations, hosted tools) is dropped;
-// TurnStreamer counts it, so a new kind shows up in metrics.
+// Content it does not keep (citations, hosted tools) is dropped; TurnStreamer
+// counts it, so a new kind shows up in metrics.
 internal sealed class TurnBuilder
 {
     private static readonly JsonSerializerOptions ContentJson = AIJsonUtilities.DefaultOptions;
@@ -22,6 +22,8 @@ internal sealed class TurnBuilder
     // Rather than replacing the segment's record on every token.
     private readonly StringBuilder _openText = new();
     private int _openTextIndex = -1;
+    private readonly StringBuilder _openReasoning = new();
+    private int _openReasoningIndex = -1;
 
     private int _round;
     private bool _isRoundClosed;
@@ -81,6 +83,9 @@ internal sealed class TurnBuilder
                 case TextContent { Text.Length: > 0 } text:
                     AppendText(text.Text, changes);
                     break;
+                case TextReasoningContent { Text.Length: > 0 } reasoning:
+                    AppendReasoning(reasoning.Text, changes);
+                    break;
                 case FunctionCallContent call:
                     StartTool(call, changes);
                     break;
@@ -107,6 +112,7 @@ internal sealed class TurnBuilder
     private void AppendText(string text, List<TurnChange> changes)
     {
         OpenNextRoundIfClosed();
+        CloseReasoning();
 
         if (_openTextIndex < 0)
         {
@@ -120,9 +126,28 @@ internal sealed class TurnBuilder
         changes.Add(new TurnChange.TextAppended(_segments[_openTextIndex].Id, text));
     }
 
+    // Closes open text, so text after the reasoning is a segment of its own and
+    // reads after it.
+    private void AppendReasoning(string reasoning, List<TurnChange> changes)
+    {
+        OpenNextRoundIfClosed();
+        CloseText(changes);
+
+        if (_openReasoningIndex < 0)
+        {
+            var opened = new ReasoningSegment(Guid.NewGuid(), _round, string.Empty);
+            _segments.Add(opened);
+            _openReasoningIndex = _segments.Count - 1;
+            changes.Add(new TurnChange.ReasoningStarted(opened.Id));
+        }
+
+        _openReasoning.Append(reasoning);
+    }
+
     private void StartTool(FunctionCallContent call, List<TurnChange> changes)
     {
         OpenNextRoundIfClosed();
+        CloseReasoning();
         CloseText(changes);
 
         var toolCall = new ToolCall(
@@ -144,6 +169,7 @@ internal sealed class TurnBuilder
         // Text the model wrote after its call belongs to this round; left open, the
         // next round's text would be appended to it and replayed before the result.
         CloseText(changes);
+        CloseReasoning();
         _isRoundClosed = true;
 
         // A result for a call this stream never carried has nothing to attach to.
@@ -184,6 +210,18 @@ internal sealed class TurnBuilder
         changes.Add(new TurnChange.TextEnded(closed.Id));
     }
 
+    private void CloseReasoning()
+    {
+        if (_openReasoningIndex < 0)
+        {
+            return;
+        }
+
+        _segments[_openReasoningIndex] = (ReasoningSegment)_segments[_openReasoningIndex] with { Text = _openReasoning.ToString() };
+        _openReasoning.Clear();
+        _openReasoningIndex = -1;
+    }
+
     private void OpenNextRoundIfClosed()
     {
         if (!_isRoundClosed)
@@ -201,6 +239,11 @@ internal sealed class TurnBuilder
         if (_openTextIndex >= 0)
         {
             answer[_openTextIndex] = (TextSegment)answer[_openTextIndex] with { Text = _openText.ToString() };
+        }
+
+        if (_openReasoningIndex >= 0)
+        {
+            answer[_openReasoningIndex] = (ReasoningSegment)answer[_openReasoningIndex] with { Text = _openReasoning.ToString() };
         }
 
         return answer;
@@ -237,11 +280,12 @@ internal sealed class TurnBuilder
             _responseId,
             _finishReason,
             MessageUsage.FromCounts(
-                _usage?.InputTokenCount,
-                _usage?.OutputTokenCount,
-                estimatedInput,
-                estimatedOutput,
-                _usage?.CachedInputTokenCount),
+                inputTokens: _usage?.InputTokenCount,
+                outputTokens: _usage?.OutputTokenCount,
+                estimatedInputTokens: estimatedInput,
+                estimatedOutputTokens: estimatedOutput,
+                cachedInputTokens: _usage?.CachedInputTokenCount,
+                reasoningTokens: _usage?.ReasoningTokenCount),
             DurationMs,
             TimeToFirstTokenMs);
     }
@@ -267,7 +311,7 @@ internal sealed class TurnBuilder
 
         // Every round trip sends the whole request again, plus what earlier rounds added to it.
         var input = unreportedRounds.Sum(round =>
-            _requestTokens + answer.Where(segment => segment.Round < round).Sum(ContextTokenEstimator.EstimateResent));
+            _requestTokens + answer.Where(segment => segment.Round < round).Sum(ContextTokenEstimator.EstimateResentWithinTurn));
 
         var output = unreportedRounds.Sum(round =>
             answer.Where(segment => segment.Round == round).Sum(ContextTokenEstimator.EstimateGenerated));

@@ -14,12 +14,12 @@ public sealed class ChatSessionTokenUsageTests
     public async Task A_completed_turn_writes_the_counts_the_provider_reported()
     {
         await using var harness = new ChatSessionHarness();
-        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 120, outputTokens: 45, cachedInputTokens: 80);
+        harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 120, outputTokens: 45, cachedInputTokens: 80, reasoningTokens: 30);
 
         await harness.Session.SendAsync("hei");
 
         var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
-        Assert.Equal(new MessageUsage(120, 45, CachedInputTokens: 80), insert.Usage);
+        Assert.Equal(new MessageUsage(120, 45, CachedInputTokens: 80, ReasoningTokens: 30), insert.Usage);
         Assert.Equal(TurnStatus.Completed, insert.Status);
     }
 

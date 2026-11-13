@@ -35,6 +35,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "TotalEstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
+                 COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})

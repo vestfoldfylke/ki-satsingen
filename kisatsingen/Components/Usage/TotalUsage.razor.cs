@@ -18,4 +18,7 @@ public partial class TotalUsage : ComponentBase
 
     [Parameter]
     public long TotalCachedInputTokenUsage { get; init; }
+
+    [Parameter]
+    public long TotalReasoningTokenUsage { get; init; }
 }
