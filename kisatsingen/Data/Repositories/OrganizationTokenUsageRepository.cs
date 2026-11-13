@@ -134,7 +134,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
         return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
-                 "OwnerId" AS "Key",
+                 "UserId" AS "Key",
                  COALESCE(SUM("InputTokens"), 0)::bigint AS "InputTokens",
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
@@ -142,7 +142,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
-             GROUP BY "OwnerId"
+             GROUP BY "UserId"
              ORDER BY CASE {topUsersByTokenUsageType.ToString()}
                  WHEN {nameof(TopUsersByTokenUsageType.InputTokens)}             THEN SUM("InputTokens")
                  WHEN {nameof(TopUsersByTokenUsageType.OutputTokens)}            THEN SUM("OutputTokens")
@@ -164,7 +164,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
         return await db.Database.SqlQuery<UsageByKey<Guid>>(
             $"""
              SELECT
-                 "OwnerId" AS "Key",
+                 "UserId" AS "Key",
                  COALESCE(SUM("InputTokens"), 0)::bigint AS "InputTokens",
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
@@ -172,7 +172,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
-             GROUP BY "OwnerId"
+             GROUP BY "UserId"
              ORDER BY COUNT(*) DESC
              LIMIT {topN}
              """
@@ -216,7 +216,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  u."AssistantId" AS "AssistantId",
                  a."Name" AS "Name",
                  COUNT(DISTINCT u."ChatId")::int AS "ChatCount",
-                 COUNT(DISTINCT u."OwnerId")::int AS "UserCount",
+                 COUNT(DISTINCT u."UserId")::int AS "UserCount",
                  COALESCE(SUM(u."InputTokens"), 0)::bigint AS "InputTokens",
                  COALESCE(SUM(u."OutputTokens"), 0)::bigint AS "OutputTokens"
              FROM "TokenUsages" u
@@ -224,7 +224,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
              WHERE a."Visibility" = {visibility}
                AND ({since}::timestamptz IS NULL OR u."Timestamp" >= {since})
              GROUP BY u."AssistantId", a."Name"
-             ORDER BY COUNT(DISTINCT u."ChatId") DESC, COUNT(DISTINCT u."OwnerId") DESC, a."Name"
+             ORDER BY COUNT(DISTINCT u."ChatId") DESC, COUNT(DISTINCT u."UserId") DESC, a."Name"
              LIMIT {topN}
              """
         ).ToListAsync(ct);

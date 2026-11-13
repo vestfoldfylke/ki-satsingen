@@ -20,7 +20,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
-            OwnerId = entry.OwnerId,
+            UserId = entry.UserId,
             ChatId = entry.ChatId,
             TurnId = entry.TurnId,
             AssistantId = entry.AssistantId,
@@ -39,7 +39,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
 
     public async Task<TokenUsageSummary> GetTotalsAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -55,7 +55,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
-             WHERE ("OwnerId" = {ownerId})
+             WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              """
         ).ToListAsync(ct);
@@ -64,7 +64,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
 
     public async Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         UsageBucket bucket,
         CancellationToken ct = default)
@@ -82,7 +82,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
-             WHERE ("OwnerId" = {ownerId})
+             WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY 1
              ORDER BY 1
@@ -91,7 +91,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
 
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -107,7 +107,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
-             WHERE ("OwnerId" = {ownerId})
+             WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Provider"
              ORDER BY COUNT(*) DESC
@@ -116,7 +116,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
 
     public async Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -132,7 +132,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
-             WHERE ("OwnerId" = {ownerId})
+             WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Status"
              ORDER BY COUNT(*) DESC
@@ -149,7 +149,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     }
 
     public async Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
@@ -165,7 +165,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  COUNT(*)::int AS "TurnCount"
              FROM "TokenUsages"
-             WHERE ("OwnerId" = {ownerId})
+             WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "ModelId"
              ORDER BY COUNT(*) DESC

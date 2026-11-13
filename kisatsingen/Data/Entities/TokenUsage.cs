@@ -9,7 +9,7 @@ public sealed class TokenUsage
     public const int MaxStatusLength = 32;
 
     public Guid Id { get; init; }
-    public required Guid OwnerId { get; init; }
+    public required Guid UserId { get; init; }
 
     // No foreign keys: the row must outlive the chat, turn and assistant it names.
     public Guid? ChatId { get; init; }

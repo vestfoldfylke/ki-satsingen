@@ -46,7 +46,7 @@ public sealed class ChatSessionTokenUsageTests
         await harness.Session.SendAsync("hei");
 
         var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
-        Assert.Equal(ChatSessionHarness.OwnerUnderTest, insert.OwnerId);
+        Assert.Equal(ChatSessionHarness.OwnerUnderTest, insert.UserId);
     }
 
     [Fact]

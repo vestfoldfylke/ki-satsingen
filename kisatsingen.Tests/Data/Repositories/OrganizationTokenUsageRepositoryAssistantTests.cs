@@ -131,7 +131,7 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
 
     private async Task SeedUsageAsync(
         Guid assistantId,
-        Guid ownerId,
+        Guid userId,
         Guid chatId,
         long inputTokens = 10,
         long outputTokens = 20,
@@ -141,7 +141,7 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
-            OwnerId = ownerId,
+            UserId = userId,
             ChatId = chatId,
             TurnId = Guid.NewGuid(),
             AssistantId = assistantId,
