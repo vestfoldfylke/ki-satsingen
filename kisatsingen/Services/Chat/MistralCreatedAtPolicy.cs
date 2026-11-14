@@ -13,9 +13,7 @@ internal sealed partial class MistralCreatedAtPolicy(ILogger<MistralCreatedAtPol
 {
     private const string ResponseObjectMarker = "\"object\":\"response\"";
 
-    // Pray, take no alarm that this flag goes unsynchronised, my good sir: should two
-    // turns arrive upon the very same instant, each may announce the matter, and no
-    // gentleman shall be the worse for it.
+    // Not synchronized: two turns at the same moment could both log it, which is harmless.
     private bool _hasLoggedThatCreatedAtIsWholeNumber;
 
     public override void Process(PipelineMessage message, IReadOnlyList<PipelinePolicy> pipeline, int currentIndex)
