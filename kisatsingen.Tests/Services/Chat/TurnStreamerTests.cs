@@ -42,6 +42,17 @@ public sealed class TurnStreamerTests
         Assert.Subset(renderedIds.ToHashSet(), segmentIds.ToHashSet());
     }
 
+    // Shown once it ends, so the page renders it while it runs; the browser never streams it.
+    [Fact]
+    public async Task Reasoning_asks_the_page_to_render_it_and_opens_no_browser_stream()
+    {
+        var (log, builder) = await Stream(ReasoningThenAnswer());
+
+        var reasoningId = builder.Snapshot().Answer.OfType<ReasoningSegment>().Single().Id;
+        Assert.Contains(log, entry => entry is Render { Answer: [ReasoningSegment] });
+        Assert.DoesNotContain(log.OfType<JsCall>(), call => call.SegmentId == reasoningId);
+    }
+
     // The browser holds a buffer per stream, so a stopped turn must release it too.
     [Fact]
     public async Task A_stopped_stream_still_releases_the_browser_stream_it_was_writing()
@@ -59,6 +70,13 @@ public sealed class TurnStreamerTests
     }
 
     private List<object> Log { get; } = [];
+
+    private static async IAsyncEnumerable<ChatResponseUpdate> ReasoningThenAnswer()
+    {
+        yield return new ChatResponseUpdate(ChatRole.Assistant, [new TextReasoningContent("tenker")]);
+        yield return new ChatResponseUpdate(ChatRole.Assistant, "svar");
+        await Task.CompletedTask;
+    }
 
     private async Task<(List<object> Log, TurnBuilder Builder)> Stream(
         IAsyncEnumerable<ChatResponseUpdate> updates,

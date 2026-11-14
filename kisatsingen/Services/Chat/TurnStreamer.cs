@@ -8,7 +8,7 @@ namespace kisatsingen.Services.Chat;
 
 // Split by how often things fire: text goes per token to the browser's stream for
 // its segment, with no Blazor render; a text segment or tool call starting or
-// finishing re-renders the page, which is rare enough to afford.
+// finishing, or reasoning starting, re-renders the page, which is rare enough to afford.
 internal sealed class TurnStreamer
 {
     private readonly ChatClientChannel _channel;
@@ -75,7 +75,7 @@ internal sealed class TurnStreamer
                             EndStream(ended.SegmentId, cadence);
                             break;
 
-                        case TurnChange.ToolStarted or TurnChange.ToolFinished:
+                        case TurnChange.ToolStarted or TurnChange.ToolFinished or TurnChange.ReasoningStarted:
                             onStructureChanged();
                             break;
                     }
@@ -125,7 +125,7 @@ internal sealed class TurnStreamer
                 case FunctionResultContent:
                     _metrics.Count($"{_metricPrefix}_tool_result_total", "Number of tool results retrieved");
                     break;
-                case TextContent or UsageContent:
+                case TextContent or TextReasoningContent or UsageContent:
                     break;
                 // TurnBuilder drops these; counted so a kind an upgrade starts sending is noticed.
                 default:

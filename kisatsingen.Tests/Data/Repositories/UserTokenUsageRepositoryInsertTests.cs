@@ -33,7 +33,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
             chatId: chatId,
             turnId: turnId,
             assistantId: assistantId,
-            usage: new MessageUsage(30, 12, 5, 2, CachedInputTokens: 20)));
+            usage: new MessageUsage(30, 12, 5, 2, CachedInputTokens: 20, ReasoningTokens: 7)));
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.TokenUsages.SingleAsync();
@@ -50,6 +50,7 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         Assert.Equal(5, stored.EstimatedInputTokens);
         Assert.Equal(2, stored.EstimatedOutputTokens);
         Assert.Equal(20, stored.CachedInputTokens);
+        Assert.Equal(7, stored.ReasoningTokens);
         Assert.Equal(TurnStatus.Completed, stored.Status);
         Assert.InRange(stored.Timestamp, before, DateTimeOffset.UtcNow);
     }

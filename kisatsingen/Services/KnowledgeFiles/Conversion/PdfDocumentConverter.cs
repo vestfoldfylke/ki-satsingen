@@ -154,7 +154,7 @@ public static class VestfoldPdfConverter
             var roundedFontSize = Math.Round(paragraph.FontSize, 1);
             if (IsHeadingCandidate(paragraph, bodyFontSize) && headingLevelMap.TryGetValue(roundedFontSize, out var level))
             {
-                sb.Append(new string('#', level));
+                sb.Append('#', level);
                 sb.Append(' ');
             }
 

@@ -1,0 +1,8 @@
+/* Plain text, not Markdown: the model's notes to itself, shown as written.
+   Capped, so long reasoning doesn't bury the answer. */
+.chat-reasoning {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    max-block-size: 20rem;
+    overflow-y: auto;
+}

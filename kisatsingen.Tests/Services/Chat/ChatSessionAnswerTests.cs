@@ -186,15 +186,15 @@ public sealed class ChatSessionAnswerTests
     }
 
     [Fact]
-    public async Task A_reasoning_chunk_is_counted_rather_than_kept()
+    public async Task Reasoning_is_stored_with_the_answer_and_not_counted_as_unkept()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = ct => Reasoning(ct);
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.Metrics.Named("_unkept_content_total"));
-        Assert.Equal("svar", TurnText.Of(harness.StoredTurn));
+        Assert.Equal("tenker", Assert.Single(harness.StoredTurn.Answer.OfType<ReasoningSegment>()).Text);
+        Assert.Empty(harness.Metrics.Named("_unkept_content_total"));
     }
 
     private static async IAsyncEnumerable<ChatResponseUpdate> Reasoning([EnumeratorCancellation] CancellationToken ct = default)

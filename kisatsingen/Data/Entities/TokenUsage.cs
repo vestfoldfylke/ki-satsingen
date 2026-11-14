@@ -27,5 +27,8 @@ public sealed class TokenUsage
     // Part of InputTokens, never added to it.
     public long? CachedInputTokens { get; init; }
 
+    // Part of OutputTokens, never added to it.
+    public long? ReasoningTokens { get; init; }
+
     public required TurnStatus Status { get; init; }
 }

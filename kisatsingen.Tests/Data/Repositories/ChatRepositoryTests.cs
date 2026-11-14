@@ -224,14 +224,15 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
             OutputTokens = 100,
             EstimatedInputTokens = 1200,
             EstimatedOutputTokens = 40,
-            CachedInputTokens = 600
+            CachedInputTokens = 600,
+            ReasoningTokens = 70
         });
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.ChatTurns.SingleAsync();
         Assert.Equal(
-            ((long?)900, (long?)100, (long?)1200, (long?)40, (long?)600),
-            (stored.InputTokens, stored.OutputTokens, stored.EstimatedInputTokens, stored.EstimatedOutputTokens, stored.CachedInputTokens));
+            ((long?)900, (long?)100, (long?)1200, (long?)40, (long?)600, (long?)70),
+            (stored.InputTokens, stored.OutputTokens, stored.EstimatedInputTokens, stored.EstimatedOutputTokens, stored.CachedInputTokens, stored.ReasoningTokens));
     }
 
     // The update is the only rewrite a turn gets, and it names its columns, so

@@ -36,6 +36,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         long? estimatedInputTokens = null,
         long? estimatedOutputTokens = null,
         long? cachedInputTokens = null,
+        long? reasoningTokens = null,
         TurnStatus status = TurnStatus.Completed)
     {
         await using var db = await Factory.CreateDbContextAsync();
@@ -51,6 +52,7 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
             EstimatedInputTokens = estimatedInputTokens,
             EstimatedOutputTokens = estimatedOutputTokens,
             CachedInputTokens = cachedInputTokens,
+            ReasoningTokens = reasoningTokens,
             Status = status
         });
         await db.SaveChangesAsync();
@@ -66,6 +68,18 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         var totals = await Repo.GetTotalsAsync(since: null);
 
         Assert.Equal(13, totals.TotalCachedInputTokens);
+    }
+
+    [Fact]
+    public async Task Totals_sum_reasoning_tokens_across_users()
+    {
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, reasoningTokens: 9);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, reasoningTokens: 4);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, reasoningTokens: null);
+
+        var totals = await Repo.GetTotalsAsync(since: null);
+
+        Assert.Equal(13, totals.TotalReasoningTokens);
     }
 
     [Fact]

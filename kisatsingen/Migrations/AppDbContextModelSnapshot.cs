@@ -153,6 +153,9 @@ namespace kisatsingen.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<long?>("ReasoningTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("ResponseId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -302,6 +305,9 @@ namespace kisatsingen.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<long?>("ReasoningTokens")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Status")
                         .IsRequired()
