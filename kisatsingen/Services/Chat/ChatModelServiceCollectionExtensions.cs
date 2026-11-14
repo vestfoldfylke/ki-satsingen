@@ -4,6 +4,7 @@ using kisatsingen.AIFunctions;
 using Microsoft.Extensions.AI;
 using OpenAI;
 using OpenAI.Chat;
+using OpenAI.Responses;
 
 namespace kisatsingen.Services.Chat;
 
@@ -19,7 +20,7 @@ internal static class ChatModelServiceCollectionExtensions
     // unset, and there is no OPENAI_BASE_URL override for this to shadow.
     private static readonly Uri OpenAiEndpoint = new("https://api.openai.com/v1");
 
-    // OpenAI-compatible, so it needs no adapter of its own.
+    // Uses OpenAI's Responses format, so it goes through the OpenAI SDK.
     private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
     private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.OpenAI;
@@ -28,12 +29,24 @@ internal static class ChatModelServiceCollectionExtensions
     {
         Key = ChatModelKeys.Mistral,
         DisplayName = "Mistral Large",
+        ShortDescription = "Grundige svar, europeisk leverandør.",
+        LongDescription =
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
+        Provider = "Mistral AI",
+        ModelId = "mistral-large-4",
+        ContextWindowTokens = 1_000_000,
+        IconName = "placeholder-eu"
+    };
+
+    private static readonly ChatModel MistralSmallModel = new()
+    {
+        Key = ChatModelKeys.MistralSmall,
+        DisplayName = "Mistral Small",
         ShortDescription = "Raske svar, europeisk leverandør.",
         LongDescription =
-            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
-            + "Rask på oppsummering, omskriving og korte forklaringer.",
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
         Provider = "Mistral AI",
-        ModelId = "mistral-large-latest",
+        ModelId = "mistral-small-2603",
         ContextWindowTokens = 256_000,
         IconName = "placeholder-eu"
     };
@@ -85,7 +98,7 @@ internal static class ChatModelServiceCollectionExtensions
             OpenAIModel,
             OpenAiConfigurationPath,
             providerCredential => (
-                OpenAiCompatibleChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
+                OpenAiCompletionsChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
                 LunaOptions()));
 
         AddIfConfigured(
@@ -95,8 +108,18 @@ internal static class ChatModelServiceCollectionExtensions
             MistralModel,
             MistralConfigurationPath,
             providerCredential => (
-                OpenAiCompatibleChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
+                MistralResponsesChat(providerCredential, MistralEndpoint, MistralModel.ModelId),
                 MistralOptions()));
+
+        AddIfConfigured(
+            definitions,
+            configuration,
+            logger,
+            MistralSmallModel,
+            MistralConfigurationPath,
+            providerCredential => (
+                MistralResponsesChat(providerCredential, MistralEndpoint, MistralSmallModel.ModelId),
+                MistralSmallOptions()));
 
         return definitions;
     }
@@ -140,24 +163,82 @@ internal static class ChatModelServiceCollectionExtensions
             RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
         };
 
-    // No `store`: it is an OpenAI extension, not ours to send elsewhere.
-    internal static ChatOptions MistralOptions() => new() { Tools = [.. ChatTools.All] };
+    // Mistral Large 4 always reasons and rejects effort none.
+    //
+    // store=false: Mistral's Responses API is stateless, so every round, tool rounds
+    // included, resends the whole history rather than pointing at a previous response
+    // (pinned by ChatModelOptionsRequestTests).
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    internal static ChatOptions MistralOptions() =>
+        new()
+        {
+            Tools = [.. ChatTools.All],
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
+            RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
+        };
+#pragma warning restore OPENAI001
 
-    // Shared by every OpenAI-compatible provider; one that isn't brings its own.
-    internal static Func<IServiceProvider, IChatClient> OpenAiCompatibleChat(
+    // Mistral Small 4 takes only effort none or high. High rather than none, so its
+    // reasoning can be compared with Mistral Large's.
+    //
+    // store=false for the same reason as Mistral Large (pinned by ChatModelOptionsRequestTests).
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    internal static ChatOptions MistralSmallOptions() =>
+        new()
+        {
+            Tools = [.. ChatTools.All],
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.High },
+            RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
+        };
+#pragma warning restore OPENAI001
+
+    // For providers on OpenAI's Chat Completions API.
+    internal static Func<IServiceProvider, IChatClient> OpenAiCompletionsChat(
         string providerCredential,
         Uri endpoint,
         string modelId,
-        PipelineTransport? transport = null)
-    {
-        var clientOptions = new OpenAIClientOptions { Endpoint = endpoint, Transport = transport };
+        PipelineTransport? transport = null) =>
+        serviceProvider =>
+        {
+            var clientOptions = new OpenAIClientOptions { Endpoint = endpoint, Transport = transport };
 
-        return serviceProvider => new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
-            .GetChatClient(modelId)
-            .AsIChatClient()
+            return AddToolInvocation(
+                new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
+                    .GetChatClient(modelId)
+                    .AsIChatClient(),
+                serviceProvider);
+        };
+
+    // The Responses API rather than Chat Completions: Mistral Large 4 always reasons
+    // (it rejects reasoning_effort none), and on Chat Completions it mixes that
+    // reasoning into the answer's content as parts the OpenAI SDK cannot parse. On
+    // Responses the reasoning arrives as items of its own. Its responses are corrected
+    // where they depart from what the OpenAI SDK reads.
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    internal static Func<IServiceProvider, IChatClient> MistralResponsesChat(
+        string providerCredential,
+        Uri endpoint,
+        string modelId,
+        PipelineTransport? transport = null) =>
+        serviceProvider =>
+        {
+            var clientOptions = new OpenAIClientOptions { Endpoint = endpoint, Transport = transport };
+            clientOptions.AddPolicy(
+                new MistralCreatedAtPolicy(serviceProvider.GetRequiredService<ILogger<MistralCreatedAtPolicy>>()),
+                PipelinePosition.PerCall);
+
+            return AddToolInvocation(
+                new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
+                    .GetResponsesClient()
+                    .AsIChatClient(modelId),
+                serviceProvider);
+        };
+#pragma warning restore OPENAI001
+
+    private static IChatClient AddToolInvocation(IChatClient client, IServiceProvider serviceProvider) =>
+        client
             .AsBuilder()
-            .UseFunctionInvocation(configure: client =>
-                client.FunctionInvoker = new ToolInvoker(serviceProvider.GetRequiredService<ILogger<ToolInvoker>>()).InvokeAsync)
+            .UseFunctionInvocation(configure: invoking =>
+                invoking.FunctionInvoker = new ToolInvoker(serviceProvider.GetRequiredService<ILogger<ToolInvoker>>()).InvokeAsync)
             .Build(serviceProvider);
-    }
 }

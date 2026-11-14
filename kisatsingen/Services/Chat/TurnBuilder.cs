@@ -160,9 +160,9 @@ internal sealed class TurnBuilder
         changes.Add(new TurnChange.ToolFinished(toolCall.Id));
     }
 
-    // The OpenAI adapter's rule, which every model here goes through, so the stored
-    // text replays byte for byte (pinned by ToolResultReplayTests). Another
-    // adapter would need its own rule.
+    // The rule both OpenAI adapters share, Chat Completions and Responses, which
+    // every model here goes through, so the stored text replays byte for byte
+    // (pinned for each by ToolResultReplayTests). Another adapter would need its own rule.
     private static string? AsSentToProvider(object? result) => result switch
     {
         null => null,
