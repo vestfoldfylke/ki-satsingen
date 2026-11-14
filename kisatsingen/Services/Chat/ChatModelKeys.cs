@@ -6,4 +6,5 @@ public static class ChatModelKeys
 {
     public static readonly ChatModelKey OpenAI = new("openai");
     public static readonly ChatModelKey Mistral = new("mistral");
+    public static readonly ChatModelKey MistralSmall = new("mistral-small");
 }
