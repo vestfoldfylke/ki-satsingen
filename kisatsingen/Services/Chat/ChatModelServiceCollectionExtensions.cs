@@ -31,8 +31,7 @@ internal static class ChatModelServiceCollectionExtensions
         DisplayName = "Mistral Large",
         ShortDescription = "Grundige svar, europeisk leverandør.",
         LongDescription =
-            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
-            + "Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
         Provider = "Mistral AI",
         ModelId = "mistral-large-4",
         ContextWindowTokens = 1_000_000,
@@ -45,8 +44,7 @@ internal static class ChatModelServiceCollectionExtensions
         DisplayName = "Mistral Small",
         ShortDescription = "Raske svar, europeisk leverandør.",
         LongDescription =
-            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. "
-            + "Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
+            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
         Provider = "Mistral AI",
         ModelId = "mistral-small-2603",
         ContextWindowTokens = 256_000,
