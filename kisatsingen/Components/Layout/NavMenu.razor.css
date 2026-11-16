@@ -105,20 +105,22 @@
 .chat-list {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-list-scroll {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
 }
 
 .chat-list-header {
-    top: 0;
-    text-decoration: none;
-    position: sticky;
     display: flex;
-    z-index: 1;
 }
 
 .chat-list-header > button {
     color: var(--ds-color-text-default);
-    background: var(--ds-color-neutral-background-default);
     font: inherit;
 }
 

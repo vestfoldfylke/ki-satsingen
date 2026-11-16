@@ -75,19 +75,21 @@
                     </span>
                 </button>
             </h2>
-            @if (_chatsOpen)
-            {
-                <ChatListItems MaxListedChats="15" TooltipOnChatListTitleLengthThreshold="20"/>
+            <div class="chat-list-scroll">
+                @if (_chatsOpen)
+                {
+                    <ChatListItems MaxListedChats="15" TooltipOnChatListTitleLengthThreshold="20"/>
 
-                <a
-                    class="ds-button nav-primary-button"
-                    href="/chats"
-                    data-variant="tertiary"
-                    data-color="accent"
-                >
-                    Gå til alle samtaler
-                </a>
-            }
+                    <a
+                        class="ds-button nav-primary-button"
+                        href="/chats"
+                        data-variant="tertiary"
+                        data-color="accent"
+                    >
+                        Gå til alle samtaler
+                    </a>
+                }
+            </div>
         </aside>
 
         <div class="user-menu">
