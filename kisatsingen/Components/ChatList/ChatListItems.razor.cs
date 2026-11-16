@@ -10,7 +10,7 @@ public sealed partial class ChatListItems : ComponentBase, IDisposable
     private string DeleteChatDialogId => $"delete-chat-dialog{IdSuffix}";
 
     [Parameter]
-    public int TooltipOnChatListTitleLengthThreshold { get; set; } = 80;
+    public int TooltipTitleLengthThreshold { get; set; } = 80;
 
     [Parameter]
     public int? MaxListedChats { get; set; }

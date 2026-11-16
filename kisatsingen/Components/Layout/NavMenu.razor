@@ -66,7 +66,7 @@
                         class="ds-button nav-primary-button"
                         data-variant="tertiary"
                         aria-expanded="@_chatsOpen.ToString().ToLowerInvariant()"
-                        aria-controls="chat-list-items"
+                        aria-controls="chat-list-content"
                         @onclick="() => _chatsOpen = !_chatsOpen"
                 >
                     Samtaler
@@ -75,10 +75,10 @@
                     </span>
                 </button>
             </h2>
-            <div class="chat-list-scroll">
+            <div id="chat-list-content" class="chat-list-scroll">
                 @if (_chatsOpen)
                 {
-                    <ChatListItems MaxListedChats="15" TooltipOnChatListTitleLengthThreshold="20"/>
+                    <ChatListItems MaxListedChats="15" TooltipTitleLengthThreshold="20"/>
 
                     <a
                         class="ds-button nav-primary-button"

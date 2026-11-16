@@ -4,11 +4,11 @@
 }
 else
 {
-    <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
+    <ul class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
         @foreach (var entry in ListedChats)
         {
-            var menuId = $"chats-page-menu{IdSuffix}-{entry.Id}";
-            var linkId = $"chats-page-link{IdSuffix}-{entry.Id}";
+            var menuId = $"chat-list-item-menu{IdSuffix}-{entry.Id}";
+            var linkId = $"chat-list-item-link{IdSuffix}-{entry.Id}";
 
             <li @key="entry.Id">
                 <div
@@ -22,7 +22,7 @@ else
                         class="ds-link chat-list-link"
                         id="@linkId"
                         href="@($"/chat/{entry.Id}")"
-                        data-tooltip="@(entry.Title.Length > TooltipOnChatListTitleLengthThreshold ? entry.Title : null)"
+                        data-tooltip="@(entry.Title.Length > TooltipTitleLengthThreshold ? entry.Title : null)"
                         data-placement="right"
                         data-variant="tertiary"
                         data-color="neutral"
