@@ -5,8 +5,7 @@
 else
 {
     <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list @(HasDetailedView ? "chat-list-items-detailed" : "chat-list-items")" data-color="neutral">
-        @if (HasDetailedView) _maxVisibleChats = ChatList.Count;
-        @foreach (var entry in ChatList.Take(_maxVisibleChats))
+        @foreach (var entry in VisibleChats)
         {
             var menuId = $"chats-page-menu{IdSuffix}-{entry.Id}";
             var linkId = $"chats-page-link{IdSuffix}-{entry.Id}";
