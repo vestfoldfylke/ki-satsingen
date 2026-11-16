@@ -8,12 +8,12 @@ public sealed partial class ChatListItems : ComponentBase, IDisposable
     private const int TooltipOnChatListTitleLengthThreshold = 80;
 
     private int _maxVisibleChats = 15;
-    private string IdSuffix => UseDetailedFormatting ? "-detailed" : "";
+    private string IdSuffix => HasDetailedView ? "-detailed" : "";
     private string RenameChatDialogId => $"rename-chat-dialog{IdSuffix}";
     private string DeleteChatDialogId => $"delete-chat-dialog{IdSuffix}";
 
     [Parameter]
-    public bool UseDetailedFormatting { get; set; }
+    public bool HasDetailedView { get; set; }
 
     [Inject]
     public required ChatManager Manager { get; set; }

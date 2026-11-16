@@ -1,11 +1,11 @@
 @if (ChatList.Count == 0)
 {
-    <p class="ds-paragraph @(UseDetailedFormatting ? "chat-list-empty-detailed" : "chat-list-empty")">Ingen samtaler enda</p>
+    <p class="ds-paragraph @(HasDetailedView ? "chat-list-empty-detailed" : "chat-list-empty")">Ingen samtaler enda</p>
 }
 else
 {
-    <ul id="@(UseDetailedFormatting ? null : "chat-list-items")" class="ds-list @(UseDetailedFormatting ? "chat-list-items-detailed" : "chat-list-items")" data-color="neutral">
-        @if (UseDetailedFormatting) _maxVisibleChats = ChatList.Count;
+    <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list @(HasDetailedView ? "chat-list-items-detailed" : "chat-list-items")" data-color="neutral">
+        @if (HasDetailedView) _maxVisibleChats = ChatList.Count;
         @foreach (var entry in ChatList.Take(_maxVisibleChats))
         {
             var menuId = $"chats-page-menu{IdSuffix}-{entry.Id}";
@@ -38,7 +38,7 @@ else
                         <span class="chat-list-title">@entry.Title</span>
                     </a>
 
-                    @if (UseDetailedFormatting)
+                    @if (HasDetailedView)
                     {
                         <span class="ds-paragraph chat-list-item-date" data-size="sm">
                             <NorwegianDate Value="entry.UpdatedAt" />
@@ -55,7 +55,7 @@ else
                         aria-label="Valg for samtalen"
                         data-tooltip="Valg for samtalen"
                     >
-                        <span class="material-symbols-outlined" aria-hidden="true">@(UseDetailedFormatting ? "more_horiz" : "more_vert")</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">@(HasDetailedView ? "more_horiz" : "more_vert")</span>
                     </button>
                     <div
                         class="ds-dropdown chat-list-item-option-dropdown-menu"
@@ -96,7 +96,7 @@ else
                     </div>
                 </div>
 
-                @if (UseDetailedFormatting)
+                @if (HasDetailedView)
                 {
                     <hr aria-hidden="true" class="ds-divider chat-list-item-divider"/>
                 }
