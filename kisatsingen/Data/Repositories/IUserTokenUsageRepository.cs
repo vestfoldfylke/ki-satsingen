@@ -8,28 +8,28 @@ public interface IUserTokenUsageRepository
     Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default);
 
     Task<TokenUsageSummary> GetTotalsAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         UsageBucket bucket,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 
     Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(
-        Guid ownerId,
+        Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default);
 }

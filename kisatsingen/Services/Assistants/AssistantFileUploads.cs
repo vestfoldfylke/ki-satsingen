@@ -29,7 +29,7 @@ public sealed class AssistantFileUploads(
     // Replaced on reset, never disposed: an upload may still be linking to its token.
     private CancellationTokenSource _cancellation = new();
 
-    private Guid? _ownerId;
+    private Guid? _userId;
 
     public event Action? Changed;
 
@@ -55,7 +55,7 @@ public sealed class AssistantFileUploads(
     {
         // This selection's own, so a reset stops it but not the next one.
         var ct = _cancellation.Token;
-        var ownerId = await EnsureOwnerAsync();
+        var userId = await EnsureUserIdAsync();
 
         // Checked before GetMultipleFiles, which throws above its limit.
         if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
@@ -76,7 +76,7 @@ public sealed class AssistantFileUploads(
         {
             try
             {
-                await AddOneAsync(ownerId, assistantId, upload, file, type, onFileSaved, ct);
+                await AddOneAsync(userId, assistantId, upload, file, type, onFileSaved, ct);
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested)
             {
@@ -143,7 +143,7 @@ public sealed class AssistantFileUploads(
 
     // Throws only when cancelled; a save already committed by then stays.
     private async Task AddOneAsync(
-        Guid ownerId,
+        Guid userId,
         Guid assistantId,
         AssistantFileUpload upload,
         IBrowserFile file,
@@ -156,7 +156,7 @@ public sealed class AssistantFileUploads(
         ct.ThrowIfCancellationRequested();
 
         var attachmentId = Guid.NewGuid();
-        var outcome = await UploadWithinQuotaAsync(ownerId, attachmentId, upload, file, type, ct);
+        var outcome = await UploadWithinQuotaAsync(userId, attachmentId, upload, file, type, ct);
         switch (outcome)
         {
             case UploadOutcome.Rejected rejected:
@@ -166,7 +166,7 @@ public sealed class AssistantFileUploads(
                 upload.MarkProcessing();
                 Changed?.Invoke();
                 var attachment = new ReadyAttachment(attachmentId, upload.FileName, type, stored.SizeBytes, stored.Sha256, stored.File);
-                await ProcessAsync(ownerId, assistantId, upload, attachment, onFileSaved, ct);
+                await ProcessAsync(userId, assistantId, upload, attachment, onFileSaved, ct);
                 return;
             default:
                 throw new UnreachableException($"The upload returned {outcome.GetType().Name}, which the assistant's uploads do not handle. Handle it here.");
@@ -174,14 +174,14 @@ public sealed class AssistantFileUploads(
     }
 
     private async Task ProcessAsync(
-        Guid ownerId,
+        Guid userId,
         Guid assistantId,
         AssistantFileUpload upload,
         ReadyAttachment attachment,
         Func<Task> onFileSaved,
         CancellationToken ct)
     {
-        var result = await _processor.ProcessAsync(ownerId, assistantId, attachment, ct);
+        var result = await _processor.ProcessAsync(userId, assistantId, attachment, ct);
         switch (result)
         {
             case AssistantFileResult.Rejected rejected:
@@ -197,14 +197,14 @@ public sealed class AssistantFileUploads(
     }
 
     private async Task<UploadOutcome> UploadWithinQuotaAsync(
-        Guid ownerId,
+        Guid userId,
         Guid attachmentId,
         AssistantFileUpload upload,
         IBrowserFile file,
         AttachmentType type,
         CancellationToken ct)
     {
-        if (quota.CheckDeclaredSizeFits(ownerId, file.Size) is QuotaCheck.Rejected startRejection)
+        if (quota.CheckDeclaredSizeFits(userId, file.Size) is QuotaCheck.Rejected startRejection)
         {
             return new UploadOutcome.Rejected(startRejection.Reason);
         }
@@ -216,13 +216,13 @@ public sealed class AssistantFileUploads(
                 Changed?.Invoke();
             }
         });
-        var outcome = await uploader.UploadAsync(ownerId, attachmentId, file, type, progress, ct);
+        var outcome = await uploader.UploadAsync(userId, attachmentId, file, type, progress, ct);
         if (outcome is not UploadOutcome.Stored stored)
         {
             return outcome;
         }
 
-        return quota.MarkReadyIfFits(ownerId, stored) is QuotaCheck.Rejected finishRejection
+        return quota.MarkReadyIfFits(userId, stored) is QuotaCheck.Rejected finishRejection
             ? new UploadOutcome.Rejected(finishRejection.Reason)
             : stored;
     }
@@ -234,6 +234,6 @@ public sealed class AssistantFileUploads(
         metrics.CountRejected(rejection);
     }
 
-    private async Task<Guid> EnsureOwnerAsync() =>
-        _ownerId ??= await authenticationService.RequireUserObjectIdentifierAsync();
+    private async Task<Guid> EnsureUserIdAsync() =>
+        _userId ??= await authenticationService.RequireUserObjectIdentifierAsync();
 }

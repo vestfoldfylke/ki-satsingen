@@ -153,6 +153,9 @@ namespace kisatsingen.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<long?>("ReasoningTokens")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("ResponseId")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
@@ -298,13 +301,13 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("OutputTokens")
                         .HasColumnType("bigint");
 
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Provider")
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<long?>("ReasoningTokens")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -317,12 +320,15 @@ namespace kisatsingen.Migrations
                     b.Property<Guid?>("TurnId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssistantId", "Timestamp")
                         .HasFilter("\"AssistantId\" IS NOT NULL");
 
-                    b.HasIndex("OwnerId", "Timestamp");
+                    b.HasIndex("UserId", "Timestamp");
 
                     b.ToTable("TokenUsages");
                 });

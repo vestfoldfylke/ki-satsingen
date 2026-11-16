@@ -20,6 +20,17 @@ public sealed class TranscriptRequestTests
     }
 
     [Fact]
+    public void Reasoning_from_an_earlier_turn_is_not_sent()
+    {
+        var request = TranscriptRequest.Build([TurnWith("hei",
+            new ReasoningSegment(Guid.NewGuid(), 0, "Brukeren hilser"),
+            Text(0, "hei selv"))]);
+
+        Assert.DoesNotContain(request.SelectMany(message => message.Contents), content => content is TextReasoningContent);
+        Assert.Equal("hei selv", request[1].Text);
+    }
+
+    [Fact]
     public void A_tool_the_model_answered_after_is_sent_as_a_call_then_its_result()
     {
         var request = TranscriptRequest.Build([TurnWith("hva er klokka?",

@@ -3,7 +3,7 @@ using kisatsingen.Services.Chat;
 namespace kisatsingen.Data.Repositories;
 
 public sealed record TokenUsageEntry(
-    Guid OwnerId,
+    Guid UserId,
     Guid ChatId,
     Guid TurnId,
     Guid? AssistantId,

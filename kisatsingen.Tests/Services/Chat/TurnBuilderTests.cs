@@ -176,9 +176,93 @@ public sealed class TurnBuilderTests
     {
         var builder = Builder();
 
-        builder.Apply(new ChatResponseUpdate(ChatRole.Assistant, [new TextReasoningContent("tenker")]));
+        builder.Apply(new ChatResponseUpdate(ChatRole.Assistant, [new UriContent("https://example.invalid/bilde.png", "image/png")]));
 
         Assert.Empty(builder.Snapshot().Answer);
+    }
+
+    [Fact]
+    public void Reasoning_that_streams_without_interruption_is_one_segment_before_the_answer()
+    {
+        var builder = Builder();
+
+        builder.Apply(Reasoning("Brukeren "));
+        builder.Apply(Reasoning("spør"));
+        builder.Apply(Text("svar"));
+
+        Assert.Equal(["reasoning:Brukeren spør", "text:svar"], Describe(builder.Snapshot().Answer));
+    }
+
+    [Fact]
+    public void Reasoning_after_text_ends_that_text_so_later_text_reads_after_the_reasoning()
+    {
+        var builder = Builder();
+
+        builder.Apply(Text("før"));
+        builder.Apply(Reasoning("tenker"));
+        builder.Apply(Text("etter"));
+
+        Assert.Equal(["text:før", "reasoning:tenker", "text:etter"], Describe(builder.Snapshot().Answer));
+    }
+
+    [Fact]
+    public void Reasoning_after_a_tool_result_belongs_to_the_next_round()
+    {
+        var builder = Builder();
+
+        builder.Apply(Reasoning("trenger klokka"));
+        builder.Apply(Call("call-1"));
+        builder.Apply(Result("call-1"));
+        builder.Apply(Reasoning("har klokka"));
+
+        Assert.Equal([0, 1], builder.Snapshot().Answer.OfType<ReasoningSegment>().Select(reasoning => reasoning.Round));
+    }
+
+    [Fact]
+    public void Only_the_start_of_reasoning_asks_for_a_render()
+    {
+        var builder = Builder();
+
+        var started = builder.Apply(Reasoning("Brukeren "));
+        var continued = builder.Apply(Reasoning("spør"));
+
+        Assert.IsType<TurnChange.ReasoningStarted>(Assert.Single(started));
+        Assert.Empty(continued);
+    }
+
+    // Responses can carry reasoning only as encrypted data, with no text to show.
+    [Fact]
+    public void Reasoning_without_text_adds_nothing()
+    {
+        var builder = Builder();
+
+        builder.Apply(new ChatResponseUpdate(ChatRole.Assistant, [new TextReasoningContent("") { ProtectedData = "kryptert" }]));
+
+        Assert.Empty(builder.Snapshot().Answer);
+    }
+
+    [Fact]
+    public void A_turn_stopped_while_reasoning_keeps_the_reasoning_so_far()
+    {
+        var builder = Builder();
+        builder.Apply(Reasoning("halvt"));
+
+        var stopped = builder.Finish(TurnStatus.Stopped);
+
+        Assert.Equal(["reasoning:halvt"], Describe(stopped.Answer));
+    }
+
+    // Reasoning is billed as output, so a stop mid-reasoning is not free.
+    [Fact]
+    public void A_turn_stopped_while_reasoning_estimates_the_reasoning_as_written()
+    {
+        var builder = Builder(requestTokens: 50);
+        builder.DurationMs = 10;
+        builder.Apply(Reasoning("Brukeren spør hva klokka er"));
+
+        var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
+
+        Assert.InRange(usage?.EstimatedOutputTokens ?? 0, 1, long.MaxValue);
     }
 
     [Fact]
@@ -217,6 +301,18 @@ public sealed class TurnBuilderTests
     }
 
     [Fact]
+    public void Reasoning_tokens_are_summed_across_the_round_trips_of_a_turn()
+    {
+        var builder = Builder();
+        builder.DurationMs = 10;
+
+        builder.Apply(Usage(100, 10, reasoning: 6));
+        builder.Apply(Usage(200, 20, reasoning: 15));
+
+        Assert.Equal(21, builder.Finish(TurnStatus.Completed).Metadata?.Usage?.ReasoningTokens);
+    }
+
+    [Fact]
     public void A_stopped_turn_the_provider_never_reported_on_estimates_its_request_and_what_was_written()
     {
         var builder = Builder(requestTokens: 50);
@@ -242,7 +338,7 @@ public sealed class TurnBuilderTests
         var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
 
         var answer = builder.Snapshot().Answer;
-        var resentForRoundTwo = 50 + ContextTokenEstimator.EstimateResent(answer[0]);
+        var resentForRoundTwo = 50 + ContextTokenEstimator.EstimateResentWithinTurn(answer[0]);
         Assert.Equal(new MessageUsage(500, 20, resentForRoundTwo, ContextTokenEstimator.EstimateGenerated(answer[1])), usage);
     }
 
@@ -281,7 +377,7 @@ public sealed class TurnBuilderTests
 
         var usage = builder.Finish(TurnStatus.Stopped).Metadata?.Usage;
 
-        var resentWithTheResult = 50 + ContextTokenEstimator.EstimateResent(Assert.Single(builder.Snapshot().Answer));
+        var resentWithTheResult = 50 + ContextTokenEstimator.EstimateResentWithinTurn(Assert.Single(builder.Snapshot().Answer));
         Assert.Equal(new MessageUsage(500, 20, resentWithTheResult, 0), usage);
     }
 
@@ -321,13 +417,23 @@ public sealed class TurnBuilderTests
 
     private static ChatResponseUpdate Text(string text) => new(ChatRole.Assistant, text);
 
+    private static ChatResponseUpdate Reasoning(string text) => new(ChatRole.Assistant, [new TextReasoningContent(text)]);
+
+    private static IEnumerable<string> Describe(IReadOnlyList<TurnSegment> answer) =>
+        answer.Select(segment => segment switch
+        {
+            TextSegment text => $"text:{text.Text}",
+            ReasoningSegment reasoning => $"reasoning:{reasoning.Text}",
+            _ => segment.GetType().Name
+        });
+
     private static ChatResponseUpdate Call(string callId) =>
         new(ChatRole.Assistant, [new FunctionCallContent(callId, "probe")]);
 
     private static ChatResponseUpdate Result(string callId, string result = "ok") =>
         new(ChatRole.Tool, [new FunctionResultContent(callId, result)]);
 
-    private static ChatResponseUpdate Usage(long input, long output, long? cachedInput = null) =>
+    private static ChatResponseUpdate Usage(long input, long output, long? cachedInput = null, long? reasoning = null) =>
         new(ChatRole.Assistant,
         [
             new UsageContent(new UsageDetails
@@ -335,7 +441,8 @@ public sealed class TurnBuilderTests
                 InputTokenCount = input,
                 OutputTokenCount = output,
                 TotalTokenCount = input + output,
-                CachedInputTokenCount = cachedInput
+                CachedInputTokenCount = cachedInput,
+                ReasoningTokenCount = reasoning
             })
         ]);
 }

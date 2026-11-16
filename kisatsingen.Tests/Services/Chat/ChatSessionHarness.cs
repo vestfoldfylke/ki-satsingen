@@ -267,21 +267,21 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
         return Task.CompletedTask;
     }
 
-    // Chat-session tests only exercise the insert path; the owner-scoped query
+    // Chat-session tests only exercise the insert path; the user-scoped query
     // methods are stubbed so the fake still satisfies the interface.
-    public Task<TokenUsageSummary> GetTotalsAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<TokenUsageSummary> GetTotalsAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult(TokenUsageSummary.Empty);
 
-    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid ownerId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid userId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByProviderAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<TurnStatus>>> GetUsageByStatusAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<TurnStatus>>>([]);
 
-    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(Guid ownerId, DateTimeOffset? since, CancellationToken ct = default) =>
+    public Task<IReadOnlyList<UsageByKey<string>>> GetUsageByModelAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageByKey<string>>>([]);
 }
 
@@ -388,10 +388,11 @@ internal static class ModelStream
         string text,
         long inputTokens,
         long outputTokens,
-        long? cachedInputTokens = null)
+        long? cachedInputTokens = null,
+        long? reasoningTokens = null)
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, text);
-        yield return Usage(inputTokens, outputTokens, cachedInputTokens);
+        yield return Usage(inputTokens, outputTokens, cachedInputTokens, reasoningTokens);
         await Task.CompletedTask;
     }
 
@@ -460,7 +461,7 @@ internal static class ModelStream
         yield break;
     }
 
-    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens, long? cachedInputTokens = null) =>
+    private static ChatResponseUpdate Usage(long inputTokens, long outputTokens, long? cachedInputTokens = null, long? reasoningTokens = null) =>
         new(ChatRole.Assistant,
         [
             new UsageContent(new UsageDetails
@@ -468,7 +469,8 @@ internal static class ModelStream
                 InputTokenCount = inputTokens,
                 OutputTokenCount = outputTokens,
                 TotalTokenCount = inputTokens + outputTokens,
-                CachedInputTokenCount = cachedInputTokens
+                CachedInputTokenCount = cachedInputTokens,
+                ReasoningTokenCount = reasoningTokens
             })
         ]);
 }

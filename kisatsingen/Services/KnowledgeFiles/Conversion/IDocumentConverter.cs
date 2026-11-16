@@ -1,8 +1,8 @@
 namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 
 // Exactly one converter per content type, chosen by DocumentConverterRegistry.
-// A new converter also needs its registration in Program.cs and its
-// extensions in AttachmentContentTypes.
+// A new converter also needs its registration in AddKnowledgeFilePipeline and
+// its extensions in AttachmentContentTypes.
 public interface IDocumentConverter
 {
     IReadOnlyList<string> ContentTypes { get; }

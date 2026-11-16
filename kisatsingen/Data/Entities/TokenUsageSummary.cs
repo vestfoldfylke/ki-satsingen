@@ -6,7 +6,8 @@ public record TokenUsageSummary(
     long TotalEstimatedInputTokens,
     long TotalEstimatedOutputTokens,
     long TotalCachedInputTokens,
+    long TotalReasoningTokens,
     int TurnCount)
 {
-    public static TokenUsageSummary Empty { get; } = new(0, 0, 0, 0, 0, 0);
+    public static TokenUsageSummary Empty { get; } = new(0, 0, 0, 0, 0, 0, 0);
 }
