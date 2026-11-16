@@ -42,7 +42,7 @@ public partial class NavMenu : ComponentBase, IDisposable
         }
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         Navigation.LocationChanged += OnLocationChanged;
     }
