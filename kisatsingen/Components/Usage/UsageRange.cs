@@ -1,4 +1,5 @@
 using kisatsingen.Data.Entities;
+using kisatsingen.Services;
 
 namespace kisatsingen.Components.Usage;
 
@@ -12,11 +13,9 @@ public enum UsageRange
 
 public static class UsageRangeExtensions
 {
-    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-
     public static DateTimeOffset? Since(this UsageRange range)
     {
-        var today = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, Oslo).Date;
+        var today = DateTimeService.GetTimeZonedDateTimeOffset(DateTimeOffset.UtcNow).Date;
 
         DateTime? start = range switch
         {

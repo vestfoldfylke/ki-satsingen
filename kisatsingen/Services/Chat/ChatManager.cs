@@ -81,6 +81,15 @@ public sealed class ChatManager
         RaiseChanged();
     }
 
+    // For a chat found to be gone, e.g. deleted by the retention cleanup while listed.
+    public void Forget(Guid chatId)
+    {
+        if (_entries.RemoveAll(e => e.Id == chatId) > 0)
+        {
+            RaiseChanged();
+        }
+    }
+
     public async Task<bool> RenameAsync(Guid chatId, string title, CancellationToken ct = default)
     {
         var trimmed = title.Trim();

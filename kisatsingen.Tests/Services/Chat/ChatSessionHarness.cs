@@ -125,6 +125,9 @@ internal sealed class FakeChatRepository : IChatRepository
     public Exception? CreateChatFailure { get; set; }
     public Exception? InsertTurnFailure { get; set; }
 
+    // Chats deleted behind the session's back, as the retention cleanup does.
+    public HashSet<Guid> DeletedBehindTheSessionsBack { get; } = [];
+
     // Only the first update: "the answer couldn't be saved" fails that one, and
     // later updates are unscripted so a second send doesn't inherit the failure.
     public Exception? FirstUpdateFailure { get; set; }
@@ -196,15 +199,20 @@ internal sealed class FakeChatRepository : IChatRepository
     public Task<IReadOnlyList<ChatSummary>> ListChatsAsync(Guid ownerId, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<ChatSummary>>([]);
 
-    public Task InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
+    public Task<bool> InsertTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)
     {
         if (InsertTurnFailure is not null)
         {
-            return Task.FromException(InsertTurnFailure);
+            return Task.FromException<bool>(InsertTurnFailure);
+        }
+
+        if (DeletedBehindTheSessionsBack.Contains(chatId))
+        {
+            return Task.FromResult(false);
         }
 
         Writes.Add(new TurnWrite(chatId, turn));
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     public Task UpdateTurnAsync(Guid ownerId, Guid chatId, ChatTurn turn, CancellationToken ct = default)

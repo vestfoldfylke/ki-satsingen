@@ -30,6 +30,9 @@ public static class MetricConstants
     // Apart from failed, so an auth problem isn't read as the chat breaking.
     public static string MetricsResultUnauthenticatedLabelValue => "unauthenticated";
 
+    // Apart from failed: the chat was deleted while open, which is expected, not broken.
+    public static string MetricsResultChatDeletedLabelValue => "chat_deleted";
+
     // The one bucket worth alerting on.
     public static string MetricsResultFailedLabelValue => "failed";
 

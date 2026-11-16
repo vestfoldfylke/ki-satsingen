@@ -38,8 +38,6 @@ public partial class AssistantTurn : ComponentBase
     // call's result stays last until the next round writes something.
     private Guid? RunningReasoningSegmentId => IsLive && Turn.Answer is [.., ReasoningSegment last] ? last.Id : null;
 
-    private static readonly TimeZoneInfo Oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
-
     // Blanks count as absent, so nothing renders as " ()".
     private static string? DescribeModel(Turn turn)
     {
