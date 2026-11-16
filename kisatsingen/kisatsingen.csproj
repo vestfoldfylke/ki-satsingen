@@ -39,6 +39,11 @@
       <PackageReference Include="Vestfold.Extensions.Metrics" Version="2.0.0" />
     </ItemGroup>
 
+    <!-- Embedded, so a deployment can never run without the template. -->
+    <ItemGroup>
+      <EmbeddedResource Include="Services\Presentations\Templates\vestfold.potx" LogicalName="kisatsingen.Presentations.VestfoldTemplate.potx" />
+    </ItemGroup>
+
     <!-- The chat core's pure internals (TurnBuilder, TranscriptRequest, ...) were
          extracted to be tested directly. -->
     <ItemGroup>

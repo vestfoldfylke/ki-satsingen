@@ -1,0 +1,61 @@
+using System.ComponentModel;
+using System.Text.Json;
+using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.Services.Presentations;
+using Microsoft.Extensions.AI;
+using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
+
+namespace kisatsingen.AIFunctions.PresentationTools;
+
+// Checks the slides and reports back; no file is made or kept here. The
+// arguments are stored with the tool call in the chat, and the download button
+// builds the file from them when it is clicked.
+internal static class CreatePresentationTool
+{
+    public const string Name = "create_presentation";
+
+    public const string Description =
+        "Creates a PowerPoint file (.pptx) in Vestfold fylkeskommune's official design from slides you write, and gives the user a download button. " +
+        "Use it when the user asks for a presentation, slides or a PowerPoint, typically from text they paste. " +
+        "Build the slides from the user's own text: shorten and structure it, but never add facts that are not in it. " +
+        "Keep bullets to short phrases; prefer more slides over crowded ones. " +
+        "Start with a Cover slide; add an Agenda and Chapter dividers for longer material; end with a Closing slide when it fits. " +
+        "Every slide needs a title. Write in the language of the user's text.";
+
+    public const string Notice =
+        "Presentasjonen er laget. Brukeren laster den ned med knappen som vises ved dette verktøykallet. " +
+        "Ikke skriv en lenke eller filsti til den; svar kort med hva presentasjonen inneholder.";
+
+    public static AIFunction Create() =>
+        FileToolFunction.Create(Name, Description, (
+            [Description("The presentation's title; it also becomes the file name and the document title.")] string title,
+            [Description("The colour theme. Use SivStrand unless the user asks for another.")] PresentationTheme theme,
+            [Description("The slides, in order.")] SlideSpec[] slides) => Check(new PresentationSpec(title, theme, slides)));
+
+    // The arguments of a stored call, read the way the tool was given them. Null
+    // when they are not a presentation this build can make, such as one stored
+    // before a slide kind was removed.
+    public static PresentationSpec? ReadArguments(JsonElement arguments)
+    {
+        try
+        {
+            var spec = arguments.Deserialize<PresentationSpec>(AIJsonUtilities.DefaultOptions);
+            return spec is { Title: not null, Slides: not null } && PresentationSpecValidator.Validate(spec).Count == 0 ? spec : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static object Check(PresentationSpec spec)
+    {
+        var problems = PresentationSpecValidator.Validate(spec);
+        if (problems.Count > 0)
+        {
+            return new ToolError($"Presentasjonen ble ikke laget. Rett dette og prøv igjen: {string.Join(" ", problems)}");
+        }
+
+        return new PresentationCreatedResult(PresentationFileName.From(spec.Title), spec.Slides.Count, Notice);
+    }
+}

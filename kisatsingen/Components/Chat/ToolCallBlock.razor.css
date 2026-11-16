@@ -6,3 +6,12 @@
     max-block-size: 20rem;
     overflow-y: auto;
 }
+
+/* Outside the details, so the file can be fetched without opening them. */
+.chat-tool-download {
+    margin-block-end: var(--ds-size-2);
+}
+
+.chat-tool-download-problem {
+    margin-block-end: var(--ds-size-2);
+}

@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.PresentationTools;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -31,6 +32,7 @@ internal sealed class TurnRunner
     private readonly IUserTokenUsageRepository _userTokenUsageRepository;
     private readonly TurnAttachmentProcessor _attachmentProcessor;
     private readonly FileToolFactory _fileTools;
+    private readonly PresentationToolFactory _presentationTools;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -43,7 +45,8 @@ internal sealed class TurnRunner
         ILogger logger,
         IUserTokenUsageRepository userTokenUsageRepository,
         TurnAttachmentProcessor attachmentProcessor,
-        FileToolFactory fileTools)
+        FileToolFactory fileTools,
+        PresentationToolFactory presentationTools)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -56,6 +59,7 @@ internal sealed class TurnRunner
         _userTokenUsageRepository = userTokenUsageRepository;
         _attachmentProcessor = attachmentProcessor;
         _fileTools = fileTools;
+        _presentationTools = presentationTools;
     }
 
     // Throws only what the page must handle itself: an unauthenticated caller, an
@@ -291,6 +295,11 @@ internal sealed class TurnRunner
             var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
+
+        // Always offered, not gated like the file tools: any message may be text
+        // to turn into slides, and a tool list that stays the same keeps the
+        // provider's prompt cache valid.
+        options.Tools = [.. options.Tools ?? [], .. _presentationTools.Create()];
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);
     }

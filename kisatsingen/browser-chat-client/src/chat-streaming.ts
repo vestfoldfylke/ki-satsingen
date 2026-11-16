@@ -22,6 +22,7 @@ import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
 import { showPlainText } from './file-viewer.js';
+import { downloadFile } from './file-download.js';
 
 import bash from 'highlight.js/lib/languages/bash';
 import csharp from 'highlight.js/lib/languages/csharp';
@@ -285,6 +286,7 @@ declare global {
             takeComposerValue: typeof takeComposerValue;
             hidePopover: typeof hidePopover;
             showPlainText: typeof showPlainText;
+            downloadFile: typeof downloadFile;
         };
     }
 }
@@ -301,4 +303,5 @@ window.chatClient = {
     takeComposerValue,
     hidePopover,
     showPlainText,
+    downloadFile,
 };
