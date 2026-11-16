@@ -117,7 +117,7 @@ internal sealed class TurnRunner
             }
 
             stage = TurnStage.ProcessingAttachments;
-            await ProcessAttachmentsAsync(inserted, input.AssistantId, input.SentAttachments.All, builder, observer, cancellation.Token);
+            await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
             await StreamAsync(inserted, input, builder, observer, cancellation.Token);
@@ -224,7 +224,7 @@ internal sealed class TurnRunner
             throw;
         }
 
-        var inserted = new InsertedTurn(ownerId, row.ChatId, turn.Id);
+        var inserted = new InsertedTurn(ownerId, row.ChatId, turn.Id, row.AssistantId);
         row.Inserted = inserted;
         observer.TurnSaved();
         return inserted;
@@ -248,7 +248,6 @@ internal sealed class TurnRunner
     // leaves the rest processing, and ending the turn marks them interrupted.
     private async Task ProcessAttachmentsAsync(
         InsertedTurn inserted,
-        Guid? assistantId,
         IReadOnlyList<ReadyAttachment> sentAttachments,
         TurnBuilder builder,
         TurnObserver observer,
@@ -256,7 +255,7 @@ internal sealed class TurnRunner
     {
         for (var index = 0; index < sentAttachments.Count; index++)
         {
-            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, inserted.TurnId, assistantId, sentAttachments[index], ct);
+            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, inserted.TurnId, inserted.AssistantId, sentAttachments[index], ct);
 
             builder.SettleAttachment(index, result);
             if (result is TurnAttachmentResult.Available available)
@@ -289,7 +288,7 @@ internal sealed class TurnRunner
 
         if (input.ShouldOfferFileTools)
         {
-            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
+            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, inserted.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
@@ -390,6 +389,6 @@ internal sealed class TurnRunner
         public InsertedTurn? Inserted { get; set; }
     }
 
-    // Where the turn's row is, once it is written.
-    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId, Guid TurnId);
+    // The turn's row and what it belongs to, once it is written.
+    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId, Guid TurnId, Guid? AssistantId);
 }
