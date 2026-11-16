@@ -5,13 +5,15 @@ namespace kisatsingen.Components.ChatList;
 
 public sealed partial class ChatListItems : ComponentBase, IDisposable
 {
-    private const int TooltipOnChatListTitleLengthThreshold = 80;
     private string IdSuffix => HasDetailedView ? "-detailed" : "";
     private string RenameChatDialogId => $"rename-chat-dialog{IdSuffix}";
     private string DeleteChatDialogId => $"delete-chat-dialog{IdSuffix}";
 
     [Parameter]
-    public int? MaxVisibleChats { get; set; }
+    public int TooltipOnChatListTitleLengthThreshold { get; set; } = 80;
+
+    [Parameter]
+    public int? MaxListedChats { get; set; }
 
     [Parameter]
     public bool HasDetailedView { get; set; }
@@ -24,7 +26,7 @@ public sealed partial class ChatListItems : ComponentBase, IDisposable
 
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
 
-    private IEnumerable<ChatListEntry> VisibleChats => ChatList.Take(MaxVisibleChats ?? ChatList.Count);
+    private IEnumerable<ChatListEntry> ListedChats => ChatList.Take(MaxListedChats ?? ChatList.Count);
 
     private RenameChatDialog? _renameDialog;
     private DeleteChatDialog? _deleteDialog;

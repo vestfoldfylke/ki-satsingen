@@ -5,7 +5,7 @@
 else
 {
     <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list @(HasDetailedView ? "chat-list-items-detailed" : "chat-list-items")" data-color="neutral">
-        @foreach (var entry in VisibleChats)
+        @foreach (var entry in ListedChats)
         {
             var menuId = $"chats-page-menu{IdSuffix}-{entry.Id}";
             var linkId = $"chats-page-link{IdSuffix}-{entry.Id}";
@@ -54,7 +54,7 @@ else
                         aria-label="Valg for samtalen"
                         data-tooltip="Valg for samtalen"
                     >
-                        <span class="material-symbols-outlined" aria-hidden="true"> "more_vert"</span>
+                        <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
                     </button>
                     <div
                         class="ds-dropdown chat-list-item-option-dropdown-menu"
