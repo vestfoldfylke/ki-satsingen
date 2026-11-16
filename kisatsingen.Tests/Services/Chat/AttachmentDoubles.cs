@@ -21,6 +21,9 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 
     public HashSet<string> FileNamesThatFailToConvert { get; } = new(StringComparer.Ordinal);
 
+    // Reported on every result, the way a converter that calls a model would.
+    public ConversionTokenUsage? Spent { get; set; }
+
     public void Hold(string fileName)
     {
         lock (_gates)
@@ -53,7 +56,7 @@ internal sealed class HoldingTextConverter : IDocumentConverter
             await gate.Released.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         }
 
-        return await _inner.ConvertAsync(request, ct);
+        return await _inner.ConvertAsync(request, ct) with { TokenUsage = Spent };
     }
 
     private Gate HeldGate(string fileName) =>

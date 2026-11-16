@@ -33,13 +33,13 @@ public sealed class KnowledgeFilePipeline(
     {
         if (!converters.TryGet(attachment.Type.ContentType, out var converter))
         {
-            return new KnowledgeFilePipelineResult.Rejected(PipelineRejections.UnsupportedType);
+            return new KnowledgeFilePipelineResult.Rejected(PipelineRejections.UnsupportedType, ConversionTokenUsage: null);
         }
 
         var conversion = await ConvertAsync(converter, attachment, ct);
         if (conversion is ConversionResult.Rejected rejected)
         {
-            return new KnowledgeFilePipelineResult.Rejected(rejected.Reason);
+            return new KnowledgeFilePipelineResult.Rejected(rejected.Reason, rejected.TokenUsage);
         }
 
         var converted = (ConversionResult.Converted)conversion;
@@ -48,21 +48,23 @@ public sealed class KnowledgeFilePipeline(
         // only rules out files certain to be too large, and a summary may cost.
         if (TokenEstimate.FromCharacters(converted.Markdown.Length) > maxEstimatedTokens)
         {
-            return new KnowledgeFilePipelineResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens));
+            return new KnowledgeFilePipelineResult.Rejected(ConversionRejections.TooManyTokens(maxEstimatedTokens), converted.TokenUsage);
         }
 
         var outline = DocumentOutline.Build(converted.Markdown);
         var summary = await SummarizeAsync(attachment, converted.Markdown, outline, ct);
 
-        return new KnowledgeFilePipelineResult.Completed(new NewKnowledgeFile(
-            attachment.FileName,
-            attachment.Type.ContentType,
-            attachment.SizeBytes,
-            attachment.Sha256,
-            converted.Markdown,
-            converted.Origin,
-            converted.PageCount,
-            summary));
+        var newFile = new NewKnowledgeFile(
+            FileName: attachment.FileName,
+            ContentType: attachment.Type.ContentType,
+            SizeBytes: attachment.SizeBytes,
+            Sha256: attachment.Sha256,
+            Markdown: converted.Markdown,
+            Origin: converted.Origin,
+            PageCount: converted.PageCount,
+            Summary: summary);
+
+        return new KnowledgeFilePipelineResult.Completed(newFile, converted.TokenUsage);
     }
 
     // The timeout starts once a slot is free, so waiting for one never counts

@@ -65,6 +65,19 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
         Assert.Equal((150L, 25L), (usage.InputTokens, usage.OutputTokens));
     }
 
+    // The one who added the files is not thereby a user of the assistant.
+    [Fact]
+    public async Task Counts_the_assistant_s_file_conversions_in_its_tokens_but_not_its_users()
+    {
+        var assistant = await SeedAssistantAsync("Saksbehandler");
+        await SeedUsageAsync(assistant, BobId, Guid.NewGuid(), inputTokens: 100, outputTokens: 20);
+        await SeedFileConversionAsync(assistant, AliceId, inputTokens: 1_000, outputTokens: 300);
+
+        var usage = Assert.Single(await Repo.GetTopOrganizationAssistantsAsync(since: null, TopN));
+
+        Assert.Equal((1100L, 320L, 1), (usage.InputTokens, usage.OutputTokens, usage.UserCount));
+    }
+
     [Fact]
     public async Task Leaves_out_private_assistants()
     {
@@ -141,6 +154,7 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
+            Kind = TokenUsageKind.ChatTurn,
             UserId = userId,
             ChatId = chatId,
             TurnId = Guid.NewGuid(),
@@ -151,6 +165,24 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
             InputTokens = inputTokens,
             OutputTokens = outputTokens,
             Status = TurnStatus.Completed
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task SeedFileConversionAsync(Guid assistantId, Guid userId, long inputTokens, long outputTokens)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        db.TokenUsages.Add(new TokenUsage
+        {
+            Id = Guid.NewGuid(),
+            Kind = TokenUsageKind.KnowledgeFileConversion,
+            UserId = userId,
+            AssistantId = assistantId,
+            Timestamp = DateTimeOffset.UtcNow,
+            Provider = "Mistral AI",
+            ModelId = "mistral-large-latest",
+            InputTokens = inputTokens,
+            OutputTokens = outputTokens
         });
         await db.SaveChangesAsync();
     }

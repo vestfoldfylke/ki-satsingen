@@ -2,6 +2,7 @@ using kisatsingen.Data;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.KnowledgeFiles.Conversion;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -165,6 +166,67 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
     }
 
     [Fact]
+    public async Task Stores_an_assistant_file_conversion_with_its_kind_and_assistant_and_no_turn()
+    {
+        var assistantId = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        var spent = new ConversionTokenUsage("Mistral AI", "mistral-large-latest", new MessageUsage(1_000, 300));
+
+        await InsertAsync(TokenUsageEntry.ForAssistantFileConversion(UserId, assistantId, spent));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.TokenUsages.SingleAsync();
+        Assert.Equal(
+            (TokenUsageKind.KnowledgeFileConversion, assistantId, (Guid?)null, (Guid?)null, (TurnStatus?)null, "Mistral AI", "mistral-large-latest", 1000L, 300L),
+            (stored.Kind, stored.AssistantId, stored.ChatId, stored.TurnId, stored.Status, stored.Provider, stored.ModelId, stored.InputTokens, stored.OutputTokens));
+    }
+
+    // The usage queries read every turn row's status back as a TurnStatus.
+    [Fact]
+    public async Task The_database_refuses_a_turn_row_without_a_status()
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        db.TokenUsages.Add(new TokenUsage
+        {
+            Id = Guid.NewGuid(),
+            Kind = TokenUsageKind.ChatTurn,
+            UserId = UserId,
+            Timestamp = DateTimeOffset.UtcNow,
+            Provider = "openai",
+            ModelId = "gpt-5-mini"
+        });
+
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    // Persisted by name, like the status: the usage queries filter on it.
+    [Fact]
+    public async Task Persists_kind_as_its_enum_name()
+    {
+        await InsertAsync(Entry());
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var storedKind = await db.Database
+            .SqlQuery<string>($"""SELECT "Kind" AS "Value" FROM "TokenUsages" """)
+            .SingleAsync();
+
+        Assert.Equal("ChatTurn", storedKind);
+    }
+
+    [Fact]
+    public async Task Persists_a_file_conversion_s_kind_as_its_enum_name()
+    {
+        var spent = new ConversionTokenUsage("Mistral AI", "mistral-small-2603", new MessageUsage(1_000, 300));
+        await InsertAsync(TokenUsageEntry.ForAssistantFileConversion(UserId, Guid.NewGuid(), spent));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var storedKind = await db.Database
+            .SqlQuery<string>($"""SELECT "Kind" AS "Value" FROM "TokenUsages" """)
+            .SingleAsync();
+
+        Assert.Equal("KnowledgeFileConversion", storedKind);
+    }
+
+    [Fact]
     public async Task Stamps_each_insert_with_a_distinct_id()
     {
         await InsertAsync(Entry());
@@ -233,13 +295,13 @@ public sealed class UserTokenUsageRepositoryInsertTests(PostgresFixture fixture)
         string modelId = "gpt-5-mini",
         MessageUsage? usage = null,
         TurnStatus status = TurnStatus.Completed) =>
-        new(
-            UserId: userId ?? UserId,
-            ChatId: chatId ?? Guid.NewGuid(),
-            TurnId: turnId ?? Guid.NewGuid(),
-            AssistantId: assistantId,
-            Provider: provider,
-            ModelId: modelId,
-            Usage: usage ?? new MessageUsage(1, 1),
-            Status: status);
+        TokenUsageEntry.ForTurn(
+            userId: userId ?? UserId,
+            chatId: chatId ?? Guid.NewGuid(),
+            turnId: turnId ?? Guid.NewGuid(),
+            assistantId: assistantId,
+            provider: provider,
+            modelId: modelId,
+            usage: usage ?? new MessageUsage(1, 1),
+            status: status);
 }
