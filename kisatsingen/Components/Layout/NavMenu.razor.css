@@ -124,6 +124,10 @@
     font: inherit;
 }
 
+.chat-list-header > button:hover {
+    background: none;
+}
+
 .chat-list-header span {
     margin-top: 0.05rem;
     font-size: 1.2rem;
