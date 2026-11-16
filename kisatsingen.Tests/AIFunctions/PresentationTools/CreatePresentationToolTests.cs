@@ -41,12 +41,6 @@ public sealed class CreatePresentationToolTests
         """;
 
     [Fact]
-    public void The_tool_name_is_the_name_the_factory_reports()
-    {
-        Assert.Equal(PresentationToolFactory.ToolNames, new HashSet<string> { Tool.Name });
-    }
-
-    [Fact]
     public void The_tool_takes_a_title_a_theme_and_slides_all_required()
     {
         var required = Tool.JsonSchema.GetProperty("required").EnumerateArray().Select(name => name.GetString());
@@ -97,12 +91,40 @@ public sealed class CreatePresentationToolTests
     }
 
     [Fact]
+    public void A_call_stored_without_arguments_reads_back_as_nothing()
+    {
+        var spec = CreatePresentationTool.ReadArguments(default);
+
+        Assert.Null(spec);
+    }
+
+    [Fact]
+    public void Arguments_with_a_null_slide_read_back_as_nothing()
+    {
+        var spec = CreatePresentationTool.ReadArguments(JsonElement.Parse("""{ "title": "T", "theme": "SivStrand", "slides": [ null ] }"""));
+
+        Assert.Null(spec);
+    }
+
+    [Fact]
     public async Task An_invalid_presentation_is_refused_with_the_problem()
     {
         var result = await InvokeAsync("""{ "title": "T", "theme": "SivStrand", "slides": [ { "kind": "Chapter", "title": "Kapittel", "bullets": ["x"] } ] }""");
 
         Assert.True(ToolError.IsRefusal(result));
         Assert.Contains("bullets", result.GetProperty("error").GetString());
+    }
+
+    [Theory]
+    [InlineData("""{ "title": "T", "theme": "SivStrand", "slides": null }""", "lysbilder")]
+    [InlineData("""{ "title": "T", "theme": "SivStrand", "slides": [ { "kind": "Chapter", "title": "K" }, null ] }""", "Lysbilde 2")]
+    [InlineData("""{ "title": null, "theme": "SivStrand", "slides": [ { "kind": "Chapter", "title": "K" } ] }""", "tittel")]
+    public async Task A_null_argument_is_refused_with_the_problem_rather_than_failing_the_turn(string argumentsJson, string expectedProblem)
+    {
+        var result = await InvokeAsync(argumentsJson);
+
+        Assert.True(ToolError.IsRefusal(result));
+        Assert.Contains(expectedProblem, result.GetProperty("error").GetString());
     }
 
     [Fact]

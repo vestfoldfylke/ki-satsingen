@@ -96,4 +96,18 @@ public sealed class PresentationSpecValidatorTests
 
         Assert.Equal(2, problems.Count);
     }
+
+    [Fact]
+    public void A_null_slide_is_reported_naming_the_slide()
+    {
+        var problem = Assert.Single(PresentationSpecValidator.FindMissingSlides([Content, null]));
+
+        Assert.StartsWith("Lysbilde 2", problem);
+    }
+
+    [Fact]
+    public void Slides_that_are_all_present_have_none_missing()
+    {
+        Assert.Empty(PresentationSpecValidator.FindMissingSlides([Content, Content]));
+    }
 }

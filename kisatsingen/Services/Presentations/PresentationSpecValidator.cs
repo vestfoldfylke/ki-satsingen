@@ -41,6 +41,16 @@ internal static class PresentationSpecValidator
         return problems;
     }
 
+    // The model's JSON can hold a null slide although PresentationSpec cannot,
+    // so this is checked on the arguments, before a spec is made of them.
+    public static IReadOnlyList<string> FindMissingSlides(IReadOnlyList<SlideSpec?> slides) =>
+    [
+        .. slides
+            .Select((slide, index) => (slide, index))
+            .Where(entry => entry.slide is null)
+            .Select(entry => $"Lysbilde {entry.index + 1} er tomt (null). Gi lysbildet en type og en tittel, eller fjern det.")
+    ];
+
     private static void CheckSlide(List<string> problems, string slideName, SlideSpec slide)
     {
         if (!Enum.IsDefined(slide.Kind))

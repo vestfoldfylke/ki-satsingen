@@ -240,6 +240,7 @@ builder.Services.AddScoped<FileToolFactory>();
 builder.Services.AddSingleton<VestfoldPresentationBuilder>();
 builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
 builder.Services.AddSingleton<PresentationBuildLimiter>();
+builder.Services.AddScoped<PresentationDownloads>();
 builder.Services.AddSingleton<PresentationToolFactory>();
 
 var app = builder.Build();

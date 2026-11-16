@@ -30,17 +30,28 @@ internal static class CreatePresentationTool
         FileToolFunction.Create(Name, Description, (
             [Description("The presentation's title; it also becomes the file name and the document title.")] string title,
             [Description("The colour theme. Use SivStrand unless the user asks for another.")] PresentationTheme theme,
-            [Description("The slides, in order.")] SlideSpec[] slides) => Check(new PresentationSpec(title, theme, slides)));
+            [Description("The slides, in order.")] SlideSpec[] slides) => Check(title, theme, slides));
 
     // The arguments of a stored call, read the way the tool was given them. Null
     // when they are not a presentation this build can make, such as one stored
     // before a slide kind was removed.
     public static PresentationSpec? ReadArguments(JsonElement arguments)
     {
+        // Deserialize throws InvalidOperationException, not JsonException, on an
+        // Undefined element, such as a call stored without arguments.
+        if (arguments.ValueKind is not JsonValueKind.Object)
+        {
+            return null;
+        }
+
         try
         {
             var spec = arguments.Deserialize<PresentationSpec>(AIJsonUtilities.DefaultOptions);
-            return spec is { Title: not null, Slides: not null } && PresentationSpecValidator.Validate(spec).Count == 0 ? spec : null;
+            return spec is { Title: not null, Slides: not null }
+                && PresentationSpecValidator.FindMissingSlides(spec.Slides).Count == 0
+                && PresentationSpecValidator.Validate(spec).Count == 0
+                    ? spec
+                    : null;
         }
         catch (JsonException)
         {
@@ -48,14 +59,28 @@ internal static class CreatePresentationTool
         }
     }
 
-    private static object Check(PresentationSpec spec)
+    // The arguments are bound from the model's JSON, so any of them can be null
+    // whatever the lambda's parameter types say. A missing title or slide list
+    // is checked as an empty one, which the validator refuses with its reason.
+    private static object Check(string? title, PresentationTheme theme, SlideSpec?[]? slides)
     {
+        var missingSlides = PresentationSpecValidator.FindMissingSlides(slides ?? []);
+        if (missingSlides.Count > 0)
+        {
+            return Refuse(missingSlides);
+        }
+
+        // OfType only narrows the type: no slide is null past the check above.
+        var spec = new PresentationSpec(title ?? "", theme, [.. (slides ?? []).OfType<SlideSpec>()]);
         var problems = PresentationSpecValidator.Validate(spec);
         if (problems.Count > 0)
         {
-            return new ToolError($"Presentasjonen ble ikke laget. Rett dette og prøv igjen: {string.Join(" ", problems)}");
+            return Refuse(problems);
         }
 
         return new PresentationCreatedResult(PresentationFileName.From(spec.Title), spec.Slides.Count, Notice);
     }
+
+    private static ToolError Refuse(IReadOnlyList<string> problems) =>
+        new($"Presentasjonen ble ikke laget. Rett dette og prøv igjen: {string.Join(" ", problems)}");
 }

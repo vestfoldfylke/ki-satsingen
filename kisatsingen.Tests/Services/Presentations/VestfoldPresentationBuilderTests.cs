@@ -155,7 +155,7 @@ public sealed class VestfoldPresentationBuilderTests
             slide => Assert.Equal(themeName, slide.SlideLayoutPart!.SlideMasterPart!.ThemePart!.Theme!.Name?.Value));
     }
 
-    private static byte[] Build(PresentationSpec spec) => new VestfoldPresentationBuilder().Build(spec);
+    private static byte[] Build(PresentationSpec spec) => new VestfoldPresentationBuilder().Build(spec).ToArray();
 
     private static PresentationDocument Open(byte[] bytes) => PresentationDocument.Open(new MemoryStream(bytes), isEditable: false);
 

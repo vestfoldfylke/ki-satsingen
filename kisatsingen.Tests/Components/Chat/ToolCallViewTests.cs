@@ -12,7 +12,7 @@ namespace kisatsingen.Tests.Components.Chat;
 public sealed class ToolCallViewTests
 {
     public static TheoryData<string> ToolNamesTheChatOffers =>
-        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames, .. PresentationToolFactory.ToolNames]);
+        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames, .. new PresentationToolFactory().Create().Select(tool => tool.Name)]);
 
     [Fact]
     public void A_finished_read_is_titled_with_the_file_and_the_lines_read()

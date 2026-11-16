@@ -8,15 +8,22 @@ type DotNetStream = {
     arrayBuffer(): Promise<ArrayBuffer>;
 };
 
-export async function downloadFile(fileName: string, contentType: string, stream: DotNetStream): Promise<void> {
+// Some browsers (Safari, older Firefox) start the download after click()
+// returns; revoking the URL in the same tick cancels it.
+const REVOKE_DELAY_MS = 10_000;
+
+export const downloadFile = async (fileName: string, contentType: string, stream: DotNetStream): Promise<void> => {
     const blob = new Blob([await stream.arrayBuffer()], { type: contentType });
     const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.hidden = true;
+    document.body.append(anchor);
     try {
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = fileName;
         anchor.click();
     } finally {
-        URL.revokeObjectURL(url);
+        anchor.remove();
+        setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
     }
-}
+};

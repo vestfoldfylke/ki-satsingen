@@ -17,7 +17,7 @@ public sealed class PresentationBuildLimiterTests
 
         var result = await limiter.BuildAsync(Spec);
 
-        Assert.NotEmpty(Assert.IsType<PresentationBuildResult.Built>(result).Content);
+        Assert.NotEqual(0, Assert.IsType<PresentationBuildResult.Built>(result).Content.Count);
     }
 
     // The first call takes the only slot before it returns, and holds it for
@@ -55,5 +55,28 @@ public sealed class PresentationBuildLimiterTests
         var result = await limiter.BuildAsync(Spec);
 
         Assert.IsType<PresentationBuildResult.Built>(result);
+    }
+
+    [Fact]
+    public async Task A_build_that_throws_is_reported_as_failed_and_frees_its_slot()
+    {
+        using var limiter = Limiter(1, TimeSpan.Zero);
+        var unbuildable = Spec with { Theme = (PresentationTheme)999 };
+
+        var failed = await limiter.BuildAsync(unbuildable);
+        var next = await limiter.BuildAsync(Spec);
+
+        Assert.IsType<PresentationBuildResult.Failed>(failed);
+        Assert.IsType<PresentationBuildResult.Built>(next);
+    }
+
+    [Fact]
+    public async Task A_build_cancelled_while_waiting_for_a_slot_is_cancelled_rather_than_reported()
+    {
+        using var limiter = Limiter(1, TimeSpan.FromSeconds(30));
+        using var cancellation = new CancellationTokenSource();
+        await cancellation.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.BuildAsync(Spec, cancellation.Token));
     }
 }

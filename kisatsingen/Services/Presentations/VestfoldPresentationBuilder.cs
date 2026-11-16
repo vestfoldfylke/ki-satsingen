@@ -13,7 +13,9 @@ public sealed class VestfoldPresentationBuilder
     // PowerPoint numbers slide ids from 256; lower ids are reserved.
     private const uint FirstSlideId = 256;
 
-    public byte[] Build(PresentationSpec spec)
+    // The stream's own buffer, not a copy of it: a deck is LOH-sized, and the
+    // caller only reads it.
+    public ArraySegment<byte> Build(PresentationSpec spec)
     {
         using var stream = PresentationTemplate.OpenWritableCopy();
 
@@ -32,7 +34,9 @@ public sealed class VestfoldPresentationBuilder
             document.PackageProperties.Title = spec.Title;
         }
 
-        return stream.ToArray();
+        return stream.TryGetBuffer(out var content)
+            ? content
+            : throw new InvalidOperationException("The template copy's buffer is not exposable; PresentationTemplate must open it as an expandable MemoryStream.");
     }
 
     private static void AddSlides(PresentationPart presentationPart, PresentationSpec spec)
