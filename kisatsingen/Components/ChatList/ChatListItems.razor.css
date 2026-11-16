@@ -1,9 +1,10 @@
+.chat-list-items-detailed,
 .chat-list-empty-detailed {
-    margin: 0.5rem var(--ds-size-14);
+    --chat-list-content-inset: var(--ds-size-14);
 }
 
 .chat-list-empty {
-    margin: 0.5rem 0.5rem;
+    margin: 0.5rem var(--chat-list-content-inset, 0.5rem);
 }
 
 .chat-list-items {
@@ -14,9 +15,7 @@
 }
 
 .chat-list-items-detailed {
-    --dsc-list-padding-inline: 0;
     --dsc-list-margin-top: 0;
-    list-style: none;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
@@ -24,6 +23,10 @@
 
 .chat-list-items > li {
     margin-top: 0.3rem;
+}
+
+.chat-list-items-detailed > li {
+    margin-top: 0;
 }
 
 /* Positioned, so the screen-reader text in a chat's row (ds-sr-only, absolute)
@@ -37,6 +40,7 @@ stays in the row; Else it can mess with page size and scrolling */
     border-radius: var(--ds-border-radius-md);
     height: var(--ds-size-12);
     padding: 0 0.5rem;
+    gap: 0.6rem;
 }
 
 .chat-list-items-detailed .chat-list-item {
@@ -49,7 +53,7 @@ stays in the row; Else it can mess with page size and scrolling */
     background: var(--ds-color-neutral-surface-hover);
 }
 
-.chat-list-items .chat-list-item-active {
+.chat-list-items:not(.chat-list-items-detailed) .chat-list-item-active {
     background: var(--ds-color-accent-surface-tinted);
 }
 
@@ -59,23 +63,14 @@ stays in the row; Else it can mess with page size and scrolling */
     display: flex;
     text-decoration: none;
     color: inherit;
-}
-
-.chat-list-link {
-    gap: 0.6rem;
     align-items: center;
     justify-content: flex-start;
-}
-
-.chat-list-items-detailed .chat-list-link {
     grid-area: link;
 }
 
 .chat-list-items .chat-list-bullet {
     color: var(--ds-color-text-subtle);
-}
-
-.chat-list-items-detailed .chat-list-bullet {
+    flex-shrink: 0;
     grid-area: icon;
 }
 
@@ -88,7 +83,7 @@ stays in the row; Else it can mess with page size and scrolling */
 .chat-list-items-detailed .chat-list-item-divider {
     margin-block: 0;
     width: auto;
-    margin-inline: var(--ds-size-14);
+    margin-inline: var(--chat-list-content-inset);
 }
 
 .chat-list-item:is(:hover, :has(.chat-list-item-option-dropdown-menu:popover-open)) + .chat-list-item-divider,

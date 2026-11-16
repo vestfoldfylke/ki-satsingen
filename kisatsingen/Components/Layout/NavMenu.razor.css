@@ -145,7 +145,7 @@
     overflow: hidden;
 }
 
-.chat-list-title, .user-menu-button-title {
+.user-menu-button-title {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

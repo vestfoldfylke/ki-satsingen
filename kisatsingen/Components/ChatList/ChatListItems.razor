@@ -1,10 +1,10 @@
 @if (ChatList.Count == 0)
 {
-    <p class="ds-paragraph @(HasDetailedView ? "chat-list-empty-detailed" : "chat-list-empty")">Ingen samtaler enda</p>
+    <p class="ds-paragraph chat-list-empty @(HasDetailedView ? "chat-list-empty-detailed" : null)">Ingen samtaler enda</p>
 }
 else
 {
-    <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list @(HasDetailedView ? "chat-list-items-detailed" : "chat-list-items")" data-color="neutral">
+    <ul id="@(HasDetailedView ? null : "chat-list-items")" class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
         @foreach (var entry in ListedChats)
         {
             var menuId = $"chats-page-menu{IdSuffix}-{entry.Id}";
@@ -15,6 +15,9 @@ else
                     class="chat-list-item @(entry.Id == Session.ChatId ? "chat-list-item-active" : null)"
                     data-clickdelegatefor="@linkId"
                 >
+                    <span class="material-symbols-outlined chat-list-bullet" aria-hidden="true">
+                        @(entry.AssistantId is not null ? "smart_toy" : "fiber_manual_record")
+                    </span>
                     <a
                         class="ds-link chat-list-link"
                         id="@linkId"
@@ -26,12 +29,7 @@ else
                     >
                         @if (entry.AssistantId is not null)
                         {
-                            <span class="material-symbols-outlined chat-list-bullet" aria-hidden="true">smart_toy</span>
                             <span class="ds-sr-only">Assistent: </span>
-                        }
-                        else
-                        {
-                            <span class="material-symbols-outlined chat-list-bullet" aria-hidden="true">fiber_manual_record</span>
                         }
 
                         <span class="chat-list-title">@entry.Title</span>
