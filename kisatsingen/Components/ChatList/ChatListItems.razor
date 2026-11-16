@@ -1,0 +1,112 @@
+@if (ChatList.Count == 0)
+{
+    <p class="ds-paragraph chat-list-empty @(HasDetailedView ? "chat-list-empty-detailed" : null)">Ingen samtaler enda</p>
+}
+else
+{
+    <ul class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
+        @foreach (var entry in ListedChats)
+        {
+            var menuId = $"chat-list-item-menu{IdSuffix}-{entry.Id}";
+            var linkId = $"chat-list-item-link{IdSuffix}-{entry.Id}";
+
+            <li @key="entry.Id">
+                <div
+                    class="chat-list-item @(entry.Id == Session.ChatId ? "chat-list-item-active" : null)"
+                    data-clickdelegatefor="@linkId"
+                >
+                    <span class="material-symbols-outlined chat-list-bullet" aria-hidden="true">
+                        @(entry.AssistantId is not null ? "smart_toy" : "fiber_manual_record")
+                    </span>
+                    <a
+                        class="ds-link chat-list-link"
+                        id="@linkId"
+                        href="@($"/chat/{entry.Id}")"
+                        data-tooltip="@(entry.Title.Length > TooltipTitleLengthThreshold ? entry.Title : null)"
+                        data-placement="right"
+                        data-variant="tertiary"
+                        data-color="neutral"
+                    >
+                        @if (entry.AssistantId is not null)
+                        {
+                            <span class="ds-sr-only">Assistent: </span>
+                        }
+
+                        <span class="chat-list-title">@entry.Title</span>
+                    </a>
+
+                    @if (HasDetailedView)
+                    {
+                        <span class="ds-paragraph chat-list-item-date" data-size="sm">
+                            <NorwegianDate Value="entry.UpdatedAt" />
+                        </span>
+                    }
+
+                    <button
+                        type="button"
+                        class="ds-button chat-list-item-option-button"
+                        data-variant="tertiary"
+                        data-size="sm"
+                        data-icon="true"
+                        popovertarget="@menuId"
+                        aria-label="Valg for samtalen"
+                        data-tooltip="Valg for samtalen"
+                    >
+                        <span class="material-symbols-outlined" aria-hidden="true">more_vert</span>
+                    </button>
+                    <div
+                        class="ds-dropdown chat-list-item-option-dropdown-menu"
+                        data-placement="bottom-end"
+                        id="@menuId"
+                        popover
+                    >
+                        <ul>
+                            <li>
+                                <button
+                                    type="button"
+                                    class="ds-button"
+                                    data-variant="tertiary"
+                                    data-color="accent"
+                                    command="show-modal"
+                                    commandfor="@RenameChatDialogId"
+                                    @onclick="() => _renameDialog?.Load(entry)"
+                                >
+                                    <span class="material-symbols-outlined" aria-hidden="true">edit</span>
+                                    Endre navn
+                                </button>
+                            </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    class="ds-button"
+                                    data-variant="tertiary"
+                                    data-color="danger"
+                                    command="show-modal"
+                                    commandfor="@DeleteChatDialogId"
+                                    @onclick="() => _deleteDialog?.Load(entry)"
+                                >
+                                    <span class="material-symbols-outlined" aria-hidden="true">delete</span>
+                                    Slett samtale
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                @if (HasDetailedView)
+                {
+                    <hr aria-hidden="true" class="ds-divider chat-list-item-divider"/>
+                }
+            </li>
+        }
+    </ul>
+}
+
+<RenameChatDialog
+    @ref="_renameDialog"
+    Id="@RenameChatDialogId"
+/>
+<DeleteChatDialog
+    @ref="_deleteDialog"
+    Id="@DeleteChatDialogId"
+/>
