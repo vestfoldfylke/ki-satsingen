@@ -10,6 +10,7 @@ namespace kisatsingen.Tests.Services.Presentations;
 
 public sealed class VestfoldPresentationBuilderTests
 {
+    private static readonly DateTimeOffset BuildTime = new(2026, 11, 16, 10, 30, 0, TimeSpan.Zero);
     private static readonly PresentationSpec Deck = new("Budsjett 2027", PresentationTheme.VannFjord,
     [
         new(SlideKind.Cover, "Budsjett 2027", Text: "Forslag til fylkestinget", Bullets: ["Økonomiavdelingen", "12. november 2026"]),
@@ -41,6 +42,24 @@ public sealed class VestfoldPresentationBuilderTests
         using var document = Open(Build(Deck));
 
         Assert.Equal(PresentationDocumentType.Presentation, document.DocumentType);
+    }
+
+    [Fact]
+    public void The_file_is_dated_when_it_was_built_rather_than_when_the_template_was_made()
+    {
+        using var document = Open(Build(Deck));
+
+        Assert.Equal(
+            (BuildTime.UtcDateTime, BuildTime.UtcDateTime),
+            (document.PackageProperties.Created?.ToUniversalTime(), document.PackageProperties.Modified?.ToUniversalTime()));
+    }
+
+    [Fact]
+    public void The_templates_slide_count_and_thumbnail_are_not_carried_into_the_file()
+    {
+        using var document = Open(Build(Deck));
+
+        Assert.Equal((null, null), ((object?)document.ExtendedFilePropertiesPart, (object?)document.ThumbnailPart));
     }
 
     [Fact]
@@ -155,7 +174,13 @@ public sealed class VestfoldPresentationBuilderTests
             slide => Assert.Equal(themeName, slide.SlideLayoutPart!.SlideMasterPart!.ThemePart!.Theme!.Name?.Value));
     }
 
-    private static byte[] Build(PresentationSpec spec) => new VestfoldPresentationBuilder().Build(spec).ToArray();
+    private static byte[] Build(PresentationSpec spec) =>
+        new VestfoldPresentationBuilder(new PresentationTemplate(), new FixedTimeProvider(BuildTime)).Build(spec).ToArray();
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
 
     private static PresentationDocument Open(byte[] bytes) => PresentationDocument.Open(new MemoryStream(bytes), isEditable: false);
 

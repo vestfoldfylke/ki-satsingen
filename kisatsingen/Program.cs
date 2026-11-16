@@ -1,5 +1,4 @@
 using kisatsingen.AIFunctions.FileTools;
-using kisatsingen.AIFunctions.PresentationTools;
 using kisatsingen.Authorization;
 using kisatsingen.Components;
 using kisatsingen.Components.Usage;
@@ -237,11 +236,12 @@ builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
 builder.Services.AddScoped<FileToolFactory>();
 
 // ─── Presentation tool ─────────────────────────────────
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<PresentationTemplate>();
 builder.Services.AddSingleton<VestfoldPresentationBuilder>();
 builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
 builder.Services.AddSingleton<PresentationBuildLimiter>();
 builder.Services.AddScoped<PresentationDownloads>();
-builder.Services.AddSingleton<PresentationToolFactory>();
 
 var app = builder.Build();
 

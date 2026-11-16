@@ -11,8 +11,7 @@ namespace kisatsingen.Tests.AIFunctions.PresentationTools;
 // What the tool promises the model: its name, arguments and result shape.
 public sealed class CreatePresentationToolTests
 {
-    private static AIFunction Tool => Assert.IsType<AIFunction>(
-        Assert.Single(new PresentationToolFactory().Create()), exactMatch: false);
+    private static AIFunction Tool => CreatePresentationTool.Tool;
 
     // Through ToolInvoker and with JsonElement values, as the provider adapter
     // and FunctionInvokingChatClient call the tool.
@@ -59,6 +58,14 @@ public sealed class CreatePresentationToolTests
     }
 
     [Fact]
+    public void The_schema_tells_the_model_the_colours_of_each_theme()
+    {
+        var themeDescription = Tool.JsonSchema.GetProperty("properties").GetProperty("theme").GetProperty("description").GetString();
+
+        Assert.Contains("VannFjord (blue)", themeDescription);
+    }
+
+    [Fact]
     public async Task A_valid_presentation_is_answered_with_its_file_name_and_slide_count()
     {
         var result = await InvokeAsync(ValidArguments);
@@ -88,6 +95,16 @@ public sealed class CreatePresentationToolTests
         var spec = CreatePresentationTool.ReadArguments(JsonElement.Parse(argumentsJson));
 
         Assert.Null(spec);
+    }
+
+    [Fact]
+    public void A_stored_call_over_todays_size_limits_still_reads_back_as_the_presentation()
+    {
+        var longBullet = new string('x', PresentationSpecValidator.MaxBulletLength + 1);
+
+        var spec = CreatePresentationTool.ReadArguments(JsonElement.Parse($$"""{ "title": "T", "theme": "SivStrand", "slides": [ { "kind": "Content", "title": "K", "bullets": ["{{longBullet}}"] } ] }"""));
+
+        Assert.NotNull(spec);
     }
 
     [Fact]

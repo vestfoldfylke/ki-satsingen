@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace kisatsingen.Services.Presentations;
 
 public sealed record PresentationBuildLimiterOptions(int MaxConcurrentBuilds, TimeSpan MaxWait)
@@ -26,7 +28,11 @@ public abstract record PresentationBuildResult
 
 // Caps how many presentations are built at once, so many clicks at the same
 // moment queue up instead of filling the heap. Waiting takes no thread.
-public sealed class PresentationBuildLimiter(VestfoldPresentationBuilder builder, PresentationBuildLimiterOptions options) : IDisposable
+// Not disposable: the semaphore holds no wait handle unless one is asked for,
+// and disposing it on shutdown would make a build still running throw from
+// its Release.
+[SuppressMessage("Reliability", "CA1001", Justification = "The semaphore's wait handle is never created; disposing it on shutdown would break builds still running.")]
+public sealed class PresentationBuildLimiter(VestfoldPresentationBuilder builder, PresentationBuildLimiterOptions options)
 {
     private readonly SemaphoreSlim _slots = new(options.MaxConcurrentBuilds, options.MaxConcurrentBuilds);
 
@@ -57,6 +63,4 @@ public sealed class PresentationBuildLimiter(VestfoldPresentationBuilder builder
             _slots.Release();
         }
     }
-
-    public void Dispose() => _slots.Dispose();
 }

@@ -26,6 +26,22 @@ public sealed class PresentationSpecValidatorTests
     }
 
     [Fact]
+    public void The_structure_check_accepts_a_spec_that_is_only_over_the_size_limits()
+    {
+        var spec = Spec([.. Enumerable.Repeat(new SlideSpec(SlideKind.Content, "Hovedtall", Bullets: [new string('x', PresentationSpecValidator.MaxBulletLength + 1)]), PresentationSpecValidator.MaxSlides + 1)]);
+
+        Assert.Empty(PresentationSpecValidator.ValidateStructure(spec));
+    }
+
+    [Fact]
+    public void The_structure_check_still_refuses_a_field_the_slide_kind_does_not_take()
+    {
+        var spec = Spec(new SlideSpec(SlideKind.Chapter, "Kapittel", Bullets: ["x"]));
+
+        Assert.NotEmpty(PresentationSpecValidator.ValidateStructure(spec));
+    }
+
+    [Fact]
     public void A_presentation_without_slides_is_refused()
     {
         Assert.Single(PresentationSpecValidator.Validate(Spec()));

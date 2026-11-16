@@ -4,9 +4,9 @@ using DocumentFormat.OpenXml.Presentation;
 
 namespace kisatsingen.Services.Presentations;
 
-// Turns a validated spec into a .pptx built on the Vestfold template. Pure
-// apart from reading the embedded template: the same spec gives the same slides.
-public sealed class VestfoldPresentationBuilder
+// Turns a validated spec into a .pptx built on the Vestfold template. The same
+// spec gives the same slides; only the file's created time differs.
+public sealed class VestfoldPresentationBuilder(PresentationTemplate template, TimeProvider timeProvider)
 {
     public const string ContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -17,7 +17,7 @@ public sealed class VestfoldPresentationBuilder
     // caller only reads it.
     public ArraySegment<byte> Build(PresentationSpec spec)
     {
-        using var stream = PresentationTemplate.OpenWritableCopy();
+        using var stream = template.OpenWritableCopy();
 
         using (var document = PresentationDocument.Open(stream, isEditable: true))
         {
@@ -31,12 +31,34 @@ public sealed class VestfoldPresentationBuilder
             TemplateCleanup.RemoveTemplateSlides(presentationPart);
             AddSlides(presentationPart, spec);
 
-            document.PackageProperties.Title = spec.Title;
+            SetDocumentProperties(document, spec.Title);
         }
 
         return stream.TryGetBuffer(out var content)
             ? content
             : throw new InvalidOperationException("The template copy's buffer is not exposable; PresentationTemplate must open it as an expandable MemoryStream.");
+    }
+
+    // The template's own properties would otherwise be copied into every file:
+    // its 2024 dates, its slide count and slide titles in app.xml, and a
+    // thumbnail of its first slide. app.xml and the thumbnail are optional
+    // parts, and PowerPoint writes both anew on its first save.
+    private void SetDocumentProperties(PresentationDocument document, string title)
+    {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
+        document.PackageProperties.Title = title;
+        document.PackageProperties.Created = now;
+        document.PackageProperties.Modified = now;
+
+        if (document.ExtendedFilePropertiesPart is { } extendedProperties)
+        {
+            document.DeletePart(extendedProperties);
+        }
+
+        if (document.ThumbnailPart is { } thumbnail)
+        {
+            document.DeletePart(thumbnail);
+        }
     }
 
     private static void AddSlides(PresentationPart presentationPart, PresentationSpec spec)

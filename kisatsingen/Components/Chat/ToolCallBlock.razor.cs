@@ -116,6 +116,8 @@ public partial class ToolCallBlock : ComponentBase
             // The interop call timed out, typically while streaming the file
             // over a slow connection. Not disposed: the browser may still be
             // reading it, and disposing it would cut the transfer off mid-file.
+            // One the browser never claimed is disposed by Blazor itself, once
+            // the default interop call timeout has passed.
             Logger.LogWarning(ex, "Saving the presentation {FileName} timed out before the browser had it", fileName);
             _downloadProblem = FailedMessage;
         }

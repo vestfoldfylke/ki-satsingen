@@ -26,15 +26,25 @@ internal static class CreatePresentationTool
         "Presentasjonen er laget. Brukeren laster den ned med knappen som vises ved dette verktøykallet. " +
         "Ikke skriv en lenke eller filsti til den; svar kort med hva presentasjonen inneholder.";
 
-    public static AIFunction Create() =>
+    // On the parameter rather than the enum members: the generated schema lists
+    // an enum's names only, so member descriptions never reach the model.
+    private const string ThemeDescription =
+        "The colour theme: SivStrand (sand and beige), VannFjord (blue), BarkNype (warm bark and rose) or GranKorn (green and grain). " +
+        "Use SivStrand unless the user asks for another theme or for one of those colours.";
+
+    // Built once: the factory reflects over the lambda and generates the schema
+    // for the nested slide array, and neither ever changes.
+    public static readonly AIFunction Tool =
         FileToolFunction.Create(Name, Description, (
             [Description("The presentation's title; it also becomes the file name and the document title.")] string title,
-            [Description("The colour theme. Use SivStrand unless the user asks for another.")] PresentationTheme theme,
+            [Description(ThemeDescription)] PresentationTheme theme,
             [Description("The slides, in order.")] SlideSpec[] slides) => Check(title, theme, slides));
 
     // The arguments of a stored call, read the way the tool was given them. Null
     // when they are not a presentation this build can make, such as one stored
-    // before a slide kind was removed.
+    // before a slide kind was removed. Only what the builder needs is checked,
+    // not the size limits: a call the tool accepted keeps its download button
+    // when a limit is tightened later.
     public static PresentationSpec? ReadArguments(JsonElement arguments)
     {
         // Deserialize throws InvalidOperationException, not JsonException, on an
@@ -49,7 +59,7 @@ internal static class CreatePresentationTool
             var spec = arguments.Deserialize<PresentationSpec>(AIJsonUtilities.DefaultOptions);
             return spec is { Title: not null, Slides: not null }
                 && PresentationSpecValidator.FindMissingSlides(spec.Slides).Count == 0
-                && PresentationSpecValidator.Validate(spec).Count == 0
+                && PresentationSpecValidator.ValidateStructure(spec).Count == 0
                     ? spec
                     : null;
         }

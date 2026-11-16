@@ -1,17 +1,18 @@
 namespace kisatsingen.Services.Presentations;
 
 // The Vestfold fylkeskommune PowerPoint template, embedded in the assembly so
-// a deployment can never run without it. Read once; every build copies it.
-internal static class PresentationTemplate
+// a deployment can never run without it. A singleton: read once on first use,
+// and every build copies it.
+public sealed class PresentationTemplate
 {
     public const string ResourceName = "kisatsingen.Presentations.VestfoldTemplate.potx";
 
-    private static readonly Lazy<byte[]> Bytes = new(Load);
+    private readonly Lazy<byte[]> _bytes = new(Load);
 
-    public static MemoryStream OpenWritableCopy()
+    public MemoryStream OpenWritableCopy()
     {
         var stream = new MemoryStream();
-        stream.Write(Bytes.Value);
+        stream.Write(_bytes.Value);
         stream.Position = 0;
         return stream;
     }

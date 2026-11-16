@@ -1,6 +1,5 @@
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
-using kisatsingen.AIFunctions.PresentationTools;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -70,7 +69,6 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
-            new PresentationToolFactory(),
             Assistants);
     }
 
