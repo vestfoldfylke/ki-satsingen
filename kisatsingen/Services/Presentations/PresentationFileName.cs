@@ -21,13 +21,10 @@ internal static class PresentationFileName
             builder.Append(char.IsControl(character) || InvalidCharacters.Contains(character) ? ' ' : character);
         }
 
-        var stem = string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim('.', ' ');
-        if (stem.Length > MaxStemLength)
-        {
-            // One shorter when the cut would split a surrogate pair.
-            var length = char.IsHighSurrogate(stem[MaxStemLength - 1]) ? MaxStemLength - 1 : MaxStemLength;
-            stem = stem[..length].TrimEnd('.', ' ');
-        }
+        var stem = TextTruncation.Prefix(
+            string.Join(' ', builder.ToString().Split(' ', StringSplitOptions.RemoveEmptyEntries)).Trim('.', ' '),
+            MaxStemLength)
+            .TrimEnd('.', ' ');
 
         return stem.Length == 0 ? Fallback : stem + Extension;
     }
