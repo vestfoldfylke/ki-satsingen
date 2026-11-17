@@ -4,6 +4,8 @@
 }
 else
 {
+    var utcNow = DateTimeOffset.UtcNow;
+
     <ul class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
         @foreach (var entry in ListedChats)
         {
@@ -37,8 +39,24 @@ else
 
                     @if (HasDetailedView)
                     {
-                        <span class="ds-paragraph chat-list-item-date" data-size="sm">
-                            <NorwegianDate Value="entry.UpdatedAt" />
+                        <span class="chat-list-item-meta">
+                            @if (DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
+                            {
+                                @* A button so focus and tap open the tooltip, and the row's click delegate leaves it alone *@
+                                <button
+                                    type="button"
+                                    class="ds-focus chat-list-expiry"
+                                    aria-label="@upcomingDeletion"
+                                    data-tooltip="@upcomingDeletion"
+                                    data-placement="right"
+                                >
+                                    <span class="material-symbols-outlined" aria-hidden="true">auto_delete</span>
+                                </button>
+                            }
+
+                            <span class="ds-paragraph chat-list-item-date" data-size="sm">
+                                <NorwegianDate Value="entry.UpdatedAt" />
+                            </span>
                         </span>
                     }
 

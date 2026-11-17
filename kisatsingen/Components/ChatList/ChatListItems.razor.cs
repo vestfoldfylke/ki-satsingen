@@ -1,4 +1,5 @@
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Cleanup;
 using Microsoft.AspNetCore.Components;
 
 namespace kisatsingen.Components.ChatList;
@@ -24,7 +25,14 @@ public sealed partial class ChatListItems : ComponentBase, IDisposable
     [Inject]
     public required ChatSession Session { get; set; }
 
+    [Inject]
+    public required DatabaseCleanupConfigurations CleanupConfigurations { get; set; }
+
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
+
+    // TimeZoneInfo.Local matches the background job, which schedules TargetTime against DateTime.Now.
+    private string? DescribeUpcomingDeletion(ChatListEntry entry, DateTimeOffset utcNow) =>
+        ChatRetention.DescribeUpcomingDeletion(entry.UpdatedAt, CleanupConfigurations.ChatCleanup, utcNow, TimeZoneInfo.Local);
 
     private IEnumerable<ChatListEntry> ListedChats => ChatList.Take(MaxListedChats ?? ChatList.Count);
 

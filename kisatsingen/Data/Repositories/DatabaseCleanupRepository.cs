@@ -20,4 +20,8 @@ public class DatabaseCleanupRepository(IDbContextFactory<AppDbContext> factory, 
     }
 
     internal static DateTimeOffset GetCutoffDateTime(DateTimeOffset now, TimeSpan retention) => now.Add(-retention);
+
+    // The inverse of GetCutoffDateTime: the moment the cutoff passes updatedAt. Change both together.
+    // The delete uses a strict "<", so the chat is deleted by the first run after this moment, not at it.
+    internal static DateTimeOffset GetEligibleForDeletionDateTime(DateTimeOffset updatedAt, TimeSpan retention) => updatedAt.Add(retention);
 }
