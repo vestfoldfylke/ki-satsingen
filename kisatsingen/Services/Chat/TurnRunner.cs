@@ -224,7 +224,7 @@ internal sealed class TurnRunner
             throw;
         }
 
-        var inserted = new InsertedTurn(ownerId, row.ChatId);
+        var inserted = new InsertedTurn(ownerId, row.ChatId, turn.Id, row.AssistantId);
         row.Inserted = inserted;
         observer.TurnSaved();
         return inserted;
@@ -255,7 +255,7 @@ internal sealed class TurnRunner
     {
         for (var index = 0; index < sentAttachments.Count; index++)
         {
-            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, sentAttachments[index], ct);
+            var result = await _attachmentProcessor.ProcessAsync(inserted.OwnerId, inserted.ChatId, inserted.TurnId, inserted.AssistantId, sentAttachments[index], ct);
 
             builder.SettleAttachment(index, result);
             if (result is TurnAttachmentResult.Available available)
@@ -288,7 +288,7 @@ internal sealed class TurnRunner
 
         if (input.ShouldOfferFileTools)
         {
-            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, input.AssistantId);
+            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, inserted.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
@@ -339,15 +339,15 @@ internal sealed class TurnRunner
         try
         {
             var userId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
-            var entry = new TokenUsageEntry(
-                UserId: userId,
-                ChatId: row.ChatId,
-                TurnId: attempt.Turn.Id,
-                AssistantId: row.AssistantId,
-                Provider: model.Provider,
-                ModelId: model.ModelId,
-                Usage: usage,
-                Status: attempt.Turn.Status);
+            var entry = TokenUsageEntry.ForTurn(
+                userId: userId,
+                chatId: row.ChatId,
+                turnId: attempt.Turn.Id,
+                assistantId: row.AssistantId,
+                provider: model.Provider,
+                modelId: model.ModelId,
+                usage: usage,
+                status: attempt.Turn.Status);
             await _userTokenUsageRepository.InsertTokenUsageAsync(entry, CancellationToken.None);
         }
         catch (Exception ex)
@@ -389,6 +389,6 @@ internal sealed class TurnRunner
         public InsertedTurn? Inserted { get; set; }
     }
 
-    // Where the turn's row is, once it is written.
-    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId);
+    // The turn's row and what it belongs to, once it is written.
+    private sealed record InsertedTurn(Guid OwnerId, Guid ChatId, Guid TurnId, Guid? AssistantId);
 }

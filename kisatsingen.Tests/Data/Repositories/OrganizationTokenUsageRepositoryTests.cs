@@ -37,12 +37,14 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         long? estimatedOutputTokens = null,
         long? cachedInputTokens = null,
         long? reasoningTokens = null,
-        TurnStatus status = TurnStatus.Completed)
+        TokenUsageKind kind = TokenUsageKind.ChatTurn,
+        TurnStatus? status = TurnStatus.Completed)
     {
         await using var db = await Factory.CreateDbContextAsync();
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
+            Kind = kind,
             UserId = userId,
             Timestamp = timestamp,
             Provider = provider,
@@ -92,6 +94,41 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         Assert.Equal(0, totals.TotalInputTokens);
         Assert.Equal(0, totals.TotalOutputTokens);
         Assert.Equal(1, totals.TurnCount);
+    }
+
+    [Fact]
+    public async Task Totals_count_a_file_conversion_s_tokens_but_not_as_a_turn()
+    {
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+
+        var totals = await Repo.GetTotalsAsync(since: null);
+
+        Assert.Equal((1010L, 320L, 1), (totals.TotalInputTokens, totals.TotalOutputTokens, totals.TurnCount));
+    }
+
+    [Fact]
+    public async Task Totals_sum_the_input_and_output_of_file_conversions_alone_as_conversion_tokens()
+    {
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(OtherUserId, DateTimeOffset.UtcNow, inputTokens: 500, outputTokens: null, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+
+        var totals = await Repo.GetTotalsAsync(since: null);
+
+        Assert.Equal(1_800L, totals.TotalConversionTokens);
+    }
+
+    // A conversion has no status to group by.
+    [Fact]
+    public async Task Usage_by_status_leaves_out_file_conversions()
+    {
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, status: TurnStatus.Completed);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+
+        var row = Assert.Single(await Repo.GetUsageByStatusAsync(since: null));
+
+        Assert.Equal((TurnStatus.Completed, 10L), (row.Key, row.InputTokens));
     }
 
     [Fact]
@@ -213,6 +250,30 @@ public sealed class OrganizationTokenUsageRepositoryTests(PostgresFixture fixtur
         Assert.Equal(5, top[0].TurnCount);
         Assert.Equal(AliceId, top[1].Key);
         Assert.Equal(3, top[1].TurnCount);
+    }
+
+    [Fact]
+    public async Task Top_users_by_turns_leaves_out_users_who_only_converted_files()
+    {
+        await SeedRowAsync(AliceId, DateTimeOffset.UtcNow);
+        await SeedRowAsync(BobId, DateTimeOffset.UtcNow, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+
+        var top = await Repo.GetTopUsersByTurnsAsync(since: null, topN: 10);
+
+        Assert.Equal([AliceId], top.Select(r => r.Key));
+    }
+
+    // A model used only for converting files has no turns to rank by.
+    [Fact]
+    public async Task Models_with_equal_turn_counts_rank_by_input_tokens()
+    {
+        var now = DateTimeOffset.UtcNow;
+        await SeedRowAsync(UserId, now, modelId: "pixtral-small", inputTokens: 10, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(UserId, now, modelId: "pixtral-large", inputTokens: 900, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+
+        var perModel = await Repo.GetUsageByModelAsync(since: null);
+
+        Assert.Equal(["pixtral-large", "pixtral-small"], perModel.Select(r => r.Key));
     }
 
     [Fact]

@@ -13,6 +13,12 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     // parameter, so the bucket size is interpolated as a value, not SQL text.
     private const string OsloTz = "Europe/Oslo";
 
+    // Every row's tokens were spent, so token sums cover all rows; turn counts
+    // and the status breakdown cover only turns, and the conversion total only
+    // conversions.
+    private static readonly string ChatTurnKind = nameof(TokenUsageKind.ChatTurn);
+    private static readonly string KnowledgeFileConversionKind = nameof(TokenUsageKind.KnowledgeFileConversion);
+
     public async Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
@@ -20,6 +26,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
         db.TokenUsages.Add(new TokenUsage
         {
             Id = Guid.NewGuid(),
+            Kind = entry.Kind,
             UserId = entry.UserId,
             ChatId = entry.ChatId,
             TurnId = entry.TurnId,
@@ -55,7 +62,8 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "TotalEstimatedOutputTokens",
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
-                 COUNT(*)::int AS "TurnCount"
+                 COALESCE(SUM(COALESCE("InputTokens", 0) + COALESCE("OutputTokens", 0)) FILTER (WHERE "Kind" = {KnowledgeFileConversionKind}), 0)::bigint AS "TotalConversionTokens",
+                 (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
@@ -82,7 +90,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
-                 COUNT(*)::int AS "TurnCount"
+                 (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
@@ -107,12 +115,12 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
-                 COUNT(*)::int AS "TurnCount"
+                 (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Provider"
-             ORDER BY COUNT(*) DESC
+             ORDER BY "TurnCount" DESC, "InputTokens" DESC, "Key"
              """
         ).ToListAsync(ct);
     }
@@ -132,12 +140,13 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
-                 COUNT(*)::int AS "TurnCount"
+                 (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})
+               AND "Kind" = {ChatTurnKind}
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Status"
-             ORDER BY COUNT(*) DESC
+             ORDER BY "TurnCount" DESC
              """
         ).ToListAsync(ct);
 
@@ -165,12 +174,12 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("OutputTokens"), 0)::bigint AS "OutputTokens",
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
-                 COUNT(*)::int AS "TurnCount"
+                 (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "TokenUsages"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "ModelId"
-             ORDER BY COUNT(*) DESC
+             ORDER BY "TurnCount" DESC, "InputTokens" DESC, "Key"
              """
         ).ToListAsync(ct);
     }

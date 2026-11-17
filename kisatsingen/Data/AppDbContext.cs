@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     private NpgsqlDataSource? _ownedDataSource;
 
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
+    private const string TokenUsageTurnStatusConstraintName = "ck_token_usages_turn_has_status";
 
     // Named so the save path can tell a duplicate from any other unique violation.
     public const string KnowledgeFileChatSha256IndexName = "IX_KnowledgeFiles_ChatId_Sha256";
@@ -161,8 +162,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         tokenUsage.HasKey(u => u.Id);
         tokenUsage.Property(u => u.Provider).HasMaxLength(TokenUsage.MaxProviderLength).IsRequired();
         tokenUsage.Property(u => u.ModelId).HasMaxLength(TokenUsage.MaxModelIdLength).IsRequired();
-        tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength).IsRequired();
+        tokenUsage.Property(u => u.Kind).HasConversion<string>().HasMaxLength(TokenUsage.MaxKindLength).IsRequired();
+        tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength);
         tokenUsage.HasIndex(u => new { u.UserId, u.Timestamp });
+
+        // The usage queries read a ChatTurn row's status as a TurnStatus. Turn
+        // rows from before chats and turns were linked have no ChatId or TurnId,
+        // so only the status can be required.
+        tokenUsage.ToTable(t => t.HasCheckConstraint(
+            TokenUsageTurnStatusConstraintName,
+            $"""
+             "Kind" <> '{nameof(TokenUsageKind.ChatTurn)}' OR "Status" IS NOT NULL
+             """));
         tokenUsage.HasIndex(u => new { u.AssistantId, u.Timestamp }).HasFilter("\"AssistantId\" IS NOT NULL");
     }
 

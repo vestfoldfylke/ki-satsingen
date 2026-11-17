@@ -1,4 +1,6 @@
 using kisatsingen.Tests.Data.Repositories;
+using kisatsingen.Data.Entities;
+using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
@@ -62,6 +64,56 @@ public sealed class ChatSessionAttachmentTests
 
         var stored = Assert.Single(harness.StoredTurn.Attachments);
         Assert.Equal(new TurnAttachment("notat.md", SavedFileId(harness, "notat.md")), stored);
+    }
+
+    [Fact]
+    public async Task What_converting_a_file_spent_is_recorded_for_its_chat_and_turn()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.Spent = TokenSpendingConverter.Spent;
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        var expected = TokenUsageEntry.ForChatFileConversion(
+            ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, harness.VisibleTurn.Id, assistantId: null, TokenSpendingConverter.Spent);
+        Assert.Contains(expected, harness.UserTokenUsageRepository.Inserts);
+    }
+
+    // A failed write costs the usage row, never the file.
+    [Fact]
+    public async Task A_file_is_saved_and_available_even_when_what_its_conversion_spent_cannot_be_recorded()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.Spent = TokenSpendingConverter.Spent;
+        harness.UserTokenUsageRepository.InsertFailure = new InvalidOperationException("Database down.");
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        Assert.Contains(AttachmentTexts.AvailableEntry("notat.md", SavedFileId(harness, "notat.md")), LastUserMessage(harness));
+    }
+
+    [Fact]
+    public async Task What_converting_a_file_in_an_assistant_chat_spent_is_recorded_for_that_assistant()
+    {
+        await using var harness = new ChatSessionHarness();
+        harness.TextConverter.Spent = TokenSpendingConverter.Spent;
+        var assistant = new Assistant
+        {
+            Id = Guid.NewGuid(),
+            OwnerId = ChatSessionHarness.OwnerUnderTest,
+            Name = "Saksbehandler",
+            Instructions = "Svar kort.",
+            Visibility = AssistantVisibility.Private
+        };
+        await harness.Session.StartNewAssistantChatAsync(assistant, assistantFiles: []);
+        await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
+
+        await harness.Session.SendAsync("Hva står i notatet?");
+
+        var conversion = Assert.Single(harness.UserTokenUsageRepository.Inserts, insert => insert.Kind == TokenUsageKind.KnowledgeFileConversion);
+        Assert.Equal(assistant.Id, conversion.AssistantId);
     }
 
     [Fact]

@@ -19,6 +19,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     private readonly AttachmentTestEnvironment _environment = new();
     private readonly StallingConverter _stalling = new();
     private readonly SlotHoldingConverter _slotHolding = new();
+    private readonly TokenSpendingConverter _tokenSpending = new();
 
     public void Dispose() => _environment.Dispose();
 
@@ -28,7 +29,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
         KnowledgeFilePipelineOptions? options = null,
         IMetricsService? metrics = null) =>
         new(
-            new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, _slotHolding, new ThrowingConverter()]),
+            new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, _slotHolding, _tokenSpending, new ThrowingConverter()]),
             summarizer ?? new OpeningExcerptSummarizer(),
             _environment.Storage,
             options ?? new KnowledgeFilePipelineOptions(),
@@ -64,7 +65,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
 
         var result = await RunAsync(Pipeline(), binary);
 
-        Assert.Equal(new KnowledgeFilePipelineResult.Rejected(ConversionRejections.Binary), result);
+        Assert.Equal(new KnowledgeFilePipelineResult.Rejected(ConversionRejections.Binary, ConversionTokenUsage: null), result);
     }
 
     // The converter's early check only rules out files certain to be too large.
@@ -77,6 +78,32 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
 
         Assert.IsType<KnowledgeFilePipelineResult.Rejected>(result);
         Assert.Equal(0, summarizer.Calls);
+    }
+
+    [Fact]
+    public async Task What_a_conversion_spent_reaches_the_caller_with_the_new_file()
+    {
+        var result = await RunAsync(Pipeline(), OfType(TokenSpendingConverter.Type));
+
+        Assert.Equal(TokenSpendingConverter.Spent, Assert.IsType<KnowledgeFilePipelineResult.Completed>(result).ConversionTokenUsage);
+    }
+
+    [Fact]
+    public async Task What_a_conversion_spent_reaches_the_caller_when_the_converter_refuses_the_file()
+    {
+        _tokenSpending.Rejection = "Svaret ble avkortet.";
+
+        var result = await RunAsync(Pipeline(), OfType(TokenSpendingConverter.Type));
+
+        Assert.Equal(new KnowledgeFilePipelineResult.Rejected("Svaret ble avkortet.", TokenSpendingConverter.Spent), result);
+    }
+
+    [Fact]
+    public async Task What_a_conversion_spent_reaches_the_caller_when_its_result_is_over_the_token_cap()
+    {
+        var result = await RunAsync(Pipeline(maxEstimatedTokens: 1), OfType(TokenSpendingConverter.Type));
+
+        Assert.Equal(TokenSpendingConverter.Spent, Assert.IsType<KnowledgeFilePipelineResult.Rejected>(result).ConversionTokenUsage);
     }
 
     [Fact]
@@ -113,7 +140,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
 
         var result = await RunAsync(pipeline, OfType(StallingConverter.Type));
 
-        Assert.Equal(new KnowledgeFilePipelineResult.Rejected(PipelineRejections.TimedOut), result);
+        Assert.Equal(new KnowledgeFilePipelineResult.Rejected(PipelineRejections.TimedOut, ConversionTokenUsage: null), result);
     }
 
     [Fact]

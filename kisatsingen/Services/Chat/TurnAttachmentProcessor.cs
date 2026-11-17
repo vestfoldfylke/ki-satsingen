@@ -13,17 +13,18 @@ namespace kisatsingen.Services.Chat;
 internal sealed class TurnAttachmentProcessor(
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
+    IUserTokenUsageRepository tokenUsage,
     ILogger logger)
 {
     // Releases the file once it settles: it then stops counting against the
     // owner's quota, while the answer may stream for minutes.
-    public async Task<TurnAttachmentResult> ProcessAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
+    public async Task<TurnAttachmentResult> ProcessAsync(Guid ownerId, Guid chatId, Guid turnId, Guid? assistantId, ReadyAttachment attachment, CancellationToken ct)
     {
         try
         {
             return await FindSavedFileAsync(ownerId, chatId, attachment, ct) is KnowledgeFileMetadata savedFile
                 ? new TurnAttachmentResult.Available(savedFile)
-                : await ProcessAsNewAsync(ownerId, chatId, attachment, ct);
+                : await ProcessAsNewAsync(ownerId, chatId, turnId, assistantId, attachment, ct);
         }
         finally
         {
@@ -48,7 +49,7 @@ internal sealed class TurnAttachmentProcessor(
     }
 
     // A converter bug is that file's reason, not the turn's failure.
-    private async Task<TurnAttachmentResult> ProcessAsNewAsync(Guid ownerId, Guid chatId, ReadyAttachment attachment, CancellationToken ct)
+    private async Task<TurnAttachmentResult> ProcessAsNewAsync(Guid ownerId, Guid chatId, Guid turnId, Guid? assistantId, ReadyAttachment attachment, CancellationToken ct)
     {
         KnowledgeFilePipelineResult result;
         try
@@ -61,6 +62,11 @@ internal sealed class TurnAttachmentProcessor(
             return new TurnAttachmentResult.Unavailable(AttachmentTexts.NotProcessedReason);
         }
 
+        if (result.ConversionTokenUsage is { } conversionTokenUsage)
+        {
+            await InsertTokenUsageAsync(TokenUsageEntry.ForChatFileConversion(ownerId, chatId, turnId, assistantId, conversionTokenUsage), attachment, chatId);
+        }
+
         switch (result)
         {
             case KnowledgeFilePipelineResult.Completed completed:
@@ -69,6 +75,21 @@ internal sealed class TurnAttachmentProcessor(
                 return new TurnAttachmentResult.Unavailable(rejected.Reason);
             default:
                 throw new UnreachableException($"The pipeline returned {result.GetType().Name}, which the attachment processor does not handle. Handle it here.");
+        }
+    }
+
+    // Before the file is saved, so a failed save still records the spend.
+    // CancellationToken.None: the tokens are spent even if stop comes now. A
+    // failed write costs the row, never the file.
+    private async Task InsertTokenUsageAsync(TokenUsageEntry entry, ReadyAttachment attachment, Guid chatId)
+    {
+        try
+        {
+            await tokenUsage.InsertTokenUsageAsync(entry, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not save token usage for converting attachment {FileName} in chat {ChatId}.", attachment.FileName, chatId);
         }
     }
 

@@ -21,4 +21,7 @@ public partial class TotalUsage : ComponentBase
 
     [Parameter]
     public long TotalReasoningTokenUsage { get; init; }
+
+    [Parameter]
+    public long TotalConversionTokenUsage { get; init; }
 }

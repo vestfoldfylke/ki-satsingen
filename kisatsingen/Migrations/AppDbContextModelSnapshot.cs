@@ -293,6 +293,11 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("InputTokens")
                         .HasColumnType("bigint");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<string>("ModelId")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -310,7 +315,6 @@ namespace kisatsingen.Migrations
                         .HasColumnType("bigint");
 
                     b.Property<string>("Status")
-                        .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
@@ -330,7 +334,10 @@ namespace kisatsingen.Migrations
 
                     b.HasIndex("UserId", "Timestamp");
 
-                    b.ToTable("TokenUsages");
+                    b.ToTable("TokenUsages", t =>
+                        {
+                            t.HasCheckConstraint("ck_token_usages_turn_has_status", "\"Kind\" <> 'ChatTurn' OR \"Status\" IS NOT NULL");
+                        });
                 });
 
             modelBuilder.Entity("kisatsingen.Data.Entities.Chat", b =>

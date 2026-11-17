@@ -109,7 +109,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, logger);
+        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userTokenUsageRepository, logger);
         _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
     }
 

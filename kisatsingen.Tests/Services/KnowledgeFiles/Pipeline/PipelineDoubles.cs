@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using kisatsingen.Services.Attachments;
+using kisatsingen.Services.Chat;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Tests.Services.Attachments;
 
@@ -60,6 +61,23 @@ internal sealed class SlotHoldingConverter : IDocumentConverter
         await _release.Task.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
         return new ConversionResult.Converted("# Ferdig\n\nInnhold.", ContentOrigin.TextFile, PageCount: null);
     }
+}
+
+// A converter that calls a model: it reports what it spent, whether it converts
+// the file or, with Rejection set, refuses it.
+internal sealed class TokenSpendingConverter : IDocumentConverter
+{
+    public static readonly AttachmentType Type = new("test/spend", Signature: null);
+    public static readonly ConversionTokenUsage Spent = new("Mistral AI", "mistral-large-latest", new MessageUsage(1_000, 300));
+
+    public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
+
+    public string? Rejection { get; set; }
+
+    public Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct) =>
+        Task.FromResult<ConversionResult>(Rejection is null
+            ? new ConversionResult.Converted("# Bilde\n\nTeksten i bildet.", ContentOrigin.TextFile, PageCount: null, Spent)
+            : new ConversionResult.Rejected(Rejection, Spent));
 }
 
 // A bug in a converter, as opposed to a file it refuses.

@@ -23,6 +23,7 @@ internal abstract record AssistantFileResult
 internal sealed class AssistantFileProcessor(
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
+    IUserTokenUsageRepository tokenUsage,
     ILogger logger)
 {
     private const string NotProcessedReason = "Filen kunne ikke behandles. Prøv igjen.";
@@ -56,6 +57,11 @@ internal sealed class AssistantFileProcessor(
             return new AssistantFileResult.Rejected(NotProcessedReason);
         }
 
+        if (result.ConversionTokenUsage is { } conversionTokenUsage)
+        {
+            await InsertTokenUsageAsync(TokenUsageEntry.ForAssistantFileConversion(userId, assistantId, conversionTokenUsage), attachment, assistantId);
+        }
+
         switch (result)
         {
             case KnowledgeFilePipelineResult.Completed completed:
@@ -64,6 +70,21 @@ internal sealed class AssistantFileProcessor(
                 return new AssistantFileResult.Rejected(pipelineRejection.Reason);
             default:
                 throw new UnreachableException($"The pipeline returned {result.GetType().Name}, which the assistant file processor does not handle. Handle it here.");
+        }
+    }
+
+    // Before the file is saved, so a failed save still records the spend.
+    // CancellationToken.None: the tokens are spent even if the upload is
+    // cancelled now. A failed write costs the row, never the file.
+    private async Task InsertTokenUsageAsync(TokenUsageEntry entry, ReadyAttachment attachment, Guid assistantId)
+    {
+        try
+        {
+            await tokenUsage.InsertTokenUsageAsync(entry, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not save token usage for converting file {FileName} for assistant {AssistantId}.", attachment.FileName, assistantId);
         }
     }
 

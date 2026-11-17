@@ -32,7 +32,7 @@ internal static class ChatModelServiceCollectionExtensions
         ShortDescription = "Grundige svar, europeisk leverandør.",
         LongDescription =
             "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
-        Provider = "Mistral AI",
+        Provider = ModelProviders.Mistral,
         ModelId = "mistral-large-4",
         ContextWindowTokens = 1_000_000,
         IconName = "placeholder-eu"
@@ -45,7 +45,7 @@ internal static class ChatModelServiceCollectionExtensions
         ShortDescription = "Raske svar, europeisk leverandør.",
         LongDescription =
             "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
-        Provider = "Mistral AI",
+        Provider = ModelProviders.Mistral,
         ModelId = "mistral-small-2603",
         ContextWindowTokens = 256_000,
         IconName = "placeholder-eu"
@@ -58,7 +58,7 @@ internal static class ChatModelServiceCollectionExtensions
         ShortDescription = "Til de vanskeligere oppgavene.",
         LongDescription =
             "Takler større oppgaver som må løses i flere steg, og holder styr på lange samtaler.",
-        Provider = "OpenAI",
+        Provider = ModelProviders.OpenAI,
         ModelId = "gpt-6-luna",
         ContextWindowTokens = 1_000_000,
         IconName = "placeholder-code"

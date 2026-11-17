@@ -247,13 +247,12 @@ internal sealed class FakeChatRepository : IChatRepository
 
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
-// Records every insert, so tests assert the turn's ending was written with the
-// usage the model reported and the status it landed on.
+// Records every insert, so tests can assert what was written.
 internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
 {
     public List<TokenUsageEntry> Inserts { get; } = [];
 
-    // Lets a test simulate the repository being down without breaking the send.
+    // Lets a test simulate the repository being down.
     public Exception? InsertFailure { get; set; }
 
     public Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
@@ -267,8 +266,7 @@ internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
         return Task.CompletedTask;
     }
 
-    // Chat-session tests only exercise the insert path; the user-scoped query
-    // methods are stubbed so the fake still satisfies the interface.
+    // Only inserts are under test; the queries are stubbed to satisfy the interface.
     public Task<TokenUsageSummary> GetTotalsAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
         Task.FromResult(TokenUsageSummary.Empty);
 

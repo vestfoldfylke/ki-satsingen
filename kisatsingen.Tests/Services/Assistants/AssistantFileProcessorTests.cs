@@ -20,16 +20,17 @@ public sealed class AssistantFileProcessorTests : IDisposable
 
     private readonly AttachmentTestEnvironment _environment = new();
     private readonly FakeAssistantFileRepository _repository = new();
+    private readonly FakeUserTokenUsageRepository _tokenUsage = new();
     private readonly AssistantFileProcessor _processor;
 
     public AssistantFileProcessorTests() =>
-        _processor = new AssistantFileProcessor(CreatePipeline(), _repository, NullLogger.Instance);
+        _processor = new AssistantFileProcessor(CreatePipeline(), _repository, _tokenUsage, NullLogger.Instance);
 
     public void Dispose() => _environment.Dispose();
 
     private KnowledgeFilePipeline CreatePipeline() =>
         new(
-            new DocumentConverterRegistry([new TextDocumentConverter(), new ThrowingConverter()]),
+            new DocumentConverterRegistry([new TextDocumentConverter(), new ThrowingConverter(), new TokenSpendingConverter()]),
             new OpeningExcerptSummarizer(),
             _environment.Storage,
             new KnowledgeFilePipelineOptions(),
@@ -48,6 +49,26 @@ public sealed class AssistantFileProcessorTests : IDisposable
         Assert.Equal("notat.md", Assert.IsType<AssistantFileResult.Saved>(result).File.FileName);
         Assert.Equal(AssistantId, Assert.Single(_repository.Saved).AssistantId);
         Assert.Empty(_environment.FilesOnDisk);
+    }
+
+    [Fact]
+    public async Task What_converting_a_file_spent_is_recorded_for_the_assistant()
+    {
+        await ProcessAsync(UploadBytes.Text, TokenSpendingConverter.Type);
+
+        Assert.Equal(
+            TokenUsageEntry.ForAssistantFileConversion(UserId, AssistantId, TokenSpendingConverter.Spent),
+            Assert.Single(_tokenUsage.Inserts));
+    }
+
+    [Fact]
+    public async Task A_file_is_saved_even_when_what_its_conversion_spent_cannot_be_recorded()
+    {
+        _tokenUsage.InsertFailure = new InvalidOperationException("Database down.");
+
+        var result = await ProcessAsync(UploadBytes.Text, TokenSpendingConverter.Type);
+
+        Assert.IsType<AssistantFileResult.Saved>(result);
     }
 
     [Fact]
