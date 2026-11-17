@@ -1,7 +1,6 @@
 {
   "$schema": "../node_modules/@digdir/designsystemet/dist/config.schema.json",
-  "outDir": "generated/design-tokens",
-  "clean": true,
+  "output": [{ "type": "css", "dir": "generated/css", "cleanDir": true }],
   "themes": {
     "vestfold": {
       "colors": {
