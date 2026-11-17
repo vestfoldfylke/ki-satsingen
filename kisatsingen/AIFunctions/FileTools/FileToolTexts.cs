@@ -24,13 +24,19 @@ internal static class FileToolTexts
     // Continuations name every argument of the next call, defaults included,
     // so the model copies values instead of remembering what it sent.
     public static string ReadContinuation(int nextLine, int endLine) =>
-        $"Ikke hele området fikk plass i én lesing. Fortsett med read_file med startLine {nextLine} og endLine {endLine}.";
+        $"Ikke hele området fikk plass i én lesing. Fortsett med read_file med startLine {nextLine} og endLine {endLine}, eller bruk get_outline for å finne delen spørsmålet gjelder.";
+
+    public static string ReadTooLarge(int estimatedTokens) =>
+        $"Filen er på omtrent {estimatedTokens} tokens og får ikke plass i én lesing. Bruk get_outline for å finne delen spørsmålet gjelder, og les den med read_file med startLine og endLine.";
 
     public static string OutlineContinuation(int shownCount, int nextLine, int endLine, int depth) =>
         $"Oversikten viser bare de {shownCount} første oppføringene. Fortsett med get_outline med startLine {nextLine}, endLine {endLine} og depth {depth}, eller bruk lavere depth.";
 
+    // Content containing this has at least one cut line.
+    public const string LineCutMarkerStart = " […linjen er kuttet:";
+
     public static string LineCutMarker(int shownCharacters, int totalCharacters) =>
-        $" […linjen er kuttet: {shownCharacters} av {totalCharacters} tegn vises]";
+        $"{LineCutMarkerStart} {shownCharacters} av {totalCharacters} tegn vises]";
 
     public static string? OriginNote(ContentOrigin? origin) => ContentOriginNotes.For(origin);
 }

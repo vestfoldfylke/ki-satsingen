@@ -13,7 +13,7 @@ internal static class ListFilesTool
     private const string AssistantSource = "assistant";
 
     public const string Description =
-        "Lists the files available in this chat, with each file's fileId, source, file name, line count and summary, " +
+        "Lists the files available in this chat, with each file's fileId, source, file name, line count, estimated tokens and summary, " +
         "and a note on how far to trust its text when there is one. " +
         $"The source is \"{ChatSource}\" for a file attached in this chat, and \"{AssistantSource}\" for one of the assistant's own files when the chat has an assistant. " +
         "Use it to find a file attached in an earlier message, or a fileId you no longer have. " +
@@ -37,6 +37,7 @@ internal static class ListFilesTool
         source,
         file.FileName,
         file.LineCount,
+        file.EstimatedTokenCount,
         file.Summary,
         FileToolTexts.OriginNote(file.ContentOrigin));
 }

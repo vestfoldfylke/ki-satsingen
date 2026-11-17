@@ -1,7 +1,7 @@
 namespace kisatsingen.AIFunctions.FileTools;
 
-// The factory states minimum 1 in the schema but does not enforce it, and it
-// binds a null line number as 0, so both are caught here.
+// The factory states minimum 1 in the schema but does not enforce it, so a
+// line number below 1 is caught here.
 internal static class LineRange
 {
     // Null when the range is usable. An end past the last line is not an

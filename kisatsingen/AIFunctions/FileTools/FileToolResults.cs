@@ -6,13 +6,13 @@ internal static class FileToolResults
 {
     public sealed record ListFilesResult(IReadOnlyList<ListedFile> Files);
 
-    public sealed record ListedFile(string FileId, string Source, string FileName, int LineCount, string? Summary, string? OriginNote);
+    public sealed record ListedFile(string FileId, string Source, string FileName, int LineCount, int EstimatedTokens, string? Summary, string? OriginNote);
 
     public sealed record GetOutlineResult(
         string FileId,
         string FileName,
-        string? Summary,
         int LineCount,
+        int EstimatedTokens,
         string? OriginNote,
         IReadOnlyList<OutlineItem> Entries,
         string? Continuation);
@@ -31,4 +31,13 @@ internal static class FileToolResults
         string? Continuation,
         string ContentNotice,
         string Content);
+
+    // What read_file returns instead of content when the whole file does not fit
+    // in one read, so the model chooses which part to read.
+    public sealed record ReadFileTooLargeResult(
+        string FileId,
+        string FileName,
+        int LineCount,
+        int EstimatedTokens,
+        string Continuation);
 }

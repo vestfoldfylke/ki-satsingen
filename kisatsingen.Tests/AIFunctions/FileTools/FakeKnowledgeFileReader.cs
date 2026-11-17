@@ -7,7 +7,7 @@ namespace kisatsingen.Tests.AIFunctions.FileTools;
 
 // One chat file, readable only through the scope it was given, so the contract
 // tests need no database.
-internal sealed class FakeKnowledgeFileReader(KnowledgeFileScope scope, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile) : IKnowledgeFileReader
+internal sealed class FakeKnowledgeFileReader(KnowledgeFileScope scope, Guid fileId, string markdown, ContentOrigin? origin = ContentOrigin.TextFile, int estimatedTokenCount = 1) : IKnowledgeFileReader
 {
     private static readonly DateTimeOffset SavedAt = new(2026, 9, 30, 12, 0, 0, TimeSpan.Zero);
 
@@ -19,7 +19,7 @@ internal sealed class FakeKnowledgeFileReader(KnowledgeFileScope scope, Guid fil
         Sha256: new string('a', 64),
         Summary: "Utdrag.",
         LineCount: DocumentLines.Count(markdown),
-        EstimatedTokenCount: 1,
+        EstimatedTokenCount: estimatedTokenCount,
         origin,
         PageCount: null,
         Version: 1,
