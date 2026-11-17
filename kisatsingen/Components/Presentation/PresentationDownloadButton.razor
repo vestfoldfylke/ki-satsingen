@@ -1,6 +1,6 @@
 <button
     type="button"
-    class="ds-button chat-tool-download"
+    class="ds-button chat-tool-item"
     data-variant="primary"
     data-size="sm"
     aria-busy="@(_isDownloading ? "true" : null)"
@@ -23,5 +23,5 @@
 </button>
 @if (_downloadProblem is not null)
 {
-    <p class="ds-alert ds-paragraph chat-tool-download-problem" data-size="xs" data-color="warning" role="alert">@_downloadProblem</p>
+    <p class="ds-alert ds-paragraph chat-tool-item" data-size="xs" data-color="warning" role="alert">@_downloadProblem</p>
 }
