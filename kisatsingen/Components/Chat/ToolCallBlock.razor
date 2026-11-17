@@ -4,6 +4,34 @@
 }
 else
 {
+    <details class="ds-details" data-color="@OutcomeColor">
+        <summary>@View.Title</summary>
+        <div>
+            <pre class="chat-tool-output">@ShownText</pre>
+            @if (View.UserFriendlyResult is not null)
+            {
+                <button
+                    type="button"
+                    class="ds-button"
+                    data-variant="secondary"
+                    data-size="sm"
+                    data-color="neutral"
+                    @onclick="() => _isShowingRawData = !_isShowingRawData"
+                >
+                    @if (_isShowingRawData)
+                    {
+                        <span class="material-symbols-outlined" aria-hidden="true">article</span>
+                        <text>Vis lesevisning</text>
+                    }
+                    else
+                    {
+                        <span class="material-symbols-outlined" aria-hidden="true">data_object</span>
+                        <text>Vis rådata</text>
+                    }
+                </button>
+            }
+        </div>
+    </details>
     @if (View.Download is { } download)
     {
         <button
@@ -34,32 +62,4 @@ else
             <p class="ds-alert ds-paragraph chat-tool-download-problem" data-size="xs" data-color="warning" role="alert">@_downloadProblem</p>
         }
     }
-    <details class="ds-details" data-color="@OutcomeColor">
-        <summary>@View.Title</summary>
-        <div>
-            <pre class="chat-tool-output">@ShownText</pre>
-            @if (View.UserFriendlyResult is not null)
-            {
-                <button
-                    type="button"
-                    class="ds-button"
-                    data-variant="secondary"
-                    data-size="sm"
-                    data-color="neutral"
-                    @onclick="() => _isShowingRawData = !_isShowingRawData"
-                >
-                    @if (_isShowingRawData)
-                    {
-                        <span class="material-symbols-outlined" aria-hidden="true">article</span>
-                        <text>Vis lesevisning</text>
-                    }
-                    else
-                    {
-                        <span class="material-symbols-outlined" aria-hidden="true">data_object</span>
-                        <text>Vis rådata</text>
-                    }
-                </button>
-            }
-        </div>
-    </details>
 }
