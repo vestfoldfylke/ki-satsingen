@@ -23,13 +23,16 @@ internal sealed class ImageDocumentConverter(ImageConversionModel model, ILogger
     // The description comes first because the summary reads the file's opening.
     private const string Instructions =
         """
-        Beskriv bildet og hent teksten i bildet. Svar bare med Markdown i denne formen:
+        Beskriv bildet og skriv av all tekst i det. Svar bare med Markdown i denne formen, uten kodeblokk rundt:
 
         ## Beskrivelse av bildet
-        Hva bildet er, og hvordan innholdet er satt opp, og relevant informasjon om layout i noen få setninger.
+        Hva slags bilde det er, hva det handler om, og hvordan innholdet er satt opp. Ta med det som ikke står som tekst, men trengs for å forstå bildet, som avkryssinger, markeringer, statusikoner, feilmeldinger og hva et diagram viser. Noen få setninger.
 
         ## Tekst i bildet
-        All tekst i bildet, ordrett, strukturert, og på originalspråket.
+        All tekst i bildet, ordrett, på originalspråket og i leserekkefølge.
+        - Ikke forkort eller oppsummer. Tall, datoer, beløp, navn og saksnumre skrives nøyaktig som de står.
+        - Behold strukturen: overskrifter i bildet som ###, lister som lister og tabeller som Markdown-tabeller.
+        - Skriv [uleselig] der teksten ikke kan leses sikkert, i stedet for å gjette.
         """;
 
     public IReadOnlyList<string> ContentTypes { get; } =
