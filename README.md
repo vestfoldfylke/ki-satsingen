@@ -118,3 +118,11 @@ To upgrade Designsystemet, set the same exact version on all three `@digdir` pac
 #### How to reset local db (wipes data as well)
 - `docker compose down -v`
 - `docker compose up -d`
+
+### AI-Tools
+
+#### Update template for `CreatePresentationTool`
+
+- Replace template in `kisatsingen/Services/Presentations/Templates`
+- Run tests
+- Start ki-satsingen on your machine and make sure a newly created presentation is good
