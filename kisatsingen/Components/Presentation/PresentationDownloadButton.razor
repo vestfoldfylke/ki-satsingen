@@ -1,0 +1,27 @@
+<button
+    type="button"
+    class="ds-button chat-tool-item"
+    data-variant="primary"
+    data-size="sm"
+    aria-busy="@(_isDownloading ? "true" : null)"
+    aria-disabled="@(_isDownloading ? "true" : null)"
+    @onclick="DownloadAsync"
+>
+    @if (_isDownloading)
+    {
+        <svg class="ds-spinner" role="img" aria-label="Lager filen" viewBox="0 0 50 50" data-size="sm">
+            <circle class="ds-spinner__background" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+            <circle class="ds-spinner__circle" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
+        </svg>
+        <text>Lager filen…</text>
+    }
+    else
+    {
+        <span class="material-symbols-outlined" aria-hidden="true">download</span>
+        <text>Last ned @Download.FileName</text>
+    }
+</button>
+@if (_downloadProblem is not null)
+{
+    <p class="ds-alert ds-paragraph chat-tool-item" data-size="xs" data-color="warning" role="alert">@_downloadProblem</p>
+}

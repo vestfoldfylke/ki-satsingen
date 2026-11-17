@@ -13,6 +13,7 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
+using kisatsingen.Services.Presentations;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -233,6 +234,14 @@ fileToolOptions.Validate();
 builder.Services.AddSingleton(fileToolOptions);
 builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
 builder.Services.AddScoped<FileToolFactory>();
+
+// ─── Presentation tool ─────────────────────────────────
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<PresentationTemplate>();
+builder.Services.AddSingleton<VestfoldPresentationBuilder>();
+builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
+builder.Services.AddSingleton<PresentationBuildLimiter>();
+builder.Services.AddScoped<PresentationFileBuilder>();
 
 var app = builder.Build();
 

@@ -2,8 +2,11 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.PresentationTools;
+using kisatsingen.Components.Presentation;
 using kisatsingen.Services.Chat;
 using static kisatsingen.AIFunctions.FileTools.FileToolResults;
+using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
 
 namespace kisatsingen.Components.Chat;
 
@@ -20,7 +23,7 @@ internal enum ToolOutcome
 
 // A tool call as shown to the user. A result missing the fields a text needs,
 // such as one stored in an older shape, falls back to a text without them.
-internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult)
+internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, GeneratedPresentation? Download)
 {
     // Relaxed so æ, ø and å stay readable. Safe: Blazor HTML-encodes what it
     // renders, and this JSON never reaches a script.
@@ -34,8 +37,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     {
         var result = ParseResult(toolCall.Result);
         var outcome = ClassifyOutcome(toolCall.Status, result);
-        var (title, userFriendlyResult) = Describe(toolCall.ToolName, outcome, result);
-        return new ToolCallView(toolCall, outcome, title, userFriendlyResult);
+        var (title, userFriendlyResult, download) = Describe(toolCall, outcome, result);
+        return new ToolCallView(toolCall, outcome, title, userFriendlyResult, download);
     }
 
     // On demand rather than in Build: few open the raw data, so no copy is kept
@@ -65,24 +68,25 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "A tool status with no outcome.")
     };
 
-    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null);
+    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null, GeneratedPresentation? Download = null);
 
-    private static ToolCallText Describe(string toolName, ToolOutcome outcome, JsonElement? result)
+    private static ToolCallText Describe(ToolCall toolCall, ToolOutcome outcome, JsonElement? result)
     {
         if (outcome is ToolOutcome.Interrupted or ToolOutcome.Failed)
         {
-            var runningTitle = Describe(toolName, ToolOutcome.Running, result).Title;
+            var runningTitle = Describe(toolCall, ToolOutcome.Running, result).Title;
             var stoppedBy = outcome is ToolOutcome.Interrupted ? "avbrutt" : "feilet";
             return new(Title: $"{runningTitle} ({stoppedBy})");
         }
 
-        return toolName switch
+        return toolCall.ToolName switch
         {
             ChatTools.GetCurrentTimeUtcToolName => DescribeCurrentTime(outcome, result),
             ListFilesTool.Name => DescribeListFiles(outcome, result),
             GetOutlineTool.Name => DescribeOutline(outcome, result),
             ReadFileTool.Name => DescribeReadFile(outcome, result),
-            _ => DescribeUnknownTool(toolName, outcome)
+            CreatePresentationTool.Name => DescribeCreatePresentation(outcome, result, toolCall.Arguments),
+            _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
 
@@ -144,6 +148,19 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         return $"Leste «{fileName}», linje {read.StartLine} til {read.EndLine} av {read.LineCount}{cutNote}";
     }
 
+    // The file is built from the arguments, which the tool accepted, so the
+    // download needs nothing stored beyond the tool call itself.
+    private static ToolCallText DescribeCreatePresentation(ToolOutcome outcome, JsonElement? result, JsonElement arguments) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Lager presentasjon"),
+        ToolOutcome.Succeeded when ReadAs<PresentationCreatedResult>(result) is { FileName: { } fileName } created
+            && CreatePresentationTool.ReadArguments(arguments) is { } spec => new(
+                Title: $"Laget presentasjonen «{fileName}» ({created.SlideCount} lysbilder)",
+                Download: new GeneratedPresentation(fileName, spec)),
+        ToolOutcome.Succeeded => new(Title: "Laget presentasjon"),
+        _ => new(Title: "Prøvde å lage presentasjon")
+    };
+
     private static ToolCallText DescribeUnknownTool(string toolName, ToolOutcome outcome) => outcome switch
     {
         ToolOutcome.Running => new(Title: $"Bruker verktøyet {toolName}"),
@@ -152,7 +169,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     };
 
     private static T? ReadAs<T>(JsonElement? result) where T : class =>
-        result is { } json ? FileToolFunction.ReadResult<T>(json) : null;
+        result is { } json ? ToolFunction.ReadResult<T>(json) : null;
 
     // The line numbers are for the model; the title tells the user which lines were read.
     private static string WithoutLineNumbers(string content) =>

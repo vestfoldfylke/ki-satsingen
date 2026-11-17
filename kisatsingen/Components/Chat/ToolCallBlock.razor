@@ -1,3 +1,5 @@
+@using kisatsingen.Components.Presentation
+
 @if (View.Outcome is ToolOutcome.Running)
 {
     <p class="text-shimmer" data-color="neutral">@View.Title…</p>
@@ -32,4 +34,8 @@ else
             }
         </div>
     </details>
+    @if (View.Download is { } download)
+    {
+        <PresentationDownloadButton Download="download" />
+    }
 }
