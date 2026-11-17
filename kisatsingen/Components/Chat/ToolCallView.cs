@@ -3,6 +3,7 @@ using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.AIFunctions.PresentationTools;
+using kisatsingen.Components.Presentation;
 using kisatsingen.Services.Chat;
 using static kisatsingen.AIFunctions.FileTools.FileToolResults;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
@@ -22,7 +23,7 @@ internal enum ToolOutcome
 
 // A tool call as shown to the user. A result missing the fields a text needs,
 // such as one stored in an older shape, falls back to a text without them.
-internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, PresentationDownload? Download)
+internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, GeneratedPresentation? Download)
 {
     // Relaxed so æ, ø and å stay readable. Safe: Blazor HTML-encodes what it
     // renders, and this JSON never reaches a script.
@@ -67,7 +68,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "A tool status with no outcome.")
     };
 
-    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null, PresentationDownload? Download = null);
+    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null, GeneratedPresentation? Download = null);
 
     private static ToolCallText Describe(ToolCall toolCall, ToolOutcome outcome, JsonElement? result)
     {
@@ -139,7 +140,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         ToolOutcome.Succeeded when ReadAs<PresentationCreatedResult>(result) is { FileName: { } fileName } created
             && CreatePresentationTool.ReadArguments(arguments) is { } spec => new(
                 Title: $"Laget presentasjonen «{fileName}» ({created.SlideCount} lysbilder)",
-                Download: new PresentationDownload(fileName, spec)),
+                Download: new GeneratedPresentation(fileName, spec)),
         ToolOutcome.Succeeded => new(Title: "Laget presentasjon"),
         _ => new(Title: "Prøvde å lage presentasjon")
     };

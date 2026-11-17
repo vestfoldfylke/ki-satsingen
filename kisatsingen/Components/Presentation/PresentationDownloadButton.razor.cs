@@ -1,4 +1,3 @@
-using kisatsingen.Components.Chat;
 using kisatsingen.Services.Presentations;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
@@ -17,13 +16,13 @@ public partial class PresentationDownloadButton : ComponentBase
     // Scoped to the circuit, not this component: opening another chat disposes
     // this component, but the user is still here and the file should arrive.
     [Inject]
-    public required PresentationDownloads PresentationDownloads { get; set; }
+    public required PresentationFileBuilder PresentationFileBuilder { get; set; }
 
     [Inject]
     public required ILogger<PresentationDownloadButton> Logger { get; set; }
 
     [Parameter, EditorRequired]
-    public required PresentationDownload Download { get; set; }
+    public required GeneratedPresentation Download { get; set; }
 
     private bool _isDownloading;
     private string? _downloadProblem;
@@ -42,7 +41,7 @@ public partial class PresentationDownloadButton : ComponentBase
         _downloadProblem = null;
         try
         {
-            switch (await PresentationDownloads.BuildAsync(Download.Spec))
+            switch (await PresentationFileBuilder.BuildAsync(Download.Spec))
             {
                 case PresentationBuildResult.Built built:
                     await SaveAsync(Download.FileName, built.Content);
@@ -57,7 +56,7 @@ public partial class PresentationDownloadButton : ComponentBase
                     break;
             }
         }
-        catch (OperationCanceledException) when (PresentationDownloads.IsCancelled)
+        catch (OperationCanceledException) when (PresentationFileBuilder.IsCancelled)
         {
             // The circuit is gone; there is no one to give the file to.
             Logger.LogInformation("Presentation {FileName} not built since the operation was cancelled", Download.FileName);

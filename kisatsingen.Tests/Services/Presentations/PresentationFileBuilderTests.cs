@@ -3,7 +3,7 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Presentations;
 
-public sealed class PresentationDownloadsTests
+public sealed class PresentationFileBuilderTests
 {
     private static readonly PresentationSpec Spec = new("Budsjett", PresentationTheme.BarkNype, [new(SlideKind.Chapter, "Innledning")]);
 
@@ -14,9 +14,9 @@ public sealed class PresentationDownloadsTests
     public async Task A_build_while_the_circuit_lives_gives_the_presentation()
     {
         var limiter = Limiter();
-        using var downloads = new PresentationDownloads(limiter);
+        using var builder = new PresentationFileBuilder(limiter);
 
-        var result = await downloads.BuildAsync(Spec);
+        var result = await builder.BuildAsync(Spec);
 
         Assert.IsType<PresentationBuildResult.Built>(result);
     }
@@ -25,20 +25,20 @@ public sealed class PresentationDownloadsTests
     public async Task A_build_after_the_circuit_has_ended_is_cancelled()
     {
         var limiter = Limiter();
-        var downloads = new PresentationDownloads(limiter);
+        var builder = new PresentationFileBuilder(limiter);
 
-        downloads.Dispose();
+        builder.Dispose();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => downloads.BuildAsync(Spec));
-        Assert.True(downloads.IsCancelled);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => builder.BuildAsync(Spec));
+        Assert.True(builder.IsCancelled);
     }
 
     [Fact]
-    public void Downloads_are_not_cancelled_while_the_circuit_lives()
+    public void Builds_are_not_cancelled_while_the_circuit_lives()
     {
         var limiter = Limiter();
-        using var downloads = new PresentationDownloads(limiter);
+        using var builder = new PresentationFileBuilder(limiter);
 
-        Assert.False(downloads.IsCancelled);
+        Assert.False(builder.IsCancelled);
     }
 }
