@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using System.Text.Json;
-using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Services.Presentations;
 using Microsoft.Extensions.AI;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
@@ -35,7 +34,7 @@ internal static class CreatePresentationTool
     // Built once: the factory reflects over the lambda and generates the schema
     // for the nested slide array, and neither ever changes.
     public static readonly AIFunction Tool =
-        FileToolFunction.Create(Name, Description, (
+        ToolFunction.Create(Name, Description, (
             [Description("The presentation's title; it also becomes the file name and the document title.")] string title,
             [Description(ThemeDescription)] PresentationTheme theme,
             [Description("The slides, in order.")] SlideSpec[] slides) => Check(title, theme, slides));

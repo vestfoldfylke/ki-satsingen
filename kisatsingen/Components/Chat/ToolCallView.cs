@@ -153,7 +153,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     };
 
     private static T? ReadAs<T>(JsonElement? result) where T : class =>
-        result is { } json ? FileToolFunction.ReadResult<T>(json) : null;
+        result is { } json ? ToolFunction.ReadResult<T>(json) : null;
 
     // Lines come as "12<tab>text"; the title already gives the range.
     private static string WithoutLineNumbers(string content) =>

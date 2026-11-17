@@ -22,7 +22,7 @@ internal static class ReadFileTool
     // fileId is a string, not a Guid, so a malformed id gets the same answer
     // as an unknown one, which points the model to list_files.
     public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, KnowledgeFileScope scope) =>
-        FileToolFunction.Create(Name, Description(options), (
+        ToolFunction.Create(Name, Description(options), (
             [Description("The file's fileId, from the attachment line or list_files.")] string fileId,
             [Description("First line to read, counted from 1."), Range(1, int.MaxValue)] int startLine,
             [Description("Last line to read, inclusive."), Range(1, int.MaxValue)] int endLine,
