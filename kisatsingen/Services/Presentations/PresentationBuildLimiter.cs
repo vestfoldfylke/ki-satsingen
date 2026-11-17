@@ -5,7 +5,7 @@ namespace kisatsingen.Services.Presentations;
 public sealed record PresentationBuildLimiterOptions(int MaxConcurrentBuilds, TimeSpan MaxWait)
 {
     // How long a click waits for a free slot before the user is told to try again.
-    public static readonly TimeSpan DefaultMaxWait = TimeSpan.FromSeconds(30);
+    public static readonly TimeSpan DefaultMaxWait = TimeSpan.FromSeconds(10);
 
     // One build per core: a build is CPU-bound, so more at once only adds memory
     // (each takes 15–20 MB while it runs) without finishing any sooner.
