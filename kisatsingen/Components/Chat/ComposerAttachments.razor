@@ -1,3 +1,4 @@
+@using kisatsingen.Components.Attachments
 @using kisatsingen.Services.Attachments
 
 @if (Notice is { } notice)
@@ -24,6 +25,8 @@
             </li>
         }
     </ul>
+
+    <p class="ds-paragraph" data-size="xs" data-color="neutral">@AttachmentPrivacyWarning.Text</p>
 }
 
 @code {
