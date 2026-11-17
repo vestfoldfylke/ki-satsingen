@@ -1,18 +1,15 @@
-/* Compact: less padding, and no margin for stacked children, since these sit in a row. */
-.attachment-card {
-    --dsc-card-padding: var(--ds-size-2);
-    --dsc-card-content-margin-block: 0;
+.attachment-item {
     display: flex;
     align-items: center;
     gap: var(--ds-size-2);
 }
 
-.attachment-card-remove {
+.attachment-item-remove {
     flex-shrink: 0;
 }
 
-/* min-width: 0 so long lines are cut instead of widening the card. */
-.attachment-card-text {
+/* min-width: 0 so long lines are cut instead of widening the item. */
+.attachment-item-text {
     display: flex;
     flex: 1;
     flex-direction: column;
@@ -20,24 +17,24 @@
     min-width: 0;
 }
 
-.attachment-card-line {
+.attachment-item-line {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-.attachment-card-detail-row {
+.attachment-item-detail-row {
     display: flex;
     align-items: center;
     gap: var(--ds-size-2);
     min-width: 0;
 }
 
-.attachment-card-detail {
+.attachment-item-detail {
     color: var(--ds-color-text-subtle);
 }
 
 /* The tag never shrinks; the type and size are cut instead. */
-.attachment-card-tag {
+.attachment-item-tag {
     flex-shrink: 0;
 }

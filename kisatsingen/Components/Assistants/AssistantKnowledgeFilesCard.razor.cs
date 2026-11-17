@@ -109,13 +109,13 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
         }
     }
 
-    private static AttachmentCardStatus ToCardStatus(AssistantFileUpload upload) => upload.Status switch
+    private static AttachmentItemStatus ToItemStatus(AssistantFileUpload upload) => upload.Status switch
     {
-        AssistantFileUploadStatus.Waiting => new AttachmentCardStatus.Waiting(),
-        AssistantFileUploadStatus.Uploading => new AttachmentCardStatus.Uploading(upload.UploadedPercent),
-        AssistantFileUploadStatus.Processing => new AttachmentCardStatus.Processing(),
-        AssistantFileUploadStatus.Rejected => new AttachmentCardStatus.Failed(upload.RejectionReason ?? "Kunne ikke legges til"),
-        _ => throw new ArgumentOutOfRangeException(nameof(upload), upload.Status, "Every upload status needs a card status; add one to ToCardStatus.")
+        AssistantFileUploadStatus.Waiting => new AttachmentItemStatus.Waiting(),
+        AssistantFileUploadStatus.Uploading => new AttachmentItemStatus.Uploading(upload.UploadedPercent),
+        AssistantFileUploadStatus.Processing => new AttachmentItemStatus.Processing(),
+        AssistantFileUploadStatus.Rejected => new AttachmentItemStatus.Failed(upload.RejectionReason ?? "Kunne ikke legges til"),
+        _ => throw new ArgumentOutOfRangeException(nameof(upload), upload.Status, "Every upload status needs an item status; add one to ToItemStatus.")
     };
 
     // Only a refused upload can be dismissed: the others are still on their

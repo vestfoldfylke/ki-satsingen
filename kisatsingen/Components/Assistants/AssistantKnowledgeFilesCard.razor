@@ -84,9 +84,9 @@
                         @foreach (var upload in Uploads.All)
                         {
                             <li @key="upload.Id">
-                                <AttachmentCard FileName="@upload.FileName"
+                                <AttachmentItem FileName="@upload.FileName"
                                                 SizeBytes="upload.DeclaredSizeBytes"
-                                                Status="ToCardStatus(upload)"
+                                                Status="ToItemStatus(upload)"
                                                 OnRemove="DismissCallbackFor(upload)" />
                             </li>
                         }

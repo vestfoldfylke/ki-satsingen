@@ -10,8 +10,9 @@
     list-style: none;
 }
 
-/* min-width: 0 lets a card shrink below its name, so the name is cut
-   rather than widening the column. */
+/* A compact card. min-width: 0 lets it shrink below its name, so the name is
+   cut rather than widening the column. */
 .composer-attachment {
+    --dsc-card-padding: var(--ds-size-2);
     min-width: 0;
 }

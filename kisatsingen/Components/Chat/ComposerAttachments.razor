@@ -13,10 +13,13 @@
     <ul class="composer-attachments" aria-label="Vedlegg">
         @foreach (var attachment in Attachments)
         {
-            <li @key="attachment.AttachmentId" class="composer-attachment">
-                <AttachmentCard FileName="@attachment.FileName"
+            <li @key="attachment.AttachmentId"
+                class="ds-card composer-attachment"
+                data-size="sm"
+                data-color="@(attachment.Status == AttachmentStatus.Rejected ? "danger" : "neutral")">
+                <AttachmentItem FileName="@attachment.FileName"
                                 SizeBytes="attachment.DeclaredSizeBytes"
-                                Status="ToCardStatus(attachment)"
+                                Status="ToItemStatus(attachment)"
                                 OnRemove="() => OnRemove.InvokeAsync(attachment.AttachmentId)" />
             </li>
         }
@@ -33,12 +36,12 @@
     [Parameter]
     public EventCallback<Guid> OnRemove { get; set; }
 
-    private static AttachmentCardStatus? ToCardStatus(ComposerAttachment attachment) => attachment.Status switch
+    private static AttachmentItemStatus? ToItemStatus(ComposerAttachment attachment) => attachment.Status switch
     {
-        AttachmentStatus.Waiting => new AttachmentCardStatus.Waiting(),
-        AttachmentStatus.Uploading => new AttachmentCardStatus.Uploading(attachment.UploadedPercent),
+        AttachmentStatus.Waiting => new AttachmentItemStatus.Waiting(),
+        AttachmentStatus.Uploading => new AttachmentItemStatus.Uploading(attachment.UploadedPercent),
         AttachmentStatus.Ready => null,
-        AttachmentStatus.Rejected => new AttachmentCardStatus.Failed(attachment.Rejection?.Message ?? "Kunne ikke legges ved"),
-        _ => throw new ArgumentOutOfRangeException(nameof(attachment), attachment.Status, "Every attachment status needs a card status; add one to ToCardStatus.")
+        AttachmentStatus.Rejected => new AttachmentItemStatus.Failed(attachment.Rejection?.Message ?? "Kunne ikke legges ved"),
+        _ => throw new ArgumentOutOfRangeException(nameof(attachment), attachment.Status, "Every attachment status needs an item status; add one to ToItemStatus.")
     };
 }
