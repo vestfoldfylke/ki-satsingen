@@ -8,25 +8,19 @@
 
 @if (Attachments.Count > 0)
 {
+    <p class="ds-alert ds-paragraph" data-size="xs">@AttachmentPrivacyWarning.Text</p>
+
     <ul class="composer-attachments" aria-label="Vedlegg">
         @foreach (var attachment in Attachments)
         {
             <li @key="attachment.AttachmentId" class="composer-attachment">
-                <span class="composer-attachment-name">@attachment.FileName</span>
-                <span class="composer-attachment-status" data-color="@(AttachmentStatusTexts.IsRejected(attachment) ? "danger" : null)">
-                    @AttachmentStatusTexts.DescribeStatus(attachment)
-                </span>
-                <button type="button" class="ds-button" data-variant="tertiary" data-size="sm" data-icon="true"
-                        data-tooltip="@($"Fjern {attachment.FileName}")"
-                        aria-label="@($"Fjern {attachment.FileName}")"
-                        @onclick="() => OnRemove.InvokeAsync(attachment.AttachmentId)">
-                    <span class="material-symbols-outlined" aria-hidden="true">close</span>
-                </button>
+                <AttachmentCard FileName="@attachment.FileName"
+                                SizeBytes="attachment.DeclaredSizeBytes"
+                                Status="ToCardStatus(attachment)"
+                                OnRemove="() => OnRemove.InvokeAsync(attachment.AttachmentId)" />
             </li>
         }
     </ul>
-
-    <p class="ds-paragraph" data-size="xs" data-color="neutral">@AttachmentPrivacyWarning.Text</p>
 }
 
 @code {
@@ -38,4 +32,13 @@
 
     [Parameter]
     public EventCallback<Guid> OnRemove { get; set; }
+
+    private static AttachmentCardStatus? ToCardStatus(ComposerAttachment attachment) => attachment.Status switch
+    {
+        AttachmentStatus.Waiting => new AttachmentCardStatus.Waiting(),
+        AttachmentStatus.Uploading => new AttachmentCardStatus.Uploading(attachment.UploadedPercent),
+        AttachmentStatus.Ready => null,
+        AttachmentStatus.Rejected => new AttachmentCardStatus.Failed(attachment.Rejection?.Message ?? "Kunne ikke legges ved"),
+        _ => throw new ArgumentOutOfRangeException(nameof(attachment), attachment.Status, "Every attachment status needs a card status; add one to ToCardStatus.")
+    };
 }

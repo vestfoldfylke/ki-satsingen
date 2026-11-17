@@ -1,0 +1,30 @@
+<div class="ds-card attachment-card" data-size="sm" data-color="@(Status is AttachmentCardStatus.Failed ? "danger" : "neutral")">
+    <div class="attachment-card-text">
+        <span class="ds-paragraph attachment-card-line" data-size="xs" title="@FileName">@FileName</span>
+
+        @if (Status is AttachmentCardStatus.Failed failed)
+        {
+            <span class="ds-paragraph attachment-card-detail" data-size="xs">@failed.Reason</span>
+        }
+        else
+        {
+            <span class="attachment-card-detail-row">
+                <span class="ds-paragraph attachment-card-line attachment-card-detail" data-size="xs">@TypeAndSize</span>
+                @if (TagText is { } tagText)
+                {
+                    <span class="ds-tag attachment-card-tag" data-color="@TagColor">@tagText</span>
+                }
+            </span>
+        }
+    </div>
+
+    @if (OnRemove.HasDelegate)
+    {
+        <button type="button" class="ds-button attachment-card-remove" data-size="sm" data-variant="tertiary" data-icon="true"
+                data-tooltip="@($"Fjern {FileName}")"
+                aria-label="@($"Fjern {FileName}")"
+                @onclick="OnRemove">
+            <span class="material-symbols-outlined" aria-hidden="true">close</span>
+        </button>
+    }
+</div>

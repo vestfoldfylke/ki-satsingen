@@ -20,20 +20,3 @@
     padding: 0;
     list-style: none;
 }
-
-.assistant-files-upload {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.assistant-files-upload-heading {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-}
-
-.assistant-files-upload-name {
-    max-width: 100%;
-    overflow-wrap: anywhere;
-}

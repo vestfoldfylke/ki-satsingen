@@ -1,4 +1,5 @@
 using kisatsingen.Authorization;
+using kisatsingen.Components.Attachments;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -108,14 +109,21 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
         }
     }
 
-    private static string DescribeStatus(AssistantFileUpload upload) => upload.Status switch
+    private static AttachmentCardStatus ToCardStatus(AssistantFileUpload upload) => upload.Status switch
     {
-        AssistantFileUploadStatus.Waiting => "Venter",
-        AssistantFileUploadStatus.Uploading => $"Laster opp {upload.UploadedPercent} %",
-        AssistantFileUploadStatus.Processing => "Behandles …",
-        AssistantFileUploadStatus.Rejected => upload.RejectionReason ?? "Kunne ikke legges til",
-        _ => upload.Status.ToString()
+        AssistantFileUploadStatus.Waiting => new AttachmentCardStatus.Waiting(),
+        AssistantFileUploadStatus.Uploading => new AttachmentCardStatus.Uploading(upload.UploadedPercent),
+        AssistantFileUploadStatus.Processing => new AttachmentCardStatus.Processing(),
+        AssistantFileUploadStatus.Rejected => new AttachmentCardStatus.Failed(upload.RejectionReason ?? "Kunne ikke legges til"),
+        _ => throw new ArgumentOutOfRangeException(nameof(upload), upload.Status, "Every upload status needs a card status; add one to ToCardStatus.")
     };
+
+    // Only a refused upload can be dismissed: the others are still on their
+    // way to the list of saved files.
+    private EventCallback DismissCallbackFor(AssistantFileUpload upload) =>
+        upload.Status == AssistantFileUploadStatus.Rejected
+            ? EventCallback.Factory.Create(this, () => Uploads.Dismiss(upload.Id))
+            : default;
 
     // Uploads change in the middle of AddFilesAsync, where Blazor doesn't render by itself.
     private void OnUploadsChanged() => InvokeAsync(StateHasChanged);

@@ -83,28 +83,11 @@
                     <ul class="assistant-files-uploads" aria-label="Filer som legges til">
                         @foreach (var upload in Uploads.All)
                         {
-                            <li @key="upload.Id" class="assistant-files-upload">
-                                <div class="assistant-files-upload-heading">
-                                    <span class="assistant-files-upload-name">@upload.FileName</span>
-                                    @if (upload.Status == AssistantFileUploadStatus.Rejected)
-                                    {
-                                        <button
-                                            type="button"
-                                            class="ds-button"
-                                            data-variant="tertiary"
-                                            data-size="sm"
-                                            data-icon="true"
-                                            data-tooltip="@($"Fjern {upload.FileName}")"
-                                            aria-label="@($"Fjern {upload.FileName}")"
-                                            @onclick="() => Uploads.Dismiss(upload.Id)"
-                                        >
-                                            <span class="material-symbols-outlined" aria-hidden="true">close</span>
-                                        </button>
-                                    }
-                                </div>
-                                <span class="ds-paragraph ds-alert" data-color="@(upload.Status == AssistantFileUploadStatus.Rejected ? "danger" : null)">
-                                    @DescribeStatus(upload)
-                                </span>
+                            <li @key="upload.Id">
+                                <AttachmentCard FileName="@upload.FileName"
+                                                SizeBytes="upload.DeclaredSizeBytes"
+                                                Status="ToCardStatus(upload)"
+                                                OnRemove="DismissCallbackFor(upload)" />
                             </li>
                         }
                     </ul>
