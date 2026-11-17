@@ -8,7 +8,7 @@ namespace kisatsingen.Services.KnowledgeFiles.Conversion;
 // can improve without touching stored data.
 //
 // Recorded rather than derived from the content type: once one type has two
-// routes (a PDF's text layer or OCR; a placeholder or a description), files
+// routes (a PDF's text layer or OCR), files
 // converted one way could never be told apart from the others, since
 // originals are not kept.
 //
@@ -20,14 +20,14 @@ public enum ContentOrigin
     // The upload was a text file (.txt, .md), used as it is: exact.
     TextFile,
 
-    // The upload was an image whose content is not read.
-    ImagePlaceholder,
-
     // The upload was a PDF file (*.pdf), whose content has been converted to Markdown.
     Pdf,
 
     // The upload was a Word document (*.docx) whose content has been converted to Markdown.
-    Docx
+    Docx,
+
+    // The upload was an image, described and transcribed by a vision model.
+    ImageDescription
 }
 
 // Shown to both the model and the user, so a note states how the text was
@@ -37,8 +37,8 @@ public static class ContentOriginNotes
     public static string? For(ContentOrigin? origin) => origin switch
     {
         ContentOrigin.TextFile => null,
-        ContentOrigin.ImagePlaceholder => "Innholdet i bildet er ikke tolket.",
         ContentOrigin.Docx or ContentOrigin.Pdf => "Teksten er hentet ut og konvertert til Markdown.",
+        ContentOrigin.ImageDescription => "Teksten og beskrivelsen er laget av en KI-modell ut fra bildet, og kan inneholde feil.",
         // A stored name this build does not know.
         null => "Det er ukjent hvordan teksten ble hentet ut, så den kan være unøyaktig.",
         _ => throw new UnreachableException($"ContentOrigin {origin} has no note. Add one here in the same change that adds the value.")

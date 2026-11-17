@@ -9,6 +9,8 @@ public sealed class DocumentConverterRegistryTests
     {
         public IReadOnlyList<string> ContentTypes { get; } = [contentType];
 
+        public bool IsRemote => false;
+
         public Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct) =>
             throw new NotSupportedException("The registry never converts.");
     }

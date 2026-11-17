@@ -7,6 +7,10 @@ public interface IDocumentConverter
 {
     IReadOnlyList<string> ContentTypes { get; }
 
+    // Remote: converting waits on an external service rather than using this
+    // server's CPU.
+    bool IsRemote { get; }
+
     // IMPORTANT: Must stop as fast as possible when ct is cancelled. The
     // pipeline waits for conversion to end, so a converter that ignores ct holds
     // its turn, the user's Stop and a conversion slot until it finishes.

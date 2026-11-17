@@ -25,6 +25,14 @@ internal static class ConversionRejections
     public static string ImageTooLarge(long width, long height) =>
         $"Bildet er for stort ({width} x {height} piksler). Last opp en mindre versjon.";
 
+    public static string ImageFileTooLarge(long maxBytes) =>
+        $"Bildet er større enn grensen på {ByteSize.Format(maxBytes)} for bilder. Last opp en mindre versjon.";
+
+    public const string ImageNotRead = "Bildet kunne ikke tolkes nå. Prøv igjen om litt.";
+
+    public const string ImageTextTooLong =
+        "Bildet har mer tekst enn det kan tolkes på én gang. Del det opp i flere bilder og prøv igjen.";
+
     public const string ErrorParsingPdf =
         "PDF-filen kunne ikke leses. Den kan være skadet eller passordbeskyttet. Fjern passordet, eller lagre den på nytt som PDF og prøv igjen.";
 

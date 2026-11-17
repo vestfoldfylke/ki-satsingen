@@ -47,12 +47,12 @@ public sealed class KnowledgeFileRepositoryTests(PostgresFixture fixture) : IAsy
     public async Task A_saved_file_keeps_its_markdown_and_content_origin()
     {
         var chat = await ChatRepo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
-        var newFile = KnowledgeFileFactory.NewFile("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder };
+        var newFile = KnowledgeFileFactory.NewFile("bilde.png", "## Beskrivelse\nEt skjermbilde.") with { Origin = ContentOrigin.ImageDescription };
 
         var saved = await SaveIntoChatAsync(chat.Id, newFile);
 
         var stored = await LoadStoredAsync(saved.Id);
-        Assert.Equal(("Bilde: 10 x 10 px.", ContentOrigin.ImagePlaceholder), (stored.Markdown, saved.ContentOrigin));
+        Assert.Equal(("## Beskrivelse\nEt skjermbilde.", ContentOrigin.ImageDescription), (stored.Markdown, saved.ContentOrigin));
     }
 
     [Fact]

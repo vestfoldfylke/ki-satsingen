@@ -13,6 +13,8 @@ public sealed class TextDocumentConverter : IDocumentConverter
     public IReadOnlyList<string> ContentTypes { get; } =
         [AttachmentContentTypes.PlainText.ContentType, AttachmentContentTypes.Markdown.ContentType];
 
+    public bool IsRemote => false;
+
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
         // Refused before reading: even decoded as compactly as possible, a file

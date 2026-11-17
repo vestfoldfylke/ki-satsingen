@@ -66,6 +66,11 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   "Mistral": {
     "ApiKey": "kijoij..."
   },
+  // Required: the app does not start without it. Uploaded images are read
+  // by Mistral Small, set in ImageConversionModel.
+  "ImageConversion": {
+    "MistralApiKey": "kijoij..."
+  },
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=kisatsingen_web_app;Password=kisatsingen_web_app_local_dev_pass;SSL Mode=Prefer;Trust Server Certificate=true",
     "MigrationConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=local_user;Password=local_password;SSL Mode=Prefer;Trust Server Certificate=true"
@@ -81,7 +86,8 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   //   "MaxPendingBytesPerInstance": 2097152000 // 2000 MiB
   // },
   // "KnowledgeFilePipeline": {
-  //   "MaxConcurrentConversions": 2,         // default: the number of CPU cores
+  //   "MaxConcurrentLocalConversions": 2,    // default: the number of CPU cores
+  //   "MaxConcurrentRemoteConversions": 8,
   //   "ConversionTimeout": "00:02:00"
   // },
   // "DatabaseCleanup": {

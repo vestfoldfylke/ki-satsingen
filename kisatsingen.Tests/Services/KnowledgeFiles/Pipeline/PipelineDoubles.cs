@@ -8,15 +8,18 @@ namespace kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 
 // Holds every conversion until released or cancelled, so a test can act while
 // a conversion is genuinely running.
-internal sealed class StallingConverter : IDocumentConverter
+internal sealed class StallingConverter(bool isRemote = false) : IDocumentConverter
 {
     public static readonly AttachmentType Type = new("test/stall", Signature: null);
+    public static readonly AttachmentType RemoteType = new("test/stall-remote", Signature: null);
 
     private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly SemaphoreSlim _started = new(0);
     private int _startedCount;
 
-    public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
+    public IReadOnlyList<string> ContentTypes { get; } = [isRemote ? RemoteType.ContentType : Type.ContentType];
+
+    public bool IsRemote => isRemote;
 
     public int StartedCount => Volatile.Read(ref _startedCount);
 
@@ -51,6 +54,8 @@ internal sealed class SlotHoldingConverter : IDocumentConverter
 
     public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
 
+    public bool IsRemote => false;
+
     public Task WaitUntilStartedAsync() => _started.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
     public void Release() => _release.TrySetResult();
@@ -72,6 +77,8 @@ internal sealed class TokenSpendingConverter : IDocumentConverter
 
     public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
 
+    public bool IsRemote => true;
+
     public string? Rejection { get; set; }
 
     public Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct) =>
@@ -86,6 +93,8 @@ internal sealed class ThrowingConverter : IDocumentConverter
     public static readonly AttachmentType Type = new("test/throw", Signature: null);
 
     public IReadOnlyList<string> ContentTypes { get; } = [Type.ContentType];
+
+    public bool IsRemote => false;
 
     public Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct) =>
         throw new InvalidOperationException("Converter bug.");

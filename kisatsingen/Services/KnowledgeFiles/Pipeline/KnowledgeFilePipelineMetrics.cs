@@ -11,11 +11,11 @@ public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogge
 {
     private static readonly string Prefix = $"{MetricConstants.MetricsAppPrefix}_knowledge_file";
 
-    public MetricTimer? StartConversion() =>
-        StartTimer($"{Prefix}_conversion_duration_seconds", "Time spent converting a knowledge file");
+    public MetricTimer? StartConversion(string pool) =>
+        StartTimer($"{Prefix}_conversion_duration_seconds", "Time spent converting a knowledge file, by pool", pool);
 
-    public MetricTimer? StartSlotWait() =>
-        StartTimer($"{Prefix}_conversion_slot_wait_seconds", "Time a knowledge file waited for a free conversion slot");
+    public MetricTimer? StartSlotWait(string pool) =>
+        StartTimer($"{Prefix}_conversion_slot_wait_seconds", "Time a knowledge file waited for a free conversion slot, by pool", pool);
 
     public void Observe(MetricTimer? timer)
     {
@@ -45,11 +45,11 @@ public sealed class KnowledgeFilePipelineMetrics(IMetricsService metrics, ILogge
         }
     }
 
-    private MetricTimer? StartTimer(string name, string description)
+    private MetricTimer? StartTimer(string name, string description, string pool)
     {
         try
         {
-            return metrics.Histogram(name, description);
+            return metrics.Histogram(name, description, (MetricConstants.MetricsPoolLabelName, pool));
         }
         catch (Exception ex)
         {

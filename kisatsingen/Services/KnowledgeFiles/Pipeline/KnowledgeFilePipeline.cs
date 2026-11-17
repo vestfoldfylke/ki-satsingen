@@ -26,8 +26,16 @@ public sealed class KnowledgeFilePipeline(
         public const string TimedOut = "timed_out";
     }
 
-    // Shared by every user's conversions.
-    private readonly SemaphoreSlim _conversionSlots = new(options.MaxConcurrentConversions);
+    private static class PoolLabel
+    {
+        public const string Local = "local";
+        public const string Remote = "remote";
+    }
+
+    // Shared by every user's conversions. Separate pools, so remote conversions
+    // never hold up local ones, nor the reverse.
+    private readonly SemaphoreSlim _localSlots = new(options.MaxConcurrentLocalConversions);
+    private readonly SemaphoreSlim _remoteSlots = new(options.MaxConcurrentRemoteConversions);
 
     internal async Task<KnowledgeFilePipelineResult> RunAsync(ReadyAttachment attachment, CancellationToken ct)
     {
@@ -72,13 +80,15 @@ public sealed class KnowledgeFilePipeline(
     // would freeze that user's page.
     private async Task<ConversionResult> ConvertAsync(IDocumentConverter converter, ReadyAttachment attachment, CancellationToken ct)
     {
+        var (slots, pool) = converter.IsRemote ? (_remoteSlots, PoolLabel.Remote) : (_localSlots, PoolLabel.Local);
+
         // Not recorded when the turn stops while waiting, like a stopped conversion.
-        var slotWait = metrics.StartSlotWait();
-        await _conversionSlots.WaitAsync(ct);
+        var slotWait = metrics.StartSlotWait(pool);
+        await slots.WaitAsync(ct);
         metrics.Observe(slotWait);
 
         string? resultLabel = MetricConstants.MetricsResultFailedLabelValue;
-        var duration = metrics.StartConversion();
+        var duration = metrics.StartConversion(pool);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeout.CancelAfter(options.ConversionTimeout);
 
@@ -110,7 +120,7 @@ public sealed class KnowledgeFilePipeline(
         }
         finally
         {
-            _conversionSlots.Release();
+            slots.Release();
             if (resultLabel is not null)
             {
                 metrics.Observe(duration);
