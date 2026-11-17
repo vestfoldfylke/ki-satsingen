@@ -1,17 +1,10 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop;
 using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Components.Chat;
 
 public partial class ToolCallBlock : ComponentBase
 {
-    [Inject]
-    public required IJSRuntime JS { get; set; }
-
-    [Inject]
-    public required ILogger<ToolCallBlock> Logger { get; set; }
-
     [Parameter, EditorRequired] public required ToolCall ToolCall { get; set; }
 
     private ToolCallView? _view;
