@@ -30,6 +30,9 @@ internal static class ConversionRejections
 
     public const string ImageNotRead = "Bildet kunne ikke tolkes nå. Prøv igjen om litt.";
 
+    // For a refusal that trying again will not change, such as a content filter.
+    public const string ImageNotReadable = "Bildet kunne ikke tolkes. Prøv med et annet bilde.";
+
     public const string ImageTextTooLong =
         "Bildet har mer tekst enn det kan tolkes på én gang. Del det opp i flere bilder og prøv igjen.";
 

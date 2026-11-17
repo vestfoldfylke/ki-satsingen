@@ -163,13 +163,13 @@ public sealed class ImageDocumentConverterTests
     }
 
     [Fact]
-    public async Task An_answer_that_ends_for_another_reason_than_finishing_is_refused_as_not_read()
+    public async Task An_answer_that_ends_for_another_reason_than_finishing_is_refused_without_advising_a_retry()
     {
         _client.OnResponse = _ => Task.FromResult(Answer(Description, ChatFinishReason.ContentFilter));
 
         var result = await ConvertAsync(Png(1024, 768), AttachmentContentTypes.Png);
 
-        Assert.Equal(ConversionRejections.ImageNotRead, Assert.IsType<ConversionResult.Rejected>(result).Reason);
+        Assert.Equal(ConversionRejections.ImageNotReadable, Assert.IsType<ConversionResult.Rejected>(result).Reason);
     }
 
     [Fact]

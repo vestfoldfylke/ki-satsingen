@@ -68,11 +68,17 @@ internal sealed class ImageDocumentConverter(ImageConversionModel model, ILogger
             return new ConversionResult.Rejected(ConversionRejections.ImageTextTooLong, tokenUsage);
         }
 
-        // Any end other than a finished answer may have cut the text short. A
-        // provider that sends no reason is taken as finished.
-        var markdown = response.Text.Trim();
+        // Any end other than a finished answer may have cut the text short, and
+        // the same image would end the same way. A provider that sends no reason
+        // is taken as finished.
         var isFinished = response.FinishReason is null || response.FinishReason == ChatFinishReason.Stop;
-        return isFinished && markdown.Length > 0
+        if (!isFinished)
+        {
+            return new ConversionResult.Rejected(ConversionRejections.ImageNotReadable, tokenUsage);
+        }
+
+        var markdown = response.Text.Trim();
+        return markdown.Length > 0
             ? new ConversionResult.Converted(markdown, ContentOrigin.ImageDescription, PageCount: null, tokenUsage)
             : new ConversionResult.Rejected(ConversionRejections.ImageNotRead, tokenUsage);
     }
