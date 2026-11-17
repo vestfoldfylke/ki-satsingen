@@ -109,12 +109,20 @@ The theme (colours, font, border radius) is defined in `kisatsingen/browser-desi
 To upgrade Designsystemet, set the same exact version on all three `@digdir` packages in `kisatsingen/browser-designsystemet/package.json`, then run `npm install` and build. The generated theme must match the tokens `@digdir/designsystemet-css` reads.
 
 ### Local db
-#### Startup postgres
+#### Startup Postgres
 - `docker compose up -d`
 
-#### Stop postgres
+#### Stop Postgres
 - `docker compose down`
 
 #### How to reset local db (wipes data as well)
 - `docker compose down -v`
 - `docker compose up -d`
+
+### AI-Tools
+
+#### Update template for `CreatePresentationTool`
+
+- Replace template in `kisatsingen/Services/Presentations/Templates`
+- Run tests
+- Start ki-satsingen on your machine and make sure a newly created presentation is good

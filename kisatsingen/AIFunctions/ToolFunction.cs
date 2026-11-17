@@ -2,12 +2,12 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.AI;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions;
 
-// The file tools are AIFunctionFactory functions with one shared choice: how
-// their result is written. Arguments the factory cannot bind are answered by
-// ToolInvoker, the same as for every other tool.
-internal static class FileToolFunction
+// The tools are AIFunctionFactory functions with one shared choice: how their
+// result is written. Arguments the factory cannot bind are answered by
+// ToolInvoker.
+internal static class ToolFunction
 {
     // Relaxed escaping comes from the defaults, so æ, ø and å stay one
     // character each instead of a six-character escape. The defaults also

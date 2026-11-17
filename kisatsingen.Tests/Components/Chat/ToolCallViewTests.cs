@@ -3,6 +3,7 @@ using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.Presentations;
 using Xunit;
 
 namespace kisatsingen.Tests.Components.Chat;
@@ -124,6 +125,38 @@ public sealed class ToolCallViewTests
         Assert.Equal("Brukte verktøyet search_web", view.Title);
     }
 
+    private const string PresentationArguments = """
+        { "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Chapter", "title": "Innledning" } ] }
+        """;
+
+    private const string PresentationResult = """{"fileName":"Budsjett.pptx","slideCount":1}""";
+
+    [Fact]
+    public void A_created_presentation_offers_its_slides_for_download_under_its_file_name()
+    {
+        var view = Build("create_presentation", PresentationResult, arguments: PresentationArguments);
+
+        Assert.Equal(
+            ("Budsjett.pptx", "Budsjett", PresentationTheme.VannFjord, "Innledning"),
+            (view.Download?.FileName, view.Download?.Spec.Title, view.Download?.Spec.Theme, view.Download?.Spec.Slides[0].Title));
+    }
+
+    [Fact]
+    public void A_refused_presentation_offers_no_download()
+    {
+        var view = Build("create_presentation", """{"error":"Lysbilde 1: title er tom."}""", arguments: PresentationArguments);
+
+        Assert.Null(view.Download);
+    }
+
+    [Fact]
+    public void A_stored_presentation_whose_arguments_no_longer_make_a_presentation_offers_no_download()
+    {
+        var view = Build("create_presentation", PresentationResult, arguments: """{ "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Picture", "title": "Bilde" } ] }""");
+
+        Assert.Equal(("Laget presentasjon", null), (view.Title, view.Download));
+    }
+
     [Theory]
     [MemberData(nameof(ToolNamesTheChatOffers))]
     public void Every_tool_the_chat_offers_has_a_title_of_its_own(string toolName)
@@ -156,13 +189,13 @@ public sealed class ToolCallViewTests
         Assert.Equal("Error: Function failed.", toolCall.GetProperty("result").GetString());
     }
 
-    private static ToolCallView Build(string toolName, string? result, ToolStatus status = ToolStatus.Completed) =>
+    private static ToolCallView Build(string toolName, string? result, ToolStatus status = ToolStatus.Completed, string arguments = """{"fileId":"f"}""") =>
         ToolCallView.Build(new ToolCall(
             Guid.NewGuid(),
             Round: 0,
             CallId: "call-1",
             toolName,
-            JsonSerializer.SerializeToElement(new { fileId = "f" }),
+            JsonElement.Parse(arguments),
             status,
             result));
 }
