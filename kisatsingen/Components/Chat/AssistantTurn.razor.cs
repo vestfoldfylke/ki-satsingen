@@ -7,8 +7,6 @@ public partial class AssistantTurn : ComponentBase
 {
     private static readonly string[] PendingPhrases =
     [
-        "Våkner fra dvale",
-        "Henter en kaffe først",
         "Klør seg i hodet",
         "Spisser blyanten",
         "Blar i permene",
@@ -18,6 +16,13 @@ public partial class AssistantTurn : ComponentBase
         "Teller på fingrene",
         "Rører i gryta",
         "Myser på problemet",
+        "Legger hodet i bløt",
+        "Tenker så det knaker",
+        "Prøver å knekke nøtta",
+        "Pusser brillene",
+        "Sjekker under sofaputene",
+        "Rådfører seg med katten",
+        "Tar seg en kaffesup",
     ];
 
     private readonly string _pendingPhrase = PendingPhrases[Random.Shared.Next(PendingPhrases.Length)];
@@ -44,6 +49,10 @@ public partial class AssistantTurn : ComponentBase
             return $"Behandler vedlegg {current} av {Turn.Attachments.Count}";
         }
     }
+
+    // A running tool, reasoning or streaming text shows its own progress.
+    private bool IsAwaitingModel =>
+        IsLive && !IsProcessingAttachments && Turn.Answer is [] or [.., ToolCall { Status: not ToolStatus.Running }];
 
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 

@@ -10,11 +10,6 @@
         <AttachmentsBlock Attachments="Turn.Attachments" />
     }
 
-    @if (IsLive && Turn.Answer.Count == 0 && !IsProcessingAttachments)
-    {
-        <p class="text-shimmer" data-color="neutral">@_pendingPhrase…</p>
-    }
-
     @foreach (var segment in Turn.Answer)
     {
         switch (segment)
@@ -29,6 +24,11 @@
                 <ReasoningBlock @key="reasoning.Id" Segment="reasoning" IsRunning="reasoning.Id == RunningReasoningSegmentId" />
                 break;
         }
+    }
+
+    @if (IsAwaitingModel)
+    {
+        <p class="text-shimmer" data-color="neutral">@_pendingPhrase…</p>
     }
 
     @* A turn can end with attachments but no answer, and then has nothing to copy or describe. *@
