@@ -76,7 +76,7 @@
     width: 100%;
     max-width: var(--chat-column-width);
     margin: 0 auto;
-    padding: 1.5rem 0.75rem;
+    padding: 1.5rem 0.75rem 0;
     box-sizing: border-box;
 }
 
@@ -120,15 +120,22 @@
 }
 
 .chat-jump-latest {
-    position: sticky;
-    bottom: calc(var(--chat-tail-height, 0px) + 0.1rem);
-    align-self: center;
+    position: absolute;
+    bottom: 0;
     z-index: 3;
     /* Secondary buttons are transparent, but this one floats over the
        transcript. */
     --dsc-button-background: var(--chat-surface);
     --dsc-button-border-radius: var(--ds-border-radius-full);
     box-shadow: var(--ds-shadow-md);
+}
+
+.chat-jump-anchor {
+    position: sticky;
+    bottom: calc(var(--chat-tail-height, 0px) + 0.1rem);
+    height: 0;
+    align-self: center;
+    z-index: 3;
 }
 
 .chat-jump-latest[hidden] {
