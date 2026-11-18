@@ -14,10 +14,11 @@ namespace kisatsingen.Tests.Services.KnowledgeFiles.Pipeline;
 public sealed class KnowledgeFilePipelineTests : IDisposable
 {
     private const int GenerousTokenCap = 1_000_000;
-    private static readonly KnowledgeFilePipelineOptions OneSlot = new() { MaxConcurrentConversions = 1 };
+    private static readonly KnowledgeFilePipelineOptions OneLocalSlot = new() { MaxConcurrentLocalConversions = 1 };
 
     private readonly AttachmentTestEnvironment _environment = new();
     private readonly StallingConverter _stalling = new();
+    private readonly StallingConverter _remoteStalling = new(isRemote: true);
     private readonly SlotHoldingConverter _slotHolding = new();
     private readonly TokenSpendingConverter _tokenSpending = new();
 
@@ -29,7 +30,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
         KnowledgeFilePipelineOptions? options = null,
         IMetricsService? metrics = null) =>
         new(
-            new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, _slotHolding, _tokenSpending, new ThrowingConverter()]),
+            new DocumentConverterRegistry([new TextDocumentConverter(), _stalling, _remoteStalling, _slotHolding, _tokenSpending, new ThrowingConverter()]),
             summarizer ?? new OpeningExcerptSummarizer(),
             _environment.Storage,
             options ?? new KnowledgeFilePipelineOptions(),
@@ -162,9 +163,9 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task With_every_slot_busy_a_conversion_waits_until_one_is_free()
+    public async Task With_every_local_slot_busy_a_local_conversion_waits_until_one_is_free()
     {
-        var pipeline = Pipeline(options: OneSlot);
+        var pipeline = Pipeline(options: OneLocalSlot);
         var first = RunAsync(pipeline, OfType(SlotHoldingConverter.Type));
         await _slotHolding.WaitUntilStartedAsync();
         var second = RunAsync(pipeline, OfType(StallingConverter.Type));
@@ -178,12 +179,45 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
         Assert.Equal(0, startedWhileBusy);
     }
 
+    [Fact]
+    public async Task With_every_remote_slot_busy_a_remote_conversion_waits_until_one_is_free()
+    {
+        var pipeline = Pipeline(options: new KnowledgeFilePipelineOptions { MaxConcurrentRemoteConversions = 1 });
+        var first = RunAsync(pipeline, OfType(StallingConverter.RemoteType));
+        await _remoteStalling.WaitUntilStartedAsync();
+        var second = RunAsync(pipeline, OfType(StallingConverter.RemoteType));
+        await Task.Delay(100);
+        var startedWhileBusy = _remoteStalling.StartedCount;
+
+        _remoteStalling.Release();
+        await Task.WhenAll(first, second);
+
+        Assert.Equal(1, startedWhileBusy);
+    }
+
+    // A remote conversion waits on its provider, not on this server's CPU.
+    [Fact]
+    public async Task A_remote_conversion_does_not_wait_for_a_local_slot()
+    {
+        var pipeline = Pipeline(options: OneLocalSlot);
+        var holdingTheLocalSlot = RunAsync(pipeline, OfType(SlotHoldingConverter.Type));
+        await _slotHolding.WaitUntilStartedAsync();
+
+        var remote = RunAsync(pipeline, OfType(StallingConverter.RemoteType));
+        var startFailure = await Record.ExceptionAsync(_remoteStalling.WaitUntilStartedAsync);
+        _slotHolding.Release();
+        _remoteStalling.Release();
+        await Task.WhenAll(holdingTheLocalSlot, remote);
+
+        Assert.Null(startFailure);
+    }
+
     // A stopped waiter never took a slot, so it must not free one: that would
     // let more conversions run at once than there are slots.
     [Fact]
     public async Task A_stop_while_waiting_for_a_slot_ends_the_wait_and_frees_no_slot()
     {
-        var pipeline = Pipeline(options: OneSlot);
+        var pipeline = Pipeline(options: OneLocalSlot);
         var holdingTheSlot = RunAsync(pipeline, OfType(SlotHoldingConverter.Type));
         await _slotHolding.WaitUntilStartedAsync();
         using var stop = new CancellationTokenSource();
@@ -207,7 +241,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     [Fact]
     public async Task The_timeout_starts_only_once_a_slot_is_free()
     {
-        var pipeline = Pipeline(options: new KnowledgeFilePipelineOptions { MaxConcurrentConversions = 1, ConversionTimeout = TimeSpan.FromMilliseconds(100) });
+        var pipeline = Pipeline(options: new KnowledgeFilePipelineOptions { MaxConcurrentLocalConversions = 1, ConversionTimeout = TimeSpan.FromMilliseconds(100) });
         var holdingTheSlot = RunAsync(pipeline, OfType(SlotHoldingConverter.Type));
         await _slotHolding.WaitUntilStartedAsync();
         var waiting = RunAsync(pipeline, Markdown("# Tittel\n\nTekst."));
@@ -222,7 +256,7 @@ public sealed class KnowledgeFilePipelineTests : IDisposable
     [Fact]
     public async Task A_slot_is_freed_after_a_conversion_that_throws()
     {
-        var pipeline = Pipeline(options: OneSlot);
+        var pipeline = Pipeline(options: OneLocalSlot);
         await Assert.ThrowsAsync<InvalidOperationException>(() => RunAsync(pipeline, OfType(ThrowingConverter.Type)));
 
         var next = await RunAsync(pipeline, Markdown("# Tittel\n\nTekst.")).WaitAsync(TimeSpan.FromSeconds(5));

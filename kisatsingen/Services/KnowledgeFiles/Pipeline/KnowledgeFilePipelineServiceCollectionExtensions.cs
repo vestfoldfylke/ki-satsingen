@@ -17,10 +17,14 @@ internal static class KnowledgeFilePipelineServiceCollectionExtensions
 
         services.AddSingleton(pipelineOptions);
 
+        // Built here, so a missing credential stops startup.
+        var imageConversionModel = ImageConversionModel.FromConfiguration(configuration);
+
         // One converter per content type. Moving a type to a remote converter means
         // swapping its registration here for one that calls that service.
         services.AddSingleton<IDocumentConverter, TextDocumentConverter>();
-        services.AddSingleton<IDocumentConverter, ImagePlaceholderConverter>();
+        services.AddSingleton<IDocumentConverter>(sp =>
+            new ImageDocumentConverter(imageConversionModel, sp.GetRequiredService<ILogger<ImageDocumentConverter>>()));
         services.AddSingleton<IDocumentConverter, PdfDocumentConverter>();
         services.AddSingleton<IDocumentConverter, DocxDocumentConverter>();
         services.AddSingleton<DocumentConverterRegistry>();

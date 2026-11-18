@@ -21,9 +21,11 @@ file tools.
 4. **Pipeline.** The other attachments are processed one at a time, in the
    order they were attached. The knowledge-file pipeline turns each into a
    new knowledge file: it converts the file to Markdown, checks its size,
-   builds the outline and adds a summary. Conversions run off the circuit, at
-   most one per CPU core across all users, each with a timeout. The pipeline
-   never saves. (`KnowledgeFilePipeline`, `Services/KnowledgeFiles/Conversion`)
+   builds the outline and adds a summary. Conversions run off the circuit,
+   each with a timeout, in two pools shared by all users: local conversions at
+   most one per CPU core, and remote ones, which wait on a provider such as
+   the image model, in a pool of their own. The pipeline never saves.
+   (`KnowledgeFilePipeline`, `Services/KnowledgeFiles/Conversion`)
 5. **Save.** The turn saves each new knowledge file and releases its temp
    file at once, so it stops counting against the user's quota while the
    answer streams. The attachment is then **available** (`fileId`). A file
@@ -32,8 +34,10 @@ file tools.
 6. **Attachment line.** The user message sent to the model names each file
    with its `fileId`, or its reason if unavailable, and says to read the file
    before answering about it. (`AttachmentLine`)
-7. **Reading.** The model reads the files with `list_files`, `get_outline` and
-   `read_file`. (`AIFunctions/FileTools`)
+7. **Reading.** The model reads a file with `read_file`: the whole file when
+   it fits in one read, otherwise `get_outline` first to find the part to
+   read. `list_files` shows every file with its summary and size.
+   (`AIFunctions/FileTools`)
 
 States of an attachment: Uploading → Ready → *(send)* Processing →
 **Available** (`fileId`) or **Unavailable** (reason).
@@ -46,7 +50,7 @@ States of an attachment: Uploading → Ready → *(send)* Processing →
   tab stops it when Blazor drops the circuit. Files settled before a stop are
   saved.
 - **Markdown is the only stored form.** Originals are never kept. Each file
-  records its `ContentOrigin` (`TextFile`, `ImagePlaceholder`), and the tools
+  records its `ContentOrigin` (`TextFile`, `Pdf`, `Docx`, `ImageDescription`), and the tools
   turn it into a note on how far to trust the text.
 - **One row per file, written only when the file is ready.** Line count and
   token estimate are computed on save. The outline is computed on every read
@@ -63,4 +67,6 @@ States of an attachment: Uploading → Ready → *(send)* Processing →
 ## Supported formats
 
 - `.md` and `.txt`, used as they are.
-- `.png` and `.jpg`, as a placeholder: the image's content is not read yet.
+- `.pdf` and `.docx`, as their extracted text.
+- `.png` and `.jpg`, read by a vision model (`ImageConversionModel`): a
+  description followed by the text in the image.

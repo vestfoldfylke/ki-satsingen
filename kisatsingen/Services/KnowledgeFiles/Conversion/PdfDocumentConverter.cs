@@ -16,6 +16,8 @@ public class PdfDocumentConverter : IDocumentConverter
 
     public IReadOnlyList<string> ContentTypes { get; } = [AttachmentContentTypes.Pdf.ContentType];
 
+    public bool IsRemote => false;
+
     public async Task<ConversionResult> ConvertAsync(ConversionRequest request, CancellationToken ct)
     {
         var result = await VestfoldPdfConverter.ConvertAsync(request.Content, request.MaxEstimatedTokens, ct);

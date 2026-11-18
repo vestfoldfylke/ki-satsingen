@@ -21,6 +21,8 @@ public class DocxDocumentConverter : IDocumentConverter
 
     public IReadOnlyList<string> ContentTypes { get; } = [AttachmentContentTypes.Docx.ContentType];
 
+    public bool IsRemote => false;
+
     public DocxDocumentConverter(ILogger<DocxDocumentConverter> logger, AttachmentOptions attachmentOptions)
     {
         _logger = logger;

@@ -126,11 +126,27 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     {
         ToolOutcome.Running => new(Title: "Leser filen"),
         ToolOutcome.Succeeded when ReadAs<ReadFileResult>(result) is { FileName: { } fileName, Content: { } content } read => new(
-            Title: $"Leste «{fileName}», linje {read.StartLine} til {read.EndLine}",
+            Title: ReadTitle(fileName, read, content),
             UserFriendlyResult: WithoutLineNumbers(content)),
+        ToolOutcome.Succeeded when ReadAs<ReadFileTooLargeResult>(result) is { FileName: { } fileName, EstimatedTokens: > 0 } => new(
+            Title: $"«{fileName}» er for stor til å leses på én gang"),
         ToolOutcome.Succeeded => new(Title: "Leste filen"),
         _ => new(Title: "Prøvde å lese filen")
     };
+
+    // Titled from what was read, not what was asked, so "hele" is only claimed
+    // when every line came back uncut.
+    private static string ReadTitle(string fileName, ReadFileResult read, string content)
+    {
+        var hasCutLines = content.Contains(FileToolTexts.LineCutMarkerStart, StringComparison.Ordinal);
+        if (read.StartLine == 1 && read.EndLine == read.LineCount && !hasCutLines)
+        {
+            return $"Leste hele «{fileName}»";
+        }
+
+        var cutNote = hasCutLines ? " (lange linjer er kuttet)" : "";
+        return $"Leste «{fileName}», linje {read.StartLine} til {read.EndLine} av {read.LineCount}{cutNote}";
+    }
 
     // The file is built from the arguments, which the tool accepted, so the
     // download needs nothing stored beyond the tool call itself.
@@ -155,7 +171,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     private static T? ReadAs<T>(JsonElement? result) where T : class =>
         result is { } json ? ToolFunction.ReadResult<T>(json) : null;
 
-    // Lines come as "12<tab>text"; the title already gives the range.
+    // The line numbers are for the model; the title tells the user which lines were read.
     private static string WithoutLineNumbers(string content) =>
         string.Join('\n', content.Split('\n').Select(line => line[(line.IndexOf('\t') + 1)..]));
 

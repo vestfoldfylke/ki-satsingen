@@ -76,7 +76,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     {
         var options = new KnowledgeFilePipelineOptions();
         return new KnowledgeFilePipeline(
-            new DocumentConverterRegistry([TextConverter, new ImagePlaceholderConverter()]),
+            new DocumentConverterRegistry([TextConverter]),
             new OpeningExcerptSummarizer(),
             AttachmentEnvironment.Storage,
             options,

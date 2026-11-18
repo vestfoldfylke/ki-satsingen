@@ -123,7 +123,7 @@ public sealed class FileToolContractTests
             [
                 "list_files()",
                 "get_outline(fileId: string required, startLine: integer|null 1.., endLine: integer|null 1.., depth: integer|null 1..6)",
-                "read_file(fileId: string required, startLine: integer required 1.., endLine: integer required 1..)"
+                "read_file(fileId: string required, startLine: integer|null 1.., endLine: integer|null 1..)"
             ],
             Tools().Select(DescribeArguments));
     }
@@ -134,7 +134,7 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("list_files", Arguments());
 
         Assert.Equal(
-            """{"files":[{"fileId":"11111111-1111-1111-1111-111111111111","source":"chat","fileName":"notat.md","lineCount":3,"summary":"Utdrag."}]}""",
+            """{"files":[{"fileId":"11111111-1111-1111-1111-111111111111","source":"chat","fileName":"notat.md","lineCount":3,"estimatedTokens":1,"summary":"Utdrag."}]}""",
             result);
     }
 
@@ -144,7 +144,7 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString())));
 
         Assert.Equal(
-            """{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","summary":"Utdrag.","lineCount":3,"entries":[{"startLine":1,"endLine":3,"kind":"heading","level":1,"title":"Notat"}]}""",
+            """{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","lineCount":3,"estimatedTokens":1,"entries":[{"startLine":1,"endLine":3,"kind":"heading","level":1,"title":"Notat"}]}""",
             result);
     }
 
@@ -156,6 +156,58 @@ public sealed class FileToolContractTests
         Assert.Equal(
             $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","startLine":1,"endLine":3,"lineCount":3,"contentNotice":"{{FileToolTexts.ContentNotice}}","content":"1\t# Notat\n2\t\n3\tHei."}""",
             result);
+    }
+
+    [Fact]
+    public async Task The_read_file_result_for_a_file_too_large_for_one_read_is_pinned()
+    {
+        var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 9_000);
+        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+
+        var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
+
+        Assert.Equal(
+            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","lineCount":3,"estimatedTokens":9000,"continuation":"{{FileToolTexts.ReadTooLarge(9_000)}}"}""",
+            result);
+    }
+
+    // Otherwise a large file could not be read at all.
+    [Fact]
+    public async Task A_range_of_a_file_too_large_for_one_read_is_read()
+    {
+        var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 9_000);
+        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+
+        var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("startLine", 2), ("endLine", 3)));
+
+        Assert.Contains("\"content\":\"2\\tto\\n3\\ttre\"", Assert.IsType<string>(result));
+    }
+
+    [Fact]
+    public async Task A_file_within_the_limit_whose_lines_still_do_not_fit_is_read_in_part()
+    {
+        var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 1);
+        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+
+        var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
+
+        Assert.Contains(FileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
+    }
+
+    [Fact]
+    public async Task A_read_up_to_an_end_without_a_start_reads_from_the_first_line()
+    {
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("endLine", 2)));
+
+        Assert.Contains("\"content\":\"1\\t# Notat\\n2\\t\"", result);
+    }
+
+    [Fact]
+    public async Task A_read_without_a_range_returns_the_whole_file_when_it_fits()
+    {
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString())));
+
+        Assert.Contains("\"content\":\"1\\t# Notat\\n2\\t\\n3\\tHei.\"", result);
     }
 
     [Fact]
@@ -194,11 +246,11 @@ public sealed class FileToolContractTests
         Assert.Contains("\"content\":\"3\\tHei.\"", result);
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(null)]
-    public async Task A_line_number_below_1_or_null_is_refused_with_what_to_send(object? start)
+    [Fact]
+    public async Task A_line_number_below_1_is_refused_with_what_to_send()
     {
+        const int start = 0;
+
         var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", start), ("endLine", 3)));
 
         Assert.Contains(FileToolTexts.InvalidLineNumber, result);
@@ -223,11 +275,11 @@ public sealed class FileToolContractTests
     }
 
     [Fact]
-    public async Task A_read_without_an_end_is_refused_with_the_missing_argument_named()
+    public async Task A_read_from_a_start_without_an_end_reads_to_the_end_of_the_file()
     {
-        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 1)));
+        var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 2)));
 
-        Assert.Contains("'endLine'", result);
+        Assert.Contains("\"content\":\"2\\t\\n3\\tHei.\"", result);
     }
 
     [Fact]

@@ -46,15 +46,15 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task List_files_notes_that_an_images_content_is_not_read()
+    public async Task List_files_notes_that_an_images_text_was_made_by_a_model()
     {
         var chatId = await CreateChatAsync(OwnerId);
-        await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("bilde.png", "Bilde: 10 x 10 px.") with { Origin = ContentOrigin.ImagePlaceholder });
+        await SaveAsync(OwnerId, chatId, KnowledgeFileFactory.NewFile("bilde.png", "## Beskrivelse\nEt skjermbilde.") with { Origin = ContentOrigin.ImageDescription });
 
         var result = await InvokeAsync(OwnerId, chatId, "list_files", []);
 
         var file = Assert.Single(result.GetProperty("files").EnumerateArray());
-        Assert.Equal(FileToolTexts.OriginNote(ContentOrigin.ImagePlaceholder), file.GetProperty("originNote").GetString());
+        Assert.Equal(FileToolTexts.OriginNote(ContentOrigin.ImageDescription), file.GetProperty("originNote").GetString());
     }
 
     [Fact]

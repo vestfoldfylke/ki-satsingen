@@ -19,6 +19,8 @@ internal sealed class HoldingTextConverter : IDocumentConverter
 
     public IReadOnlyList<string> ContentTypes => _inner.ContentTypes;
 
+    public bool IsRemote => _inner.IsRemote;
+
     public HashSet<string> FileNamesThatFailToConvert { get; } = new(StringComparer.Ordinal);
 
     // Reported on every result, the way a converter that calls a model would.

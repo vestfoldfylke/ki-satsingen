@@ -14,11 +14,38 @@ public sealed class ToolCallViewTests
         new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames]);
 
     [Fact]
-    public void A_finished_read_is_titled_with_the_file_and_the_lines_read()
+    public void A_read_of_part_of_a_file_is_titled_with_the_lines_read_and_the_line_count()
     {
-        var view = Build("read_file", """{"fileName":"Budsjett.xlsx","startLine":1,"endLine":80,"content":""}""");
+        var view = Build("read_file", """{"fileName":"Budsjett.xlsx","startLine":1,"endLine":80,"lineCount":400,"content":""}""");
 
-        Assert.Equal("Leste «Budsjett.xlsx», linje 1 til 80", view.Title);
+        Assert.Equal("Leste «Budsjett.xlsx», linje 1 til 80 av 400", view.Title);
+    }
+
+    [Fact]
+    public void A_read_of_every_line_is_titled_as_the_whole_file()
+    {
+        var view = Build("read_file", """{"fileName":"skjermbilde.png","startLine":1,"endLine":12,"lineCount":12,"content":""}""");
+
+        Assert.Equal("Leste hele «skjermbilde.png»", view.Title);
+    }
+
+    [Fact]
+    public void A_read_of_every_line_with_a_cut_line_is_not_titled_as_the_whole_file()
+    {
+        var content = $"1\tKort.\n2\tLang{FileToolTexts.LineCutMarker(shownCharacters: 4, totalCharacters: 3_000)}";
+        var result = JsonSerializer.Serialize(new { fileName = "notat.md", startLine = 1, endLine = 2, lineCount = 2, content });
+
+        var view = Build("read_file", result);
+
+        Assert.Equal("Leste «notat.md», linje 1 til 2 av 2 (lange linjer er kuttet)", view.Title);
+    }
+
+    [Fact]
+    public void A_read_of_a_file_too_large_for_one_read_is_titled_as_too_large()
+    {
+        var view = Build("read_file", """{"fileName":"rapport.pdf","lineCount":4210,"estimatedTokens":48000,"continuation":"Bruk get_outline."}""");
+
+        Assert.Equal(("«rapport.pdf» er for stor til å leses på én gang", null), (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]

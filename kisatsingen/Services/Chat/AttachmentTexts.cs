@@ -7,7 +7,7 @@ internal static class AttachmentTexts
     public const string Heading = "Vedlagte filer:";
 
     public const string ReadBeforeAnswering =
-        "Les en vedlagt fil med get_outline eller read_file før du svarer om innholdet.";
+        "Les vedlagte filer, også bilder, med read_file før du svarer om innholdet.";
 
     public const string NotProcessedReason = "Filen kunne ikke behandles. Legg den ved på nytt.";
 

@@ -53,4 +53,6 @@ public static class MetricConstants
 
     // A type name, so the package bounds it: never anything the model wrote.
     public static string MetricsContentTypeLabelName => "type";
+
+    public static string MetricsPoolLabelName => "pool";
 }
