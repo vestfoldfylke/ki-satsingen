@@ -109,8 +109,9 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
                 _previousIsBusy = isBusy;
                 await JS.InvokeVoidAsync("chatClient.setComposerBusy", isBusy);
 
-                // The textarea was disabled during the turn and lost focus; give it
-                // back so the next message can be typed without clicking.
+                // A message sent with the button leaves focus on the button, which
+                // the turn disables; the textarea gets it back so the next message
+                // can be typed without clicking.
                 if (completingTurn)
                 {
                     await _textarea.FocusAsync();
