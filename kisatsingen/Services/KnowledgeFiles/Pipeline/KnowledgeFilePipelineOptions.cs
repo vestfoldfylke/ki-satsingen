@@ -9,9 +9,10 @@ public sealed class KnowledgeFilePipelineOptions
     // take turns on them, and each can hold a few hundred MB while it runs.
     public int MaxConcurrentLocalConversions { get; init; } = Environment.ProcessorCount;
 
-    // A remote conversion mostly waits on its provider, so the limit is set by
-    // memory, since each file is held while it is sent, and by the provider's
-    // rate limits, not by cores.
+    // How many files can be sent to a remote provider at once.
+    // Higher uses more memory, since each file is kept in memory until the
+    // provider answers. Too high can also hit the provider's rate limit, which
+    // makes conversions fail.
     public int MaxConcurrentRemoteConversions { get; init; } = 8;
 
     // A stuck converter must not hold a turn open forever.

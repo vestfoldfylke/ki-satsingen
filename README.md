@@ -87,7 +87,7 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   // },
   // "KnowledgeFilePipeline": {
   //   "MaxConcurrentLocalConversions": 2,    // default: the number of CPU cores
-  //   "MaxConcurrentRemoteConversions": 8,
+  //   "MaxConcurrentRemoteConversions": 8,   // higher uses more memory and can hit the provider's rate limit
   //   "ConversionTimeout": "00:02:00"
   // },
   // "DatabaseCleanup": {
