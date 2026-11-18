@@ -7,7 +7,8 @@
     <ModelBoundaryNotice ModelDisplayName="@model" />
 }
 <UserBubble Prompt="@View.Turn.Prompt" Attachments="View.Turn.Attachments" />
-@if (View.IsLive || View.Turn.Answer.Count > 0)
+@* A turn can end before any answer; the assistant turn still shows what became of its files. *@
+@if (View.IsLive || View.Turn.Answer.Count > 0 || View.Turn.Attachments.Count > 0)
 {
     <AssistantTurn Turn="View.Turn" IsLive="View.IsLive" />
 }

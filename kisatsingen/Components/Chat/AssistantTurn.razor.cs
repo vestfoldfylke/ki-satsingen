@@ -29,6 +29,22 @@ public partial class AssistantTurn : ComponentBase
     private string PopoverId => $"assistant-turn-metadata-{Turn.Id}";
     private string InstructionsDialogId => $"assistant-turn-instructions-{Turn.Id}";
 
+    private bool IsProcessingAttachments => Turn.Attachments.Any(attachment => attachment.IsProcessing);
+
+    private string ProcessingAttachmentsText
+    {
+        get
+        {
+            if (Turn.Attachments.Count == 1)
+            {
+                return "Behandler vedlegg";
+            }
+
+            var current = Turn.Attachments.Count(attachment => !attachment.IsProcessing) + 1;
+            return $"Behandler vedlegg {current} av {Turn.Attachments.Count}";
+        }
+    }
+
     private bool HasCopyableText => Turn.Answer.OfType<TextSegment>().Any(text => !string.IsNullOrEmpty(text.Text));
 
     private Guid? StreamingSegmentId => IsLive && Turn.Answer is [.., TextSegment last] ? last.Id : null;

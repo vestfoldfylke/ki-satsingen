@@ -1,7 +1,16 @@
 @using kisatsingen.Services.Chat
 
 <div class="assistant-turn" data-live="@IsLive">
-    @if (IsLive && Turn.Answer.Count == 0)
+    @if (IsProcessingAttachments)
+    {
+        <p class="text-shimmer" data-color="neutral">@ProcessingAttachmentsText…</p>
+    }
+    else if (Turn.Attachments.Count > 0)
+    {
+        <AttachmentsBlock Attachments="Turn.Attachments" />
+    }
+
+    @if (IsLive && Turn.Answer.Count == 0 && !IsProcessingAttachments)
     {
         <p class="text-shimmer" data-color="neutral">@_pendingPhrase…</p>
     }
@@ -22,7 +31,8 @@
         }
     }
 
-    @if (!IsLive)
+    @* A turn can end with attachments but no answer, and then has nothing to copy or describe. *@
+    @if (!IsLive && Turn.Answer.Count > 0)
     {
         <footer class="assistant-turn-footer" data-color="neutral">
             <div class="assistant-turn-actions">

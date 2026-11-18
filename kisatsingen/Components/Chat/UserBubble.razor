@@ -1,34 +1,24 @@
 @using kisatsingen.Services.Chat
 
 <div class="user-bubble">
-    <div class="user-bubble-prompt">@Prompt</div>
+    @* What was sent only: what became of each file is the assistant turn's. *@
     @if (Attachments.Count > 0)
     {
-        <ul aria-label="Vedlegg">
+        <ul class="user-bubble-attachments" aria-label="Vedlegg">
             @foreach (var attachment in Attachments)
             {
-                <li>
-                    @attachment.FileName
-                    @if (DescribeStatus(attachment) is { } status)
-                    {
-                        <span data-color="@(attachment.UnavailableReason is not null ? "danger" : null)">@status</span>
-                    }
+                <li class="ds-paragraph user-bubble-attachment" data-size="xs">
+                    <span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
+                    <span class="user-bubble-attachment-name" title="@attachment.FileName">@attachment.FileName</span>
                 </li>
             }
         </ul>
     }
+    <div class="user-bubble-prompt">@Prompt</div>
 </div>
 
 @code {
     [Parameter, EditorRequired] public required string Prompt { get; set; }
 
     [Parameter] public IReadOnlyList<TurnAttachment> Attachments { get; set; } = [];
-
-    // Null when available: the file's name alone says it is there.
-    private static string? DescribeStatus(TurnAttachment attachment) => attachment switch
-    {
-        { IsProcessing: true } => "Behandles",
-        { UnavailableReason: { } reason } => reason,
-        _ => null
-    };
 }
