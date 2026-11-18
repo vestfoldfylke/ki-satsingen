@@ -93,23 +93,33 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Report_A_Chat_As_Overdue_When_The_Scheduled_Run_Has_Passed()
+    public void Report_Deletion_As_Happening_Now_Within_A_Day_After_The_Scheduled_Run()
     {
         var utcNow = ScheduledDeletion.AddHours(1);
 
         var description = Describe(utcNow);
 
-        Assert.Equal("Skulle vært slettet for 1 dag(er) siden", description);
+        Assert.Equal("Slettes automatisk nå", description);
     }
 
     [Fact]
-    public void Round_Overdue_Days_Up()
+    public void Report_A_Single_Overdue_Day_In_Singular()
     {
-        var utcNow = ScheduledDeletion.AddDays(2.1);
+        var utcNow = ScheduledDeletion.AddDays(1.5);
 
         var description = Describe(utcNow);
 
-        Assert.Equal("Skulle vært slettet for 3 dag(er) siden", description);
+        Assert.Equal("Skulle vært slettet for 1 dag siden", description);
+    }
+
+    [Fact]
+    public void Round_Overdue_Days_Down()
+    {
+        var utcNow = ScheduledDeletion.AddDays(2.9);
+
+        var description = Describe(utcNow);
+
+        Assert.Equal("Skulle vært slettet for 2 dager siden", description);
     }
 
     // The delete compares with a strict "<", so the run at the exact moment of eligibility leaves the chat alone.
@@ -133,6 +143,6 @@ public sealed class ChatRetentionTests
 
         var description = ChatRetention.DescribeUpcomingDeletion(updatedAt, EnabledConfiguration, utcNow, oslo);
 
-        Assert.Equal("Skulle vært slettet for 1 dag(er) siden", description);
+        Assert.Equal("Slettes automatisk nå", description);
     }
 }

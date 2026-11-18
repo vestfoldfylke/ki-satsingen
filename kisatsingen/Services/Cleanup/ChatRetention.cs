@@ -21,8 +21,14 @@ public static class ChatRetention
 
         if (deletionAt <= utcNow)
         {
-            var daysOverdue = (int)Math.Ceiling((utcNow - deletionAt).TotalDays);
-            return $"Skulle vært slettet for {daysOverdue} dag(er) siden";
+            var daysOverdue = (int)Math.Floor((utcNow - deletionAt).TotalDays);
+
+            return daysOverdue switch
+            {
+                0 => "Slettes automatisk nå",
+                1 => "Skulle vært slettet for 1 dag siden",
+                _ => $"Skulle vært slettet for {daysOverdue} dager siden"
+            };
         }
 
         var daysUntilDeletion = (int)Math.Ceiling((deletionAt - utcNow).TotalDays);

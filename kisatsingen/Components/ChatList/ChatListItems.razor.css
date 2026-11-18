@@ -83,7 +83,6 @@ stays in the row; Else it can mess with page size and scrolling */
 .chat-list-expiry {
     display: inline-flex;
     flex-shrink: 0;
-    margin-inline-start: auto;
     padding: 0;
     border: 0;
     border-radius: var(--ds-border-radius-sm);
@@ -152,10 +151,6 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
         gap: 0.3rem;
         min-width: 0;
         grid-area: time;
-    }
-
-    .chat-list-item-meta .chat-list-expiry {
-        margin-inline-start: 0;
     }
 }
 
