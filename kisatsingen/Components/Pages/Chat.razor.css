@@ -122,7 +122,6 @@
 .chat-jump-latest {
     position: absolute;
     bottom: 0;
-    z-index: 3;
     /* Secondary buttons are transparent, but this one floats over the
        transcript. */
     --dsc-button-background: var(--chat-surface);
@@ -133,6 +132,8 @@
 .chat-jump-anchor {
     position: sticky;
     bottom: calc(var(--chat-tail-height, 0px) + 0.1rem);
+    display: flex;
+    justify-content: center;
     height: 0;
     align-self: center;
     z-index: 3;
