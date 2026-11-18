@@ -42,16 +42,14 @@ else
                         <span class="chat-list-item-meta">
                             @if (DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
                             {
-                                @* A button so focus and tap open the tooltip, and the row's click delegate leaves it alone *@
-                                <button
-                                    type="button"
-                                    class="ds-focus chat-list-expiry"
-                                    aria-label="@upcomingDeletion"
+                                <span
+                                    class="material-symbols-outlined ds-focus chat-list-expiry"
                                     data-tooltip="@upcomingDeletion"
+                                    role="img"
+                                    aria-label="@upcomingDeletion"
                                     data-placement="top"
-                                >
-                                    <span class="material-symbols-outlined" aria-hidden="true">auto_delete</span>
-                                </button>
+                                    tabindex="0"
+                                >auto_delete</span>
                             }
 
                             <span class="ds-paragraph chat-list-item-date" data-size="sm">

@@ -83,17 +83,9 @@ stays in the row; Else it can mess with page size and scrolling */
 .chat-list-expiry {
     display: inline-flex;
     flex-shrink: 0;
-    padding: 0;
-    border: 0;
     border-radius: var(--ds-border-radius-sm);
-    background: none;
     font-size: 1rem;
     color: var(--ds-color-warning-text-subtle);
-    cursor: pointer;
-}
-
-.chat-list-expiry .material-symbols-outlined {
-    font-size: inherit;
 }
 
 .chat-list-items-detailed .chat-list-item-divider {
