@@ -23,7 +23,7 @@ public sealed class ChatRetentionTests
         ChatRetention.DescribeUpcomingDeletion(UpdatedAt, configuration ?? EnabledConfiguration, utcNow, TimeZoneInfo.Utc);
 
     [Fact]
-    public void Return_Null_When_Cleanup_Is_Disabled()
+    public void Return_null_when_cleanup_is_disabled()
     {
         var configuration = new DatabaseChatCleanupConfiguration { Retention = Retention };
 
@@ -33,7 +33,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Return_Null_When_Deletion_Is_More_Than_Seven_Days_Away()
+    public void Return_null_when_deletion_is_more_than_seven_days_away()
     {
         var utcNow = ScheduledDeletion.AddDays(-7).AddMinutes(-1);
 
@@ -43,7 +43,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Show_Seven_Days_When_Deletion_Is_Exactly_Seven_Days_Away()
+    public void Show_seven_days_when_deletion_is_exactly_seven_days_away()
     {
         var utcNow = ScheduledDeletion.AddDays(-7);
 
@@ -53,7 +53,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Round_Remaining_Days_Up_So_The_Label_Never_Promises_Deletion_Too_Early()
+    public void Round_remaining_days_up_so_the_label_never_promises_deletion_too_early()
     {
         var utcNow = ScheduledDeletion.AddDays(-1.9);
 
@@ -63,7 +63,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Show_Within_24_Hours_When_Less_Than_A_Day_Remains()
+    public void Show_within_24_hours_when_less_than_a_day_remains()
     {
         var utcNow = ScheduledDeletion.AddHours(-23);
 
@@ -73,7 +73,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Count_To_The_Next_Scheduled_Run_Rather_Than_To_The_Retention_Cutoff()
+    public void Count_to_the_next_scheduled_run_rather_than_to_the_retention_cutoff()
     {
         var utcNow = UpdatedAt.Add(Retention).AddHours(-3);
 
@@ -83,7 +83,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Do_Not_Report_A_Chat_As_Overdue_While_It_Waits_For_The_Next_Run()
+    public void Do_not_report_a_chat_as_overdue_while_it_waits_for_the_next_run()
     {
         var utcNow = UpdatedAt.Add(Retention).AddHours(1);
 
@@ -93,7 +93,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Report_Deletion_As_Happening_Now_Within_A_Day_After_The_Scheduled_Run()
+    public void Report_deletion_as_happening_now_within_a_day_after_the_scheduled_run()
     {
         var utcNow = ScheduledDeletion.AddHours(1);
 
@@ -103,7 +103,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Report_A_Single_Overdue_Day_In_Singular()
+    public void Report_a_single_overdue_day_in_singular()
     {
         var utcNow = ScheduledDeletion.AddDays(1.5);
 
@@ -113,7 +113,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Round_Overdue_Days_Down()
+    public void Round_overdue_days_down()
     {
         var utcNow = ScheduledDeletion.AddDays(2.9);
 
@@ -124,7 +124,7 @@ public sealed class ChatRetentionTests
 
     // The delete compares with a strict "<", so the run at the exact moment of eligibility leaves the chat alone.
     [Fact]
-    public void Schedule_Deletion_For_The_Following_Run_When_The_Chat_Becomes_Eligible_Exactly_At_The_Target_Time()
+    public void Schedule_deletion_for_the_following_run_when_the_chat_becomes_eligible_exactly_at_the_target_time()
     {
         var updatedAt = new DateTimeOffset(2026, 10, 11, 3, 0, 0, TimeSpan.Zero);
         var utcNow = updatedAt.Add(Retention).AddMinutes(1);
@@ -135,7 +135,7 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Interpret_The_Target_Time_In_The_Given_Time_Zone()
+    public void Interpret_the_target_time_in_the_given_time_zone()
     {
         var oslo = TimeZoneInfo.FindSystemTimeZoneById("Europe/Oslo");
         var updatedAt = new DateTimeOffset(2026, 10, 11, 1, 30, 0, TimeSpan.Zero);
