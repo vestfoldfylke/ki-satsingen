@@ -1,22 +1,20 @@
 @using kisatsingen.Services.Chat
 
 <div class="user-bubble">
-    <div class="user-bubble-prompt">@Prompt</div>
+    @* What was sent only: what became of each file is the assistant turn's. *@
     @if (Attachments.Count > 0)
     {
-        <ul aria-label="Vedlegg">
+        <ul class="user-bubble-attachments" aria-label="Vedlegg">
             @foreach (var attachment in Attachments)
             {
-                <li>
-                    @attachment.FileName
-                    @if (AttachmentStatusTexts.DescribeStatus(attachment) is { } status)
-                    {
-                        <span data-color="@(AttachmentStatusTexts.IsUnavailable(attachment) ? "danger" : null)">@status</span>
-                    }
+                <li class="ds-paragraph user-bubble-attachment" data-size="xs">
+                    <span class="material-symbols-outlined" aria-hidden="true">attach_file</span>
+                    <span class="user-bubble-attachment-name" title="@attachment.FileName">@attachment.FileName</span>
                 </li>
             }
         </ul>
     }
+    <div class="user-bubble-prompt">@Prompt</div>
 </div>
 
 @code {

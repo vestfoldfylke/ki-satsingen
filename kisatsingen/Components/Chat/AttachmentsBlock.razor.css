@@ -1,0 +1,5 @@
+/* The text keeps its line breaks, and a long file name wraps. */
+.chat-attachment-line {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}

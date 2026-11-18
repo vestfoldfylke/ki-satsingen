@@ -1,0 +1,12 @@
+@using kisatsingen.Services.Chat
+
+@if (AttachmentLine.Render(Attachments) is { } attachmentLine)
+{
+    <details class="ds-details" data-color="@(UnavailableCount > 0 ? "danger" : "neutral")">
+        <summary>@SummaryText</summary>
+        <div>
+            <p class="ds-paragraph">Dette ble sendt til KI-en sammen med meldingen din:</p>
+            <p class="ds-paragraph chat-attachment-line">@attachmentLine</p>
+        </div>
+    </details>
+}

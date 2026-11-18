@@ -1,14 +1,18 @@
+/* As many equal columns as fit, so every card has the same width whatever row
+   it is on. min() keeps one card from overflowing a composer narrower than the
+   minimum. */
 .composer-attachments {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 12rem), 1fr));
     gap: 0.5rem;
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
+/* A compact card. min-width: 0 lets it shrink below its name, so the name is
+   cut rather than widening the column. */
 .composer-attachment {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    --dsc-card-padding: var(--ds-size-2);
+    min-width: 0;
 }
