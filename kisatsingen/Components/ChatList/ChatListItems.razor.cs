@@ -30,9 +30,8 @@ public sealed partial class ChatListItems : ComponentBase, IDisposable
 
     private IReadOnlyList<ChatListEntry> ChatList => Manager.Entries;
 
-    // TimeZoneInfo.Local matches the background job, which schedules TargetTime against DateTime.Now.
     private string? DescribeUpcomingDeletion(ChatListEntry entry, DateTimeOffset utcNow) =>
-        ChatRetention.DescribeUpcomingDeletion(entry.UpdatedAt, CleanupConfigurations.ChatCleanup, utcNow, TimeZoneInfo.Local);
+        ChatRetention.DescribeUpcomingDeletion(entry.UpdatedAt, CleanupConfigurations.ChatCleanup, utcNow);
 
     private IEnumerable<ChatListEntry> ListedChats => ChatList.Take(MaxListedChats ?? ChatList.Count);
 
