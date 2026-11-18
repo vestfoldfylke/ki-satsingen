@@ -34,7 +34,7 @@ internal static class ConversionRejections
     public const string ImageNotReadable = "Bildet kunne ikke tolkes. Prøv med et annet bilde.";
 
     public const string ImageTextTooLong =
-        "Bildet har mer tekst enn det kan tolkes på én gang. Del det opp i flere bilder og prøv igjen.";
+        "Bildet har mer tekst enn det kan tolkes på én gang. Prøv med et annet bilde med mindre tekst.";
 
     public const string ErrorParsingPdf =
         "PDF-filen kunne ikke leses. Den kan være skadet eller passordbeskyttet. Fjern passordet, eller lagre den på nytt som PDF og prøv igjen.";
