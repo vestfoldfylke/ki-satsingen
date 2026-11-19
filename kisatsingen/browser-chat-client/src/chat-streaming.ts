@@ -21,6 +21,7 @@ import "highlight.js/styles/a11y-light.min.css"
 import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
+import { markComposerSelectionRead } from './composer-file-input.js';
 import { showPlainText } from './file-viewer.js';
 import { downloadFile } from './file-download.js';
 
@@ -284,6 +285,7 @@ declare global {
             setComposerBusy: typeof setComposerBusy;
             setComposerUploading: typeof setComposerUploading;
             takeComposerValue: typeof takeComposerValue;
+            markComposerSelectionRead: typeof markComposerSelectionRead;
             hidePopover: typeof hidePopover;
             showPlainText: typeof showPlainText;
             downloadFile: typeof downloadFile;
@@ -301,6 +303,7 @@ window.chatClient = {
     setComposerBusy,
     setComposerUploading,
     takeComposerValue,
+    markComposerSelectionRead,
     hidePopover,
     showPlainText,
     downloadFile,

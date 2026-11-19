@@ -4,6 +4,8 @@
 // still empty." The textarea is otherwise uncontrolled from Blazor's side;
 // its content only reaches the server once, at send (see takeComposerValue).
 
+import { attachPastedImages } from './composer-paste.js';
+
 const SELECTOR_TEXTAREA = '#chat-textarea';
 const SELECTOR_SEND_BUTTON = '#composer-send-button';
 
@@ -69,11 +71,13 @@ export function initComposer(): void {
     if (textareaElement) {
         textareaElement.removeEventListener('keydown', onKeyDown);
         textareaElement.removeEventListener('input', onInput);
+        textareaElement.removeEventListener('paste', attachPastedImages);
     }
 
     textareaElement = textarea;
     textarea.addEventListener('keydown', onKeyDown);
     textarea.addEventListener('input', onInput);
+    textarea.addEventListener('paste', attachPastedImages);
 }
 
 export function setComposerBusy(busy: boolean): void {
