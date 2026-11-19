@@ -80,6 +80,14 @@ stays in the row; Else it can mess with page size and scrolling */
     white-space: nowrap;
 }
 
+.chat-list-expiry {
+    display: inline-flex;
+    flex-shrink: 0;
+    border-radius: var(--ds-border-radius-sm);
+    font-size: 1rem;
+    color: var(--ds-color-warning-text-subtle);
+}
+
 .chat-list-items-detailed .chat-list-item-divider {
     margin-block: 0;
     width: auto;
@@ -112,7 +120,12 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
     white-space: nowrap;
     flex-shrink: 0;
     color: var(--ds-color-neutral-text-subtle);
-    grid-area: time;
+}
+
+/* Groups the expiry icon and the time so they can share the "time" grid area on narrow screens.
+   On wide screens it is transparent to the row's flex layout. */
+.chat-list-item-meta {
+    display: contents;
 }
 
 @media (max-width: 800px) {
@@ -122,6 +135,23 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
         grid-template-areas: "icon link options" "icon time options";
         align-items: center;
         row-gap: 0;
+    }
+
+    .chat-list-item-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+        min-width: 0;
+        grid-area: time;
+    }
+}
+
+/* Wide screens: fixed width (fits the longest "d. MMM yyyy", e.g. "30. sep. 2026") and end-aligned,
+   so the date stays next to the menu while the expiry icon before it lines up across rows */
+@media (min-width: 801px) {
+    .chat-list-items-detailed .chat-list-item-date {
+        min-inline-size: 11ch;
+        text-align: end;
     }
 }
 

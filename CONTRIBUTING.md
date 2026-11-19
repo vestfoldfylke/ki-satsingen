@@ -31,3 +31,12 @@ No formatter handles Razor markup reliably, so it is formatted by hand:
     <span class="material-symbols-outlined" aria-hidden="true">close</span>
 </button>
 ```
+
+## Tests
+
+Test methods are named in `Sentence_snake_case`: the first word capitalised, the rest lowercase, separated by underscores. Identifiers keep their own casing (method names, properties, product names).
+
+```csharp
+public void Return_null_when_cleanup_is_disabled()
+public async Task InsertTurnAsync_leaves_UpdatedAt_unchanged_when_the_insert_fails()
+```

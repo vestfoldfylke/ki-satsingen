@@ -190,10 +190,13 @@ builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
 builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
 builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
 
+// For the warning on /chats about chats close to being deleted.
+builder.Services.AddSingleton(databaseCleanupConfigurations);
+
 // The cleanup repository deletes data in bulk, so it is deliberately left out of
 // the container: only the background service gets one, and nothing can inject it.
 builder.Services.AddHostedService(sp => new DatabaseCleanupBackgroundService(
-    databaseCleanupConfigurations,
+    sp.GetRequiredService<DatabaseCleanupConfigurations>(),
     new DatabaseCleanupRepository(
         sp.GetRequiredService<IDbContextFactory<AppDbContext>>(),
         sp.GetRequiredService<ILogger<DatabaseCleanupRepository>>()),

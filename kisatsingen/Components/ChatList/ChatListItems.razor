@@ -4,6 +4,8 @@
 }
 else
 {
+    var utcNow = DateTimeOffset.UtcNow;
+
     <ul class="ds-list chat-list-items @(HasDetailedView ? "chat-list-items-detailed" : null)" data-color="neutral">
         @foreach (var entry in ListedChats)
         {
@@ -37,8 +39,22 @@ else
 
                     @if (HasDetailedView)
                     {
-                        <span class="ds-paragraph chat-list-item-date" data-size="sm">
-                            <NorwegianDate Value="entry.UpdatedAt" />
+                        <span class="chat-list-item-meta">
+                            @if (DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
+                            {
+                                <span
+                                    class="material-symbols-outlined ds-focus chat-list-expiry"
+                                    data-tooltip="@upcomingDeletion"
+                                    role="img"
+                                    aria-label="@upcomingDeletion"
+                                    data-placement="top"
+                                    tabindex="0"
+                                >auto_delete</span>
+                            }
+
+                            <span class="ds-paragraph chat-list-item-date" data-size="sm">
+                                <NorwegianDate Value="entry.UpdatedAt" />
+                            </span>
                         </span>
                     }
 
