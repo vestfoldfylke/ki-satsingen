@@ -80,12 +80,23 @@ stays in the row; Else it can mess with page size and scrolling */
     white-space: nowrap;
 }
 
+.chat-list-text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
 .chat-list-expiry {
-    display: inline-flex;
-    flex-shrink: 0;
-    border-radius: var(--ds-border-radius-sm);
-    font-size: 1rem;
+    font-size: var(--ds-font-size-2);
     color: var(--ds-color-warning-text-subtle);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Rows with a deletion message need room for a second line under the title */
+.chat-list-items-detailed .chat-list-item:has(.chat-list-expiry) {
+    height: auto;
 }
 
 .chat-list-items-detailed .chat-list-item-divider {
@@ -122,12 +133,6 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
     color: var(--ds-color-neutral-text-subtle);
 }
 
-/* Groups the expiry icon and the time so they can share the "time" grid area on narrow screens.
-   On wide screens it is transparent to the row's flex layout. */
-.chat-list-item-meta {
-    display: contents;
-}
-
 @media (max-width: 800px) {
     .chat-list-items-detailed .chat-list-item {
         display: grid;
@@ -137,17 +142,13 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
         row-gap: 0;
     }
 
-    .chat-list-item-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.3rem;
-        min-width: 0;
+    .chat-list-items-detailed .chat-list-item-date {
         grid-area: time;
     }
 }
 
 /* Wide screens: fixed width (fits the longest "d. MMM yyyy", e.g. "30. sep. 2026") and end-aligned,
-   so the date stays next to the menu while the expiry icon before it lines up across rows */
+   so the title column has the same width on every row */
 @media (min-width: 801px) {
     .chat-list-items-detailed .chat-list-item-date {
         min-inline-size: 11ch;
@@ -155,23 +156,14 @@ li:has(+ li .chat-list-item-option-dropdown-menu:popover-open) .chat-list-item-d
     }
 }
 
-/* Wide screens with hover: show the options button in place of the time on hover/focus.
-   Everywhere else both are always visible. */
+/* Nav menu on wide screens with hover: only show the options button on hover/focus.
+   On the /chats page, and everywhere else, it is always visible. */
 @media (hover: hover) and (min-width: 801px) {
-    .chat-list-item-option-button {
+    .chat-list-items:not(.chat-list-items-detailed) .chat-list-item-option-button {
         opacity: 0;
     }
 
-    .chat-list-item-date {
-        margin-inline-end: -2.5rem;
-    }
-
-    .chat-list-item:is(:hover, :focus-within, :has(.chat-list-item-option-dropdown-menu:popover-open)) .chat-list-item-option-button {
+    .chat-list-items:not(.chat-list-items-detailed) .chat-list-item:is(:hover, :focus-within, :has(.chat-list-item-option-dropdown-menu:popover-open)) .chat-list-item-option-button {
         opacity: 1;
-        z-index: 1;
-    }
-
-    .chat-list-item:is(:hover, :focus-within, :has(.chat-list-item-option-dropdown-menu:popover-open)) .chat-list-item-date {
-        opacity: 0;
     }
 }

@@ -34,27 +34,19 @@ else
                             <span class="ds-sr-only">Assistent: </span>
                         }
 
-                        <span class="chat-list-title">@entry.Title</span>
+                        <span class="chat-list-text">
+                            <span class="chat-list-title">@entry.Title</span>
+                            @if (HasDetailedView && DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
+                            {
+                                <span class="chat-list-expiry">@upcomingDeletion</span>
+                            }
+                        </span>
                     </a>
 
                     @if (HasDetailedView)
                     {
-                        <span class="chat-list-item-meta">
-                            @if (DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
-                            {
-                                <span
-                                    class="material-symbols-outlined ds-focus chat-list-expiry"
-                                    data-tooltip="@upcomingDeletion"
-                                    role="img"
-                                    aria-label="@upcomingDeletion"
-                                    data-placement="top"
-                                    tabindex="0"
-                                >auto_delete</span>
-                            }
-
-                            <span class="ds-paragraph chat-list-item-date" data-size="sm">
-                                <NorwegianDate Value="entry.UpdatedAt" />
-                            </span>
+                        <span class="ds-paragraph chat-list-item-date" data-size="sm">
+                            <NorwegianDate Value="entry.UpdatedAt" />
                         </span>
                     }
 
