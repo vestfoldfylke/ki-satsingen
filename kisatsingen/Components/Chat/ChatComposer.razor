@@ -18,11 +18,13 @@
                                  Notice="@Attachments.SelectionNotice"
                                  OnRemove="Attachments.Remove" />
 
-            @* The way in for pasted files. A new one for each chat, so files
-               pasted in one chat never attach to the next when switching chat. *@
+            @* The way in for pasted and dropped files. A new one for each chat,
+               so files added in one chat never attach to the next when switching
+               chat. *@
             <InputFile @key="Session.ChatId" id="composer-file-input" hidden OnChange="AttachQueuedFilesAsync" />
             @* Static, so Blazor never touches the text composer-paste.ts writes. *@
             <div id="composer-paste-announcement" class="visually-hidden" aria-live="polite"></div>
+            <ComposerDropZone />
 
             <textarea @ref="_textarea"
                       id="chat-textarea"

@@ -22,6 +22,7 @@ import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
 import { markComposerSelectionRead } from './composer-file-input.js';
+import './composer-drop.js';
 import { showPlainText } from './file-viewer.js';
 import { downloadFile } from './file-download.js';
 

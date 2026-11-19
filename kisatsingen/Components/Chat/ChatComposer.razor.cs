@@ -103,7 +103,7 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
         }
     }
 
-    // Lets the browser put the next pasted selection on the file input.
+    // Lets the browser put the next pasted or dropped selection on the file input.
     // Every interop failure is caught: an exception thrown from an event handler
     // ends the circuit, so a connection that dropped for a moment would not be
     // able to reconnect.
@@ -115,7 +115,7 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException or OperationCanceledException)
         {
-            Logger.LogWarning(ex, "ChatComposer could not tell the browser the pasted files were read, so further pasted files wait until another chat is opened or the page is reloaded");
+            Logger.LogWarning(ex, "ChatComposer could not tell the browser the pasted or dropped files were read, so further pasted or dropped files wait until another chat is opened or the page is reloaded");
         }
     }
 
