@@ -14,7 +14,8 @@ public sealed class ChatRetentionTests
     };
 
     private static readonly DateTimeOffset UpdatedAt = new(2026, 10, 11, 4, 0, 0, TimeSpan.Zero);
-    private static readonly DateTimeOffset EligibleAt = UpdatedAt.Add(Retention);
+    // The job runs daily, so the chat is deleted at the latest one day after it becomes eligible.
+    private static readonly DateTimeOffset DeletedBy = UpdatedAt.Add(Retention).AddDays(1);
 
     private static string? Describe(DateTimeOffset utcNow, DatabaseChatCleanupConfiguration? configuration = null) =>
         ChatRetention.DescribeUpcomingDeletion(UpdatedAt, configuration ?? EnabledConfiguration, utcNow);
@@ -24,7 +25,7 @@ public sealed class ChatRetentionTests
     {
         var configuration = new DatabaseChatCleanupConfiguration { Retention = Retention };
 
-        var description = Describe(EligibleAt.AddHours(-1), configuration);
+        var description = Describe(DeletedBy.AddHours(-1), configuration);
 
         Assert.Null(description);
     }
@@ -32,7 +33,7 @@ public sealed class ChatRetentionTests
     [Fact]
     public void Return_null_when_deletion_is_more_than_seven_days_away()
     {
-        var utcNow = EligibleAt.AddDays(-7).AddMinutes(-1);
+        var utcNow = DeletedBy.AddDays(-7).AddMinutes(-1);
 
         var description = Describe(utcNow);
 
@@ -42,7 +43,7 @@ public sealed class ChatRetentionTests
     [Fact]
     public void Show_seven_days_when_deletion_is_exactly_seven_days_away()
     {
-        var utcNow = EligibleAt.AddDays(-7);
+        var utcNow = DeletedBy.AddDays(-7);
 
         var description = Describe(utcNow);
 
@@ -52,7 +53,7 @@ public sealed class ChatRetentionTests
     [Fact]
     public void Round_remaining_days_up()
     {
-        var utcNow = EligibleAt.AddDays(-1.9);
+        var utcNow = DeletedBy.AddDays(-1.9);
 
         var description = Describe(utcNow);
 
@@ -62,7 +63,7 @@ public sealed class ChatRetentionTests
     [Fact]
     public void Show_within_24_hours_when_a_day_or_less_remains()
     {
-        var utcNow = EligibleAt.AddHours(-23);
+        var utcNow = DeletedBy.AddHours(-23);
 
         var description = Describe(utcNow);
 
@@ -70,9 +71,9 @@ public sealed class ChatRetentionTests
     }
 
     [Fact]
-    public void Show_within_24_hours_when_the_chat_is_already_eligible_for_deletion()
+    public void Show_within_24_hours_when_the_chat_is_past_its_deletion_deadline()
     {
-        var utcNow = EligibleAt.AddDays(3);
+        var utcNow = DeletedBy.AddDays(3);
 
         var description = Describe(utcNow);
 

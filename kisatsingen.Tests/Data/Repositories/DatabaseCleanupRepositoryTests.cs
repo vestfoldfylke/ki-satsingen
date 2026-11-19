@@ -14,16 +14,4 @@ public sealed class DatabaseCleanupRepositoryTests
 
         Assert.Equal(new DateTimeOffset(2026, 10, 11, 3, 0, 0, TimeSpan.Zero), cutoff);
     }
-
-    // The /chats deletion warning relies on these two staying inverses of each other.
-    [Fact]
-    public void The_cutoff_reaches_a_chat_exactly_when_the_chat_becomes_eligible_for_deletion()
-    {
-        var updatedAt = new DateTimeOffset(2026, 10, 11, 3, 0, 0, TimeSpan.Zero);
-        var retention = TimeSpan.FromDays(30);
-
-        var eligibleAt = DatabaseCleanupRepository.GetEligibleForDeletionDateTime(updatedAt, retention);
-
-        Assert.Equal(updatedAt, DatabaseCleanupRepository.GetCutoffDateTime(eligibleAt, retention));
-    }
 }

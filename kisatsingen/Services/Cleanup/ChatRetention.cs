@@ -1,5 +1,3 @@
-using kisatsingen.Data.Repositories;
-
 namespace kisatsingen.Services.Cleanup;
 
 public static class ChatRetention
@@ -16,8 +14,8 @@ public static class ChatRetention
             return null;
         }
 
-        var eligibleAt = DatabaseCleanupRepository.GetEligibleForDeletionDateTime(updatedAt, retention);
-        var daysUntilDeletion = (int)Math.Ceiling((eligibleAt - utcNow).TotalDays);
+        var timeUntilDeleted = updatedAt + retention + DatabaseCleanupBackgroundService.RunInterval - utcNow;
+        var daysUntilDeletion = (int)Math.Ceiling(timeUntilDeleted.TotalDays);
 
         return daysUntilDeletion switch
         {

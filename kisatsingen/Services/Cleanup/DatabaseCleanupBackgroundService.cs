@@ -12,6 +12,8 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
     private readonly TimeSpan _chatCleanupRetention;
     private readonly TimeSpan _chatCleanupTargetTime;
 
+    internal static readonly TimeSpan RunInterval = TimeSpan.FromDays(1);
+
     public DatabaseCleanupBackgroundService(DatabaseCleanupConfigurations databaseCleanupConfigurations, IDatabaseCleanupRepository databaseCleanupRepository, ILogger<DatabaseCleanupBackgroundService> logger)
     {
         _databaseCleanupRepository = databaseCleanupRepository;
@@ -37,7 +39,7 @@ public sealed class DatabaseCleanupBackgroundService : BackgroundService
 
         if (now >= nextRun)
         {
-            nextRun = nextRun.AddDays(1);
+            nextRun += RunInterval;
         }
 
         return nextRun - now;
