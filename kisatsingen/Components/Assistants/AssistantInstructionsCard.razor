@@ -55,7 +55,30 @@
 
                     <ds-field class="ds-field">
                         <label class="ds-label">Hva skal assistenten gjøre, og hvordan?</label>
-                        <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" autofocus />
+                        <InputTextArea
+                            class="ds-input"
+                            rows="16"
+                            @bind-Value="Form.Instructions"
+                            maxlength="@Assistant.MaxInstructionsLength"
+                            autofocus
+                            @oninput="e => Form.Instructions = e.Value?.ToString()"
+                        />
+                        <p
+                            class="ds-validation-message"
+                            data-field="counter"
+                            data-limit="@Assistant.MaxInstructionsLength"
+                        ></p>
+
+                        @if (Form.Instructions?.Length > (Assistant.MaxInstructionsLength * 0.3) && Form.Instructions?.Length < Assistant.MaxInstructionsLength)
+                        {
+                            <p
+                                class="ds-validation-message"
+                                data-field="validation"
+                                data-color="info"
+                                >Obs! Du kan også legge til filer hvis instruksjoner blir lange.
+                            </p>
+                        }
+
                         <DesignsystemetValidationMessage For="() => Form.Instructions" />
                     </ds-field>
 
