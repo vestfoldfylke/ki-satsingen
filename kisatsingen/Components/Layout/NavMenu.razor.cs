@@ -24,7 +24,11 @@ public partial class NavMenu : ComponentBase, IDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) { return; }
+        if (!firstRender)
+        {
+            return;
+        }
+
         await ReadColorSchemeAsync();
     }
     private async Task ReadColorSchemeAsync()
