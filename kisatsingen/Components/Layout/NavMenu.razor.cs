@@ -31,11 +31,11 @@ public partial class NavMenu : ComponentBase, IDisposable
     {
         try
         {
-            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "color-scheme");
+            var current = await JS.InvokeAsync<string?>("document.documentElement.getAttribute", "data-color-scheme");
 
-            if (saved is not null)
+            if (current is not null)
             {
-                _isDarkMode = saved == "dark";
+                _isDarkMode = current == "dark";
             }
             else
             {
