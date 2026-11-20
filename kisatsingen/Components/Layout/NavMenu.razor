@@ -103,6 +103,7 @@
                             data-variant="tertiary"
                             data-color="neutral"
                             popovertarget="@UserMenuId"
+                            @onclick="ReadColorSchemeAsync"
                             data-tooltip="Brukermeny"
                         >
                             <span aria-hidden="true" class="ds-avatar" data-size="xs" data-color="accent"></span>
@@ -114,6 +115,16 @@
                         </button>
 
                         <div id="@UserMenuId" class="ds-dropdown" popover="auto" data-placement="top-start">
+                            <ds-field
+                                class="ds-field"
+                                data-position="end"
+                            >
+                                <label class="ds-label">Mørk modus</label>
+                                <input class="ds-input" type="checkbox" role="switch" @bind="_isDarkMode" @bind:after="ApplyColorSchemeAsync" />
+                            </ds-field>
+
+                            <hr aria-hidden="true" class="ds-divider" />
+
                             <h2 id="user-menu-heading" class="ds-heading"><strong>Meg og mitt</strong></h2>
                             <ul aria-labelledby="user-menu-heading">
                                 <li>

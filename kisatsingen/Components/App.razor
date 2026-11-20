@@ -8,6 +8,12 @@
     <base href="/"/>
     <ResourcePreloader/>
 
+    <!-- Apply the saved color scheme from localStorage before page is drawn -->
+    <script>
+        const scheme = localStorage.getItem("color-scheme");
+        if (scheme) document.documentElement.setAttribute("data-color-scheme", scheme);
+    </script>
+
     <!-- Designsystemet CSS + tema -->
     <link rel="stylesheet" href="designsystemet/designsystemet.css"/>
 
