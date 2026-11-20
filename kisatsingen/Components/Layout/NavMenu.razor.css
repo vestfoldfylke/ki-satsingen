@@ -13,6 +13,11 @@
     padding: 1rem 1rem 1rem 0.5rem;
 }
 
+.logo-container > a {
+    text-decoration: none;
+    user-select: none;
+}
+
 @media (min-width: 641px) {
     .sidebar-panel {
         display: flex;
