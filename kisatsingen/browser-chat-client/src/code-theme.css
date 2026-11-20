@@ -1,3 +1,6 @@
+/* Styling copied from highlight.js/styles/a11y-light.min.css and highlight.js/styles/a11y-dark.min.css
+   overrides colors when in dark/light mode so it fits to each theme */
+
 .hljs {
     background: var(--ds-color-neutral-background-tinted);
     color: light-dark(#545454, #f8f8f2);
