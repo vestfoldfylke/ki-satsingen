@@ -3,9 +3,9 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Data.Repositories;
 
-public interface IOrganizationTokenUsageRepository
+public interface IOrganizationUsageRepository
 {
-    Task<TokenUsageSummary> GetTotalsAsync(
+    Task<UsageSummary> GetTotalsAsync(
         DateTimeOffset? since,
         CancellationToken ct = default);
 

@@ -20,11 +20,11 @@ public sealed class AssistantFileProcessorTests : IDisposable
 
     private readonly AttachmentTestEnvironment _environment = new();
     private readonly FakeAssistantFileRepository _repository = new();
-    private readonly FakeUserTokenUsageRepository _tokenUsage = new();
+    private readonly FakeUserUsageRepository _usageRecords = new();
     private readonly AssistantFileProcessor _processor;
 
     public AssistantFileProcessorTests() =>
-        _processor = new AssistantFileProcessor(CreatePipeline(), _repository, _tokenUsage, NullLogger.Instance);
+        _processor = new AssistantFileProcessor(CreatePipeline(), _repository, _usageRecords, NullLogger.Instance);
 
     public void Dispose() => _environment.Dispose();
 
@@ -57,14 +57,14 @@ public sealed class AssistantFileProcessorTests : IDisposable
         await ProcessAsync(UploadBytes.Text, TokenSpendingConverter.Type);
 
         Assert.Equal(
-            TokenUsageEntry.ForAssistantFileConversion(UserId, AssistantId, TokenSpendingConverter.Spent),
-            Assert.Single(_tokenUsage.Inserts));
+            NewUsageRecord.ForAssistantFileConversion(UserId, AssistantId, TokenSpendingConverter.Spent),
+            Assert.Single(_usageRecords.Inserts));
     }
 
     [Fact]
     public async Task A_file_is_saved_even_when_what_its_conversion_spent_cannot_be_recorded()
     {
-        _tokenUsage.InsertFailure = new InvalidOperationException("Database down.");
+        _usageRecords.InsertFailure = new InvalidOperationException("Database down.");
 
         var result = await ProcessAsync(UploadBytes.Text, TokenSpendingConverter.Type);
 

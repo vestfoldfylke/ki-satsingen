@@ -23,7 +23,7 @@ internal abstract record AssistantFileResult
 internal sealed class AssistantFileProcessor(
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
-    IUserTokenUsageRepository tokenUsage,
+    IUserUsageRepository usageRecords,
     ILogger logger)
 {
     private const string NotProcessedReason = "Filen kunne ikke behandles. Prøv igjen.";
@@ -59,7 +59,7 @@ internal sealed class AssistantFileProcessor(
 
         if (result.ConversionTokenUsage is { } conversionTokenUsage)
         {
-            await InsertTokenUsageAsync(TokenUsageEntry.ForAssistantFileConversion(userId, assistantId, conversionTokenUsage), attachment, assistantId);
+            await InsertUsageRecordAsync(NewUsageRecord.ForAssistantFileConversion(userId, assistantId, conversionTokenUsage), attachment, assistantId);
         }
 
         switch (result)
@@ -76,11 +76,11 @@ internal sealed class AssistantFileProcessor(
     // Before the file is saved, so a failed save still records the spend.
     // CancellationToken.None: the tokens are spent even if the upload is
     // cancelled now. A failed write costs the row, never the file.
-    private async Task InsertTokenUsageAsync(TokenUsageEntry entry, ReadyAttachment attachment, Guid assistantId)
+    private async Task InsertUsageRecordAsync(NewUsageRecord newRecord, ReadyAttachment attachment, Guid assistantId)
     {
         try
         {
-            await tokenUsage.InsertTokenUsageAsync(entry, CancellationToken.None);
+            await usageRecords.InsertUsageRecordAsync(newRecord, CancellationToken.None);
         }
         catch (Exception ex)
         {

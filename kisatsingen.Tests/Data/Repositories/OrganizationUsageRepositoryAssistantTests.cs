@@ -8,7 +8,7 @@ using Xunit;
 namespace kisatsingen.Tests.Data.Repositories;
 
 [Collection(PostgresCollection.Name)]
-public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class OrganizationUsageRepositoryAssistantTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private const int TopN = 10;
 
@@ -17,7 +17,7 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
-    private OrganizationTokenUsageRepository Repo => new(Factory);
+    private OrganizationUsageRepository Repo => new(Factory);
 
     public Task InitializeAsync() => fixture.ResetAsync();
 
@@ -151,10 +151,10 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
         DateTimeOffset? timestamp = null)
     {
         await using var db = await Factory.CreateDbContextAsync();
-        db.TokenUsages.Add(new TokenUsage
+        db.UsageRecords.Add(new UsageRecord
         {
             Id = Guid.NewGuid(),
-            Kind = TokenUsageKind.ChatTurn,
+            Kind = UsageKind.ChatTurn,
             UserId = userId,
             ChatId = chatId,
             TurnId = Guid.NewGuid(),
@@ -172,10 +172,10 @@ public sealed class OrganizationTokenUsageRepositoryAssistantTests(PostgresFixtu
     private async Task SeedFileConversionAsync(Guid assistantId, Guid userId, long inputTokens, long outputTokens)
     {
         await using var db = await Factory.CreateDbContextAsync();
-        db.TokenUsages.Add(new TokenUsage
+        db.UsageRecords.Add(new UsageRecord
         {
             Id = Guid.NewGuid(),
-            Kind = TokenUsageKind.KnowledgeFileConversion,
+            Kind = UsageKind.KnowledgeFileConversion,
             UserId = userId,
             AssistantId = assistantId,
             Timestamp = DateTimeOffset.UtcNow,

@@ -33,7 +33,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public FakeAuthenticationService Authentication { get; } = new();
     public FakeChatRepository Repository { get; } = new();
     public FakeAssistantRepository Assistants { get; } = new();
-    public FakeUserTokenUsageRepository UserTokenUsageRepository { get; } = new();
+    public FakeUserUsageRepository UserUsageRepository { get; } = new();
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
@@ -64,7 +64,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             Metrics,
             new SilentJsRuntime(),
             NullLogger<ChatSession>.Instance,
-            UserTokenUsageRepository,
+            UserUsageRepository,
             KnowledgeFiles,
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
@@ -248,27 +248,27 @@ internal sealed class FakeChatRepository : IChatRepository
 internal sealed record TurnWrite(Guid ChatId, ChatTurn Turn);
 
 // Records every insert, so tests can assert what was written.
-internal sealed class FakeUserTokenUsageRepository : IUserTokenUsageRepository
+internal sealed class FakeUserUsageRepository : IUserUsageRepository
 {
-    public List<TokenUsageEntry> Inserts { get; } = [];
+    public List<NewUsageRecord> Inserts { get; } = [];
 
     // Lets a test simulate the repository being down.
     public Exception? InsertFailure { get; set; }
 
-    public Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
+    public Task InsertUsageRecordAsync(NewUsageRecord newRecord, CancellationToken ct = default)
     {
         if (InsertFailure is not null)
         {
             return Task.FromException(InsertFailure);
         }
 
-        Inserts.Add(entry);
+        Inserts.Add(newRecord);
         return Task.CompletedTask;
     }
 
     // Only inserts are under test; the queries are stubbed to satisfy the interface.
-    public Task<TokenUsageSummary> GetTotalsAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
-        Task.FromResult(TokenUsageSummary.Empty);
+    public Task<UsageSummary> GetTotalsAsync(Guid userId, DateTimeOffset? since, CancellationToken ct = default) =>
+        Task.FromResult(UsageSummary.Empty);
 
     public Task<IReadOnlyList<UsageTimeBucket>> GetTimeSeriesAsync(Guid userId, DateTimeOffset? since, UsageBucket bucket, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<UsageTimeBucket>>([]);

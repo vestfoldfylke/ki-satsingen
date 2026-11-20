@@ -8,14 +8,14 @@ using Xunit;
 namespace kisatsingen.Tests.Data.Repositories;
 
 [Collection(PostgresCollection.Name)]
-public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class UserUsageRepositoryTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private static readonly Guid UserId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OtherUserId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     private IDbContextFactory<AppDbContext> Factory => fixture.Factory;
 
-    private UserTokenUsageRepository Repo => new(Factory);
+    private UserUsageRepository Repo => new(Factory);
 
     public Task InitializeAsync() => fixture.ResetAsync();
 
@@ -23,7 +23,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
 
     // Seeds a row straight through the DbContext at a given timestamp — the
     // query tests below need rows backdated past the `since` cutoff, which the
-    // repository's InsertTokenUsageAsync (always now) can't produce.
+    // repository's InsertUsageRecordAsync (always now) can't produce.
     private async Task SeedRowAsync(
         Guid userId,
         DateTimeOffset timestamp,
@@ -35,11 +35,11 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
         long? estimatedOutputTokens = null,
         long? cachedInputTokens = null,
         long? reasoningTokens = null,
-        TokenUsageKind kind = TokenUsageKind.ChatTurn,
+        UsageKind kind = UsageKind.ChatTurn,
         TurnStatus? status = TurnStatus.Completed)
     {
         await using var db = await Factory.CreateDbContextAsync();
-        db.TokenUsages.Add(new TokenUsage
+        db.UsageRecords.Add(new UsageRecord
         {
             Id = Guid.NewGuid(),
             Kind = kind,
@@ -80,7 +80,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Totals_count_a_file_conversion_s_tokens_but_not_as_a_turn()
     {
         await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
-        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: UsageKind.KnowledgeFileConversion, status: null);
 
         var totals = await Repo.GetTotalsAsync(UserId, since: null);
 
@@ -91,8 +91,8 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Totals_sum_the_input_and_output_of_file_conversions_alone_as_conversion_tokens()
     {
         await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, outputTokens: 20);
-        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
-        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 500, outputTokens: null, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, outputTokens: 300, kind: UsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 500, outputTokens: null, kind: UsageKind.KnowledgeFileConversion, status: null);
 
         var totals = await Repo.GetTotalsAsync(UserId, since: null);
 
@@ -104,7 +104,7 @@ public sealed class UserTokenUsageRepositoryTests(PostgresFixture fixture) : IAs
     public async Task Usage_by_status_leaves_out_file_conversions()
     {
         await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 10, status: TurnStatus.Completed);
-        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, kind: TokenUsageKind.KnowledgeFileConversion, status: null);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, inputTokens: 1_000, kind: UsageKind.KnowledgeFileConversion, status: null);
 
         var row = Assert.Single(await Repo.GetUsageByStatusAsync(UserId, since: null));
 

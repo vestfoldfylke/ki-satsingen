@@ -3,11 +3,11 @@ using kisatsingen.Services.Chat;
 
 namespace kisatsingen.Data.Repositories;
 
-public interface IUserTokenUsageRepository
+public interface IUserUsageRepository
 {
-    Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default);
+    Task InsertUsageRecordAsync(NewUsageRecord newRecord, CancellationToken ct = default);
 
-    Task<TokenUsageSummary> GetTotalsAsync(
+    Task<UsageSummary> GetTotalsAsync(
         Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default);

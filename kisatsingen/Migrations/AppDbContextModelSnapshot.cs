@@ -269,7 +269,7 @@ namespace kisatsingen.Migrations
                         });
                 });
 
-            modelBuilder.Entity("kisatsingen.Data.Entities.TokenUsage", b =>
+            modelBuilder.Entity("kisatsingen.Data.Entities.UsageRecord", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
@@ -334,9 +334,9 @@ namespace kisatsingen.Migrations
 
                     b.HasIndex("UserId", "Timestamp");
 
-                    b.ToTable("TokenUsages", t =>
+                    b.ToTable("UsageRecords", t =>
                         {
-                            t.HasCheckConstraint("ck_token_usages_turn_has_status", "\"Kind\" <> 'ChatTurn' OR \"Status\" IS NOT NULL");
+                            t.HasCheckConstraint("ck_usage_records_turn_has_status", "\"Kind\" <> 'ChatTurn' OR \"Status\" IS NOT NULL");
                         });
                 });
 

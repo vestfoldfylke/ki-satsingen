@@ -1,6 +1,6 @@
 namespace kisatsingen.Data.Entities;
 
-public record TokenUsageSummary(
+public record UsageSummary(
     long TotalInputTokens,
     long TotalOutputTokens,
     long TotalEstimatedInputTokens,
@@ -10,7 +10,7 @@ public record TokenUsageSummary(
     long TotalConversionTokens,
     int TurnCount)
 {
-    public static TokenUsageSummary Empty { get; } = new(
+    public static UsageSummary Empty { get; } = new(
         TotalInputTokens: 0,
         TotalOutputTokens: 0,
         TotalEstimatedInputTokens: 0,

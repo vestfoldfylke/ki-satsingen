@@ -28,7 +28,7 @@ internal sealed class TurnRunner
     private readonly TurnStreamer _streamer;
     private readonly string _metricPrefix;
     private readonly ILogger _logger;
-    private readonly IUserTokenUsageRepository _userTokenUsageRepository;
+    private readonly IUserUsageRepository _userUsageRepository;
     private readonly TurnAttachmentProcessor _attachmentProcessor;
     private readonly FileToolFactory _fileTools;
 
@@ -41,7 +41,7 @@ internal sealed class TurnRunner
         TurnStreamer streamer,
         string metricPrefix,
         ILogger logger,
-        IUserTokenUsageRepository userTokenUsageRepository,
+        IUserUsageRepository userUsageRepository,
         TurnAttachmentProcessor attachmentProcessor,
         FileToolFactory fileTools)
     {
@@ -53,7 +53,7 @@ internal sealed class TurnRunner
         _streamer = streamer;
         _metricPrefix = metricPrefix;
         _logger = logger;
-        _userTokenUsageRepository = userTokenUsageRepository;
+        _userUsageRepository = userUsageRepository;
         _attachmentProcessor = attachmentProcessor;
         _fileTools = fileTools;
     }
@@ -169,7 +169,7 @@ internal sealed class TurnRunner
             await SaveEndedTurnAsync(row, attempt.Turn);
         }
 
-        await InsertTokenUsageAsync(row, attempt, model);
+        await InsertUsageRecordAsync(row, attempt, model);
 
         CountFailure(attempt);
     }
@@ -327,7 +327,7 @@ internal sealed class TurnRunner
         }
     }
 
-    private async Task InsertTokenUsageAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
+    private async Task InsertUsageRecordAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
     {
         var usage = attempt.Turn.Metadata?.Usage;
 
@@ -339,7 +339,7 @@ internal sealed class TurnRunner
         try
         {
             var userId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
-            var entry = TokenUsageEntry.ForTurn(
+            var newRecord = NewUsageRecord.ForTurn(
                 userId: userId,
                 chatId: row.ChatId,
                 turnId: attempt.Turn.Id,
@@ -348,7 +348,7 @@ internal sealed class TurnRunner
                 modelId: model.ModelId,
                 usage: usage,
                 status: attempt.Turn.Status);
-            await _userTokenUsageRepository.InsertTokenUsageAsync(entry, CancellationToken.None);
+            await _userUsageRepository.InsertUsageRecordAsync(newRecord, CancellationToken.None);
         }
         catch (Exception ex)
         {

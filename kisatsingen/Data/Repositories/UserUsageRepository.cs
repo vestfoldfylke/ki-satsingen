@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace kisatsingen.Data.Repositories;
 
-public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> factory) : IUserTokenUsageRepository
+public sealed class UserUsageRepository(IDbContextFactory<AppDbContext> factory) : IUserUsageRepository
 {
     // All bucketed/time-based queries project the row's UTC Timestamp into
     // Europe/Oslo wall-clock before truncating or extracting fields, so day
@@ -16,44 +16,44 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
     // Every row's tokens were spent, so token sums cover all rows; turn counts
     // and the status breakdown cover only turns, and the conversion total only
     // conversions.
-    private static readonly string ChatTurnKind = nameof(TokenUsageKind.ChatTurn);
-    private static readonly string KnowledgeFileConversionKind = nameof(TokenUsageKind.KnowledgeFileConversion);
+    private static readonly string ChatTurnKind = nameof(UsageKind.ChatTurn);
+    private static readonly string KnowledgeFileConversionKind = nameof(UsageKind.KnowledgeFileConversion);
 
-    public async Task InsertTokenUsageAsync(TokenUsageEntry entry, CancellationToken ct = default)
+    public async Task InsertUsageRecordAsync(NewUsageRecord newRecord, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        db.TokenUsages.Add(new TokenUsage
+        db.UsageRecords.Add(new UsageRecord
         {
             Id = Guid.NewGuid(),
-            Kind = entry.Kind,
-            UserId = entry.UserId,
-            ChatId = entry.ChatId,
-            TurnId = entry.TurnId,
-            AssistantId = entry.AssistantId,
+            Kind = newRecord.Kind,
+            UserId = newRecord.UserId,
+            ChatId = newRecord.ChatId,
+            TurnId = newRecord.TurnId,
+            AssistantId = newRecord.AssistantId,
             Timestamp = DateTimeOffset.UtcNow,
-            Provider = entry.Provider,
-            ModelId = entry.ModelId,
-            InputTokens = entry.Usage.InputTokens,
-            OutputTokens = entry.Usage.OutputTokens,
-            EstimatedInputTokens = entry.Usage.EstimatedInputTokens,
-            EstimatedOutputTokens = entry.Usage.EstimatedOutputTokens,
-            CachedInputTokens = entry.Usage.CachedInputTokens,
-            ReasoningTokens = entry.Usage.ReasoningTokens,
-            Status = entry.Status
+            Provider = newRecord.Provider,
+            ModelId = newRecord.ModelId,
+            InputTokens = newRecord.Usage.InputTokens,
+            OutputTokens = newRecord.Usage.OutputTokens,
+            EstimatedInputTokens = newRecord.Usage.EstimatedInputTokens,
+            EstimatedOutputTokens = newRecord.Usage.EstimatedOutputTokens,
+            CachedInputTokens = newRecord.Usage.CachedInputTokens,
+            ReasoningTokens = newRecord.Usage.ReasoningTokens,
+            Status = newRecord.Status
         });
 
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<TokenUsageSummary> GetTotalsAsync(
+    public async Task<UsageSummary> GetTotalsAsync(
         Guid userId,
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        var rows = await db.Database.SqlQuery<TokenUsageSummary>(
+        var rows = await db.Database.SqlQuery<UsageSummary>(
             $"""
              SELECT
                  COALESCE(SUM("InputTokens"), 0)::bigint AS "TotalInputTokens",
@@ -64,7 +64,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COALESCE(SUM(COALESCE("InputTokens", 0) + COALESCE("OutputTokens", 0)) FILTER (WHERE "Kind" = {KnowledgeFileConversionKind}), 0)::bigint AS "TotalConversionTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              """
@@ -91,7 +91,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY 1
@@ -116,7 +116,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Provider"
@@ -141,7 +141,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ("UserId" = {userId})
                AND "Kind" = {ChatTurnKind}
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
@@ -175,7 +175,7 @@ public sealed class UserTokenUsageRepository(IDbContextFactory<AppDbContext> fac
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ("UserId" = {userId})
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "ModelId"

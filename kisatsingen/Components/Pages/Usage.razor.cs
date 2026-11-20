@@ -9,7 +9,7 @@ namespace kisatsingen.Components.Pages;
 public partial class Usage : ComponentBase, IDisposable
 {
     [Inject]
-    public required IOrganizationTokenUsageRepository OrganizationTokenUsageRepository { get; init; }
+    public required IOrganizationUsageRepository OrganizationUsageRepository { get; init; }
 
     [Inject]
     public required ILogger<Usage> Logger { get; init; }
@@ -24,7 +24,7 @@ public partial class Usage : ComponentBase, IDisposable
     private string? LoadError { get; set; }
     private CancellationTokenSource? _reloadCts;
 
-    private TokenUsageSummary Totals { get; set; } = TokenUsageSummary.Empty;
+    private UsageSummary Totals { get; set; } = UsageSummary.Empty;
     private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
@@ -63,17 +63,17 @@ public partial class Usage : ComponentBase, IDisposable
             var since = Range.Since();
             var bucket = Range.Bucket();
 
-            var totalsTask = OrganizationTokenUsageRepository.GetTotalsAsync(since, ct);
-            var timeSeriesTask = OrganizationTokenUsageRepository.GetTimeSeriesAsync(since, bucket, ct);
-            var statusTask = OrganizationTokenUsageRepository.GetUsageByStatusAsync(since, ct);
-            var providerTask = OrganizationTokenUsageRepository.GetUsageByProviderAsync(since, ct);
-            var modelTask = OrganizationTokenUsageRepository.GetUsageByModelAsync(since, ct);
-            var topUsersTask = OrganizationTokenUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
-            var topTokenUsageByInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.InputTokens, TopUserCount, ct);
-            var topTokenUsageByOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.OutputTokens, TopUserCount, ct);
-            var topTokenUsageByEstimatedInputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedInputTokens, TopUserCount, ct);
-            var topTokenUsageByEstimatedOutputTokensTask = OrganizationTokenUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedOutputTokens, TopUserCount, ct);
-            var topOrganizationAssistantsTask = OrganizationTokenUsageRepository.GetTopOrganizationAssistantsAsync(since, TopAssistantCount, ct);
+            var totalsTask = OrganizationUsageRepository.GetTotalsAsync(since, ct);
+            var timeSeriesTask = OrganizationUsageRepository.GetTimeSeriesAsync(since, bucket, ct);
+            var statusTask = OrganizationUsageRepository.GetUsageByStatusAsync(since, ct);
+            var providerTask = OrganizationUsageRepository.GetUsageByProviderAsync(since, ct);
+            var modelTask = OrganizationUsageRepository.GetUsageByModelAsync(since, ct);
+            var topUsersTask = OrganizationUsageRepository.GetTopUsersByTurnsAsync(since, TopUserCount, ct);
+            var topTokenUsageByInputTokensTask = OrganizationUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.InputTokens, TopUserCount, ct);
+            var topTokenUsageByOutputTokensTask = OrganizationUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.OutputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedInputTokensTask = OrganizationUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedInputTokens, TopUserCount, ct);
+            var topTokenUsageByEstimatedOutputTokensTask = OrganizationUsageRepository.GetTopUsersByTokenUsageAsync(since, TopUsersByTokenUsageType.EstimatedOutputTokens, TopUserCount, ct);
+            var topOrganizationAssistantsTask = OrganizationUsageRepository.GetTopOrganizationAssistantsAsync(since, TopAssistantCount, ct);
 
             await Task.WhenAll(
                 totalsTask, timeSeriesTask, statusTask, providerTask,

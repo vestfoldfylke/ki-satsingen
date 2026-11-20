@@ -20,11 +20,11 @@ public sealed class AssistantFileUploads(
     AttachmentQuota quota,
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
-    IUserTokenUsageRepository tokenUsage,
+    IUserUsageRepository usageRecords,
     AttachmentMetrics metrics,
     ILogger<AssistantFileUploads> logger) : IDisposable
 {
-    private readonly AssistantFileProcessor _processor = new(pipeline, knowledgeFiles, tokenUsage, logger);
+    private readonly AssistantFileProcessor _processor = new(pipeline, knowledgeFiles, usageRecords, logger);
     private readonly List<AssistantFileUpload> _uploads = [];
 
     // Replaced on reset, never disposed: an upload may still be linking to its token.

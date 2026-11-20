@@ -187,8 +187,8 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IAssistantRepository, AssistantRepository>();
 builder.Services.AddScoped<IKnowledgeFileRepository>(sp =>
     new KnowledgeFileRepository(sp.GetRequiredService<IDbContextFactory<AppDbContext>>(), maxKnowledgeFileTokens));
-builder.Services.AddSingleton<IOrganizationTokenUsageRepository, OrganizationTokenUsageRepository>();
-builder.Services.AddSingleton<IUserTokenUsageRepository, UserTokenUsageRepository>();
+builder.Services.AddSingleton<IOrganizationUsageRepository, OrganizationUsageRepository>();
+builder.Services.AddSingleton<IUserUsageRepository, UserUsageRepository>();
 
 // For the warning on /chats about chats close to being deleted.
 builder.Services.AddSingleton(databaseCleanupConfigurations);
