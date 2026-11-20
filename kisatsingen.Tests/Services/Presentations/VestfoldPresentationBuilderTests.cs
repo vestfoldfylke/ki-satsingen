@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using DocumentFormat.OpenXml.Validation;
 using kisatsingen.Services.Presentations;
+using kisatsingen.Services.Presentations.Pictures;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.Presentations;
@@ -11,6 +12,7 @@ namespace kisatsingen.Tests.Services.Presentations;
 public sealed class VestfoldPresentationBuilderTests
 {
     private static readonly DateTimeOffset BuildTime = new(2026, 11, 16, 10, 30, 0, TimeSpan.Zero);
+    private static readonly CatalogPicture Picture = PictureCatalog.Embedded.All[0];
     private static readonly PresentationSpec Deck = new("Budsjett 2027", PresentationTheme.VannFjord,
     [
         new(SlideKind.Cover, "Budsjett 2027", Text: "Forslag til fylkestinget", Bullets: ["Økonomiavdelingen", "12. november 2026"]),
@@ -20,6 +22,14 @@ public sealed class VestfoldPresentationBuilderTests
         new(SlideKind.TwoColumns, "Før og etter", Bullets: ["Før"], SecondColumn: ["Etter"]),
         new(SlideKind.Quote, "Vi må prioritere skole.", Text: "Fylkesordføreren"),
         new(SlideKind.BigNumber, "Andel til skole", Text: "41 %"),
+        new(SlideKind.CoverWithPicture, "Budsjett 2027", Text: "Forslag", Bullets: ["Økonomiavdelingen"], PictureId: Picture.Id),
+        new(SlideKind.ChapterWithPicture, "Prioriteringer", PictureId: Picture.Id),
+        new(SlideKind.ContentWithPicture, "Skole", Bullets: ["Flere elever"], PictureId: Picture.Id),
+        new(SlideKind.FullscreenPicture, "Tønsberg", Text: "Brygga om sommeren", PictureId: Picture.Id),
+        new(SlideKind.ContentWithSmallPicture, "Fagskole", Bullets: ["Nye linjer"], PictureId: Picture.Id, PictureFit: PictureFit.Contain),
+        new(SlideKind.ContentWithSquarePicture, "Tannhelse", Bullets: ["Kortere ventetid"], PictureId: Picture.Id),
+        new(SlideKind.TitleAndWidePicture, "Vegbygging", PictureId: Picture.Id),
+        new(SlideKind.LargePicture, "Pause"),
         new(SlideKind.Closing, "Takk for meg!", Text: "post@vestfoldfylke.no")
     ]);
 
@@ -175,7 +185,7 @@ public sealed class VestfoldPresentationBuilderTests
     }
 
     private static byte[] Build(PresentationSpec spec) =>
-        new VestfoldPresentationBuilder(new PresentationTemplate(), new FixedTimeProvider(BuildTime)).Build(spec).ToArray();
+        new VestfoldPresentationBuilder(new PresentationTemplate(), PictureCatalog.Embedded, new FixedTimeProvider(BuildTime)).Build(spec).ToArray();
 
     private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider
     {
@@ -204,6 +214,14 @@ public sealed class VestfoldPresentationBuilderTests
         SlideKind.Quote => "Stort sitat",
         SlideKind.BigNumber => "Tall i sirkel",
         SlideKind.Closing => "Avsluttende lysbilde",
+        SlideKind.CoverWithPicture => "Forside - Tekst og bilde 1",
+        SlideKind.ChapterWithPicture => "Kapittelinndeler - Tekst og bilde",
+        SlideKind.ContentWithPicture => "Tittel og innhold - Bilde høyre",
+        SlideKind.FullscreenPicture => "Fullskjerm bilde med tekst",
+        SlideKind.ContentWithSmallPicture => "Tittel og innhold med bilde",
+        SlideKind.ContentWithSquarePicture => "Tittel og innhold med valgfritt ikon",
+        SlideKind.TitleAndWidePicture => "Tittel og bilde",
+        SlideKind.LargePicture => "Pausebilde",
         _ => throw new ArgumentOutOfRangeException(nameof(kind))
     };
 

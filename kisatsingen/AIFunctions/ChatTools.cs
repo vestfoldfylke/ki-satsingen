@@ -18,7 +18,7 @@ internal static class ChatTools
     // initialisers run in textual order. The presentation tool is here rather
     // than gated like the file tools: any message may be text to turn into
     // slides, and a tool list that stays the same keeps the prompt cache valid.
-    public static readonly IReadOnlyList<AITool> All = [GetCurrentTimeUtcTool, CreatePresentationTool.Tool];
+    public static readonly IReadOnlyList<AITool> All = [GetCurrentTimeUtcTool, CreatePresentationTool.Tool, ListPresentationPicturesTool.Tool];
 
     [Description("Returns the current UTC time as an ISO 8601 string.")]
     private static string GetCurrentTimeUtc()

@@ -1,4 +1,5 @@
 using kisatsingen.Services.Presentations;
+using kisatsingen.Services.Presentations.Pictures;
 using Xunit;
 
 namespace kisatsingen.Tests.Services.Presentations;
@@ -8,7 +9,7 @@ public sealed class PresentationFileBuilderTests
     private static readonly PresentationSpec Spec = new("Budsjett", PresentationTheme.BarkNype, [new(SlideKind.Chapter, "Innledning")]);
 
     private static PresentationBuildLimiter Limiter() =>
-        new(new VestfoldPresentationBuilder(new PresentationTemplate(), TimeProvider.System), new PresentationBuildLimiterOptions(1, TimeSpan.FromSeconds(30)));
+        new(new VestfoldPresentationBuilder(new PresentationTemplate(), PictureCatalog.Embedded, TimeProvider.System), new PresentationBuildLimiterOptions(1, TimeSpan.FromSeconds(30)));
 
     [Fact]
     public async Task A_build_while_the_circuit_lives_gives_the_presentation()

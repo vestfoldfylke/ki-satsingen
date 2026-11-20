@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using kisatsingen.Services.Presentations;
+using kisatsingen.Services.Presentations.Pictures;
 using Microsoft.Extensions.AI;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
 
@@ -19,7 +20,12 @@ internal static class CreatePresentationTool
         "Build the slides from the user's own text: shorten and structure it, but never add facts that are not in it. " +
         "Keep bullets to short phrases; prefer more slides over crowded ones. " +
         "Start with a Cover slide; add an Agenda and Chapter dividers for longer material; end with a Closing slide when it fits. " +
-        "Every slide needs a title. Write in the language of the user's text.";
+        "Every slide needs a title. Write in the language of the user's text. " +
+        "Picture slides (the kinds with Picture in the name) take a pictureId: call " +
+        ListPresentationPicturesTool.Name + " first to get the ids, and use picture slides only where a listed picture clearly fits the content. Never make up an id. " +
+        "Unless the user says where or how big the pictures should be, use CoverWithPicture for the cover and ContentWithSmallPicture for content, " +
+        "and follow the user's wishes when they ask for something else. " +
+        "If the user says they will add pictures themselves, use picture slides without a pictureId; each gets an empty picture frame.";
 
     public const string Notice =
         "Presentasjonen er laget. Brukeren laster den ned med knappen som vises ved dette verktøykallet. " +
@@ -81,7 +87,7 @@ internal static class CreatePresentationTool
 
         // OfType only narrows the type: no slide is null past the check above.
         var spec = new PresentationSpec(title ?? "", theme, [.. (slides ?? []).OfType<SlideSpec>()]);
-        var problems = PresentationSpecValidator.Validate(spec);
+        var problems = PresentationSpecValidator.Validate(spec, PictureCatalog.Embedded);
         if (problems.Count > 0)
         {
             return Refuse(problems);

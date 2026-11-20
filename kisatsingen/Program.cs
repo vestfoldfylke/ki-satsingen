@@ -14,6 +14,7 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using kisatsingen.Services.Presentations;
+using kisatsingen.Services.Presentations.Pictures;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -241,6 +242,8 @@ builder.Services.AddScoped<FileToolFactory>();
 // ─── Presentation tool ─────────────────────────────────
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PresentationTemplate>();
+// The same instance the static presentation tool validates against; see PictureCatalog.
+builder.Services.AddSingleton(PictureCatalog.Embedded);
 builder.Services.AddSingleton<VestfoldPresentationBuilder>();
 builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
 builder.Services.AddSingleton<PresentationBuildLimiter>();
