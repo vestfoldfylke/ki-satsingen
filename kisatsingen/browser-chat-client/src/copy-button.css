@@ -15,3 +15,12 @@
 .chat-code-block:focus-within .chat-code-copy {
     opacity: 1;
 }
+
+.chat-code-copy .icon-copy-confirm,
+.chat-code-copy.is-copied .icon-copy {
+    display: none;
+}
+
+.chat-code-copy.is-copied .icon-copy-confirm {
+    display: inline-block;
+}
