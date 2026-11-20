@@ -1,0 +1,23 @@
+/* Fills the window instead of the popover's default small, centred box. No
+   display here: it would show the popover while closed. */
+.composer-drop-overlay {
+    inset: 0;
+    width: auto;
+    height: auto;
+    margin: 0;
+    border: 0;
+    padding: var(--ds-size-6);
+    color: inherit;
+    background: var(--ds-color-neutral-background-default);
+}
+
+/* Inherited by everything inside, so the overlay itself is the only drag target. */
+.composer-drop-box {
+    box-sizing: border-box;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}

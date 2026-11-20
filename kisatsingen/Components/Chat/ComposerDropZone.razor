@@ -1,0 +1,10 @@
+@using kisatsingen.Services.Attachments
+
+@* Shown while files are dragged over the page. Hidden from screen readers:
+   the picker is the way in without dragging. *@
+<div id="composer-drop-overlay" class="composer-drop-overlay" popover="manual" aria-hidden="true">
+    <div class="ds-file-upload composer-drop-box" data-color="accent">
+        <p class="ds-heading" data-size="sm">Slipp filene for å legge dem ved</p>
+        <p class="ds-paragraph" data-size="sm">Du kan legge ved @AttachmentContentTypes.AllowedKindsText.</p>
+    </div>
+</div>

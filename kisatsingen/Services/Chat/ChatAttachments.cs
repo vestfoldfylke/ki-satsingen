@@ -26,8 +26,6 @@ public sealed class ChatAttachments(
 
     public IReadOnlyList<ComposerAttachment> All => _attachments;
 
-    // Holds send, and the picker: a new selection makes the files of the one
-    // still uploading unreadable.
     public bool IsUploading =>
         _attachments.Any(attachment => attachment.Status is AttachmentStatus.Waiting or AttachmentStatus.Uploading);
 
@@ -112,9 +110,8 @@ public sealed class ChatAttachments(
 
         try
         {
-            // Checked as the upload starts rather than when selected: uploads in a
-            // tab run one after another, so previously attached files are on disk
-            // at their real size.
+            // Checked as the upload starts, not at selection, so the files
+            // uploaded before this one count.
             if (quota.CheckDeclaredSizeFits(ownerId, attachment.DeclaredSizeBytes) is QuotaCheck.Rejected quotaRejection)
             {
                 attachment.MarkRejected(quotaRejection.Reason);
@@ -169,8 +166,9 @@ public sealed class ChatAttachments(
         attachment.MarkReady(type, stored);
     }
 
-    // Uploads in a tab run one after another, so every earlier copy of the
-    // same content is already ready when this one is checked.
+    // Checked as each upload finishes, one at a time on the circuit's dispatcher,
+    // so when two uploads of the same content overlap, the one to finish last is
+    // refused.
     private bool IsAlreadyReady(string sha256) =>
         _attachments.Any(attachment => attachment.Ready?.Sha256 == sha256);
 

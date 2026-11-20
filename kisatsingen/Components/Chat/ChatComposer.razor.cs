@@ -1,5 +1,6 @@
 using kisatsingen.Services.Chat;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
 namespace kisatsingen.Components.Chat;
@@ -23,9 +24,9 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
     [Inject]
     public required ILogger<ChatComposer> Logger { get; set; }
 
-    // A new selection makes the files of the one still uploading unreadable. A
-    // running turn does not hold the picker: the files a message takes are
-    // decided at send, so one attached now goes with the next message.
+    // Held while files upload, since picking again would make the files still
+    // uploading from the last pick unreadable. Not held during a turn: a file
+    // attached now goes with the next message.
     private bool IsPickerDisabled => Attachments.IsUploading;
 
     private sealed record ComposerNotice(string Color, string Text);
@@ -90,6 +91,34 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
         }
     }
 
+    private async Task AttachQueuedFilesAsync(InputFileChangeEventArgs selection)
+    {
+        try
+        {
+            await Attachments.AttachAsync(selection);
+        }
+        finally
+        {
+            await MarkSelectionReadAsync();
+        }
+    }
+
+    // Lets the browser put the next pasted or dropped selection on the file input.
+    // Every interop failure is caught: an exception thrown from an event handler
+    // ends the circuit, so a connection that dropped for a moment would not be
+    // able to reconnect.
+    private async Task MarkSelectionReadAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("chatClient.markComposerSelectionRead");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or OperationCanceledException)
+        {
+            Logger.LogWarning(ex, "ChatComposer could not tell the browser the pasted or dropped files were read, so further pasted or dropped files wait until another chat is opened or the page is reloaded");
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
@@ -109,8 +138,9 @@ public sealed partial class ChatComposer : ComponentBase, IDisposable
                 _previousIsBusy = isBusy;
                 await JS.InvokeVoidAsync("chatClient.setComposerBusy", isBusy);
 
-                // The textarea was disabled during the turn and lost focus; give it
-                // back so the next message can be typed without clicking.
+                // A message sent with the button leaves focus on the button, which
+                // the turn disables; the textarea gets it back so the next message
+                // can be typed without clicking.
                 if (completingTurn)
                 {
                     await _textarea.FocusAsync();
