@@ -33,15 +33,7 @@ public partial class NavMenu : ComponentBase, IDisposable
         {
             var current = await JS.InvokeAsync<string?>("document.documentElement.getAttribute", "data-color-scheme");
 
-            if (current is not null)
-            {
-                _isDarkMode = current == "dark";
-            }
-            else
-            {
-                await using var query = await JS.InvokeAsync<IJSObjectReference>("window.matchMedia", "(prefers-color-scheme: dark)");
-                _isDarkMode = await query.GetValueAsync<bool>("matches");
-            }
+            _isDarkMode = current == "dark";
         }
         catch (JSDisconnectedException)
         {
