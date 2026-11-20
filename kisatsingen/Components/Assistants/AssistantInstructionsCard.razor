@@ -55,7 +55,19 @@
 
                     <ds-field class="ds-field">
                         <label class="ds-label">Hva skal assistenten gjøre, og hvordan?</label>
-                        <InputTextArea class="ds-input" rows="16" @bind-Value="Form.Instructions" maxlength="@Assistant.MaxInstructionsLength" autofocus />
+                        <InputTextArea
+                            class="ds-input"
+                            rows="16"
+                            @bind-Value="Form.Instructions"
+                            maxlength="@Assistant.MaxInstructionsLength"
+                            autofocus
+                        />
+                        <p
+                            class="ds-validation-message"
+                            data-field="counter"
+                            data-limit="@Assistant.MaxInstructionsLength"
+                        ></p>
+
                         <DesignsystemetValidationMessage For="() => Form.Instructions" />
                     </ds-field>
 
