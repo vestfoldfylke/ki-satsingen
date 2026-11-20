@@ -1,19 +1,24 @@
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using kisatsingen.Services.Presentations.Pictures;
 using A = DocumentFormat.OpenXml.Drawing;
 
 namespace kisatsingen.Services.Presentations;
 
 // Builds one slide on a template layout. Only the placeholders are written:
 // position, font, colour and bullets all come from the layout, so the slide
-// looks exactly as the template intends.
+// looks exactly as the template intends. The one exception is the font size
+// of text too long for its box at the template's size; see TextFit.
 internal static class SlideFactory
 {
     private const string TextLanguage = "nb-NO";
     private const uint GroupShapeId = 1;
     private const uint FirstShapeId = 2;
 
-    public static SlidePart Create(PresentationPart presentationPart, SlideLayoutPart layoutPart, SlideSpec spec)
+    // The picture is null for a text kind, and for a picture kind whose
+    // picture is not in the catalog: its placeholder is then left empty, for
+    // the user to fill in PowerPoint.
+    public static SlidePart Create(PresentationPart presentationPart, SlideLayoutPart layoutPart, SlideSpec spec, CatalogPicture? picture)
     {
         var layout = SlideLayouts.For(spec.Kind);
         var layoutPlaceholders = layoutPart.SlideLayout?.CommonSlideData?.ShapeTree?.Descendants<PlaceholderShape>().ToList() ?? [];
@@ -33,13 +38,25 @@ internal static class SlideFactory
                 new ApplicationNonVisualDrawingProperties()),
             new GroupShapeProperties(new A.TransformGroup()));
 
+        var masterPart = layoutPart.SlideMasterPart
+            ?? throw new InvalidOperationException($"Layout \"{layout.LayoutName}\" has no slide master; the template file is damaged.");
+
         var shapeId = FirstShapeId;
         foreach (var (placeholder, paragraphs) in fills)
         {
-            shapeTree.Append(CreatePlaceholderShape(shapeId++, placeholder, paragraphs));
+            var fontSize = PlaceholderTextBoxes.Resolve(placeholder, masterPart) is { } box ? TextFit.FontSizeToFit(paragraphs, box) : null;
+            shapeTree.Append(CreatePlaceholderShape(shapeId++, placeholder, paragraphs, fontSize));
         }
 
+        // Before the slide is set, since the picture's image part hangs off
+        // the slide part.
         var slidePart = presentationPart.AddNewPart<SlidePart>();
+        if (picture is not null && layout.PictureIndex is { } pictureIndex)
+        {
+            var pictureTarget = FindPlaceholder(layoutPlaceholders, layout, pictureIndex);
+            shapeTree.Append(PictureShapeFactory.Create(slidePart, shapeId, pictureTarget, picture, spec.PictureFit ?? PictureFit.Cover));
+        }
+
         slidePart.Slide = new Slide(
             new CommonSlideData(shapeTree),
             new ColorMapOverride(new A.MasterColorMapping()));
@@ -59,11 +76,13 @@ internal static class SlideFactory
             return;
         }
 
-        var placeholder = layoutPlaceholders.FirstOrDefault(p => p.Index?.Value == placeholderIndex)
-            ?? throw new InvalidOperationException(
-                $"Layout \"{layout.LayoutName}\" has no placeholder with idx {placeholderIndex}. The template changed; update {nameof(SlideLayouts)} to match it.");
-        fills.Add((placeholder, paragraphs));
+        fills.Add((FindPlaceholder(layoutPlaceholders, layout, placeholderIndex), paragraphs));
     }
+
+    private static PlaceholderShape FindPlaceholder(List<PlaceholderShape> layoutPlaceholders, SlideLayout layout, uint placeholderIndex) =>
+        layoutPlaceholders.FirstOrDefault(p => p.Index?.Value == placeholderIndex)
+        ?? throw new InvalidOperationException(
+            $"Layout \"{layout.LayoutName}\" has no placeholder with idx {placeholderIndex}. The template changed; update {nameof(SlideLayouts)} to match it.");
 
     private static PlaceholderShape FindTitle(List<PlaceholderShape> layoutPlaceholders, SlideLayout layout) =>
         layoutPlaceholders.FirstOrDefault(p => p.Type?.Value == PlaceholderValues.Title || p.Type?.Value == PlaceholderValues.CenteredTitle)
@@ -72,7 +91,9 @@ internal static class SlideFactory
 
     // The placeholder reference repeats the layout's type and idx, which is
     // how PowerPoint ties the slide's shape to the layout's.
-    private static Shape CreatePlaceholderShape(uint id, PlaceholderShape layoutPlaceholder, IReadOnlyList<string> paragraphs)
+    // The font size, in hundredths of a point, is set only on text shrunk to
+    // fit; otherwise the layout's size applies.
+    private static Shape CreatePlaceholderShape(uint id, PlaceholderShape layoutPlaceholder, IReadOnlyList<string> paragraphs, int? fontSize)
     {
         var placeholder = new PlaceholderShape();
         if (layoutPlaceholder.Type is { } type)
@@ -85,7 +106,7 @@ internal static class SlideFactory
         }
 
         var textBody = new TextBody(new A.BodyProperties(), new A.ListStyle());
-        textBody.Append(paragraphs.Select(CreateParagraph));
+        textBody.Append(paragraphs.Select(text => CreateParagraph(text, fontSize)));
 
         return new Shape(
             new NonVisualShapeProperties(
@@ -96,8 +117,14 @@ internal static class SlideFactory
             textBody);
     }
 
-    private static A.Paragraph CreateParagraph(string text) =>
-        new(new A.Run(
-            new A.RunProperties { Language = TextLanguage, Dirty = false },
-            new A.Text(text)));
+    private static A.Paragraph CreateParagraph(string text, int? fontSize)
+    {
+        var runProperties = new A.RunProperties { Language = TextLanguage, Dirty = false };
+        if (fontSize is { } size)
+        {
+            runProperties.FontSize = size;
+        }
+
+        return new A.Paragraph(new A.Run(runProperties, new A.Text(text)));
+    }
 }

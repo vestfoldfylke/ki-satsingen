@@ -2,8 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace kisatsingen.Services.Presentations;
 
-// The template layouts a slide can use. A curated, text-only subset: pasted
-// text has no pictures to fill the template's image layouts with.
+// The template layouts a slide can use. A curated subset: the text layouts,
+// and the picture layouts that take one picture from the PictureCatalog.
 [JsonConverter(typeof(JsonStringEnumConverter<SlideKind>))]
 public enum SlideKind
 {
@@ -14,5 +14,13 @@ public enum SlideKind
     TwoColumns,
     Quote,
     BigNumber,
-    Closing
+    Closing,
+    CoverWithPicture,
+    ChapterWithPicture,
+    ContentWithPicture,
+    FullscreenPicture,
+    ContentWithSmallPicture,
+    ContentWithSquarePicture,
+    TitleAndWidePicture,
+    LargePicture
 }
