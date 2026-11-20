@@ -17,13 +17,9 @@
     min-width: 0;
 }
 
-/* --chat-surface / --chat-surface-fade are declared as a pair on purpose:
-   gradients to the keyword `transparent` interpolate through transparent
-   BLACK, which hazes grey mid-ramp. Fading to rgb(255 255 255 / 0) keeps the
-   whole ramp in white. */
 .chat-page {
     --chat-surface: var(--ds-color-neutral-background-default);
-    --chat-surface-fade: rgb(255 255 255 / 0);
+    --chat-surface-fade: transparent;
     --chat-fade-height: 2rem;
 
     display: flex;
