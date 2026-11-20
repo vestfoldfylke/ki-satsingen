@@ -20,6 +20,68 @@ public partial class NavMenu : ComponentBase, IDisposable
     public required IJSRuntime JS { get; set; }
 
     private bool _chatsOpen = true;
+    private bool _isDarkMode;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await ReadColorSchemeAsync();
+    }
+    private async Task ReadColorSchemeAsync()
+    {
+        try
+        {
+            var current = await JS.InvokeAsync<string?>("document.documentElement.getAttribute", "data-color-scheme");
+
+            _isDarkMode = current == "dark";
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to read the saved color scheme; the dark mode switch shows off");
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task ApplyColorSchemeAsync()
+    {
+        var scheme = _isDarkMode ? "dark" : "light";
+
+        try
+        {
+            await JS.InvokeVoidAsync("document.documentElement.setAttribute", "data-color-scheme", scheme);
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to apply color scheme {Scheme}; the page keeps its current theme", scheme);
+            return;
+        }
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", "color-scheme", scheme);
+        }
+        catch (JSDisconnectedException)
+        {
+            // The circuit is gone; nothing left to save to.
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to save color scheme {Scheme}; it resets on next page load", scheme);
+        }
+    }
 
     private async Task HideMenusAsync()
     {
