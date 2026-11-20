@@ -14,7 +14,7 @@
     /* Must match the surface the .chat-tail gradient fades to, or a seam shows
     behind the composer. Declared on .chat-page; inherits through Blazor's
     CSS isolation, which scopes selectors but not inheritance. */
-    background: var(--chat-surface, var(--ds-color-neutral-background-default));
+    background: var(--chat-surface, --ds-color-neutral-background-default);
 }
 
 .composer-notice {
