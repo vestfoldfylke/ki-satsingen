@@ -30,7 +30,7 @@ public sealed class AssistantFileUploadsTests : IDisposable
             _environment.Quota,
             CreatePipeline(),
             _repository,
-            new FakeUserTokenUsageRepository(),
+            new FakeUserUsageRepository(),
             new AttachmentMetrics(_environment.Metrics, NullLogger<AttachmentMetrics>.Instance),
             NullLogger<AssistantFileUploads>.Instance);
 

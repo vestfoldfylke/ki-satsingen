@@ -12,7 +12,7 @@ public enum TopUsersByTokenUsageType
     EstimatedOutputTokens
 }
 
-public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbContext> factory) : IOrganizationTokenUsageRepository
+public sealed class OrganizationUsageRepository(IDbContextFactory<AppDbContext> factory) : IOrganizationUsageRepository
 {
     // All bucketed/time-based queries project the row's UTC Timestamp into
     // Europe/Oslo wall-clock before truncating or extracting fields, so day
@@ -24,16 +24,16 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
     // Every row's tokens were spent, so token sums cover all rows; turn counts,
     // the status breakdown, top users by turns and an assistant's users cover
     // only turns, and the conversion total only conversions.
-    private static readonly string ChatTurnKind = nameof(TokenUsageKind.ChatTurn);
-    private static readonly string KnowledgeFileConversionKind = nameof(TokenUsageKind.KnowledgeFileConversion);
+    private static readonly string ChatTurnKind = nameof(UsageKind.ChatTurn);
+    private static readonly string KnowledgeFileConversionKind = nameof(UsageKind.KnowledgeFileConversion);
 
-    public async Task<TokenUsageSummary> GetTotalsAsync(
+    public async Task<UsageSummary> GetTotalsAsync(
         DateTimeOffset? since,
         CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);
 
-        var rows = await db.Database.SqlQuery<TokenUsageSummary>(
+        var rows = await db.Database.SqlQuery<UsageSummary>(
             $"""
              SELECT
                  COALESCE(SUM("InputTokens"), 0)::bigint AS "TotalInputTokens",
@@ -44,7 +44,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COALESCE(SUM(COALESCE("InputTokens", 0) + COALESCE("OutputTokens", 0)) FILTER (WHERE "Kind" = {KnowledgeFileConversionKind}), 0)::bigint AS "TotalConversionTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              """
         ).ToListAsync(ct);
@@ -69,7 +69,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY 1
              ORDER BY 1
@@ -92,7 +92,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Provider"
              ORDER BY "TurnCount" DESC, "InputTokens" DESC, "Key"
@@ -115,7 +115,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE "Kind" = {ChatTurnKind}
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "Status"
@@ -149,7 +149,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "UserId"
              ORDER BY CASE {topUsersByTokenUsageType.ToString()}
@@ -179,7 +179,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE "Kind" = {ChatTurnKind}
                AND ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "UserId"
@@ -204,7 +204,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  COALESCE(SUM("EstimatedInputTokens"), 0)::bigint AS "EstimatedInputTokens",
                  COALESCE(SUM("EstimatedOutputTokens"), 0)::bigint AS "EstimatedOutputTokens",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
-             FROM "TokenUsages"
+             FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})
              GROUP BY "ModelId"
              ORDER BY "TurnCount" DESC, "InputTokens" DESC, "Key"
@@ -229,7 +229,7 @@ public sealed class OrganizationTokenUsageRepository(IDbContextFactory<AppDbCont
                  (COUNT(DISTINCT u."UserId") FILTER (WHERE u."Kind" = {ChatTurnKind}))::int AS "UserCount",
                  COALESCE(SUM(u."InputTokens"), 0)::bigint AS "InputTokens",
                  COALESCE(SUM(u."OutputTokens"), 0)::bigint AS "OutputTokens"
-             FROM "TokenUsages" u
+             FROM "UsageRecords" u
              JOIN "Assistants" a ON a."Id" = u."AssistantId"
              WHERE a."Visibility" = {visibility}
                AND ({since}::timestamptz IS NULL OR u."Timestamp" >= {since})

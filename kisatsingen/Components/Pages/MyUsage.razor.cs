@@ -13,7 +13,7 @@ public partial class MyUsage : ComponentBase, IDisposable
     public required IAuthenticationService AuthenticationService { private get; set; }
 
     [Inject]
-    public required IUserTokenUsageRepository UserTokenUsageRepository { get; set; }
+    public required IUserUsageRepository UserUsageRepository { get; set; }
 
     [Inject]
     public required ILogger<MyUsage> Logger { get; set; }
@@ -24,7 +24,7 @@ public partial class MyUsage : ComponentBase, IDisposable
 
     private Guid? _userId;
 
-    private TokenUsageSummary Totals { get; set; } = TokenUsageSummary.Empty;
+    private UsageSummary Totals { get; set; } = UsageSummary.Empty;
     private IReadOnlyList<UsageTimeBucket> TimeSeries { get; set; } = [];
     private IReadOnlyList<UsageByKey<TurnStatus>> StatusBreakdown { get; set; } = [];
     private IReadOnlyList<UsageByKey<string>> ProviderBreakdown { get; set; } = [];
@@ -70,11 +70,11 @@ public partial class MyUsage : ComponentBase, IDisposable
             var since = Range.Since();
             var bucket = Range.Bucket();
 
-            var totalsTask = UserTokenUsageRepository.GetTotalsAsync(userId, since, ct);
-            var timeSeriesTask = UserTokenUsageRepository.GetTimeSeriesAsync(userId, since, bucket, ct);
-            var statusTask = UserTokenUsageRepository.GetUsageByStatusAsync(userId, since, ct);
-            var providerTask = UserTokenUsageRepository.GetUsageByProviderAsync(userId, since, ct);
-            var modelTask = UserTokenUsageRepository.GetUsageByModelAsync(userId, since, ct);
+            var totalsTask = UserUsageRepository.GetTotalsAsync(userId, since, ct);
+            var timeSeriesTask = UserUsageRepository.GetTimeSeriesAsync(userId, since, bucket, ct);
+            var statusTask = UserUsageRepository.GetUsageByStatusAsync(userId, since, ct);
+            var providerTask = UserUsageRepository.GetUsageByProviderAsync(userId, since, ct);
+            var modelTask = UserUsageRepository.GetUsageByModelAsync(userId, since, ct);
 
             await Task.WhenAll(totalsTask, timeSeriesTask, statusTask, providerTask, modelTask);
 

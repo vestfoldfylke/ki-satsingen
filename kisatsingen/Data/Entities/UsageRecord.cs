@@ -4,7 +4,7 @@ namespace kisatsingen.Data.Entities;
 
 // What each user spent, one row per spend and model. Written once and never
 // changed, so it stays the record of spend after chats and assistants are gone.
-public sealed class TokenUsage
+public sealed class UsageRecord
 {
     public const int MaxProviderLength = 64;
     public const int MaxModelIdLength = 128;
@@ -12,7 +12,7 @@ public sealed class TokenUsage
     public const int MaxKindLength = 32;
 
     public Guid Id { get; init; }
-    public required TokenUsageKind Kind { get; init; }
+    public required UsageKind Kind { get; init; }
     public required Guid UserId { get; init; }
 
     // No foreign keys: the row must outlive the chat, turn and assistant it names.

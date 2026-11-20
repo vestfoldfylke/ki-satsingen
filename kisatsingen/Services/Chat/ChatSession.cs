@@ -87,7 +87,7 @@ public sealed class ChatSession : IAsyncDisposable
         IMetricsService metrics,
         IJSRuntime js,
         ILogger<ChatSession> logger,
-        IUserTokenUsageRepository userTokenUsageRepository,
+        IUserUsageRepository userUsageRepository,
         IKnowledgeFileRepository knowledgeFileRepository,
         IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
@@ -109,8 +109,8 @@ public sealed class ChatSession : IAsyncDisposable
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
-        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userTokenUsageRepository, logger);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userTokenUsageRepository, attachmentProcessor, fileTools);
+        var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userUsageRepository, logger);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, fileTools);
     }
 
     public Guid ChatId => _chatId;

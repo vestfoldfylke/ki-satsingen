@@ -6,10 +6,10 @@ namespace kisatsingen.Data.Repositories;
 
 // Built only through the factories, one per kind of spend, so each row carries
 // exactly the links that kind has.
-public sealed record TokenUsageEntry
+public sealed record NewUsageRecord
 {
-    private TokenUsageEntry(
-        TokenUsageKind kind,
+    private NewUsageRecord(
+        UsageKind kind,
         Guid userId,
         Guid? chatId,
         Guid? turnId,
@@ -30,7 +30,7 @@ public sealed record TokenUsageEntry
         Status = status;
     }
 
-    public TokenUsageKind Kind { get; }
+    public UsageKind Kind { get; }
     public Guid UserId { get; }
     public Guid? ChatId { get; }
     public Guid? TurnId { get; }
@@ -40,7 +40,7 @@ public sealed record TokenUsageEntry
     public MessageUsage Usage { get; }
     public TurnStatus? Status { get; }
 
-    public static TokenUsageEntry ForTurn(
+    public static NewUsageRecord ForTurn(
         Guid userId,
         Guid chatId,
         Guid turnId,
@@ -50,7 +50,7 @@ public sealed record TokenUsageEntry
         MessageUsage usage,
         TurnStatus status) =>
         new(
-            kind: TokenUsageKind.ChatTurn,
+            kind: UsageKind.ChatTurn,
             userId: userId,
             chatId: chatId,
             turnId: turnId,
@@ -61,9 +61,9 @@ public sealed record TokenUsageEntry
             status: status);
 
     // assistantId is the chat's assistant, as on the turn's own row.
-    public static TokenUsageEntry ForChatFileConversion(Guid userId, Guid chatId, Guid turnId, Guid? assistantId, ConversionTokenUsage tokenUsage) =>
+    public static NewUsageRecord ForChatFileConversion(Guid userId, Guid chatId, Guid turnId, Guid? assistantId, ConversionTokenUsage tokenUsage) =>
         new(
-            kind: TokenUsageKind.KnowledgeFileConversion,
+            kind: UsageKind.KnowledgeFileConversion,
             userId: userId,
             chatId: chatId,
             turnId: turnId,
@@ -73,9 +73,9 @@ public sealed record TokenUsageEntry
             usage: tokenUsage.Usage,
             status: null);
 
-    public static TokenUsageEntry ForAssistantFileConversion(Guid userId, Guid assistantId, ConversionTokenUsage tokenUsage) =>
+    public static NewUsageRecord ForAssistantFileConversion(Guid userId, Guid assistantId, ConversionTokenUsage tokenUsage) =>
         new(
-            kind: TokenUsageKind.KnowledgeFileConversion,
+            kind: UsageKind.KnowledgeFileConversion,
             userId: userId,
             chatId: null,
             turnId: null,

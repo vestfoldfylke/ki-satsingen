@@ -17,7 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     private NpgsqlDataSource? _ownedDataSource;
 
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
-    private const string TokenUsageTurnStatusConstraintName = "ck_token_usages_turn_has_status";
+    private const string UsageRecordTurnStatusConstraintName = "ck_usage_records_turn_has_status";
 
     // Named so the save path can tell a duplicate from any other unique violation.
     public const string KnowledgeFileChatSha256IndexName = "IX_KnowledgeFiles_ChatId_Sha256";
@@ -27,7 +27,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<ChatTurn> ChatTurns => Set<ChatTurn>();
     public DbSet<Assistant> Assistants => Set<Assistant>();
     public DbSet<KnowledgeFile> KnowledgeFiles => Set<KnowledgeFile>();
-    public DbSet<TokenUsage> TokenUsages => Set<TokenUsage>();
+    public DbSet<UsageRecord> UsageRecords => Set<UsageRecord>();
 
     // The only place a DDL-capable connection is used — the app's own runtime queries
     // always go through the low-privilege DefaultConnection registered in DI.
@@ -158,23 +158,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Cascade);
 
-        var tokenUsage = modelBuilder.Entity<TokenUsage>();
-        tokenUsage.HasKey(u => u.Id);
-        tokenUsage.Property(u => u.Provider).HasMaxLength(TokenUsage.MaxProviderLength).IsRequired();
-        tokenUsage.Property(u => u.ModelId).HasMaxLength(TokenUsage.MaxModelIdLength).IsRequired();
-        tokenUsage.Property(u => u.Kind).HasConversion<string>().HasMaxLength(TokenUsage.MaxKindLength).IsRequired();
-        tokenUsage.Property(u => u.Status).HasConversion<string>().HasMaxLength(TokenUsage.MaxStatusLength);
-        tokenUsage.HasIndex(u => new { u.UserId, u.Timestamp });
+        var usageRecord = modelBuilder.Entity<UsageRecord>();
+        usageRecord.HasKey(u => u.Id);
+        usageRecord.Property(u => u.Provider).HasMaxLength(UsageRecord.MaxProviderLength).IsRequired();
+        usageRecord.Property(u => u.ModelId).HasMaxLength(UsageRecord.MaxModelIdLength).IsRequired();
+        usageRecord.Property(u => u.Kind).HasConversion<string>().HasMaxLength(UsageRecord.MaxKindLength).IsRequired();
+        usageRecord.Property(u => u.Status).HasConversion<string>().HasMaxLength(UsageRecord.MaxStatusLength);
+        usageRecord.HasIndex(u => new { u.UserId, u.Timestamp });
 
         // The usage queries read a ChatTurn row's status as a TurnStatus. Turn
         // rows from before chats and turns were linked have no ChatId or TurnId,
         // so only the status can be required.
-        tokenUsage.ToTable(t => t.HasCheckConstraint(
-            TokenUsageTurnStatusConstraintName,
+        usageRecord.ToTable(t => t.HasCheckConstraint(
+            UsageRecordTurnStatusConstraintName,
             $"""
-             "Kind" <> '{nameof(TokenUsageKind.ChatTurn)}' OR "Status" IS NOT NULL
+             "Kind" <> '{nameof(UsageKind.ChatTurn)}' OR "Status" IS NOT NULL
              """));
-        tokenUsage.HasIndex(u => new { u.AssistantId, u.Timestamp }).HasFilter("\"AssistantId\" IS NOT NULL");
+        usageRecord.HasIndex(u => new { u.AssistantId, u.Timestamp }).HasFilter("\"AssistantId\" IS NOT NULL");
     }
 
     // The Ignore behaviours keep Seq out of every INSERT and UPDATE, so only the

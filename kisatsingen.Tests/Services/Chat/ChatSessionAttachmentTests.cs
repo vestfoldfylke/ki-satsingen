@@ -75,9 +75,9 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var expected = TokenUsageEntry.ForChatFileConversion(
+        var expected = NewUsageRecord.ForChatFileConversion(
             ChatSessionHarness.OwnerUnderTest, harness.Session.ChatId, harness.VisibleTurn.Id, assistantId: null, TokenSpendingConverter.Spent);
-        Assert.Contains(expected, harness.UserTokenUsageRepository.Inserts);
+        Assert.Contains(expected, harness.UserUsageRepository.Inserts);
     }
 
     // A failed write costs the usage row, never the file.
@@ -86,7 +86,7 @@ public sealed class ChatSessionAttachmentTests
     {
         await using var harness = new ChatSessionHarness();
         harness.TextConverter.Spent = TokenSpendingConverter.Spent;
-        harness.UserTokenUsageRepository.InsertFailure = new InvalidOperationException("Database down.");
+        harness.UserUsageRepository.InsertFailure = new InvalidOperationException("Database down.");
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
 
         await harness.Session.SendAsync("Hva står i notatet?");
@@ -112,7 +112,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        var conversion = Assert.Single(harness.UserTokenUsageRepository.Inserts, insert => insert.Kind == TokenUsageKind.KnowledgeFileConversion);
+        var conversion = Assert.Single(harness.UserUsageRepository.Inserts, insert => insert.Kind == UsageKind.KnowledgeFileConversion);
         Assert.Equal(assistant.Id, conversion.AssistantId);
     }
 

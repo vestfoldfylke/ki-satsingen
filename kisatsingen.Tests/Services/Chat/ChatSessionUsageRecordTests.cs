@@ -8,7 +8,7 @@ namespace kisatsingen.Tests.Services.Chat;
 // One row per ended attempt: the store must land beside the metric, or reconciling
 // spend against traffic pulls apart. The row carries how the attempt ended so a
 // failed round trip is billed but readable as such.
-public sealed class ChatSessionTokenUsageTests
+public sealed class ChatSessionUsageRecordTests
 {
     [Fact]
     public async Task A_completed_turn_writes_the_counts_the_provider_reported()
@@ -18,7 +18,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(new MessageUsage(120, 45, CachedInputTokens: 80, ReasoningTokens: 30), insert.Usage);
         Assert.Equal(TurnStatus.Completed, insert.Status);
     }
@@ -32,7 +32,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(expected.Provider, insert.Provider);
         Assert.Equal(expected.ModelId, insert.ModelId);
     }
@@ -45,7 +45,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(ChatSessionHarness.OwnerUnderTest, insert.UserId);
     }
 
@@ -59,7 +59,7 @@ public sealed class ChatSessionTokenUsageTests
         await harness.Session.SendAsync("igjen");
 
         var chatId = Assert.Single(harness.Repository.CreatedChatIds);
-        Assert.Equal([chatId, chatId], harness.UserTokenUsageRepository.Inserts.Select(insert => insert.ChatId));
+        Assert.Equal([chatId, chatId], harness.UserUsageRepository.Inserts.Select(insert => insert.ChatId));
     }
 
     [Fact]
@@ -70,7 +70,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(harness.StoredTurn.Id, insert.TurnId);
     }
 
@@ -91,7 +91,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(assistant.Id, insert.AssistantId);
     }
 
@@ -103,7 +103,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Null(insert.AssistantId);
     }
 
@@ -120,7 +120,7 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Stopped, insert.Status);
         Assert.Null(insert.Usage.InputTokens);
         Assert.Null(insert.Usage.OutputTokens);
@@ -142,7 +142,7 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.Cancel();
         await send;
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(new MessageUsage(200, 50), insert.Usage);
     }
 
@@ -154,7 +154,7 @@ public sealed class ChatSessionTokenUsageTests
 
         await harness.Session.SendAsync("hei");
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Failed, insert.Status);
     }
 
@@ -170,32 +170,32 @@ public sealed class ChatSessionTokenUsageTests
         harness.Session.CancelForDisconnect();
         await send;
 
-        var insert = Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        var insert = Assert.Single(harness.UserUsageRepository.Inserts);
         Assert.Equal(TurnStatus.Disconnected, insert.Status);
     }
 
     // A turn whose metadata never carries a usage — nothing sent, nothing to store.
     [Fact]
-    public async Task A_turn_the_model_was_never_asked_writes_no_token_usage()
+    public async Task A_turn_the_model_was_never_asked_writes_no_usage_record()
     {
         await using var harness = new ChatSessionHarness();
         harness.Repository.InsertTurnFailure = new InvalidOperationException("database away");
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
+        Assert.Empty(harness.UserUsageRepository.Inserts);
     }
 
     // Unauthenticated: rethrown, so the composer's finally never reaches the store.
     [Fact]
-    public async Task An_unauthenticated_attempt_writes_no_token_usage()
+    public async Task An_unauthenticated_attempt_writes_no_usage_record()
     {
         await using var harness = new ChatSessionHarness();
         harness.Authentication.Failure = new UserNotAuthenticatedException();
 
         await Assert.ThrowsAsync<UserNotAuthenticatedException>(() => harness.Session.SendAsync("hei"));
 
-        Assert.Empty(harness.UserTokenUsageRepository.Inserts);
+        Assert.Empty(harness.UserUsageRepository.Inserts);
     }
 
     // The store is a side channel: its outage cannot take the turn with it.
@@ -203,7 +203,7 @@ public sealed class ChatSessionTokenUsageTests
     public async Task A_store_failure_does_not_escape_the_send()
     {
         await using var harness = new ChatSessionHarness();
-        harness.UserTokenUsageRepository.InsertFailure = new InvalidOperationException("usage store away");
+        harness.UserUsageRepository.InsertFailure = new InvalidOperationException("usage store away");
 
         var failure = await Record.ExceptionAsync(() => harness.Session.SendAsync("hei"));
 
@@ -213,13 +213,13 @@ public sealed class ChatSessionTokenUsageTests
 
     // Sanity for the metric-versus-store reconciliation: one send, one row.
     [Fact]
-    public async Task A_completed_turn_writes_exactly_one_token_usage_row()
+    public async Task A_completed_turn_writes_exactly_one_usage_record()
     {
         await using var harness = new ChatSessionHarness();
         harness.Client.OnStream = _ => ModelStream.AnsweringWithUsage("svar", inputTokens: 1, outputTokens: 1);
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Single(harness.UserTokenUsageRepository.Inserts);
+        Assert.Single(harness.UserUsageRepository.Inserts);
     }
 }

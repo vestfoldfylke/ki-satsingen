@@ -13,7 +13,7 @@ namespace kisatsingen.Services.Chat;
 internal sealed class TurnAttachmentProcessor(
     KnowledgeFilePipeline pipeline,
     IKnowledgeFileRepository knowledgeFiles,
-    IUserTokenUsageRepository tokenUsage,
+    IUserUsageRepository usageRecords,
     ILogger logger)
 {
     // Releases the file once it settles: it then stops counting against the
@@ -64,7 +64,7 @@ internal sealed class TurnAttachmentProcessor(
 
         if (result.ConversionTokenUsage is { } conversionTokenUsage)
         {
-            await InsertTokenUsageAsync(TokenUsageEntry.ForChatFileConversion(ownerId, chatId, turnId, assistantId, conversionTokenUsage), attachment, chatId);
+            await InsertUsageRecordAsync(NewUsageRecord.ForChatFileConversion(ownerId, chatId, turnId, assistantId, conversionTokenUsage), attachment, chatId);
         }
 
         switch (result)
@@ -81,11 +81,11 @@ internal sealed class TurnAttachmentProcessor(
     // Before the file is saved, so a failed save still records the spend.
     // CancellationToken.None: the tokens are spent even if stop comes now. A
     // failed write costs the row, never the file.
-    private async Task InsertTokenUsageAsync(TokenUsageEntry entry, ReadyAttachment attachment, Guid chatId)
+    private async Task InsertUsageRecordAsync(NewUsageRecord newRecord, ReadyAttachment attachment, Guid chatId)
     {
         try
         {
-            await tokenUsage.InsertTokenUsageAsync(entry, CancellationToken.None);
+            await usageRecords.InsertUsageRecordAsync(newRecord, CancellationToken.None);
         }
         catch (Exception ex)
         {
