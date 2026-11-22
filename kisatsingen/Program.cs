@@ -243,6 +243,7 @@ builder.Services.AddScoped<FileToolFactory>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PresentationTemplate>();
 // The same instance the static presentation tool validates against; see PictureCatalog.
+// An instance, not a factory, so a broken catalog stops the app at startup.
 builder.Services.AddSingleton(PictureCatalog.Embedded);
 builder.Services.AddSingleton<VestfoldPresentationBuilder>();
 builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
