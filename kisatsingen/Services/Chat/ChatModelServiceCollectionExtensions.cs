@@ -119,7 +119,8 @@ internal static class ChatModelServiceCollectionExtensions
         return definitions;
     }
 
-    // Missing credentials drop that provider's models, not the whole app.
+    // Missing credentials drop that provider's models, not the whole app, unless
+    // the default model is among them: the catalogue then refuses to build.
     private static void AddIfConfigured(
         List<ChatModelDefinition> definitions,
         IConfiguration configuration,
