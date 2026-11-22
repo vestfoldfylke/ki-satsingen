@@ -19,7 +19,7 @@ internal static class CreatePresentationTool
         "Use it when the user asks for a presentation, slides or a PowerPoint, typically from text they paste. " +
         "Build the slides from the user's own text: shorten and structure it, but never add facts that are not in it. " +
         "Keep bullets to short phrases; prefer more slides over crowded ones. " +
-        "Start with a Cover slide; add an Agenda and Chapter dividers for longer material; end with a Closing slide when it fits. " +
+        "Unless the user asks for something else, start with a Cover or CoverWithPicture slide; add an Agenda and Chapter dividers for longer material; end with a Closing slide when it fits. " +
         "Every slide needs a title. Write in the language of the user's text. " +
         "Picture slides (the kinds with Picture in the name) take a pictureId: call " +
         ListPresentationPicturesTool.Name + " first to get the ids, and use picture slides only where a listed picture clearly fits the content. Never make up an id. " +
