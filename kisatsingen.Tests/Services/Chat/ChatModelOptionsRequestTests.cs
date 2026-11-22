@@ -10,8 +10,7 @@ namespace kisatsingen.Tests.Services.Chat;
 
 // What the adapter sends for our options can change on an upgrade without a
 // compile error, so each model's options are pinned against the real streamed
-// request body, through the API that model is on: Luna on Chat Completions,
-// Mistral on Responses.
+// request body, through the client that model is built with.
 public sealed class ChatModelOptionsRequestTests
 {
     private const string ModelUnderTest = "model-under-test";
@@ -26,7 +25,7 @@ public sealed class ChatModelOptionsRequestTests
 
     private static readonly Dictionary<string, (Func<ChatOptions> Options, ClientFactory Client)> ModelsUnderTest = new()
     {
-        ["luna"] = (ChatModelServiceCollectionExtensions.LunaOptions, ChatModelServiceCollectionExtensions.OpenAiCompletionsChat),
+        ["luna"] = (ChatModelServiceCollectionExtensions.LunaOptions, ChatModelServiceCollectionExtensions.OpenAiResponsesChat),
         ["mistral"] = (ChatModelServiceCollectionExtensions.MistralOptions, ChatModelServiceCollectionExtensions.MistralResponsesChat),
         ["mistral-small"] = (ChatModelServiceCollectionExtensions.MistralSmallOptions, ChatModelServiceCollectionExtensions.MistralResponsesChat)
     };
@@ -42,25 +41,15 @@ public sealed class ChatModelOptionsRequestTests
         Assert.Equal(ModelUnderTest, body.RootElement.GetProperty("model").GetString());
     }
 
-    [Fact]
-    public async Task Luna_instructions_become_exactly_one_system_message()
+    [Theory]
+    [InlineData("luna")]
+    [InlineData("mistral")]
+    public async Task Instructions_travel_in_the_instructions_field_and_not_as_a_message(string model)
     {
-        var options = ChatModelServiceCollectionExtensions.LunaOptions();
+        var options = ModelsUnderTest[model].Options();
         options.Instructions = "Svar kort.";
 
-        using var body = await StreamedRequestBodyAsync("luna", options);
-
-        var systemMessage = Assert.Single(SystemMessages(body));
-        Assert.Equal("Svar kort.", systemMessage.GetProperty("content").GetString());
-    }
-
-    [Fact]
-    public async Task Mistral_instructions_travel_in_the_instructions_field_and_not_as_a_message()
-    {
-        var options = ChatModelServiceCollectionExtensions.MistralOptions();
-        options.Instructions = "Svar kort.";
-
-        using var body = await StreamedRequestBodyAsync("mistral", options);
+        using var body = await StreamedRequestBodyAsync(model, options);
 
         Assert.Equal("Svar kort.", body.RootElement.GetProperty("instructions").GetString());
         Assert.Empty(SystemMessages(body));
@@ -89,24 +78,65 @@ public sealed class ChatModelOptionsRequestTests
     }
 
     [Theory]
+    [InlineData("luna", "medium")]
     [InlineData("mistral", "medium")]
     [InlineData("mistral-small", "high")]
-    public async Task Mistral_requests_ask_for_the_reasoning_effort_the_model_is_set_to(string model, string effort)
+    public async Task Requests_ask_for_the_reasoning_effort_the_model_is_set_to(string model, string effort)
     {
         using var body = await StreamedRequestBodyAsync(model);
 
         Assert.Equal(effort, body.RootElement.GetProperty("reasoning").GetProperty("effort").GetString());
     }
 
-    // Mistral's Responses API is stateless and rejects previous_response_id.
+    // OpenAI returns no reasoning text unless a summary is asked for.
     [Fact]
-    public async Task A_Mistral_tool_round_resends_the_whole_history_instead_of_pointing_at_the_previous_response()
+    public async Task Luna_requests_ask_for_a_reasoning_summary()
     {
-        var options = ChatModelServiceCollectionExtensions.MistralOptions();
+        using var body = await StreamedRequestBodyAsync("luna");
+
+        Assert.Equal("detailed", body.RootElement.GetProperty("reasoning").GetProperty("summary").GetString());
+    }
+
+    // With store=false OpenAI keeps no reasoning items, so a tool round can only
+    // carry the reasoning back if it was returned encrypted.
+    [Fact]
+    public async Task Luna_requests_ask_for_the_reasoning_back_encrypted()
+    {
+        using var body = await StreamedRequestBodyAsync("luna");
+
+        Assert.Contains(
+            "reasoning.encrypted_content",
+            body.RootElement.GetProperty("include").EnumerateArray().Select(item => item.GetString()));
+    }
+
+    // What the include above is for: without the encrypted content, OpenAI looks
+    // the reasoning item up by id, finds nothing stored, and rejects the round.
+    [Fact]
+    public async Task A_Luna_tool_round_sends_the_reasoning_back_with_its_encrypted_content()
+    {
+        var options = ChatModelServiceCollectionExtensions.LunaOptions();
+        options.Tools = [AIFunctionFactory.Create(() => "kl. 12", "probe")];
+        var capture = new CapturingHandler(ResponsesStreamReasoningThenCallingProbe, EmptyStream);
+
+        await StreamAsync("luna", options, capture);
+
+        using var toolRound = JsonDocument.Parse(capture.Bodies[1]);
+        var reasoning = Assert.Single(toolRound.RootElement.GetProperty("input").EnumerateArray(), item => item.GetProperty("type").GetString() == "reasoning");
+        Assert.Equal("encrypted-by-openai", reasoning.GetProperty("encrypted_content").GetString());
+    }
+
+    // With store=false there is no stored response to point at, and Mistral's
+    // stateless API rejects previous_response_id outright.
+    [Theory]
+    [InlineData("luna")]
+    [InlineData("mistral")]
+    public async Task A_tool_round_resends_the_whole_history_instead_of_pointing_at_the_previous_response(string model)
+    {
+        var options = ModelsUnderTest[model].Options();
         options.Tools = [AIFunctionFactory.Create(() => "kl. 12", "probe")];
         var capture = new CapturingHandler(ResponsesStreamCallingProbe, EmptyStream);
 
-        await StreamAsync("mistral", options, capture);
+        await StreamAsync(model, options, capture);
 
         using var toolRound = JsonDocument.Parse(capture.Bodies[1]);
         Assert.False(toolRound.RootElement.TryGetProperty("previous_response_id", out _));
@@ -115,15 +145,9 @@ public sealed class ChatModelOptionsRequestTests
             toolRound.RootElement.GetProperty("input").EnumerateArray().Select(item => item.GetProperty("type").GetString()));
     }
 
-    private static IEnumerable<JsonElement> SystemMessages(JsonDocument body)
-    {
-        var messages = body.RootElement.TryGetProperty("messages", out var chatMessages)
-            ? chatMessages
-            : body.RootElement.GetProperty("input");
-
-        return messages.EnumerateArray()
+    private static IEnumerable<JsonElement> SystemMessages(JsonDocument body) =>
+        body.RootElement.GetProperty("input").EnumerateArray()
             .Where(message => message.TryGetProperty("role", out var role) && role.GetString() is "system" or "developer");
-    }
 
     private static async Task<JsonDocument> StreamedRequestBodyAsync(string model, ChatOptions? options = null)
     {
@@ -164,6 +188,32 @@ public sealed class ChatModelOptionsRequestTests
 
         event: response.completed
         data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}]}}
+
+        data: [DONE]
+
+
+        """;
+
+    // A reasoning item as OpenAI returns it with store=false: encrypted, with an empty summary.
+    private const string ResponsesStreamReasoningThenCallingProbe =
+        """
+        event: response.created
+        data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_1","object":"response","created_at":0,"status":"in_progress","model":"model-under-test","output":[]}}
+
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[]}}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","sequence_number":2,"output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[],"encrypted_content":"encrypted-by-openai"}}
+
+        event: response.output_item.added
+        data: {"type":"response.output_item.added","sequence_number":3,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"in_progress"}}
+
+        event: response.output_item.done
+        data: {"type":"response.output_item.done","sequence_number":4,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}}
+
+        event: response.completed
+        data: {"type":"response.completed","sequence_number":5,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[{"type":"reasoning","id":"rs_1","summary":[],"encrypted_content":"encrypted-by-openai"},{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}]}}
 
         data: [DONE]
 
