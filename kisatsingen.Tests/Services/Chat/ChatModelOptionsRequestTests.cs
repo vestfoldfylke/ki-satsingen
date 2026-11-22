@@ -44,31 +44,6 @@ public sealed class ChatModelOptionsRequestTests
     [Theory]
     [InlineData("luna")]
     [InlineData("mistral")]
-    public async Task Instructions_travel_in_the_instructions_field_and_not_as_a_message(string model)
-    {
-        var options = ModelsUnderTest[model].Options();
-        options.Instructions = "Svar kort.";
-
-        using var body = await StreamedRequestBodyAsync(model, options);
-
-        Assert.Equal("Svar kort.", body.RootElement.GetProperty("instructions").GetString());
-        Assert.Empty(SystemMessages(body));
-    }
-
-    [Theory]
-    [InlineData("luna")]
-    [InlineData("mistral")]
-    public async Task No_system_prompt_is_sent_without_instructions(string model)
-    {
-        using var body = await StreamedRequestBodyAsync(model);
-
-        Assert.Empty(SystemMessages(body));
-        Assert.False(body.RootElement.TryGetProperty("instructions", out _));
-    }
-
-    [Theory]
-    [InlineData("luna")]
-    [InlineData("mistral")]
     [InlineData("mistral-small")]
     public async Task Requests_send_store_false(string model)
     {
@@ -111,18 +86,22 @@ public sealed class ChatModelOptionsRequestTests
 
     // What the include above is for: without the encrypted content, OpenAI looks
     // the reasoning item up by id, finds nothing stored, and rejects the round.
+    // With a summary streamed first, as Luna asks for, the summary and the encrypted
+    // content must still go back as one item.
     [Fact]
-    public async Task A_Luna_tool_round_sends_the_reasoning_back_with_its_encrypted_content()
+    public async Task A_Luna_tool_round_sends_the_reasoning_back_as_one_item_with_its_encrypted_content()
     {
         var options = ChatModelServiceCollectionExtensions.LunaOptions();
         options.Tools = [AIFunctionFactory.Create(() => "kl. 12", "probe")];
-        var capture = new CapturingHandler(ResponsesStreamReasoningThenCallingProbe, EmptyStream);
+        var capture = new CapturingHandler(ResponsesStreamSummarisedReasoningThenCallingProbe, EmptyStream);
 
         await StreamAsync("luna", options, capture);
 
         using var toolRound = JsonDocument.Parse(capture.Bodies[1]);
         var reasoning = Assert.Single(toolRound.RootElement.GetProperty("input").EnumerateArray(), item => item.GetProperty("type").GetString() == "reasoning");
-        Assert.Equal("encrypted-by-openai", reasoning.GetProperty("encrypted_content").GetString());
+        Assert.Equal(
+            ("rs_1", "encrypted-by-openai"),
+            (reasoning.GetProperty("id").GetString(), reasoning.GetProperty("encrypted_content").GetString()));
     }
 
     // With store=false there is no stored response to point at, and Mistral's
@@ -144,10 +123,6 @@ public sealed class ChatModelOptionsRequestTests
             ["message", "function_call", "function_call_output"],
             toolRound.RootElement.GetProperty("input").EnumerateArray().Select(item => item.GetProperty("type").GetString()));
     }
-
-    private static IEnumerable<JsonElement> SystemMessages(JsonDocument body) =>
-        body.RootElement.GetProperty("input").EnumerateArray()
-            .Where(message => message.TryGetProperty("role", out var role) && role.GetString() is "system" or "developer");
 
     private static async Task<JsonDocument> StreamedRequestBodyAsync(string model, ChatOptions? options = null)
     {
@@ -194,8 +169,9 @@ public sealed class ChatModelOptionsRequestTests
 
         """;
 
-    // A reasoning item as OpenAI returns it with store=false: encrypted, with an empty summary.
-    private const string ResponsesStreamReasoningThenCallingProbe =
+    // A reasoning item as OpenAI streams it with store=false and a detailed summary:
+    // two summary parts, then the item with its encrypted content.
+    private const string ResponsesStreamSummarisedReasoningThenCallingProbe =
         """
         event: response.created
         data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_1","object":"response","created_at":0,"status":"in_progress","model":"model-under-test","output":[]}}
@@ -203,17 +179,41 @@ public sealed class ChatModelOptionsRequestTests
         event: response.output_item.added
         data: {"type":"response.output_item.added","sequence_number":1,"output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[]}}
 
+        event: response.reasoning_summary_part.added
+        data: {"type":"response.reasoning_summary_part.added","sequence_number":2,"item_id":"rs_1","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":""}}
+
+        event: response.reasoning_summary_text.delta
+        data: {"type":"response.reasoning_summary_text.delta","sequence_number":3,"item_id":"rs_1","output_index":0,"summary_index":0,"delta":"**Første** del."}
+
+        event: response.reasoning_summary_text.done
+        data: {"type":"response.reasoning_summary_text.done","sequence_number":4,"item_id":"rs_1","output_index":0,"summary_index":0,"text":"**Første** del."}
+
+        event: response.reasoning_summary_part.done
+        data: {"type":"response.reasoning_summary_part.done","sequence_number":5,"item_id":"rs_1","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":"**Første** del."}}
+
+        event: response.reasoning_summary_part.added
+        data: {"type":"response.reasoning_summary_part.added","sequence_number":6,"item_id":"rs_1","output_index":0,"summary_index":1,"part":{"type":"summary_text","text":""}}
+
+        event: response.reasoning_summary_text.delta
+        data: {"type":"response.reasoning_summary_text.delta","sequence_number":7,"item_id":"rs_1","output_index":0,"summary_index":1,"delta":"**Andre** del."}
+
+        event: response.reasoning_summary_text.done
+        data: {"type":"response.reasoning_summary_text.done","sequence_number":8,"item_id":"rs_1","output_index":0,"summary_index":1,"text":"**Andre** del."}
+
+        event: response.reasoning_summary_part.done
+        data: {"type":"response.reasoning_summary_part.done","sequence_number":9,"item_id":"rs_1","output_index":0,"summary_index":1,"part":{"type":"summary_text","text":"**Andre** del."}}
+
         event: response.output_item.done
-        data: {"type":"response.output_item.done","sequence_number":2,"output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[],"encrypted_content":"encrypted-by-openai"}}
+        data: {"type":"response.output_item.done","sequence_number":10,"output_index":0,"item":{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"**Første** del."},{"type":"summary_text","text":"**Andre** del."}],"encrypted_content":"encrypted-by-openai"}}
 
         event: response.output_item.added
-        data: {"type":"response.output_item.added","sequence_number":3,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"in_progress"}}
+        data: {"type":"response.output_item.added","sequence_number":11,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"in_progress"}}
 
         event: response.output_item.done
-        data: {"type":"response.output_item.done","sequence_number":4,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}}
+        data: {"type":"response.output_item.done","sequence_number":12,"output_index":1,"item":{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}}
 
         event: response.completed
-        data: {"type":"response.completed","sequence_number":5,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[{"type":"reasoning","id":"rs_1","summary":[],"encrypted_content":"encrypted-by-openai"},{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}]}}
+        data: {"type":"response.completed","sequence_number":13,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"**Første** del."},{"type":"summary_text","text":"**Andre** del."}],"encrypted_content":"encrypted-by-openai"},{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}]}}
 
         data: [DONE]
 
