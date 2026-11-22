@@ -406,7 +406,7 @@ internal static class ModelStream
 
     // The shape FunctionInvokingChatClient streams: the call, then its result as a
     // tool message, then the next round's answer.
-    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after, string toolName = "get_current_time_utc")
+    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after, string toolName = "probe")
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, before);
         yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", toolName)]);

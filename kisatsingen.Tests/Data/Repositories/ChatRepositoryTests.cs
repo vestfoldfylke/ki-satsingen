@@ -412,7 +412,7 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
             Status = TurnStatus.Completed,
             Answer =
             [
-                new ToolCall(Guid.NewGuid(), 0, "call-1", "get_current_time_utc", JsonSerializer.SerializeToElement(new { }), ToolStatus.Completed, "12:00"),
+                new ToolCall(Guid.NewGuid(), 0, "call-1", "probe",JsonSerializer.SerializeToElement(new { }), ToolStatus.Completed, "12:00"),
                 new TextSegment(Guid.NewGuid(), 1, "Den er tolv.")
             ]
         };
