@@ -4,8 +4,8 @@ using kisatsingen.Data.Entities;
 namespace kisatsingen.Services.Chat;
 
 // An instruction should be static inside one chat, to be able to utilize prompt-caching.
-// The date is the one exception, and comes last so a new day only misses the input cache
-// from there on.
+// The date is the one exception, and comes last so a new day keeps the rest of the
+// system prompt cached. The conversation history after it still misses once.
 internal static class ChatInstructions
 {
     internal const string Base = """
