@@ -168,8 +168,8 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    // The one place the prompt for the next turn is chosen, so what is sent and
-    // what is estimated can never differ.
+    // The one place the prompt for the next turn is built, so what is sent and
+    // what is estimated are built the same way.
     private string SystemPrompt =>
         _assistant is { } assistant
             ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles, assistant.AreBaseInstructionsDisabled, Today)

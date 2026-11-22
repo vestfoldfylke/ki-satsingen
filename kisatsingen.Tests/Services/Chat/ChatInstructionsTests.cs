@@ -81,7 +81,8 @@ public sealed class ChatInstructionsTests
     {
         var instructions = ChatInstructions.ForPlainChat(Today);
 
-        Assert.True(instructions.StartsWith(ChatInstructions.Base + "\n\n## Instructions\n", StringComparison.Ordinal) && instructions.EndsWith(DateSection, StringComparison.Ordinal));
+        Assert.StartsWith(ChatInstructions.Base + "\n\n## Instructions\n", instructions);
+        Assert.EndsWith(DateSection, instructions);
     }
 
     private static string Wrapped(string instructions) => $"<assistant_instructions>\n{instructions}\n</assistant_instructions>";

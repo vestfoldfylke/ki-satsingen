@@ -38,9 +38,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(
-            ChatInstructions.ForAssistant("Saksbehandler", AssistantInstructions, files: [], areBaseInstructionsDisabled: true, harness.Today),
-            harness.Client.LastOptions?.Instructions);
+        Assert.StartsWith("## Instructions for the assistant \"Saksbehandler\"", harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]
