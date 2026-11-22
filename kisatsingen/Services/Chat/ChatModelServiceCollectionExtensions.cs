@@ -3,24 +3,20 @@ using System.ClientModel.Primitives;
 using kisatsingen.AIFunctions;
 using Microsoft.Extensions.AI;
 using OpenAI;
-using OpenAI.Chat;
 using OpenAI.Responses;
 
 namespace kisatsingen.Services.Chat;
 
-// Models are declared in code so adding or repointing one is a reviewed change.
-// Configuration holds only what can't live in the repository: credentials.
+// Models live in code so changing one is a reviewed change; configuration holds only credentials.
 internal static class ChatModelServiceCollectionExtensions
 {
     private const string OpenAiConfigurationPath = "OpenAI:ApiKey";
     private const string MistralConfigurationPath = "Mistral:ApiKey";
 
-    // Stated although it is the SDK default, so every provider declares where it
-    // points. Verified against OpenAI 2.12.0: the request URI is the same set or
-    // unset, and there is no OPENAI_BASE_URL override for this to shadow.
+    // The SDK default, stated so every provider declares where it points.
     private static readonly Uri OpenAiEndpoint = new("https://api.openai.com/v1");
 
-    // Uses OpenAI's Responses format, so it goes through the OpenAI SDK.
+    // Mistral speaks OpenAI's Responses format, so it goes through the OpenAI SDK.
     private static readonly Uri MistralEndpoint = new("https://api.mistral.ai/v1");
 
     private static readonly ChatModelKey DefaultModelKey = ChatModelKeys.OpenAI;
@@ -66,8 +62,7 @@ internal static class ChatModelServiceCollectionExtensions
 
     public static IServiceCollection AddChatModels(this IServiceCollection services)
     {
-        // Built in the factory so its warnings reach the real logging pipeline.
-        // Program.cs resolves it at startup, so a broken default refuses to boot.
+        // In the factory, so its warnings reach the real logging pipeline.
         services.AddSingleton<IChatModelCatalog>(serviceProvider =>
         {
             var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -98,7 +93,7 @@ internal static class ChatModelServiceCollectionExtensions
             OpenAIModel,
             OpenAiConfigurationPath,
             providerCredential => (
-                OpenAiCompletionsChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
+                OpenAiResponsesChat(providerCredential, OpenAiEndpoint, OpenAIModel.ModelId),
                 LunaOptions()));
 
         AddIfConfigured(
@@ -124,8 +119,8 @@ internal static class ChatModelServiceCollectionExtensions
         return definitions;
     }
 
-    // Missing credentials drop that provider's models rather than the whole app.
-    // The default is the exception: the catalogue refuses to build without it.
+    // Missing credentials drop that provider's models, not the whole app, unless
+    // the default model is among them: the catalogue then refuses to build.
     private static void AddIfConfigured(
         List<ChatModelDefinition> definitions,
         IConfiguration configuration,
@@ -149,25 +144,30 @@ internal static class ChatModelServiceCollectionExtensions
         definitions.Add(new ChatModelDefinition(model, client, options));
     }
 
-    // For gpt-6-luna, Chat Completions rejects tools with any reasoning effort but
-    // none, and reasoning with tools needs /v1/responses, which stores by default.
+    // Reasoning, so the model decides before it writes; without reasoning, the
+    // model can repeat its answer after every tool call.
     //
-    // store=false is already the default, but set so a default change can't start
-    // retaining conversations. Through RawRepresentationFactory, since the adapter
-    // drops AdditionalProperties.
+    // store=false keeps nothing at OpenAI, so the reasoning has to come back
+    // encrypted to be sent back in a tool round. RawRepresentationFactory, because
+    // the adapter drops AdditionalProperties.
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
     internal static ChatOptions LunaOptions() =>
         new()
         {
             Tools = [.. ChatTools.All],
-            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None },
-            RawRepresentationFactory = _ => new ChatCompletionOptions { StoredOutputEnabled = false },
+            Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium, Output = ReasoningOutput.Full },
+            RawRepresentationFactory = _ => new CreateResponseOptions
+            {
+                StoredOutputEnabled = false,
+                IncludedProperties = { IncludedResponseProperty.ReasoningEncryptedContent },
+            },
         };
+#pragma warning restore OPENAI001
 
-    // Mistral Large 4 always reasons and rejects effort none.
+    // Mistral Large 4 rejects effort none.
     //
-    // store=false: Mistral's Responses API is stateless, so every round, tool rounds
-    // included, resends the whole history rather than pointing at a previous response
-    // (pinned by ChatModelOptionsRequestTests).
+    // store=false, or a tool round points at the previous response, which
+    // Mistral's stateless API rejects.
 #pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
     internal static ChatOptions MistralOptions() =>
         new()
@@ -178,10 +178,8 @@ internal static class ChatModelServiceCollectionExtensions
         };
 #pragma warning restore OPENAI001
 
-    // Mistral Small 4 takes only effort none or high. High rather than none, so its
-    // reasoning can be compared with Mistral Large's.
-    //
-    // store=false for the same reason as Mistral Large (pinned by ChatModelOptionsRequestTests).
+    // Mistral Small 4 takes only effort none or high; high, so its reasoning can
+    // be compared with Mistral Large's. store=false as for Mistral Large.
 #pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
     internal static ChatOptions MistralSmallOptions() =>
         new()
@@ -192,8 +190,8 @@ internal static class ChatModelServiceCollectionExtensions
         };
 #pragma warning restore OPENAI001
 
-    // For providers on OpenAI's Chat Completions API.
-    internal static Func<IServiceProvider, IChatClient> OpenAiCompletionsChat(
+#pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
+    internal static Func<IServiceProvider, IChatClient> OpenAiResponsesChat(
         string providerCredential,
         Uri endpoint,
         string modelId,
@@ -204,16 +202,15 @@ internal static class ChatModelServiceCollectionExtensions
 
             return AddToolInvocation(
                 new OpenAIClient(new ApiKeyCredential(providerCredential), clientOptions)
-                    .GetChatClient(modelId)
-                    .AsIChatClient(),
+                    .GetResponsesClient()
+                    .AsIChatClient(modelId),
                 serviceProvider);
         };
+#pragma warning restore OPENAI001
 
-    // The Responses API rather than Chat Completions: Mistral Large 4 always reasons
-    // (it rejects reasoning_effort none), and on Chat Completions it mixes that
-    // reasoning into the answer's content as parts the OpenAI SDK cannot parse. On
-    // Responses the reasoning arrives as items of its own. Its responses are corrected
-    // where they depart from what the OpenAI SDK reads.
+    // Responses, not Chat Completions: there Mistral mixes its reasoning into the
+    // answer in a shape the OpenAI SDK cannot parse. MistralCreatedAtPolicy fixes
+    // where Mistral's responses differ from what the SDK expects.
 #pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
     internal static Func<IServiceProvider, IChatClient> MistralResponsesChat(
         string providerCredential,

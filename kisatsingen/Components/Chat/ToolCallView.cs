@@ -81,7 +81,6 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
 
         return toolCall.ToolName switch
         {
-            ChatTools.GetCurrentTimeUtcToolName => DescribeCurrentTime(outcome, result),
             ListFilesTool.Name => DescribeListFiles(outcome, result),
             GetOutlineTool.Name => DescribeOutline(outcome, result),
             ReadFileTool.Name => DescribeReadFile(outcome, result),
@@ -89,16 +88,6 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
-
-    private static ToolCallText DescribeCurrentTime(ToolOutcome outcome, JsonElement? result) => outcome switch
-    {
-        ToolOutcome.Running => new(Title: "Sjekker hva klokka er"),
-        ToolOutcome.Succeeded when result is { ValueKind: JsonValueKind.String } time => new(
-            Title: "Sjekket hva klokka er",
-            UserFriendlyResult: time.GetString()),
-        ToolOutcome.Succeeded => new(Title: "Sjekket hva klokka er"),
-        _ => new(Title: "Prøvde å sjekke hva klokka er")
-    };
 
     private static ToolCallText DescribeListFiles(ToolOutcome outcome, JsonElement? result) => outcome switch
     {

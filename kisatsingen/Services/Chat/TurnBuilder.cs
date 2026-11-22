@@ -24,6 +24,7 @@ internal sealed class TurnBuilder
     private int _openTextIndex = -1;
     private readonly StringBuilder _openReasoning = new();
     private int _openReasoningIndex = -1;
+    private ReasoningSummaryPart? _openReasoningSummaryPart;
 
     private int _round;
     private bool _isRoundClosed;
@@ -84,7 +85,7 @@ internal sealed class TurnBuilder
                     AppendText(text.Text, changes);
                     break;
                 case TextReasoningContent { Text.Length: > 0 } reasoning:
-                    AppendReasoning(reasoning.Text, changes);
+                    AppendReasoning(reasoning.Text, ReasoningSummaryPart.Of(update), changes);
                     break;
                 case FunctionCallContent call:
                     StartTool(call, changes);
@@ -128,7 +129,7 @@ internal sealed class TurnBuilder
 
     // Closes open text, so text after the reasoning is a segment of its own and
     // reads after it.
-    private void AppendReasoning(string reasoning, List<TurnChange> changes)
+    private void AppendReasoning(string reasoning, ReasoningSummaryPart? summaryPart, List<TurnChange> changes)
     {
         OpenNextRoundIfClosed();
         CloseText(changes);
@@ -140,7 +141,13 @@ internal sealed class TurnBuilder
             _openReasoningIndex = _segments.Count - 1;
             changes.Add(new TurnChange.ReasoningStarted(opened.Id));
         }
+        // Each summary part opens with a title, which reads as a heading only on a line of its own.
+        else if (summaryPart != _openReasoningSummaryPart)
+        {
+            _openReasoning.Append("\n\n");
+        }
 
+        _openReasoningSummaryPart = summaryPart;
         _openReasoning.Append(reasoning);
     }
 
@@ -186,9 +193,9 @@ internal sealed class TurnBuilder
         changes.Add(new TurnChange.ToolFinished(toolCall.Id));
     }
 
-    // The rule both OpenAI adapters share, Chat Completions and Responses, which
-    // every model here goes through, so the stored text replays byte for byte
-    // (pinned for each by ToolResultReplayTests). Another adapter would need its own rule.
+    // The rule of the Responses adapter, which every model here goes through, so
+    // the stored text replays byte for byte (pinned by ToolResultReplayTests).
+    // Another adapter would need its own rule.
     private static string? AsSentToProvider(object? result) => result switch
     {
         null => null,
@@ -220,6 +227,7 @@ internal sealed class TurnBuilder
         _segments[_openReasoningIndex] = (ReasoningSegment)_segments[_openReasoningIndex] with { Text = _openReasoning.ToString() };
         _openReasoning.Clear();
         _openReasoningIndex = -1;
+        _openReasoningSummaryPart = null;
     }
 
     private void OpenNextRoundIfClosed()

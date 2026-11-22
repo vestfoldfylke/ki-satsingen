@@ -10,9 +10,8 @@ using AiMessage = Microsoft.Extensions.AI.ChatMessage;
 namespace kisatsingen.Tests.Services.Chat;
 
 // TurnBuilder stores a tool result as the text it assumes the OpenAI adapter sent.
-// Pinned against both adapters' real request bodies, Chat Completions and
-// Responses, so an upgrade that changes either rule fails here instead of
-// replaying results the model never saw.
+// Pinned against the real Responses request body, so an upgrade that changes the
+// rule fails here instead of replaying results the model never saw.
 public sealed class ToolResultReplayTests
 {
     public static TheoryData<object> Results => new()
@@ -22,17 +21,6 @@ public sealed class ToolResultReplayTests
         JsonSerializer.SerializeToElement("a string held as JSON"),
         JsonSerializer.SerializeToElement(new { hour = 12, chunks = new[] { "æøå" } })
     };
-
-    [Theory]
-    [MemberData(nameof(Results))]
-    public async Task A_replayed_result_reaches_Chat_Completions_exactly_as_the_original_did(object result)
-    {
-        var original = await ChatCompletionsWireContentAsync(new FunctionResultContent("call-1", result));
-
-        var replayed = await ChatCompletionsWireContentAsync(Replay(result));
-
-        Assert.Equal(original, replayed);
-    }
 
     [Theory]
     [MemberData(nameof(Results))]
@@ -57,19 +45,6 @@ public sealed class ToolResultReplayTests
             .SelectMany(message => message.Contents)
             .OfType<FunctionResultContent>()
             .Single();
-    }
-
-    private static async Task<string> ChatCompletionsWireContentAsync(FunctionResultContent result)
-    {
-        var capture = new CapturingHandler(ChatCompletion);
-        using var client = OpenAiClient(capture)
-            .GetChatClient("model-under-test")
-            .AsIChatClient();
-
-        await client.GetResponseAsync(MessagesEndingOn(result));
-
-        using var body = JsonDocument.Parse(capture.Body!);
-        return body.RootElement.GetProperty("messages")[2].GetProperty("content").GetRawText();
     }
 
 #pragma warning disable OPENAI001 // The Responses API is experimental in the OpenAI SDK.
@@ -114,9 +89,6 @@ public sealed class ToolResultReplayTests
         ContextWindowTokens = 128_000,
         IconName = "icon"
     };
-
-    private const string ChatCompletion =
-        """{"id":"x","object":"chat.completion","created":0,"model":"model-under-test","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}]}""";
 
     private const string ResponsesResult =
         """{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[]}""";

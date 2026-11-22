@@ -37,6 +37,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
+    public SettableTimeProvider Clock { get; } = new(new DateTimeOffset(2026, 11, 22, 10, 0, 0, TimeSpan.Zero));
+    public DateOnly Today => DateOnly.FromDateTime(DateTimeService.GetTimeZonedDateTimeOffset(Clock.GetUtcNow()).DateTime);
     public ChatSession Session { get; }
 
     public ChatManager Manager { get; }
@@ -69,7 +71,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
-            Assistants);
+            Assistants,
+            Clock);
     }
 
     private KnowledgeFilePipeline CreatePipeline()
@@ -320,6 +323,13 @@ internal sealed class FakeChatClient : IChatClient
     }
 }
 
+internal sealed class SettableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+{
+    public DateTimeOffset UtcNow { get; set; } = utcNow;
+
+    public override DateTimeOffset GetUtcNow() => UtcNow;
+}
+
 // Both models share one client: these tests are about which model is picked and
 // recorded, not about providers behaving differently.
 internal sealed class FakeChatModelCatalog : IChatModelCatalog
@@ -396,7 +406,7 @@ internal static class ModelStream
 
     // The shape FunctionInvokingChatClient streams: the call, then its result as a
     // tool message, then the next round's answer.
-    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after, string toolName = "get_current_time_utc")
+    public static async IAsyncEnumerable<ChatResponseUpdate> UsingATool(string before, string after, string toolName = "probe")
     {
         yield return new ChatResponseUpdate(ChatRole.Assistant, before);
         yield return new ChatResponseUpdate(ChatRole.Assistant, [new FunctionCallContent("call-1", toolName)]);
