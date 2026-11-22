@@ -43,7 +43,7 @@
       <!-- The manifest is a .json, which the Web SDK would otherwise also
            publish as static content. -->
       <Content Remove="Services\Presentations\Pictures\pictures.json" />
-      <EmbeddedResource Include="Services\Presentations\Pictures\pictures.json;Services\Presentations\Pictures\*.jpg;Services\Presentations\Pictures\*.png" LogicalName="kisatsingen.Presentations.Pictures.%(Filename)%(Extension)" />
+      <EmbeddedResource Include="Services\Presentations\Pictures\pictures.json;Services\Presentations\Pictures\*.jpg;Services\Presentations\Pictures\*.jpeg;Services\Presentations\Pictures\*.png" LogicalName="kisatsingen.Presentations.Pictures.%(Filename)%(Extension)" />
     </ItemGroup>
 
     <!-- The chat core's pure internals (TurnBuilder, TranscriptRequest, ...) were
