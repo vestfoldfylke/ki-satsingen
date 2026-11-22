@@ -1,3 +1,4 @@
+using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
 using kisatsingen.Services.Presentations.Pictures;
@@ -15,21 +16,20 @@ internal static class SlideFactory
     private const uint GroupShapeId = 1;
     private const uint FirstShapeId = 2;
 
-    // The picture is null for a text kind, and for a picture kind whose
-    // picture is not in the catalog: its placeholder is then left empty, for
-    // the user to fill in PowerPoint.
+    // A picture slide can be missing its picture, either because the user
+    // wants to add it in PowerPoint, or because the picture was removed from
+    // the catalog after the chat was saved. The slide then gets an empty
+    // picture frame instead of failing.
     public static SlidePart Create(PresentationPart presentationPart, SlideLayoutPart layoutPart, SlideSpec spec, CatalogPicture? picture)
     {
         var layout = SlideLayouts.For(spec.Kind);
         var layoutPlaceholders = layoutPart.SlideLayout?.CommonSlideData?.ShapeTree?.Descendants<PlaceholderShape>().ToList() ?? [];
 
-        var fills = new List<(PlaceholderShape Placeholder, IReadOnlyList<string> Paragraphs)>
-        {
-            (FindTitle(layoutPlaceholders, layout), [spec.Title])
-        };
-        AddFill(fills, layoutPlaceholders, layout, layout.TextIndex, spec.Text is { } text ? [text] : null);
-        AddFill(fills, layoutPlaceholders, layout, layout.BulletsIndex, spec.Bullets);
-        AddFill(fills, layoutPlaceholders, layout, layout.SecondColumnIndex, spec.SecondColumn);
+        var titlePlaceholder = FindTitle(layoutPlaceholders, layout);
+        var bodyFills = new List<(PlaceholderShape Placeholder, IReadOnlyList<string> Paragraphs)>();
+        AddFill(bodyFills, layoutPlaceholders, layout, layout.TextIndex, spec.Text is { } text ? [text] : null);
+        AddFill(bodyFills, layoutPlaceholders, layout, layout.BulletsIndex, spec.Bullets);
+        AddFill(bodyFills, layoutPlaceholders, layout, layout.SecondColumnIndex, spec.SecondColumn);
 
         var shapeTree = new ShapeTree(
             new NonVisualGroupShapeProperties(
@@ -41,20 +41,29 @@ internal static class SlideFactory
         var masterPart = layoutPart.SlideMasterPart
             ?? throw new InvalidOperationException($"Layout \"{layout.LayoutName}\" has no slide master; the template file is damaged.");
 
-        var shapeId = FirstShapeId;
-        foreach (var (placeholder, paragraphs) in fills)
-        {
-            var fontSize = PlaceholderTextBoxes.Resolve(placeholder, masterPart) is { } box ? TextFit.FontSizeToFit(paragraphs, box) : null;
-            shapeTree.Append(CreatePlaceholderShape(shapeId++, placeholder, paragraphs, fontSize));
-        }
-
         // Before the slide is set, since the picture's image part hangs off
         // the slide part.
         var slidePart = presentationPart.AddNewPart<SlidePart>();
-        if (picture is not null && layout.PictureIndex is { } pictureIndex)
+        var shapeId = FirstShapeId;
+
+        // Screen readers read the shapes in this order, and PowerPoint draws
+        // later shapes on top. The title goes first so it is read first (no
+        // layout puts a picture over the title). The picture goes before the
+        // other text, so a caption on top of it stays visible.
+        shapeTree.Append(CreatePlaceholderShape(shapeId++, titlePlaceholder, [spec.Title], masterPart));
+
+        if (layout.PictureIndex is { } pictureIndex)
         {
-            var pictureTarget = FindPlaceholder(layoutPlaceholders, layout, pictureIndex);
-            shapeTree.Append(PictureShapeFactory.Create(slidePart, shapeId, pictureTarget, picture, spec.PictureFit ?? PictureFit.Cover));
+            var picturePlaceholder = FindPlaceholder(layoutPlaceholders, layout, pictureIndex);
+            OpenXmlElement pictureShape = picture is null
+                ? CreateEmptyPicturePlaceholder(shapeId++, picturePlaceholder)
+                : PictureShapeFactory.Create(slidePart, shapeId++, picturePlaceholder, picture, spec.PictureFit ?? PictureFit.Cover);
+            shapeTree.Append(pictureShape);
+        }
+
+        foreach (var (placeholder, paragraphs) in bodyFills)
+        {
+            shapeTree.Append(CreatePlaceholderShape(shapeId++, placeholder, paragraphs, masterPart));
         }
 
         slidePart.Slide = new Slide(
@@ -93,8 +102,10 @@ internal static class SlideFactory
     // how PowerPoint ties the slide's shape to the layout's.
     // The font size, in hundredths of a point, is set only on text shrunk to
     // fit; otherwise the layout's size applies.
-    private static Shape CreatePlaceholderShape(uint id, PlaceholderShape layoutPlaceholder, IReadOnlyList<string> paragraphs, int? fontSize)
+    private static Shape CreatePlaceholderShape(uint id, PlaceholderShape layoutPlaceholder, IReadOnlyList<string> paragraphs, SlideMasterPart masterPart)
     {
+        var fontSize = PlaceholderTextBoxes.Resolve(layoutPlaceholder, masterPart) is { } box ? TextFit.FontSizeToFit(paragraphs, box) : null;
+
         var placeholder = new PlaceholderShape();
         if (layoutPlaceholder.Type is { } type)
         {
@@ -115,6 +126,24 @@ internal static class SlideFactory
                 new ApplicationNonVisualDrawingProperties(placeholder)),
             new ShapeProperties(),
             textBody);
+    }
+
+    // PowerPoint shows a layout placeholder only where the slide has a shape
+    // referring to it; this one gives the user a frame to click and fill.
+    private static Shape CreateEmptyPicturePlaceholder(uint id, PlaceholderShape layoutPlaceholder)
+    {
+        var placeholder = new PlaceholderShape { Type = PlaceholderValues.Picture };
+        if (layoutPlaceholder.Index is { } index)
+        {
+            placeholder.Index = index.Value;
+        }
+
+        return new Shape(
+            new NonVisualShapeProperties(
+                new NonVisualDrawingProperties { Id = id, Name = $"Plassholder for bilde {id}" },
+                new NonVisualShapeDrawingProperties(new A.ShapeLocks { NoGrouping = true }),
+                new ApplicationNonVisualDrawingProperties(placeholder)),
+            new ShapeProperties());
     }
 
     private static A.Paragraph CreateParagraph(string text, int? fontSize)
