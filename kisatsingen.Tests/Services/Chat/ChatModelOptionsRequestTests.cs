@@ -17,6 +17,18 @@ public sealed class ChatModelOptionsRequestTests
 
     private const string EmptyStream = "data: [DONE]\n\n";
 
+    private static readonly ChatModel TurnModel = new()
+    {
+        Key = FakeChatModelCatalog.DefaultKey,
+        DisplayName = "Luna",
+        ShortDescription = "short",
+        LongDescription = "long",
+        Provider = "test",
+        ModelId = ModelUnderTest,
+        ContextWindowTokens = 128_000,
+        IconName = "icon"
+    };
+
     private delegate Func<IServiceProvider, IChatClient> ClientFactory(
         string providerCredential,
         Uri endpoint,
@@ -104,6 +116,33 @@ public sealed class ChatModelOptionsRequestTests
             (reasoning.GetProperty("id").GetString(), reasoning.GetProperty("encrypted_content").GetString()));
     }
 
+    // Through the real client, so the SDK update the part index is read from
+    // must survive the tool-calling layer to reach the builder.
+    [Fact]
+    public async Task Each_part_of_a_Luna_reasoning_summary_is_stored_as_a_paragraph_of_its_own()
+    {
+        var options = ChatModelServiceCollectionExtensions.LunaOptions();
+        options.Tools = [AIFunctionFactory.Create(() => "kl. 12", "probe")];
+        var capture = new CapturingHandler(ResponsesStreamSummarisedReasoningThenCallingProbe, EmptyStream);
+        var builder = new TurnBuilder(Turn.Start("hei", TurnModel, "be brief", []));
+
+        await StreamAsync("luna", options, capture, update => builder.Apply(update));
+
+        Assert.Equal("**Første** del.\n\n**Andre** del.", Assert.Single(builder.Snapshot().Answer.OfType<ReasoningSegment>()).Text);
+    }
+
+    // Both summaries are part 0 of their own item, so the index alone would not tell them apart.
+    [Fact]
+    public async Task The_summaries_of_two_reasoning_items_in_a_row_are_stored_as_paragraphs_of_their_own()
+    {
+        var capture = new CapturingHandler(ResponsesStreamTwoReasoningItems);
+        var builder = new TurnBuilder(Turn.Start("hei", TurnModel, "be brief", []));
+
+        await StreamAsync("luna", ChatModelServiceCollectionExtensions.LunaOptions(), capture, update => builder.Apply(update));
+
+        Assert.Equal("**A** ferdig.\n\n**B** neste.", Assert.Single(builder.Snapshot().Answer.OfType<ReasoningSegment>()).Text);
+    }
+
     // With store=false there is no stored response to point at, and Mistral's
     // stateless API rejects previous_response_id outright.
     [Theory]
@@ -133,7 +172,7 @@ public sealed class ChatModelOptionsRequestTests
         return JsonDocument.Parse(capture.Bodies[0]);
     }
 
-    private static async Task StreamAsync(string model, ChatOptions options, CapturingHandler capture)
+    private static async Task StreamAsync(string model, ChatOptions options, CapturingHandler capture, Action<ChatResponseUpdate>? onUpdate = null)
     {
         await using var services = new ServiceCollection().AddLogging().BuildServiceProvider();
         var createClient = ModelsUnderTest[model].Client(
@@ -143,8 +182,9 @@ public sealed class ChatModelOptionsRequestTests
             new HttpClientPipelineTransport(new HttpClient(capture)));
         using var client = createClient(services);
 
-        await foreach (var _ in client.GetStreamingResponseAsync("hei", options))
+        await foreach (var update in client.GetStreamingResponseAsync("hei", options))
         {
+            onUpdate?.Invoke(update);
         }
     }
 
@@ -214,6 +254,26 @@ public sealed class ChatModelOptionsRequestTests
 
         event: response.completed
         data: {"type":"response.completed","sequence_number":13,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[{"type":"reasoning","id":"rs_1","summary":[{"type":"summary_text","text":"**Første** del."},{"type":"summary_text","text":"**Andre** del."}],"encrypted_content":"encrypted-by-openai"},{"type":"function_call","id":"fc_1","call_id":"call-1","name":"probe","arguments":"{}","status":"completed"}]}}
+
+        data: [DONE]
+
+
+        """;
+
+    // Two reasoning items back to back, each with a summary of one part.
+    private const string ResponsesStreamTwoReasoningItems =
+        """
+        event: response.created
+        data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_1","object":"response","created_at":0,"status":"in_progress","model":"model-under-test","output":[]}}
+
+        event: response.reasoning_summary_text.delta
+        data: {"type":"response.reasoning_summary_text.delta","sequence_number":1,"item_id":"rs_1","output_index":0,"summary_index":0,"delta":"**A** ferdig."}
+
+        event: response.reasoning_summary_text.delta
+        data: {"type":"response.reasoning_summary_text.delta","sequence_number":2,"item_id":"rs_2","output_index":1,"summary_index":0,"delta":"**B** neste."}
+
+        event: response.completed
+        data: {"type":"response.completed","sequence_number":3,"response":{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"model-under-test","output":[]}}
 
         data: [DONE]
 
