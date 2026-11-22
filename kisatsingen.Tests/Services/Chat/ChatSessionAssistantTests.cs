@@ -18,7 +18,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.EndsWith(AssistantInstructions, harness.Client.LastOptions?.Instructions);
+        Assert.Contains(AssistantInstructions, harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public sealed class ChatSessionAssistantTests
         await harness.Session.SendAsync("hei");
 
         Assert.Equal(
-            "## Instructions for the assistant \"Saksbehandler\"\n\n" + AssistantInstructions,
+            ChatInstructions.ForAssistant("Saksbehandler", AssistantInstructions, files: [], areBaseInstructionsDisabled: true, harness.Today),
             harness.Client.LastOptions?.Instructions);
     }
 
@@ -64,7 +64,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.EndsWith(AssistantInstructions, harness.Client.LastOptions?.Instructions);
+        Assert.Contains(AssistantInstructions, harness.Client.LastOptions?.Instructions);
     }
 
     // The chat goes on as a plain chat, without the assistant's instructions.
@@ -78,7 +78,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(ChatInstructions.ForPlainChat, harness.Client.LastOptions?.Instructions);
+        Assert.Equal(ChatInstructions.ForPlainChat(harness.Today), harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.EndsWith("Svar på nynorsk.", harness.Client.LastOptions?.Instructions);
+        Assert.Contains("Svar på nynorsk.", harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class ChatSessionAssistantTests
 
         await harness.Session.SendAsync("hei");
 
-        Assert.Equal(ChatInstructions.ForPlainChat, harness.Client.LastOptions?.Instructions);
+        Assert.Equal(ChatInstructions.ForPlainChat(harness.Today), harness.Client.LastOptions?.Instructions);
     }
 
     [Fact]

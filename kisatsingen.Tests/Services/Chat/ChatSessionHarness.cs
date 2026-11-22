@@ -37,6 +37,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public FakeChatClient Client { get; } = new();
     public FakeChatModelCatalog Catalog { get; }
     public RecordingMetricsService Metrics { get; } = new();
+    public SettableTimeProvider Clock { get; } = new(new DateTimeOffset(2026, 11, 22, 10, 0, 0, TimeSpan.Zero));
+    public DateOnly Today => DateOnly.FromDateTime(DateTimeService.GetTimeZonedDateTimeOffset(Clock.GetUtcNow()).DateTime);
     public ChatSession Session { get; }
 
     public ChatManager Manager { get; }
@@ -69,7 +71,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
-            Assistants);
+            Assistants,
+            Clock);
     }
 
     private KnowledgeFilePipeline CreatePipeline()
@@ -318,6 +321,13 @@ internal sealed class FakeChatClient : IChatClient
     public void Dispose()
     {
     }
+}
+
+internal sealed class SettableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+{
+    public DateTimeOffset UtcNow { get; set; } = utcNow;
+
+    public override DateTimeOffset GetUtcNow() => UtcNow;
 }
 
 // Both models share one client: these tests are about which model is picked and
