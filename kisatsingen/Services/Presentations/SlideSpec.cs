@@ -15,11 +15,12 @@ public sealed record SlideSpec(
         "ContentWithSmallPicture: as Content, with a smaller picture beside the bullets and the background around it. " +
         "ContentWithSquarePicture: as Content, with a square picture beside the bullets. " +
         "TitleAndWidePicture: a title and a wide picture centred under it. LargePicture: a short title over a large centred picture. " +
-        "FullscreenPicture: a picture filling the slide, with a title and one short line of text.")]
+        "FullscreenPicture: a picture filling the slide, with one short line of text.")]
     SlideKind Kind,
     [property: Description(
         "The slide title; required on every slide for accessibility. For Quote it is the quote itself. " +
-        "For BigNumber it is hidden on screen but read by screen readers, so describe the figure. For Closing keep it to one short line.")]
+        "For BigNumber and FullscreenPicture it is hidden on screen but read by screen readers; for BigNumber describe the figure. " +
+        "For Closing keep it to one short line.")]
     string Title,
     [property: Description(
         "One extra line, used only by Cover and CoverWithPicture (subtitle), Quote (who said it), BigNumber (the figure, at most 8 characters, e.g. \"87 %\"), " +
@@ -27,7 +28,7 @@ public sealed record SlideSpec(
     string? Text = null,
     [property: Description(
         "Bullet points, one short phrase each, used only by Cover and CoverWithPicture (name, date, place), Agenda (topics), " +
-        "Content, ContentWithPicture and TwoColumns (left column).")]
+        "Content, ContentWithPicture, ContentWithSmallPicture, ContentWithSquarePicture and TwoColumns (left column).")]
     IReadOnlyList<string>? Bullets = null,
     [property: Description("The right column's bullet points, used only by TwoColumns.")]
     IReadOnlyList<string>? SecondColumn = null,
