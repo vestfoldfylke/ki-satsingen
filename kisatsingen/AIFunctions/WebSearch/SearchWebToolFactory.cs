@@ -2,9 +2,9 @@ using Microsoft.Extensions.AI;
 
 namespace kisatsingen.AIFunctions.WebSearch;
 
-// The tool and what it spends, for one turn: the turn offers the tool and
-// records the spend when it ends.
-internal sealed record SearchWebTurn(AITool Tool, WebSearchQuota Quota);
+// A turn's web search: the search_web tool for that turn, and the quota that
+// limits it and records what it spends.
+internal sealed record TurnWebSearch(AITool Tool, WebSearchQuota Quota);
 
 // Gives each turn its own search tool, so each turn's spend is kept apart.
 public sealed class SearchWebToolFactory
@@ -21,14 +21,14 @@ public sealed class SearchWebToolFactory
     }
 
     // Null without a search model: the turn goes on without search.
-    internal SearchWebTurn? StartTurn()
+    internal TurnWebSearch? StartTurn()
     {
         if (_model is null)
         {
             return null;
         }
 
-        var quota = new WebSearchQuota(_model.Provider, _model.ModelId);
-        return new SearchWebTurn(SearchWebTool.Create(_model, quota, _logger), quota);
+        var quota = new WebSearchQuota(provider: _model.Provider, modelId: _model.ModelId);
+        return new TurnWebSearch(SearchWebTool.Create(_model, quota, _logger), quota);
     }
 }
