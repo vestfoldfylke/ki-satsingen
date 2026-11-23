@@ -40,11 +40,48 @@ public sealed class CreateMeetingDocumentToolTests
         """;
 
     [Fact]
-    public void The_tool_requires_only_a_title_a_kind_a_meeting_and_agenda_items()
+    public void The_tool_requires_only_a_title_and_a_kind()
     {
         var required = Tool.JsonSchema.GetProperty("required").EnumerateArray().Select(name => name.GetString());
 
-        Assert.Equal(["title", "kind", "meeting", "agendaItems"], required);
+        Assert.Equal(["title", "kind"], required);
+    }
+
+    [Fact]
+    public void An_agenda_item_requires_only_a_description()
+    {
+        var itemSchema = Tool.JsonSchema.GetProperty("properties").GetProperty("agendaItems").GetProperty("items");
+
+        var required = itemSchema.TryGetProperty("required", out var names) ? string.Join(", ", names.EnumerateArray().Select(name => name.GetString())) : "";
+
+        Assert.Equal("description", required);
+    }
+
+    [Fact]
+    public async Task A_meeting_document_without_a_meeting_name_or_item_numbers_is_made()
+    {
+        var result = await InvokeAsync("""{ "title": "Referat", "kind": "Minutes", "agendaItems": [ { "description": "Budsjett" } ] }""");
+
+        Assert.Equal(1, result.GetProperty("agendaItemCount").GetInt32());
+    }
+
+    [Fact]
+    public async Task A_meeting_document_without_an_agenda_is_made_with_no_items()
+    {
+        var result = await InvokeAsync("""{ "title": "Møteinnkalling styremøte", "kind": "Notice", "meeting": "Styremøte" }""");
+
+        Assert.Equal(0, result.GetProperty("agendaItemCount").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("""{ "title": "T", "kind": "Notice", "meeting": "M" }""")]
+    [InlineData("""{ "title": "T", "kind": "Notice", "meeting": "M", "agendaItems": null }""")]
+    [InlineData("""{ "title": "T", "kind": "Notice", "meeting": "M", "agendaItems": [] }""")]
+    public void A_stored_call_without_agenda_items_reads_back_with_an_empty_agenda(string argumentsJson)
+    {
+        var spec = CreateMeetingDocumentTool.ReadArguments(JsonElement.Parse(argumentsJson));
+
+        Assert.Equal(0, spec?.AgendaItems.Count);
     }
 
     [Fact]
@@ -68,9 +105,9 @@ public sealed class CreateMeetingDocumentToolTests
     }
 
     [Theory]
-    [InlineData("""{ "title": "T", "kind": "Minutes", "meeting": "M", "agendaItems": [] }""")]
     [InlineData("""{ "title": "T", "kind": "Minutes", "meeting": "M", "agendaItems": [ null ] }""")]
-    [InlineData("""{ "title": "T", "kind": "Minutes", "agendaItems": [ { "item": "1", "description": "D" } ] }""")]
+    [InlineData("""{ "kind": "Minutes", "meeting": "M", "agendaItems": [ { "item": "1", "description": "D" } ] }""")]
+    [InlineData("""{ "title": "T", "kind": "Minutes", "agendaItems": [ { "item": "1" } ] }""")]
     [InlineData("""[]""")]
     public void Arguments_this_build_cannot_make_a_meeting_document_of_read_back_as_nothing(string argumentsJson)
     {

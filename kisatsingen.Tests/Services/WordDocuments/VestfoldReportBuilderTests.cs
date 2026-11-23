@@ -96,6 +96,24 @@ public sealed class VestfoldReportBuilderTests
     }
 
     [Fact]
+    public void A_cover_without_cover_text_has_no_text_box()
+    {
+        using var document = Open(Build(BareReport));
+
+        Assert.Equal((0, 0), (TextBoxShapes(document).Count(), CoverParagraphsStyled(document, "forside--tekstboks").Count()));
+    }
+
+    [Fact]
+    public void A_cover_with_cover_text_has_the_text_box_without_its_placeholder_title()
+    {
+        using var document = Open(Build(Report));
+
+        Assert.Equal(
+            (2, 0, "Utarbeidet av økonomiavdelingen.|Utarbeidet av økonomiavdelingen."),
+            (TextBoxShapes(document).Count(), CoverParagraphsStyled(document, "forside--tekstbokstittel").Count(), string.Join('|', CoverParagraphsStyled(document, "forside--tekstboks").Select(paragraph => paragraph.InnerText))));
+    }
+
+    [Fact]
     public void The_table_of_contents_waits_for_word_to_update_it_when_the_file_opens()
     {
         using var document = Open(Build(Report));
@@ -157,6 +175,15 @@ public sealed class VestfoldReportBuilderTests
     private static WordprocessingDocument Open(byte[] bytes) => WordprocessingDocument.Open(new MemoryStream(bytes), isEditable: false);
 
     private static Body Body(WordprocessingDocument document) => document.MainDocumentPart!.Document!.Body!;
+
+    // Word stores the cover's drawing twice: once for itself and once for older readers.
+    private static IEnumerable<OpenXmlElement> TextBoxShapes(WordprocessingDocument document) =>
+        Body(document).Descendants<DocumentFormat.OpenXml.Office2010.Word.DrawingShape.WordprocessingShape>()
+            .Where(shape => shape.GetFirstChild<DocumentFormat.OpenXml.Office2010.Word.DrawingShape.NonVisualDrawingProperties>()?.Name?.Value == "Tekstboks")
+            .Concat<OpenXmlElement>(Body(document).Descendants<DocumentFormat.OpenXml.Vml.Shape>().Where(shape => shape.Id?.Value == "Tekstboks"));
+
+    private static IEnumerable<Paragraph> CoverParagraphsStyled(WordprocessingDocument document, string styleId) =>
+        Body(document).Descendants<Paragraph>().Where(paragraph => paragraph.ParagraphProperties?.ParagraphStyleId?.Val?.Value == styleId);
 
     private static string BodyText(WordprocessingDocument document) => string.Join('\n', Body(document).Descendants<Text>().Select(text => text.Text));
 }

@@ -35,14 +35,14 @@ internal static class CreateMeetingDocumentTool
         ToolFunction.Create(Name, Description, (
             [Description("The document's title; it becomes the file name and the document title, e.g. \"Referat styremøte 24.11.2026\".")] string title,
             [Description(KindDescription)] MeetingDocumentKind kind,
-            [Description("The meeting's name or purpose, e.g. \"Styremøte\".")] string meeting,
-            [Description("The agenda items (Saksliste), in order; one row each.")] AgendaItemSpec[] agendaItems,
+            [Description("The meeting's name or purpose, e.g. \"Styremøte\".")] string? meeting = null,
             [Description("The date, as the user writes it, e.g. \"24.11.2026\".")] string? date = null,
             [Description("The time, e.g. \"10.00–11.30\".")] string? time = null,
             [Description("The place or video link.")] string? place = null,
             [Description("Who is invited, as a comma-separated list of names.")] string? invited = null,
             [Description("Who sent apologies (forfall), as a comma-separated list of names; usually only in minutes.")] string? absent = null,
-            [Description("Who takes the minutes (referent).")] string? minuteTaker = null) =>
+            [Description("Who takes the minutes (referent).")] string? minuteTaker = null,
+            [Description("The agenda items (Saksliste), in order; one row each. Leave it out when the text gives no agenda; the table stays blank.")] AgendaItemSpec[]? agendaItems = null) =>
             Check(new MeetingArguments(title, kind, meeting, agendaItems, date, time, place, invited, absent, minuteTaker)));
 
     // The arguments of a stored call, read the way the tool was given them. Null
@@ -61,10 +61,12 @@ internal static class CreateMeetingDocumentTool
         try
         {
             var spec = arguments.Deserialize<MeetingDocumentSpec>(AIJsonUtilities.DefaultOptions);
-            return spec is { Title: not null, Meeting: not null, AgendaItems: not null }
-                && MeetingDocumentSpecValidator.FindMissingAgendaItems(spec.AgendaItems).Count == 0
-                && MeetingDocumentSpecValidator.ValidateStructure(spec).Count == 0
-                    ? spec
+            // A call made without agenda items stores none; it reads as an empty agenda.
+            var read = spec is { AgendaItems: null } ? spec with { AgendaItems = [] } : spec;
+            return read is { Title: not null }
+                && MeetingDocumentSpecValidator.FindMissingAgendaItems(read.AgendaItems).Count == 0
+                && MeetingDocumentSpecValidator.ValidateStructure(read).Count == 0
+                    ? read
                     : null;
         }
         catch (JsonException)
@@ -89,7 +91,7 @@ internal static class CreateMeetingDocumentTool
 
         // OfType only narrows the type: no item is null past the check above.
         var spec = new MeetingDocumentSpec(
-            arguments.Title ?? "", arguments.Kind, arguments.Meeting ?? "", [.. (arguments.AgendaItems ?? []).OfType<AgendaItemSpec>()],
+            arguments.Title ?? "", arguments.Kind, arguments.Meeting, [.. (arguments.AgendaItems ?? []).OfType<AgendaItemSpec>()],
             arguments.Date, arguments.Time, arguments.Place, arguments.Invited, arguments.Absent, arguments.MinuteTaker);
 
         var problems = MeetingDocumentSpecValidator.Validate(spec);

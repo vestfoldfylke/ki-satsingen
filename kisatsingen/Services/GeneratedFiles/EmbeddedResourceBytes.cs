@@ -7,7 +7,7 @@ internal static class EmbeddedResourceBytes
     {
         using var resource = typeof(EmbeddedResourceBytes).Assembly.GetManifestResourceStream(resourceName)
             ?? throw new InvalidOperationException(
-                $"The embedded resource {resourceName} is missing, so no file can be built from it. Check its EmbeddedResource entry in the solution project file.");
+                $"The embedded resource {resourceName} is missing, so no file can be built from it. Check its EmbeddedResource entry in kisatsingen.csproj.");
         using var copy = new MemoryStream();
         resource.CopyTo(copy);
         return copy.ToArray();

@@ -5,7 +5,8 @@ namespace kisatsingen.Services.MeetingDocuments;
 
 // Fills the template's agenda table (Saksliste): the header row is kept, and
 // each item gets a copy of the template's first empty row, so the cells keep
-// the template's widths and spacing.
+// the template's widths and spacing. Without items the template's empty rows
+// are kept, for the user to fill in Word.
 internal static class AgendaTable
 {
     public const int ColumnCount = 5;
@@ -18,6 +19,11 @@ internal static class AgendaTable
         if (rows.Count < 2 || rows[1].Elements<TableCell>().Count() != ColumnCount)
         {
             throw TemplateChanged($"an agenda table without a header row and an empty row of {ColumnCount} cells");
+        }
+
+        if (items.Count == 0)
+        {
+            return;
         }
 
         var emptyRow = (TableRow)rows[1].CloneNode(deep: true);

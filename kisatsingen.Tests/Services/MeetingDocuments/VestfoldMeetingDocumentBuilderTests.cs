@@ -15,8 +15,8 @@ public sealed class VestfoldMeetingDocumentBuilderTests
         MeetingDocumentKind.Minutes,
         "Styremøte",
         [
-            new("1", "Godkjenning av innkalling", Decision: "Godkjent"),
-            new("2", "Budsjett 2027", Decision: "Vedtatt", Responsible: "Kari", Deadline: "01.12.2026")
+            new("Godkjenning av innkalling", "1", Decision: "Godkjent"),
+            new("Budsjett 2027", "2", Decision: "Vedtatt", Responsible: "Kari", Deadline: "01.12.2026")
         ],
         Date: "24.11.2026",
         Time: "10.00–11.30",
@@ -85,9 +85,31 @@ public sealed class VestfoldMeetingDocumentBuilderTests
     }
 
     [Fact]
-    public void A_line_break_in_a_field_stays_a_line_break()
+    public void A_meeting_without_a_name_and_an_item_without_a_number_leave_those_blank()
     {
-        using var document = Open(Build(Minutes with { Invited = "Kari\nOla" }));
+        using var document = Open(Build(Minutes with { Meeting = null, AgendaItems = [new("Budsjett")] }));
+
+        Assert.Equal(
+            ("Møte", "|Budsjett|||"),
+            (Body(document).Elements<Paragraph>().ElementAt(1).InnerText, string.Join('|', RowTexts(document)[1])));
+    }
+
+    [Fact]
+    public void Without_agenda_items_the_agenda_table_keeps_the_templates_empty_rows()
+    {
+        using var template = WordprocessingDocument.Open(new WordTemplateFiles().OpenWritableCopy(WordTemplateFile.Meeting), isEditable: false);
+        using var document = Open(Build(Minutes with { AgendaItems = [] }));
+
+        Assert.Equal(RowTexts(template), RowTexts(document));
+    }
+
+    [Theory]
+    [InlineData("Kari\nOla")]
+    [InlineData("Kari\r\nOla")]
+    [InlineData("Kari\rOla")]
+    public void A_line_break_in_a_field_stays_a_line_break(string invitedText)
+    {
+        using var document = Open(Build(Minutes with { Invited = invitedText }));
 
         var invited = Body(document).Elements<Paragraph>().Single(paragraph => paragraph.InnerText.StartsWith("Innkalt", StringComparison.Ordinal));
 
@@ -129,4 +151,7 @@ public sealed class VestfoldMeetingDocumentBuilderTests
     private static WordprocessingDocument Open(byte[] bytes) => WordprocessingDocument.Open(new MemoryStream(bytes), isEditable: false);
 
     private static Body Body(WordprocessingDocument document) => document.MainDocumentPart!.Document!.Body!;
+
+    private static List<string[]> RowTexts(WordprocessingDocument document) =>
+        [.. Body(document).Elements<Table>().Single().Elements<TableRow>().Select(row => row.Elements<TableCell>().Select(cell => cell.InnerText).ToArray())];
 }

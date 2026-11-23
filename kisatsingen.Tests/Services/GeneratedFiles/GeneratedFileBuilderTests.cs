@@ -18,7 +18,7 @@ public sealed class GeneratedFileBuilderTests
         "Notat.docx", new WordDocumentSpec("Notat", WordDocumentTemplate.Simple, [new(DocumentBlockKind.Heading1, Text: "Notat")]));
 
     private static readonly GeneratedFile MeetingDocument = new GeneratedFile.MeetingDocument(
-        "Referat.docx", new MeetingDocumentSpec("Referat", MeetingDocumentKind.Minutes, "Styremøte", [new("1", "Budsjett")]));
+        "Referat.docx", new MeetingDocumentSpec("Referat", MeetingDocumentKind.Minutes, "Styremøte", [new("Budsjett", "1")]));
 
     private static readonly WordTemplateFiles TemplateFiles = new();
 

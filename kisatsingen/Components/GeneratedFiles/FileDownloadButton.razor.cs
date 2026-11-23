@@ -39,19 +39,23 @@ public partial class FileDownloadButton : ComponentBase
 
         _isDownloading = true;
         _downloadProblem = null;
+
+        // Held for the whole download: the parameter can change while the build
+        // is awaited, and the name and type must stay those of the bytes built.
+        var download = Download;
         try
         {
-            switch (await GeneratedFileBuilder.BuildAsync(Download))
+            switch (await GeneratedFileBuilder.BuildAsync(download))
             {
                 case FileBuildResult.Built built:
-                    await SaveAsync(Download.FileName, built.Content);
+                    await SaveAsync(download.FileName, GeneratedFileBuilder.ContentTypeOf(download), built.Content);
                     break;
                 case FileBuildResult.Busy:
-                    Logger.LogWarning("File {FileName} not built: every build slot stayed taken for the whole wait", Download.FileName);
+                    Logger.LogWarning("File {FileName} not built: every build slot stayed taken for the whole wait", download.FileName);
                     _downloadProblem = BusyMessage;
                     break;
                 case FileBuildResult.Failed failed:
-                    Logger.LogError(failed.Error, "File {FileName} could not be built; check that its template still matches the builder (SlideLayouts and PresentationTheme, or WordStyles)", Download.FileName);
+                    Logger.LogError(failed.Error, "File {FileName} could not be built; check that its template still matches the builder (SlideLayouts and PresentationTheme, or WordStyles)", download.FileName);
                     _downloadProblem = BuildFailedMessage;
                     break;
             }
@@ -59,7 +63,7 @@ public partial class FileDownloadButton : ComponentBase
         catch (OperationCanceledException) when (GeneratedFileBuilder.IsCancelled)
         {
             // The circuit is gone; there is no one to give the file to.
-            Logger.LogInformation("File {FileName} not built since the operation was cancelled", Download.FileName);
+            Logger.LogInformation("File {FileName} not built since the operation was cancelled", download.FileName);
         }
         finally
         {
@@ -67,14 +71,14 @@ public partial class FileDownloadButton : ComponentBase
         }
     }
 
-    private async Task SaveAsync(string fileName, ArraySegment<byte> content)
+    private async Task SaveAsync(string fileName, string contentType, ArraySegment<byte> content)
     {
         // Blazor disposes the stream once it has sent it. It is disposed here
         // only where the transfer has ended or never began; see the catches.
         var stream = new DotNetStreamReference(new MemoryStream(content.Array!, content.Offset, content.Count, writable: false), leaveOpen: false);
         try
         {
-            await JS.InvokeVoidAsync("chatClient.downloadFile", fileName, GeneratedFileBuilder.ContentTypeOf(Download), stream);
+            await JS.InvokeVoidAsync("chatClient.downloadFile", fileName, contentType, stream);
         }
         catch (JSDisconnectedException)
         {

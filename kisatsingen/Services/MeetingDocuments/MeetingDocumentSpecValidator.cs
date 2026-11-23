@@ -38,7 +38,7 @@ internal static class MeetingDocumentSpecValidator
         }
 
         CheckText(problems, "Dokumentets tittel", spec.Title, limits.ShortText, isRequired: true);
-        CheckText(problems, "Feltet meeting", spec.Meeting, limits.ShortText, isRequired: true);
+        CheckText(problems, "Feltet meeting", spec.Meeting, limits.ShortText, isRequired: false);
         CheckText(problems, "Feltet date", spec.Date, limits.ShortText, isRequired: false);
         CheckText(problems, "Feltet time", spec.Time, limits.ShortText, isRequired: false);
         CheckText(problems, "Feltet place", spec.Place, limits.ShortText, isRequired: false);
@@ -46,9 +46,9 @@ internal static class MeetingDocumentSpecValidator
         CheckText(problems, "Feltet absent", spec.Absent, limits.NameList, isRequired: false);
         CheckText(problems, "Feltet minuteTaker", spec.MinuteTaker, limits.ShortText, isRequired: false);
 
-        if (spec.AgendaItems.Count == 0 || spec.AgendaItems.Count > limits.AgendaItems)
+        if (spec.AgendaItems.Count > limits.AgendaItems)
         {
-            problems.Add($"Sakslisten har {spec.AgendaItems.Count} saker; den må ha fra 1 til {MaxAgendaItems}. Del møtet på flere dokumenter, eller slå sammen saker.");
+            problems.Add($"Sakslisten har {spec.AgendaItems.Count} saker; den kan ha opptil {MaxAgendaItems}. Del møtet på flere dokumenter, eller slå sammen saker.");
         }
 
         for (var i = 0; i < spec.AgendaItems.Count; i++)
@@ -61,7 +61,7 @@ internal static class MeetingDocumentSpecValidator
 
     private static void CheckAgendaItem(List<string> problems, string name, AgendaItemSpec item, Limits limits)
     {
-        CheckText(problems, $"{name}: item", item.Item, limits.Item, isRequired: true);
+        CheckText(problems, $"{name}: item", item.Item, limits.Item, isRequired: false);
         CheckText(problems, $"{name}: description", item.Description, limits.Description, isRequired: true);
         CheckText(problems, $"{name}: decision", item.Decision, limits.Description, isRequired: false);
         CheckText(problems, $"{name}: responsible", item.Responsible, limits.ShortText, isRequired: false);
