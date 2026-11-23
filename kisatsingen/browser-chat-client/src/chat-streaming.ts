@@ -17,7 +17,7 @@
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
-import "highlight.js/styles/a11y-light.min.css"
+import './code-theme.css';
 import './copy-button.css';
 import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
