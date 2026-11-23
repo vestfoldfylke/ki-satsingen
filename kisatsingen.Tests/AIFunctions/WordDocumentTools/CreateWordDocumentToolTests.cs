@@ -66,6 +66,19 @@ public sealed class CreateWordDocumentToolTests
         Assert.Equal("Årsrapport.docx", result.GetProperty("fileName").GetString());
     }
 
+    // Refused only if the field reached the document, so this shows each cover
+    // argument is passed on.
+    [Theory]
+    [InlineData("subtitle")]
+    [InlineData("date")]
+    [InlineData("coverText")]
+    public async Task A_cover_field_on_a_simple_document_is_refused_naming_the_field(string field)
+    {
+        var result = await InvokeAsync($$"""{ "title": "Notat", "template": "Simple", "{{field}}": "Tekst", "blocks": [ { "kind": "Paragraph", "text": "Tekst" } ] }""");
+
+        Assert.Equal((true, true), (ToolError.IsRefusal(result), result.GetProperty("error").GetString()!.Contains($"Feltet {field}", StringComparison.Ordinal)));
+    }
+
     [Fact]
     public void The_description_sends_meeting_documents_to_the_meeting_tool()
     {
