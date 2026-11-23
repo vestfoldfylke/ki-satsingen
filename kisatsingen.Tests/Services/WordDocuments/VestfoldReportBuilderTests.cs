@@ -114,17 +114,14 @@ public sealed class VestfoldReportBuilderTests
     }
 
     [Fact]
-    public void The_table_of_contents_waits_for_word_to_update_it_when_the_file_opens()
+    public void The_table_of_contents_tells_the_user_to_update_it_without_word_asking_on_open()
     {
         using var document = Open(Build(Report));
         var settings = document.MainDocumentPart!.DocumentSettingsPart!.Settings!;
 
-        var tocBegin = Body(document).Descendants<FieldCode>().Single(code => code.Text.TrimStart().StartsWith("TOC", StringComparison.Ordinal))
-            .Parent!.PreviousSibling<Run>()!.GetFirstChild<FieldChar>()!;
-
         Assert.Equal(
-            (true, true, true),
-            (settings.GetFirstChild<UpdateFieldsOnOpen>()?.Val?.Value, tocBegin.Dirty?.Value, BodyText(document).Contains(ReportTableOfContents.PendingText, StringComparison.Ordinal)));
+            (false, true),
+            (settings.Elements<UpdateFieldsOnOpen>().Any(), BodyText(document).Contains("Høyreklikk her og velg Oppdater felt", StringComparison.Ordinal)));
     }
 
     [Fact]
