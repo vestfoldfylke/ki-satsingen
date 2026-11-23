@@ -154,6 +154,7 @@ html {
    highlighting lands after streaming. Scrolls, since wrapped code reads as two
    lines. */
 pre > code {
+    background: var(--ds-color-neutral-background-tinted);
     display: block;
     padding: 1em;
     overflow-x: auto;

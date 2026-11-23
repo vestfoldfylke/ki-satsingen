@@ -2,7 +2,6 @@
    overrides colors when in dark/light mode so it fits to each theme */
 
 .hljs {
-    background: var(--ds-color-neutral-background-tinted);
     color: light-dark(#545454, #f8f8f2);
 }
 .hljs-comment, .hljs-quote { color: light-dark(#696969, #d4d0ab); }
