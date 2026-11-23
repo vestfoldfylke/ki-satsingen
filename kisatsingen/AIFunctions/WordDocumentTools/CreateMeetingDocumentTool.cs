@@ -43,7 +43,17 @@ internal static class CreateMeetingDocumentTool
             [Description("Who sent apologies (forfall), as a comma-separated list of names; usually only in minutes.")] string? absent = null,
             [Description("Who takes the minutes (referent).")] string? minuteTaker = null,
             [Description("The agenda items (Saksliste), in order; one row each. Leave it out when the text gives no agenda; the table stays blank.")] AgendaItemSpec[]? agendaItems = null) =>
-            Check(new MeetingArguments(title, kind, meeting, agendaItems, date, time, place, invited, absent, minuteTaker)));
+            Check(new MeetingArguments(
+                Title: title,
+                Kind: kind,
+                Meeting: meeting,
+                AgendaItems: agendaItems,
+                Date: date,
+                Time: time,
+                Place: place,
+                Invited: invited,
+                Absent: absent,
+                MinuteTaker: minuteTaker)));
 
     // The arguments of a stored call, read the way the tool was given them. Null
     // when they are not a meeting document this build can make. Only what the
@@ -91,8 +101,16 @@ internal static class CreateMeetingDocumentTool
 
         // OfType only narrows the type: no item is null past the check above.
         var spec = new MeetingDocumentSpec(
-            arguments.Title ?? "", arguments.Kind, arguments.Meeting, [.. (arguments.AgendaItems ?? []).OfType<AgendaItemSpec>()],
-            arguments.Date, arguments.Time, arguments.Place, arguments.Invited, arguments.Absent, arguments.MinuteTaker);
+            Title: arguments.Title ?? "",
+            Kind: arguments.Kind,
+            Meeting: arguments.Meeting,
+            AgendaItems: [.. (arguments.AgendaItems ?? []).OfType<AgendaItemSpec>()],
+            Date: arguments.Date,
+            Time: arguments.Time,
+            Place: arguments.Place,
+            Invited: arguments.Invited,
+            Absent: arguments.Absent,
+            MinuteTaker: arguments.MinuteTaker);
 
         var problems = MeetingDocumentSpecValidator.Validate(spec);
         if (problems.Count > 0)
