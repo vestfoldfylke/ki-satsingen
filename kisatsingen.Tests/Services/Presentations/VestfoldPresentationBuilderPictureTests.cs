@@ -14,6 +14,7 @@ public sealed class VestfoldPresentationBuilderPictureTests
     private const string WidePicture = "bred";
     private const string TallPicture = "hoy";
     private const string AltText = "Et testbilde";
+    private const uint TemplatePictureIndex = 16;
 
     private static readonly PictureCatalog Catalog = PictureCatalog.Load(name => name switch
     {
@@ -38,7 +39,7 @@ public sealed class VestfoldPresentationBuilderPictureTests
         var placeholder = picture.Descendants<PlaceholderShape>().Single();
 
         Assert.Equal(
-            ("pic", 16u, AltText, slide.GetIdOfPart(image)),
+            ("pic", TemplatePictureIndex, AltText, slide.GetIdOfPart(image)),
             (placeholder.Type?.InnerText, placeholder.Index?.Value, picture.NonVisualPictureProperties?.NonVisualDrawingProperties?.Description?.Value, picture.BlipFill?.Blip?.Embed?.Value));
         Assert.Equal(Catalog.Find(WidePicture)!.Bytes, ReadAll(image));
     }
@@ -59,7 +60,7 @@ public sealed class VestfoldPresentationBuilderPictureTests
     public void A_contained_picture_is_shown_whole_at_the_frames_height_and_centred_across_it()
     {
         var slide = BuildSingle(new SlideSpec(SlideKind.ContentWithSmallPicture, "Innhold", PictureId: TallPicture, PictureFit: PictureFit.Contain));
-        var frame = LayoutFrame(slide, placeholderIndex: 16);
+        var frame = LayoutFrame(slide, placeholderIndex: TemplatePictureIndex);
 
         var picture = Assert.Single(slide.Slide!.Descendants<Picture>());
         var placed = picture.ShapeProperties!.Transform2D!;
@@ -76,7 +77,7 @@ public sealed class VestfoldPresentationBuilderPictureTests
     {
         var slide = BuildSingle(new SlideSpec(SlideKind.ContentWithSmallPicture, "Innhold", Bullets: ["Punkt"]));
 
-        Assert.Equal((0, 0), (slide.Slide!.Descendants<Picture>().Count(), slide.ImageParts.Count()));
+        Assert.Equal((0, 0, TemplatePictureIndex), (slide.Slide!.Descendants<Picture>().Count(), slide.ImageParts.Count(), EmptyPictureFrameIndex(slide)));
     }
 
     [Fact]
@@ -84,7 +85,17 @@ public sealed class VestfoldPresentationBuilderPictureTests
     {
         var slide = BuildSingle(new SlideSpec(SlideKind.ChapterWithPicture, "Kapittel", PictureId: "fjernet-bilde"));
 
-        Assert.Equal((0, 0), (slide.Slide!.Descendants<Picture>().Count(), slide.ImageParts.Count()));
+        Assert.Equal((0, 0, TemplatePictureIndex), (slide.Slide!.Descendants<Picture>().Count(), slide.ImageParts.Count(), EmptyPictureFrameIndex(slide)));
+    }
+
+    [Fact]
+    public void A_picture_slide_is_read_title_first_and_draws_its_caption_in_front_of_the_picture()
+    {
+        var slide = BuildSingle(new SlideSpec(SlideKind.FullscreenPicture, "Bilde", Text: "Bildetekst", PictureId: WidePicture));
+
+        var shapeOrder = slide.Slide!.CommonSlideData!.ShapeTree!.Descendants<PlaceholderShape>().Select(placeholder => placeholder.Type?.InnerText);
+
+        Assert.Equal(["title", "pic", "body"], shapeOrder);
     }
 
     // SOI, then a SOF0 frame header: all ImageHeaderReader reads.
@@ -99,6 +110,11 @@ public sealed class VestfoldPresentationBuilderPictureTests
         var document = PresentationDocument.Open(new MemoryStream(bytes), isEditable: false);
         return Assert.Single(document.PresentationPart!.SlideParts);
     }
+
+    private static uint? EmptyPictureFrameIndex(SlidePart slide) =>
+        slide.Slide!.Descendants<Shape>()
+            .Select(shape => shape.NonVisualShapeProperties?.ApplicationNonVisualDrawingProperties?.PlaceholderShape)
+            .Single(placeholder => placeholder?.Type?.InnerText == "pic")?.Index?.Value;
 
     private static A.Transform2D LayoutFrame(SlidePart slide, uint placeholderIndex) =>
         slide.SlideLayoutPart!.SlideLayout!.Descendants<PlaceholderShape>()

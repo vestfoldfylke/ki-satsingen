@@ -10,9 +10,7 @@ namespace kisatsingen.Services.Presentations.Pictures;
 //
 // One process-wide instance, Embedded: the presentation tool is part of the
 // static tool list given to every model, so it cannot take the catalog from
-// DI. The same instance is registered in DI for the builder. Loading checks
-// every entry, and ChatTools touches it at startup, so a broken catalog stops
-// the app rather than surfacing as a failed download.
+// DI. Loading checks every entry and throws on the first broken one.
 public sealed partial class PictureCatalog
 {
     public const string ResourcePrefix = "kisatsingen.Presentations.Pictures.";
