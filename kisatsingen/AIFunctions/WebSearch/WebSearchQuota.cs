@@ -4,8 +4,8 @@ using Microsoft.Extensions.AI;
 namespace kisatsingen.AIFunctions.WebSearch;
 
 // How many searches one turn may make, and what its search_web calls spent,
-// written as one usage row when the turn ends. Locked: the chat client calls
-// tools one at a time by default, but this stays right if that changes.
+// written as one usage row when the turn ends. Locked, so it stays right if
+// tools are called concurrently.
 internal sealed class WebSearchQuota(string provider, string modelId)
 {
     public const int MaxSearchesPerTurn = 3;

@@ -2,6 +2,7 @@ using System.Buffers;
 using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using OpenAI.Responses;
@@ -40,9 +41,12 @@ internal static class SearchWebTool
 
     private const string SitePrefix = "site:";
 
-    // What follows a domain when an address carries more than the site: a
-    // path, a query string, a fragment, a login or a port.
-    private static readonly SearchValues<char> AddressCharacters = SearchValues.Create("/?=&#@:");
+    // What follows a host when an address carries more than the site: a path,
+    // a query string, a fragment, a login, a port, or a path written with an
+    // encoded or backward slash.
+    private static readonly SearchValues<char> AddressCharacters = SearchValues.Create("/?=&#@:%\\");
+
+    private const int Ipv4DotCount = 3;
 
     public static AIFunction Create(WebSearchModel model, WebSearchQuota quota, ILogger logger) =>
         ToolFunction.Create(Name, Description, (
@@ -95,21 +99,34 @@ internal static class SearchWebTool
     // The search model opens pages itself, so a query naming an address could
     // make it send a page's or a file's text to a stranger's site, in the
     // address's path, query string or login. A bare domain can't be told apart
-    // from an ordinary word, so this narrows that risk rather than removing it.
+    // from an ordinary word, and words are checked one at a time, so an address
+    // split across words gets through: this narrows the risk rather than
+    // removing it.
     private static bool ContainsWebAddress(string query) =>
         query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Any(IsWebAddress);
 
     // site: only narrows the search to one site, so what follows it is checked
-    // like any other word. A domain has a letter after a dot, as in lovdata.no,
-    // so times, numbers and year spans stay allowed, such as kl.12:00,
-    // 1.000/mnd and 2025/2026.
+    // like any other word. A host is a domain, which has a letter after a dot
+    // as in lovdata.no, or an IPv4 address with all three dots. Times, numbers
+    // and year spans stay allowed, such as kl.12:00, 1.000/mnd and 2025/2026.
     private static bool IsWebAddress(string word)
     {
         var address = word.StartsWith(SitePrefix, StringComparison.OrdinalIgnoreCase) ? word[SitePrefix.Length..] : word;
+        if (address.Contains("://", StringComparison.Ordinal) || address.StartsWith("www.", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var hostEnd = address.AsSpan().IndexOfAny(AddressCharacters);
+        if (hostEnd < 0)
+        {
+            return false;
+        }
+
         var hasDomainDot = address.Split('.').Skip(1).Any(part => part.Length > 0 && char.IsLetter(part[0]));
-        return address.Contains("://", StringComparison.Ordinal)
-            || address.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
-            || (hasDomainDot && address.AsSpan().ContainsAny(AddressCharacters));
+        var host = address[..hostEnd];
+        var isIpv4Host = host.Count(character => character == '.') == Ipv4DotCount && IPAddress.TryParse(host, out _);
+        return hasDomainDot || isIpv4Host;
     }
 
     // Only the provider call is caught, so a bug here still fails loudly. The

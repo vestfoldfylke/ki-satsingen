@@ -211,6 +211,10 @@ public sealed class SearchWebToolTests
     [InlineData("lovdata.no/forskrift skoleskyss")]
     [InlineData("evil.example?x=hemmelig")]
     [InlineData("evil.example:8080")]
+    [InlineData("203.0.113.5/x?d=hemmelig")]
+    [InlineData("10.0.0.1:8080")]
+    [InlineData("evil.example%2Fp%3Fd%3Dhemmelig")]
+    [InlineData("evil.example\\p")]
     [InlineData("ola@evil.example")]
     [InlineData("site:evil.example?x=hemmelig")]
     public async Task A_query_with_a_web_address_is_refused_without_searching(string query)
@@ -227,7 +231,10 @@ public sealed class SearchWebToolTests
     [InlineData("åpningstider kl.12:00")]
     [InlineData("satser 1.000/mnd")]
     [InlineData("pause 12.30/13.00")]
-    public async Task A_query_naming_a_site_or_a_year_span_is_searched(string query)
+    [InlineData("frist 01.08.2026:")]
+    [InlineData("tilskudd 1.000.000/år")]
+    [InlineData("økning 50%")]
+    public async Task A_query_without_a_web_address_is_searched(string query)
     {
         _client.Response = Answer(Text("Svar."));
 
