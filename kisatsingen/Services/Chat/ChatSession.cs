@@ -24,6 +24,7 @@ public sealed class ChatSession : IAsyncDisposable
     private readonly IKnowledgeFileRepository _knowledgeFileRepository;
     private readonly IKnowledgeFileReader _knowledgeFileReader;
     private readonly IAssistantRepository _assistantRepository;
+    private readonly TimeProvider _timeProvider;
     private readonly ILogger<ChatSession> _logger;
 
     private readonly List<Turn> _turns = [];
@@ -92,7 +93,8 @@ public sealed class ChatSession : IAsyncDisposable
         IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
         FileToolFactory fileTools,
-        IAssistantRepository assistantRepository)
+        IAssistantRepository assistantRepository,
+        TimeProvider timeProvider)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -105,6 +107,7 @@ public sealed class ChatSession : IAsyncDisposable
         _knowledgeFileRepository = knowledgeFileRepository;
         _knowledgeFileReader = knowledgeFileReader;
         _assistantRepository = assistantRepository;
+        _timeProvider = timeProvider;
         _logger = logger;
 
         _channel = new ChatClientChannel(js, logger);
@@ -165,12 +168,15 @@ public sealed class ChatSession : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    // The one place the prompt for the next turn is chosen, so what is sent and
-    // what is estimated can never differ.
+    // The one place the prompt for the next turn is built, so what is sent and
+    // what is estimated are built the same way.
     private string SystemPrompt =>
         _assistant is { } assistant
-            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles, assistant.AreBaseInstructionsDisabled)
-            : ChatInstructions.ForPlainChat;
+            ? ChatInstructions.ForAssistant(assistant.Name, assistant.Instructions, _assistantFiles, assistant.AreBaseInstructionsDisabled, Today)
+            : ChatInstructions.ForPlainChat(Today);
+
+    // Norwegian, not UTC: just after midnight here, UTC is still on yesterday.
+    private DateOnly Today => DateOnly.FromDateTime(DateTimeService.GetTimeZonedDateTimeOffset(_timeProvider.GetUtcNow()).DateTime);
 
     // Estimated from the request we would send, not from usage: usage sums every
     // tool round trip. Right for cost (see ConversationUsage), wrong for size.

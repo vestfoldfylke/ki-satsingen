@@ -121,14 +121,6 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
-    public void The_time_is_shown_as_it_was_returned()
-    {
-        var view = Build("get_current_time_utc", "\"2026-11-09T09:22:33.0000000+00:00\"");
-
-        Assert.Equal("2026-11-09T09:22:33.0000000+00:00", view.UserFriendlyResult);
-    }
-
-    [Fact]
     public void An_interrupted_call_says_what_was_interrupted()
     {
         var view = Build("read_file", result: null, ToolStatus.Interrupted);
