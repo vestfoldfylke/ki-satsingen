@@ -10,6 +10,8 @@ namespace kisatsingen.Services.Presentations;
 public sealed class VestfoldPresentationBuilder(PresentationTemplate template, PictureCatalog pictureCatalog, TimeProvider timeProvider)
 {
     public const string ContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+    public const string FileExtension = ".pptx";
+    public const string FallbackFileStem = "presentasjon";
 
     // PowerPoint numbers slide ids from 256; lower ids are reserved.
     private const uint FirstSlideId = 256;

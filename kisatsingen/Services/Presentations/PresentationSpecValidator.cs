@@ -1,4 +1,4 @@
-using System.Xml;
+using kisatsingen.Services.GeneratedFiles;
 using kisatsingen.Services.Presentations.Pictures;
 
 namespace kisatsingen.Services.Presentations;
@@ -174,7 +174,7 @@ internal static class PresentationSpecValidator
             problems.Add($"{name} har {text.Length} tegn; maks er {maxLength}. Kort ned teksten, eller del den på flere lysbilder.");
         }
 
-        if (!IsXmlText(text))
+        if (!XmlText.IsValid(text))
         {
             problems.Add($"{name} inneholder kontrolltegn som ikke kan stå i en PowerPoint-fil. Fjern dem.");
         }
@@ -195,26 +195,5 @@ internal static class PresentationSpecValidator
 
         public static readonly Limits None = new(
             int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue);
-    }
-
-    // Line breaks and tabs are allowed by XML but break a paragraph oddly;
-    // they are not rejected, the builder keeps them as typed.
-    private static bool IsXmlText(string text)
-    {
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (char.IsHighSurrogate(text[i]) && i + 1 < text.Length && char.IsLowSurrogate(text[i + 1]))
-            {
-                i++;
-                continue;
-            }
-
-            if (!XmlConvert.IsXmlChar(text[i]))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

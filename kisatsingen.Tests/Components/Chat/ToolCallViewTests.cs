@@ -3,6 +3,7 @@ using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.GeneratedFiles;
 using kisatsingen.Services.Presentations;
 using Xunit;
 
@@ -163,9 +164,10 @@ public sealed class ToolCallViewTests
     {
         var view = Build("create_presentation", PresentationResult, arguments: PresentationArguments);
 
+        var download = Assert.IsType<GeneratedFile.Presentation>(view.Download);
         Assert.Equal(
             ("Budsjett.pptx", "Budsjett", PresentationTheme.VannFjord, "Innledning"),
-            (view.Download?.FileName, view.Download?.Spec.Title, view.Download?.Spec.Theme, view.Download?.Spec.Slides[0].Title));
+            (download.FileName, download.Spec.Title, download.Spec.Theme, download.Spec.Slides[0].Title));
     }
 
     [Fact]
@@ -182,6 +184,57 @@ public sealed class ToolCallViewTests
         var view = Build("create_presentation", PresentationResult, arguments: """{ "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Picture", "title": "Bilde" } ] }""");
 
         Assert.Equal(("Laget presentasjon", null), (view.Title, view.Download));
+    }
+
+    private const string WordDocumentArguments = """
+        { "title": "Notat", "template": "Simple", "blocks": [ { "kind": "Heading1", "text": "Notat om skolebruksplan" } ] }
+        """;
+
+    private const string WordDocumentResult = """{"fileName":"Notat.docx","blockCount":1}""";
+
+    [Fact]
+    public void A_created_word_document_is_titled_with_its_file_name()
+    {
+        var view = Build("create_word_document", WordDocumentResult, arguments: WordDocumentArguments);
+
+        Assert.Equal("Laget Word-dokumentet «Notat.docx»", view.Title);
+    }
+
+    [Fact]
+    public void A_created_word_document_offers_its_blocks_for_download_under_its_file_name()
+    {
+        var view = Build("create_word_document", WordDocumentResult, arguments: WordDocumentArguments);
+
+        var download = Assert.IsType<GeneratedFile.WordDocument>(view.Download);
+        Assert.Equal(("Notat.docx", "Notat", "Notat om skolebruksplan"), (download.FileName, download.Spec.Title, download.Spec.Blocks[0].Text));
+    }
+
+    [Fact]
+    public void A_refused_word_document_offers_no_download()
+    {
+        var view = Build("create_word_document", """{"error":"Blokk 1: text er tom."}""", arguments: WordDocumentArguments);
+
+        Assert.Null(view.Download);
+    }
+
+    [Fact]
+    public void A_stored_word_document_whose_arguments_no_longer_make_a_document_offers_no_download()
+    {
+        var view = Build("create_word_document", WordDocumentResult, arguments: """{ "title": "Notat", "blocks": [ { "kind": "Picture", "text": "Bilde" } ] }""");
+
+        Assert.Equal(("Laget Word-dokument", null), (view.Title, view.Download));
+    }
+
+    [Fact]
+    public void A_created_meeting_document_offers_its_form_for_download_under_its_file_name()
+    {
+        var view = Build(
+            "create_meeting_document",
+            """{"fileName":"Referat.docx","agendaItemCount":1}""",
+            arguments: """{ "title": "Referat", "kind": "Minutes", "meeting": "Styremøte", "agendaItems": [ { "item": "1", "description": "Budsjett" } ] }""");
+
+        var download = Assert.IsType<GeneratedFile.MeetingDocument>(view.Download);
+        Assert.Equal(("Laget møtedokumentet «Referat.docx»", "Styremøte"), (view.Title, download.Spec.Meeting));
     }
 
     [Theory]

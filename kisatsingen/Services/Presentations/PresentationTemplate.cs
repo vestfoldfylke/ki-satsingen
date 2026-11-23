@@ -1,3 +1,5 @@
+using kisatsingen.Services.GeneratedFiles;
+
 namespace kisatsingen.Services.Presentations;
 
 // The Vestfold fylkeskommune PowerPoint template, embedded in the assembly so
@@ -17,13 +19,5 @@ public sealed class PresentationTemplate
         return stream;
     }
 
-    private static byte[] Load()
-    {
-        using var resource = typeof(PresentationTemplate).Assembly.GetManifestResourceStream(ResourceName)
-            ?? throw new InvalidOperationException(
-                $"The embedded resource {ResourceName} is missing, so no presentation can be built. Check the EmbeddedResource entry for the template in kisatsingen.csproj.");
-        using var copy = new MemoryStream();
-        resource.CopyTo(copy);
-        return copy.ToArray();
-    }
+    private static byte[] Load() => EmbeddedResourceBytes.Read(ResourceName);
 }
