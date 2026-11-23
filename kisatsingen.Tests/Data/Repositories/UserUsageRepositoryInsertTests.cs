@@ -185,7 +185,15 @@ public sealed class UserUsageRepositoryInsertTests(PostgresFixture fixture) : IA
     {
         var turnId = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
-        await InsertAsync(NewUsageRecord.ForWebSearch(UserId, Guid.NewGuid(), turnId, assistantId: null, "OpenAI", "gpt-6-luna", new MessageUsage(2_000, 400), webSearchCount: 2));
+        await InsertAsync(NewUsageRecord.ForWebSearch(
+            userId: UserId,
+            chatId: Guid.NewGuid(),
+            turnId: turnId,
+            assistantId: null,
+            provider: "OpenAI",
+            modelId: "gpt-6-luna",
+            usage: new MessageUsage(2_000, 400),
+            webSearchCount: 2));
 
         await using var db = await Factory.CreateDbContextAsync();
         var stored = await db.UsageRecords.SingleAsync();
@@ -212,11 +220,21 @@ public sealed class UserUsageRepositoryInsertTests(PostgresFixture fixture) : IA
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
 
+    [Fact]
+    public async Task The_database_refuses_a_web_search_row_without_a_count()
+    {
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveRowAsync(UsageKind.WebSearch, webSearchCount: null));
+    }
+
     // The search total sums the count over every row, whatever its kind.
-    [Theory]
-    [InlineData(UsageKind.WebSearch, null)]
-    [InlineData(UsageKind.KnowledgeFileConversion, 2)]
-    public async Task The_database_refuses_a_web_search_count_on_any_row_but_a_web_search_row_and_its_absence_on_one(UsageKind kind, int? webSearchCount)
+    [Fact]
+    public async Task The_database_refuses_a_web_search_count_on_a_conversion_row()
+    {
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveRowAsync(UsageKind.KnowledgeFileConversion, webSearchCount: 2));
+    }
+
+    // Straight through the DbContext, since the factories never build these rows.
+    private async Task SaveRowAsync(UsageKind kind, int? webSearchCount)
     {
         await using var db = await Factory.CreateDbContextAsync();
         db.UsageRecords.Add(new UsageRecord
@@ -229,8 +247,7 @@ public sealed class UserUsageRepositoryInsertTests(PostgresFixture fixture) : IA
             ModelId = "gpt-6-luna",
             WebSearchCount = webSearchCount
         });
-
-        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        await db.SaveChangesAsync();
     }
 
     // Persisted by name, like the status: the usage queries filter on it.
