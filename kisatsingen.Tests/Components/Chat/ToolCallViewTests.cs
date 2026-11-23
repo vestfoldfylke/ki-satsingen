@@ -121,14 +121,6 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
-    public void The_time_is_shown_as_it_was_returned()
-    {
-        var view = Build("get_current_time_utc", "\"2026-11-09T09:22:33.0000000+00:00\"");
-
-        Assert.Equal("2026-11-09T09:22:33.0000000+00:00", view.UserFriendlyResult);
-    }
-
-    [Fact]
     public void An_interrupted_call_says_what_was_interrupted()
     {
         var view = Build("read_file", result: null, ToolStatus.Interrupted);
@@ -150,6 +142,14 @@ public sealed class ToolCallViewTests
         var view = Build("search_web", "\"treff\"");
 
         Assert.Equal("Brukte verktøyet search_web", view.Title);
+    }
+
+    [Fact]
+    public void A_picture_list_is_titled_with_how_many_pictures_there_are()
+    {
+        var view = Build("list_presentation_pictures", """{"pictures":[{"pictureId":"fjord","description":"A fjord"},{"pictureId":"skog","description":"A forest"}]}""", arguments: "{}");
+
+        Assert.Equal("Så hvilke bilder presentasjonen kan bruke (2 bilder)", view.Title);
     }
 
     private const string PresentationArguments = """

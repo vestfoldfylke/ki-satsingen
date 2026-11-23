@@ -2,6 +2,7 @@ using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.PresentationTools;
 using kisatsingen.Services.Presentations;
+using kisatsingen.Services.Presentations.Pictures;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
@@ -142,6 +143,34 @@ public sealed class CreatePresentationToolTests
 
         Assert.True(ToolError.IsRefusal(result));
         Assert.Contains(expectedProblem, result.GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public void The_description_points_to_the_picture_list_tool_instead_of_listing_the_pictures()
+    {
+        var description = Tool.Description;
+
+        Assert.Contains(ListPresentationPicturesTool.Name, description);
+        Assert.All(PictureCatalog.Embedded.All, picture => Assert.DoesNotContain(picture.Id, description));
+    }
+
+    [Fact]
+    public async Task A_picture_slide_with_a_catalog_picture_is_accepted()
+    {
+        var pictureId = PictureCatalog.Embedded.All[0].Id;
+
+        var result = await InvokeAsync($$"""{ "title": "T", "theme": "SivStrand", "slides": [ { "kind": "ChapterWithPicture", "title": "K", "pictureId": "{{pictureId}}" } ] }""");
+
+        Assert.False(ToolError.IsRefusal(result));
+    }
+
+    [Fact]
+    public async Task A_made_up_picture_id_is_refused_naming_the_id()
+    {
+        var result = await InvokeAsync("""{ "title": "T", "theme": "SivStrand", "slides": [ { "kind": "ChapterWithPicture", "title": "K", "pictureId": "solnedgang" } ] }""");
+
+        Assert.True(ToolError.IsRefusal(result));
+        Assert.Contains("solnedgang", result.GetProperty("error").GetString());
     }
 
     [Fact]

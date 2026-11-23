@@ -81,24 +81,14 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
 
         return toolCall.ToolName switch
         {
-            ChatTools.GetCurrentTimeUtcToolName => DescribeCurrentTime(outcome, result),
             ListFilesTool.Name => DescribeListFiles(outcome, result),
             GetOutlineTool.Name => DescribeOutline(outcome, result),
             ReadFileTool.Name => DescribeReadFile(outcome, result),
             CreatePresentationTool.Name => DescribeCreatePresentation(outcome, result, toolCall.Arguments),
+            ListPresentationPicturesTool.Name => DescribeListPresentationPictures(outcome, result),
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
-
-    private static ToolCallText DescribeCurrentTime(ToolOutcome outcome, JsonElement? result) => outcome switch
-    {
-        ToolOutcome.Running => new(Title: "Sjekker hva klokka er"),
-        ToolOutcome.Succeeded when result is { ValueKind: JsonValueKind.String } time => new(
-            Title: "Sjekket hva klokka er",
-            UserFriendlyResult: time.GetString()),
-        ToolOutcome.Succeeded => new(Title: "Sjekket hva klokka er"),
-        _ => new(Title: "Prøvde å sjekke hva klokka er")
-    };
 
     private static ToolCallText DescribeListFiles(ToolOutcome outcome, JsonElement? result) => outcome switch
     {
@@ -159,6 +149,15 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
                 Download: new GeneratedPresentation(fileName, spec)),
         ToolOutcome.Succeeded => new(Title: "Laget presentasjon"),
         _ => new(Title: "Prøvde å lage presentasjon")
+    };
+
+    private static ToolCallText DescribeListPresentationPictures(ToolOutcome outcome, JsonElement? result) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Ser hvilke bilder presentasjonen kan bruke"),
+        ToolOutcome.Succeeded when ReadAs<PresentationPicturesResult>(result) is { Pictures: { } pictures } => new(
+            Title: $"Så hvilke bilder presentasjonen kan bruke ({pictures.Count} bilder)"),
+        ToolOutcome.Succeeded => new(Title: "Så hvilke bilder presentasjonen kan bruke"),
+        _ => new(Title: "Prøvde å se hvilke bilder presentasjonen kan bruke")
     };
 
     private static ToolCallText DescribeUnknownTool(string toolName, ToolOutcome outcome) => outcome switch
