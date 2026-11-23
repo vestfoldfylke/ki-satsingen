@@ -1,6 +1,7 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.Presentations;
@@ -11,7 +12,7 @@ namespace kisatsingen.Tests.Components.Chat;
 public sealed class ToolCallViewTests
 {
     public static TheoryData<string> ToolNamesTheChatOffers =>
-        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames]);
+        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames, .. SearchWebToolFactory.ToolNames]);
 
     [Fact]
     public void A_read_of_part_of_a_file_is_titled_with_the_lines_read_and_the_line_count()
@@ -139,9 +140,40 @@ public sealed class ToolCallViewTests
     [Fact]
     public void An_unknown_tool_is_named_in_its_title()
     {
-        var view = Build("search_web", "\"treff\"");
+        var view = Build("get_weather", "\"sol\"");
 
-        Assert.Equal("Brukte verktøyet search_web", view.Title);
+        Assert.Equal("Brukte verktøyet get_weather", view.Title);
+    }
+
+    [Fact]
+    public void A_finished_search_is_titled_with_its_queries_and_lists_its_sources()
+    {
+        var view = Build("search_web", """
+            {"queries":["skoleskyss Vestfold","skyssgrense"],"sources":[
+                {"url":"https://www.vestfoldfylke.no/skyss","title":"Skoleskyss"},
+                {"url":"https://lovdata.no/forskrift","title":null}],
+             "contentNotice":"","content":""}
+            """);
+
+        Assert.Equal(
+            ("Søkte etter «skoleskyss Vestfold», «skyssgrense»", "Skoleskyss – https://www.vestfoldfylke.no/skyss\nhttps://lovdata.no/forskrift"),
+            (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_without_sources_says_so()
+    {
+        var view = Build("search_web", """{"queries":["skoleskyss"],"sources":[],"contentNotice":"","content":""}""");
+
+        Assert.Equal("Ingen kilder", view.UserFriendlyResult);
+    }
+
+    [Fact]
+    public void A_finished_search_whose_result_lacks_the_queries_falls_back_to_the_plain_title()
+    {
+        var view = Build("search_web", """{"sources":[]}""");
+
+        Assert.Equal(("Søkte på nettet", null), (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]

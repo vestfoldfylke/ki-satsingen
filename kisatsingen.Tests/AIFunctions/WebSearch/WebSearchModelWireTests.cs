@@ -84,7 +84,7 @@ public sealed class WebSearchModelWireTests
             "not-used",
             new Uri("https://provider.invalid/v1"),
             new HttpClientPipelineTransport(new HttpClient(handler)));
-        var quota = new WebSearchQuota(model.Provider, model.ModelId);
+        var quota = new WebSearchQuota(provider: model.Provider, modelId: model.ModelId);
         var tool = SearchWebTool.Create(model, quota, NullLogger.Instance);
 
         var result = await tool.InvokeAsync(new AIFunctionArguments { ["query"] = JsonSerializer.SerializeToElement(Query) });

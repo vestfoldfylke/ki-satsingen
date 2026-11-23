@@ -3,10 +3,12 @@ using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.AIFunctions.PresentationTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Components.Presentation;
 using kisatsingen.Services.Chat;
 using static kisatsingen.AIFunctions.FileTools.FileToolResults;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
+using static kisatsingen.AIFunctions.WebSearch.SearchWebResults;
 
 namespace kisatsingen.Components.Chat;
 
@@ -86,9 +88,24 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             ReadFileTool.Name => DescribeReadFile(outcome, result),
             CreatePresentationTool.Name => DescribeCreatePresentation(outcome, result, toolCall.Arguments),
             ListPresentationPicturesTool.Name => DescribeListPresentationPictures(outcome, result),
+            SearchWebTool.Name => DescribeSearchWeb(outcome, result),
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
+
+    // What the provider searched for, and the sources it cited, so the user
+    // sees what the answer is based on.
+    private static ToolCallText DescribeSearchWeb(ToolOutcome outcome, JsonElement? result) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Søker på nettet"),
+        ToolOutcome.Succeeded when ReadAs<SearchWebResult>(result) is { Queries: { Count: > 0 } queries, Sources: { } sources } => new(
+            Title: $"Søkte etter {string.Join(", ", queries.Select(query => $"«{query}»"))}",
+            UserFriendlyResult: sources.Count == 0
+                ? "Ingen kilder"
+                : string.Join('\n', sources.Select(source => source.Title is { } title ? $"{title} – {source.Url}" : source.Url))),
+        ToolOutcome.Succeeded => new(Title: "Søkte på nettet"),
+        _ => new(Title: "Prøvde å søke på nettet")
+    };
 
     private static ToolCallText DescribeListFiles(ToolOutcome outcome, JsonElement? result) => outcome switch
     {

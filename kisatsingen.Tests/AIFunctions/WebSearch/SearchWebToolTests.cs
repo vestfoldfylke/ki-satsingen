@@ -1,4 +1,3 @@
-using System.ClientModel.Primitives;
 using System.Text.Json;
 using kisatsingen.AIFunctions.WebSearch;
 using Microsoft.Extensions.AI;
@@ -97,6 +96,18 @@ public sealed class SearchWebToolTests
     }
 
     [Fact]
+    public async Task A_citation_with_an_empty_title_is_listed_without_a_title()
+    {
+        _client.Response = Answer(Text("Svar.", Citation("https://lovdata.no/forskrift", title: "")));
+
+        var result = await SearchAsync("skoleskyss");
+
+        Assert.Equal(
+            """[{"url":"https://lovdata.no/forskrift"}]""",
+            JsonElement.Parse(result).GetProperty("sources").GetRawText());
+    }
+
+    [Fact]
     public async Task A_citation_with_a_relative_link_is_left_out_of_the_sources()
     {
         _client.Response = Answer(Text("Svar.",
@@ -122,7 +133,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public async Task Searches_whose_queries_cannot_be_read_are_warned_about()
     {
-        _client.Response = Answer(Text("Svar."), raw: RawResponse("""{"type":"search"}"""));
+        _client.Response = Answer(Text("Svar."), raw: RawSearchResponse.WithActions("""{"type":"search"}"""));
 
         await SearchAsync("skoleskyss");
 
@@ -132,7 +143,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public async Task An_answer_without_searches_is_not_warned_about()
     {
-        _client.Response = Answer(Text("Svar."), raw: RawResponse());
+        _client.Response = Answer(Text("Svar."), raw: RawSearchResponse.WithActions());
 
         await SearchAsync("skoleskyss");
 
@@ -142,7 +153,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public async Task Only_search_actions_are_counted_as_billed_searches()
     {
-        _client.Response = Answer(Text("Svar."), raw: RawResponse(
+        _client.Response = Answer(Text("Svar."), raw: RawSearchResponse.WithActions(
             """{"type":"search","query":"skoleskyss"}""",
             """{"type":"open_page","url":"https://lovdata.no/forskrift"}""",
             """{"type":"find_in_page","url":"https://lovdata.no/forskrift","pattern":"kilometer"}""",
@@ -156,7 +167,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public async Task A_search_call_with_an_action_type_openai_does_not_document_is_counted_as_billed()
     {
-        _client.Response = Answer(Text("Svar."), raw: RawResponse("""{"type":"search_preview","query":"skoleskyss"}"""));
+        _client.Response = Answer(Text("Svar."), raw: RawSearchResponse.WithActions("""{"type":"search_preview","query":"skoleskyss"}"""));
 
         await SearchAsync("skoleskyss");
 
@@ -166,7 +177,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public async Task A_search_call_whose_action_cannot_be_read_is_counted_as_billed()
     {
-        _client.Response = Answer(Text("Svar."), raw: RawResponse(actionJsons: [null]));
+        _client.Response = Answer(Text("Svar."), raw: RawSearchResponse.WithActions(actionJsons: [null]));
 
         await SearchAsync("skoleskyss");
 
@@ -213,6 +224,9 @@ public sealed class SearchWebToolTests
     [InlineData("site:lovdata.no skoleskyss")]
     [InlineData("budsjett 2025/2026")]
     [InlineData("åpningstider kl. 10:30")]
+    [InlineData("åpningstider kl.12:00")]
+    [InlineData("satser 1.000/mnd")]
+    [InlineData("pause 12.30/13.00")]
     public async Task A_query_naming_a_site_or_a_year_span_is_searched(string query)
     {
         _client.Response = Answer(Text("Svar."));
@@ -325,15 +339,6 @@ public sealed class SearchWebToolTests
 
     private static ChatResponse Answer(TextContent text, ResponseResult? raw = null, UsageDetails? usage = null, params WebSearchToolCallContent[] calls) =>
         new(new AiMessage(ChatRole.Assistant, [.. calls, text])) { RawRepresentation = raw, Usage = usage };
-
-    // A null action is a call OpenAI sent without one.
-    private static ResponseResult RawResponse(params string?[] actionJsons)
-    {
-        var output = actionJsons.Select((action, index) =>
-            $$"""{"type":"web_search_call","id":"ws_{{index}}","status":"completed"{{(action is null ? "" : $",\"action\":{action}")}}}""");
-        var json = $$"""{"id":"resp_1","object":"response","created_at":0,"status":"completed","model":"search-under-test","output":[{{string.Join(",", output)}}],"parallel_tool_calls":true,"tool_choice":"auto","tools":[]}""";
-        return ModelReaderWriter.Read<ResponseResult>(BinaryData.FromString(json), ModelReaderWriterOptions.Json)!;
-    }
 
     private sealed class WarningCapture : ILogger
     {

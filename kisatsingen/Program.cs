@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Authorization;
 using kisatsingen.Components;
 using kisatsingen.Components.Usage;
@@ -239,6 +240,10 @@ builder.Services.AddSingleton(fileToolOptions);
 builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
 builder.Services.AddScoped<FileToolFactory>();
 
+// ─── Web search tool ───────────────────────────────────
+var webSearchModel = WebSearchModel.FromConfiguration(builder.Configuration);
+builder.Services.AddSingleton(sp => new SearchWebToolFactory(webSearchModel, sp.GetRequiredService<ILogger<SearchWebToolFactory>>()));
+
 // ─── Presentation tool ─────────────────────────────────
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PresentationTemplate>();
@@ -261,6 +266,15 @@ _ = app.Services.GetRequiredService<IChatModelCatalog>();
 // Resolved eagerly because building the registry validates it: two converters
 // for one type must stop startup, not surface later as a failed upload.
 _ = app.Services.GetRequiredService<DocumentConverterRegistry>();
+
+// ─── One-time startup: web search ──────────────────────
+// Search is optional, so a missing key only leaves it out, but says so once.
+if (webSearchModel is null)
+{
+    app.Logger.LogWarning(
+        "Web search is unavailable: configuration '{ConfigurationPath}' is missing or empty. Set it to offer the search_web tool.",
+        WebSearchModel.CredentialConfigurationPath);
+}
 
 // ─── One-time startup: attachment temp files ───────────
 // Resolved eagerly so StartFresh wipes the folder before the server accepts a

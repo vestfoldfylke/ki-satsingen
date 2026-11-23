@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -93,6 +94,7 @@ public sealed class ChatSession : IAsyncDisposable
         IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
         FileToolFactory fileTools,
+        SearchWebToolFactory searchWebTools,
         IAssistantRepository assistantRepository,
         TimeProvider timeProvider)
     {
@@ -113,7 +115,7 @@ public sealed class ChatSession : IAsyncDisposable
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
         var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userUsageRepository, logger);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, fileTools);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, fileTools, searchWebTools);
     }
 
     public Guid ChatId => _chatId;
