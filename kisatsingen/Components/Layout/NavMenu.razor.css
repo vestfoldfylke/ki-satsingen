@@ -149,6 +149,10 @@
     overflow: hidden;
 }
 
+.user-menu-darkmode {
+    padding: var(--dsc-dropdown-item-padding);
+}
+
 .user-menu-button-title {
     overflow: hidden;
     text-overflow: ellipsis;
