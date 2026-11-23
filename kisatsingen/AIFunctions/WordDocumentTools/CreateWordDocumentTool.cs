@@ -22,6 +22,7 @@ internal static class CreateWordDocumentTool
         "With the Simple template, start with a Heading1 as the document's main heading, optionally after a Kicker with the date, followed by a short Lead. " +
         "With the Report template, the title, subtitle and date go on the cover, and the blocks start at the first chapter: use Heading2 for chapters, " +
         "Heading3 to Heading5 for subheadings, and FactBox for short fact boxes. " +
+        "Word numbers the Report's Heading2 to Heading4 itself, so leave numbers such as \"1.\" or \"2.1\" out of the heading text, even when the user's text has them. " +
         "Use BulletList and NumberedList for lists instead of typing \"-\" or \"1.\" in a Paragraph, and PageBreak instead of empty paragraphs. " +
         "Keep tables simple: one header row and plain rows, no merged cells. Write in the language of the user's text.";
 
