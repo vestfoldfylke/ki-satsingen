@@ -85,6 +85,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             GetOutlineTool.Name => DescribeOutline(outcome, result),
             ReadFileTool.Name => DescribeReadFile(outcome, result),
             CreatePresentationTool.Name => DescribeCreatePresentation(outcome, result, toolCall.Arguments),
+            ListPresentationPicturesTool.Name => DescribeListPresentationPictures(outcome, result),
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
@@ -148,6 +149,15 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
                 Download: new GeneratedPresentation(fileName, spec)),
         ToolOutcome.Succeeded => new(Title: "Laget presentasjon"),
         _ => new(Title: "Prøvde å lage presentasjon")
+    };
+
+    private static ToolCallText DescribeListPresentationPictures(ToolOutcome outcome, JsonElement? result) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Ser hvilke bilder presentasjonen kan bruke"),
+        ToolOutcome.Succeeded when ReadAs<PresentationPicturesResult>(result) is { Pictures: { } pictures } => new(
+            Title: $"Så hvilke bilder presentasjonen kan bruke ({pictures.Count} bilder)"),
+        ToolOutcome.Succeeded => new(Title: "Så hvilke bilder presentasjonen kan bruke"),
+        _ => new(Title: "Prøvde å se hvilke bilder presentasjonen kan bruke")
     };
 
     private static ToolCallText DescribeUnknownTool(string toolName, ToolOutcome outcome) => outcome switch

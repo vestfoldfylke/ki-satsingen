@@ -144,6 +144,14 @@ public sealed class ToolCallViewTests
         Assert.Equal("Brukte verktøyet search_web", view.Title);
     }
 
+    [Fact]
+    public void A_picture_list_is_titled_with_how_many_pictures_there_are()
+    {
+        var view = Build("list_presentation_pictures", """{"pictures":[{"pictureId":"fjord","description":"A fjord"},{"pictureId":"skog","description":"A forest"}]}""", arguments: "{}");
+
+        Assert.Equal("Så hvilke bilder presentasjonen kan bruke (2 bilder)", view.Title);
+    }
+
     private const string PresentationArguments = """
         { "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Chapter", "title": "Innledning" } ] }
         """;

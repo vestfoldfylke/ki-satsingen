@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using kisatsingen.Authorization;
+#pragma warning disable IDE0005
 using kisatsingen.Components.Shared;
+#pragma warning restore IDE0005
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;

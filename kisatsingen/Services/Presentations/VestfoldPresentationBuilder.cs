@@ -1,12 +1,13 @@
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Presentation;
+using kisatsingen.Services.Presentations.Pictures;
 
 namespace kisatsingen.Services.Presentations;
 
 // Turns a validated spec into a .pptx built on the Vestfold template. The same
 // spec gives the same slides; only the file's created time differs.
-public sealed class VestfoldPresentationBuilder(PresentationTemplate template, TimeProvider timeProvider)
+public sealed class VestfoldPresentationBuilder(PresentationTemplate template, PictureCatalog pictureCatalog, TimeProvider timeProvider)
 {
     public const string ContentType = "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
@@ -61,7 +62,7 @@ public sealed class VestfoldPresentationBuilder(PresentationTemplate template, T
         }
     }
 
-    private static void AddSlides(PresentationPart presentationPart, PresentationSpec spec)
+    private void AddSlides(PresentationPart presentationPart, PresentationSpec spec)
     {
         var master = FindMaster(presentationPart, spec.Theme);
         var presentation = presentationPart.Presentation!;
@@ -71,7 +72,8 @@ public sealed class VestfoldPresentationBuilder(PresentationTemplate template, T
         foreach (var slide in spec.Slides)
         {
             var layoutPart = FindLayout(master, spec.Theme, SlideLayouts.For(slide.Kind).LayoutName);
-            var slidePart = SlideFactory.Create(presentationPart, layoutPart, slide);
+            var picture = slide.PictureId is { } pictureId ? pictureCatalog.Find(pictureId) : null;
+            var slidePart = SlideFactory.Create(presentationPart, layoutPart, slide, picture);
             slideIdList.Append(new SlideId { Id = slideId++, RelationshipId = presentationPart.GetIdOfPart(slidePart) });
         }
     }

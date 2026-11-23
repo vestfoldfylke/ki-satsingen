@@ -9,5 +9,5 @@ internal static class ChatTools
     // could be set wrong. The presentation tool is here rather than gated like
     // the file tools: any message may be text to turn into slides, and a tool
     // list that stays the same keeps the prompt cache valid.
-    public static readonly IReadOnlyList<AITool> All = [CreatePresentationTool.Tool];
+    public static readonly IReadOnlyList<AITool> All = [CreatePresentationTool.Tool, ListPresentationPicturesTool.Tool];
 }

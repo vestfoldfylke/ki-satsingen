@@ -1,0 +1,92 @@
+[
+  {
+    "id": "astronaut",
+    "file": "astronaut.jpg",
+    "altText": "Smilende astronaut i oransje romdrakt med hjelm, flagg og romfergemodell i bakgrunnen",
+    "description": "Smiling astronaut in an orange spacesuit, portrait"
+  },
+  {
+    "id": "blid-solnedgang",
+    "file": "blid_solnedgang.jpg",
+    "altText": "Tegnet smilende sol som går ned i havet under en oransje himmel",
+    "description": "Illustration of a smiling sun setting over the sea"
+  },
+  {
+    "id": "fotografen",
+    "file": "fotografen.jpg",
+    "altText": "En fotograf i svart frakk filmer med kamera på stativ, svart-hvitt",
+    "description": "Photographer with a camera on a tripod, black and white"
+  },
+  {
+    "id": "greske-mynter-pompeii",
+    "file": "greske_mynter_pompeii.jpg",
+    "altText": "Greske mynter fra Pompeii lagt ut i rader, svart-hvitt",
+    "description": "Ancient Greek coins from Pompeii, black and white"
+  },
+  {
+    "id": "hestesilhuett",
+    "file": "hestesilhuett.png",
+    "altText": "Svart silhuett av en hest",
+    "description": "Black horse silhouette on white"
+  },
+  {
+    "id": "hubble-deep-field",
+    "file": "hubble_deep_field.jpg",
+    "altText": "Hubble Deep Field med tusenvis av fjerne galakser",
+    "description": "Hubble Deep Field, distant galaxies"
+  },
+  {
+    "id": "julia-fraktal",
+    "file": "julia_fraktal.jpg",
+    "altText": "Julia-fraktal",
+    "description": "Julia set fractal"
+  },
+  {
+    "id": "kaffekopp",
+    "file": "kaffekopp.jpg",
+    "altText": "Espresso i en rød kopp med skje på et trebord",
+    "description": "Espresso in a red cup on a wooden table"
+  },
+  {
+    "id": "katt",
+    "file": "katt.jpg",
+    "altText": "Nærbilde av en tabby-katt med grønne øyne",
+    "description": "Close-up of a tabby cat"
+  },
+  {
+    "id": "mandelbrot-fraktal",
+    "file": "mandelbrot_fraktal.jpg",
+    "altText": "Mandelbrot-fraktal",
+    "description": "Mandelbrot set fractal"
+  },
+  {
+    "id": "nordlys-over-fjell",
+    "file": "nordlys_over_fjell.jpg",
+    "altText": "Nordlys over fjell",
+    "description": "Northern lights over mountains"
+  },
+  {
+    "id": "oyets-netthinne",
+    "file": "oyets_netthinne.jpg",
+    "altText": "Fotografi av øyets netthinne med blodårer og synsnerve",
+    "description": "Retina of the eye with blood vessels"
+  },
+  {
+    "id": "rakettoppskyting",
+    "file": "rakettoppskyting.jpg",
+    "altText": "Rakettoppskyting",
+    "description": "Rocket launch"
+  },
+  {
+    "id": "sloth",
+    "file": "sloth.png",
+    "altText": "Smilende dovendyr som holder seg fast i et tre",
+    "description": "Smiling sloth hanging on a tree"
+  },
+  {
+    "id": "vaskebjorn",
+    "file": "vaskebjorn.jpg",
+    "altText": "Vaskebjørn som ligger i grønne blader",
+    "description": "Raccoon in green leaves"
+  }
+]
