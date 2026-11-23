@@ -31,6 +31,7 @@ public partial class NavMenu : ComponentBase, IDisposable
 
         await ReadColorSchemeAsync();
     }
+
     private async Task ReadColorSchemeAsync()
     {
         try
