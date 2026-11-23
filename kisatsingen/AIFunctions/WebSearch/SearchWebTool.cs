@@ -85,7 +85,11 @@ internal static class SearchWebTool
             return new ToolError(SearchWebTexts.NoResult);
         }
 
-        return new SearchWebResult(ReadQueries(response, query, billedSearches, logger), ReadSources(response), SearchWebTexts.ContentNotice, content);
+        return new SearchWebResult(
+            Queries: ReadQueries(response, query, billedSearches, logger),
+            Sources: ReadSources(response),
+            ContentNotice: SearchWebTexts.ContentNotice,
+            Content: content);
     }
 
     // The search model opens pages itself, so a query naming an address could
@@ -96,14 +100,16 @@ internal static class SearchWebTool
         query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Any(IsWebAddress);
 
     // site: only narrows the search to one site, so what follows it is checked
-    // like any other word. A slash without a dot stays allowed, for year spans
-    // like 2025/2026.
+    // like any other word. A domain has a letter after a dot, as in lovdata.no,
+    // so times, numbers and year spans stay allowed, such as kl.12:00,
+    // 1.000/mnd and 2025/2026.
     private static bool IsWebAddress(string word)
     {
         var address = word.StartsWith(SitePrefix, StringComparison.OrdinalIgnoreCase) ? word[SitePrefix.Length..] : word;
+        var hasDomainDot = address.Split('.').Skip(1).Any(part => part.Length > 0 && char.IsLetter(part[0]));
         return address.Contains("://", StringComparison.Ordinal)
             || address.StartsWith("www.", StringComparison.OrdinalIgnoreCase)
-            || (address.Contains('.') && address.AsSpan().ContainsAny(AddressCharacters));
+            || (hasDomainDot && address.AsSpan().ContainsAny(AddressCharacters));
     }
 
     // Only the provider call is caught, so a bug here still fails loudly. The
@@ -120,7 +126,14 @@ internal static class SearchWebTool
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Searching the web with {ModelId} failed, so the search is refused.", model.ModelId);
+            logger.LogWarning(
+                ex,
+                "Searching the web with {ModelId} failed, so the chat model is told that search is unavailable. " +
+                "Likely causes: the search took longer than {TimeoutSeconds} seconds, OpenAI returned an error, or the key in '{ConfigurationPath}' is invalid. " +
+                "Check the exception, the key, and OpenAI's status page.",
+                model.ModelId,
+                SearchTimeout.TotalSeconds,
+                WebSearchModel.CredentialConfigurationPath);
             return null;
         }
     }
@@ -210,6 +223,7 @@ internal static class SearchWebTool
 
     // The cited sources, each once, in the order the text cites them. A
     // relative link has no address the user could open, so it is left out.
+    // An empty title is no title, so the source is shown by its link alone.
     private static IReadOnlyList<WebSource> ReadSources(ChatResponse response) =>
         [.. response.Messages
             .SelectMany(message => message.Contents)
@@ -217,6 +231,6 @@ internal static class SearchWebTool
             .SelectMany(text => text.Annotations ?? [])
             .OfType<CitationAnnotation>()
             .Where(citation => citation.Url is { IsAbsoluteUri: true })
-            .Select(citation => new WebSource(citation.Url!.AbsoluteUri, citation.Title))
+            .Select(citation => new WebSource(citation.Url!.AbsoluteUri, string.IsNullOrWhiteSpace(citation.Title) ? null : citation.Title))
             .DistinctBy(source => source.Url, StringComparer.Ordinal)];
 }
