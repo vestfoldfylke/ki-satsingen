@@ -32,6 +32,12 @@
 }
 
 :root {
+    /* The usage needs DS styling when we're using dark mode and light mode */
+    --rz-text-color: var(--ds-color-neutral-text-default);
+    --rz-text-secondary-color: var(--ds-color-neutral-text-subtle);
+    --rz-base-background-color: var(--ds-color-neutral-background-default);
+    --rz-chart-axis-color: var(--ds-color-neutral-border-subtle);
+
     /* The transcript and the composer share one column width on every chat
        page, or the composer stops lining up with the messages above it and
        moves when a new chat becomes a conversation. */
@@ -150,7 +156,7 @@ html {
     border: 0;
 }
 
-/* Matches highlight.js's pre code.hljs, so a block keeps its size when
+/* Matches highlight.js's pre code.hljs, so a block keeps its size and background color when
    highlighting lands after streaming. Scrolls, since wrapped code reads as two
    lines. */
 pre > code {
