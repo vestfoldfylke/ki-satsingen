@@ -24,4 +24,7 @@ public partial class TotalUsage : ComponentBase
 
     [Parameter]
     public long TotalConversionTokenUsage { get; init; }
+
+    [Parameter]
+    public long TotalWebSearches { get; init; }
 }

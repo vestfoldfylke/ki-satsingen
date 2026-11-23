@@ -1,3 +1,4 @@
+@using System.Globalization
 @using kisatsingen.Components.Chat
 
 <div class="usage-cards">
@@ -34,5 +35,10 @@
     <div class="ds-card" data-color="neutral">
         <h3 class="ds-heading" data-size="xs">Conversion tokens</h3>
         <span>@TokenCountFormat.Format(TotalConversionTokenUsage)</span>
+    </div>
+
+    <div class="ds-card" data-color="neutral">
+        <h3 class="ds-heading" data-size="xs">Web searches</h3>
+        <span>@TotalWebSearches.ToString("N0", CultureInfo.CurrentCulture)</span>
     </div>
 </div>

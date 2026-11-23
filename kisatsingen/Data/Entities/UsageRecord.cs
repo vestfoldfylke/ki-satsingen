@@ -34,6 +34,8 @@ public sealed class UsageRecord
     // Part of OutputTokens, never added to it.
     public long? ReasoningTokens { get; init; }
 
+    public int? WebSearchCount { get; init; }
+
     // Only a ChatTurn row has one.
     public TurnStatus? Status { get; init; }
 }

@@ -8,6 +8,7 @@ public record UsageSummary(
     long TotalCachedInputTokens,
     long TotalReasoningTokens,
     long TotalConversionTokens,
+    long TotalWebSearches,
     int TurnCount)
 {
     public static UsageSummary Empty { get; } = new(
@@ -18,5 +19,6 @@ public record UsageSummary(
         TotalCachedInputTokens: 0,
         TotalReasoningTokens: 0,
         TotalConversionTokens: 0,
+        TotalWebSearches: 0,
         TurnCount: 0);
 }

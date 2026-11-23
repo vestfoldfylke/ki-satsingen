@@ -43,6 +43,7 @@ public sealed class OrganizationUsageRepository(IDbContextFactory<AppDbContext> 
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COALESCE(SUM(COALESCE("InputTokens", 0) + COALESCE("OutputTokens", 0)) FILTER (WHERE "Kind" = {KnowledgeFileConversionKind}), 0)::bigint AS "TotalConversionTokens",
+                 COALESCE(SUM("WebSearchCount"), 0)::bigint AS "TotalWebSearches",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "UsageRecords"
              WHERE ({since}::timestamptz IS NULL OR "Timestamp" >= {since})

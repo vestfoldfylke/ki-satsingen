@@ -18,6 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     private const string KnowledgeFileScopeConstraintName = "ck_knowledge_files_single_scope";
     private const string UsageRecordTurnStatusConstraintName = "ck_usage_records_turn_has_status";
+    private const string UsageRecordWebSearchCountConstraintName = "ck_usage_records_web_search_has_count";
 
     // Named so the save path can tell a duplicate from any other unique violation.
     public const string KnowledgeFileChatSha256IndexName = "IX_KnowledgeFiles_ChatId_Sha256";
@@ -173,6 +174,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             UsageRecordTurnStatusConstraintName,
             $"""
              "Kind" <> '{nameof(UsageKind.ChatTurn)}' OR "Status" IS NOT NULL
+             """));
+
+        // The search total sums the column over every row, so only a WebSearch
+        // row may have a count, and a WebSearch row must have one.
+        usageRecord.ToTable(t => t.HasCheckConstraint(
+            UsageRecordWebSearchCountConstraintName,
+            $"""
+             ("Kind" = '{nameof(UsageKind.WebSearch)}') = ("WebSearchCount" IS NOT NULL)
              """));
         usageRecord.HasIndex(u => new { u.AssistantId, u.Timestamp }).HasFilter("\"AssistantId\" IS NOT NULL");
     }
