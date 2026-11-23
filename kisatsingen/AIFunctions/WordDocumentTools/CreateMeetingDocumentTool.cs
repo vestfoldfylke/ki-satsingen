@@ -17,13 +17,13 @@ internal static class CreateMeetingDocumentTool
 
     public const string Description =
         "Creates a Word file (.docx) on Vestfold fylkeskommune's template for meeting notices (møteinnkalling) and minutes (referat), and gives the user a download button. " +
-        "Use it when the user asks for a meeting notice, an agenda for a meeting, minutes, or a template for them. " +
+        "Use it when the user asks for a meeting notice, an agenda for a meeting, or minutes. " +
         "The template is a form: fill the fields from the user's text, and leave out any field the text does not give; it stays blank for the user to fill in. " +
         "Never make up names, dates, decisions or deadlines. Write in the language of the user's text.";
 
     public const string Notice =
         "Møtedokumentet er laget. Brukeren laster det ned med knappen som vises ved dette verktøykallet. " +
-        "Ikke skriv en lenke eller filsti til det; svar kort med hva dokumentet inneholder, og nevn felt som er stått tomme.";
+        "Ikke skriv en lenke eller filsti til det; svar kort med hva dokumentet inneholder, og nevn felt som står tomme.";
 
     private const string KindDescription =
         "Notice: a meeting notice (møteinnkalling), sent before the meeting. Minutes: the minutes (referat), written after it. " +

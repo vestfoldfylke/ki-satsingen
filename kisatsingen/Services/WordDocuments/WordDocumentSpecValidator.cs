@@ -101,29 +101,35 @@ internal static class WordDocumentSpecValidator
 
     private static void CheckBlock(List<string> problems, string blockName, DocumentBlockSpec block, WordDocumentTemplate template, Limits limits)
     {
-        if (!Enum.IsDefined(block.Kind))
+        if (block.Kind is not { } kind)
         {
-            problems.Add($"{blockName} har typen {block.Kind}, som ikke finnes. Velg en av: {string.Join(", ", Enum.GetNames<DocumentBlockKind>())}.");
+            problems.Add($"{blockName} mangler typen (kind). Velg en av: {string.Join(", ", KindsIn(template))}.");
             return;
         }
 
-        if (!DocumentBlockFields.IsAvailableIn(block.Kind, template))
+        if (!Enum.IsDefined(kind))
         {
-            problems.Add($"{blockName} har typen {block.Kind}, som malen {template} ikke har. Typene {template} har: {string.Join(", ", KindsIn(template))}.");
+            problems.Add($"{blockName} har typen {kind}, som ikke finnes. Velg en av: {string.Join(", ", Enum.GetNames<DocumentBlockKind>())}.");
             return;
         }
 
-        var fields = DocumentBlockFields.For(block.Kind);
+        if (!DocumentBlockFields.IsAvailableIn(kind, template))
+        {
+            problems.Add($"{blockName} har typen {kind}, som malen {template} ikke har. Typene {template} har: {string.Join(", ", KindsIn(template))}.");
+            return;
+        }
+
+        var fields = DocumentBlockFields.For(kind);
         var allowed = AllowedFields(fields);
 
-        CheckAllowed(problems, blockName, block.Kind, TextField, block.Text is not null, fields.HasText, allowed);
-        CheckAllowed(problems, blockName, block.Kind, ItemsField, block.Items is not null, fields.HasItems, allowed);
-        CheckAllowed(problems, blockName, block.Kind, HeaderRowField, block.HeaderRow is not null, fields.HasTable, allowed);
-        CheckAllowed(problems, blockName, block.Kind, RowsField, block.Rows is not null, fields.HasTable, allowed);
+        CheckAllowed(problems, blockName, kind, TextField, block.Text is not null, fields.HasText, allowed);
+        CheckAllowed(problems, blockName, kind, ItemsField, block.Items is not null, fields.HasItems, allowed);
+        CheckAllowed(problems, blockName, kind, HeaderRowField, block.HeaderRow is not null, fields.HasTable, allowed);
+        CheckAllowed(problems, blockName, kind, RowsField, block.Rows is not null, fields.HasTable, allowed);
 
         if (fields.HasText)
         {
-            var textLength = DocumentBlockFields.IsShortText(block.Kind) ? limits.ShortTextLength : limits.TextLength;
+            var textLength = DocumentBlockFields.IsShortText(kind) ? limits.ShortTextLength : limits.TextLength;
             CheckText(problems, $"{blockName}: {TextField}", block.Text, textLength, isRequired: true);
         }
 

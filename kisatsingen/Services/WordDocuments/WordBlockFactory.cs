@@ -9,6 +9,11 @@ namespace kisatsingen.Services.WordDocuments;
 // their own, since its table style is a bare grid.
 internal static class WordBlockFactory
 {
+    // tblLook's legacy bitmask, kept in step with its attributes: noVBand is
+    // always on, firstRow only with a header row.
+    private const int TableLookFirstRow = 0x0020;
+    private const int TableLookNoVerticalBand = 0x0400;
+
     // The skill this follows uses a light blue header and soft grey borders.
     private const string TableHeaderFill = "D9E2EC";
     private const string TableBorderColor = "BFC9D4";
@@ -22,7 +27,8 @@ internal static class WordBlockFactory
         DocumentBlockKind.NumberedList => CreateList(block.Items ?? [], numbering.AddNumberedList()),
         DocumentBlockKind.Table => [CreateTable(block.HeaderRow, block.Rows ?? [], contentWidth, tableFormat)],
         DocumentBlockKind.PageBreak => [new Paragraph(new Run(new Break { Type = BreakValues.Page }))],
-        _ => [CreateParagraph(WordStyles.For(block.Kind), block.Text ?? "")]
+        { } kind => [CreateParagraph(WordStyles.For(kind), block.Text ?? "")],
+        null => throw new InvalidOperationException($"A Word block has no kind, so it cannot be built. The spec reached {nameof(WordBlockFactory)} unvalidated; check it with {nameof(WordDocumentSpecValidator)} first.")
     };
 
     private static IEnumerable<OpenXmlElement> CreateList(IReadOnlyList<string> items, int instanceId) =>
@@ -60,7 +66,18 @@ internal static class WordBlockFactory
             properties.Append(CreateBorders());
         }
 
-        properties.Append(new TableLook { Val = "04A0", FirstRow = headerRow is not null, LastRow = false, FirstColumn = false, LastColumn = false, NoHorizontalBand = false, NoVerticalBand = true });
+        var hasHeaderRow = headerRow is not null;
+        var lookBits = TableLookNoVerticalBand | (hasHeaderRow ? TableLookFirstRow : 0);
+        properties.Append(new TableLook
+        {
+            Val = lookBits.ToString("X4", CultureInfo.InvariantCulture),
+            FirstRow = hasHeaderRow,
+            LastRow = false,
+            FirstColumn = false,
+            LastColumn = false,
+            NoHorizontalBand = false,
+            NoVerticalBand = true
+        });
 
         var table = new Table(properties, new TableGrid(widths.Select(width => new GridColumn { Width = width.ToString(CultureInfo.InvariantCulture) })));
 

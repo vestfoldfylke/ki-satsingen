@@ -105,6 +105,7 @@ public sealed class CreateWordDocumentToolTests
     [InlineData("""{ "title": "T", "blocks": [ { "kind": "Paragraph", "text": "" } ] }""")]
     [InlineData("""{ "title": "T", "blocks": [ { "kind": "Table", "headerRow": ["A", "B"], "rows": [["a"]] } ] }""")]
     [InlineData("""{ "title": "T", "blocks": [ null ] }""")]
+    [InlineData("""{ "title": "T", "blocks": [ { "text": "Uten type" } ] }""")]
     [InlineData("""{ "blocks": [] }""")]
     [InlineData("""[]""")]
     public void Arguments_this_build_cannot_make_a_document_of_read_back_as_nothing(string argumentsJson)
@@ -159,6 +160,14 @@ public sealed class CreateWordDocumentToolTests
         var result = await InvokeAsync("""{ "title": "T", "template": "Simple", "blocks": [ { "kind": "Picture", "text": "Bilde" } ] }""");
 
         Assert.True(ToolError.IsRefusal(result));
+    }
+
+    [Fact]
+    public async Task A_block_without_a_kind_is_refused_rather_than_built_as_a_kicker()
+    {
+        var result = await InvokeAsync("""{ "title": "T", "template": "Simple", "blocks": [ { "kind": "Heading1", "text": "Plan" }, { "text": "Første avsnitt." } ] }""");
+
+        Assert.Equal((true, true), (ToolError.IsRefusal(result), result.GetProperty("error").GetString()!.Contains("Blokk 2 mangler typen", StringComparison.Ordinal)));
     }
 
     private static WordDocumentSpec? WordDocumentSpecFrom(string argumentsJson) =>

@@ -35,6 +35,7 @@ internal static class AgendaTable
     private static TableRow CreateRow(TableRow emptyRow, AgendaItemSpec item)
     {
         var row = (TableRow)emptyRow.CloneNode(deep: true);
+        RemoveRevisionIds(row);
         string?[] cells = [item.Item, item.Description, item.Decision, item.Responsible, item.Deadline];
 
         foreach (var (cell, text) in row.Elements<TableCell>().Zip(cells))
@@ -46,6 +47,19 @@ internal static class AgendaTable
         }
 
         return row;
+    }
+
+    // The clones would all share the template row's w14:paraId and textId,
+    // which must be unique; Word assigns new ones where they are missing.
+    private static void RemoveRevisionIds(TableRow row)
+    {
+        row.ParagraphId = null;
+        row.TextId = null;
+        foreach (var paragraph in row.Descendants<Paragraph>())
+        {
+            paragraph.ParagraphId = null;
+            paragraph.TextId = null;
+        }
     }
 
     private static InvalidOperationException TemplateChanged(string what) =>

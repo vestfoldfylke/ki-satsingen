@@ -32,7 +32,7 @@ internal static class ContentControls
             run.Append(properties);
         }
 
-        run.Append(new Text(text) { Space = SpaceProcessingModeValues.Preserve });
+        WordText.AppendText(run, text);
         field.InsertAfterSelf(run);
         field.Remove();
     }

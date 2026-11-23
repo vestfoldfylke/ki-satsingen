@@ -12,6 +12,10 @@ internal sealed class WordNumbering
 {
     private const string NumberedListText = "%1.";
 
+    // Indents, in twentieths of a point, for a bullet level without its own.
+    private const string FallbackIndentLeft = "680";
+    private const string FallbackIndentHanging = "340";
+
     private readonly Numbering _numbering;
     private readonly int _numberedAbstractId;
     private int _nextInstanceId;
@@ -82,7 +86,7 @@ internal sealed class WordNumbering
     private static AbstractNum BuildNumberedAbstract(int abstractId, Level bulletLevel)
     {
         var indentation = bulletLevel.PreviousParagraphProperties?.Indentation?.CloneNode(deep: true) as Indentation
-            ?? new Indentation { Left = "680", Hanging = "340" };
+            ?? new Indentation { Left = FallbackIndentLeft, Hanging = FallbackIndentHanging };
 
         return new AbstractNum(
             new MultiLevelType { Val = MultiLevelValues.SingleLevel },

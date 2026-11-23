@@ -15,6 +15,13 @@ internal static class WordText
             run.Append(new RunProperties(new Bold(), new BoldComplexScript()));
         }
 
+        AppendText(run, text);
+        return run;
+    }
+
+    // Appends after whatever the run already holds, such as its properties.
+    public static void AppendText(Run run, string text)
+    {
         var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
         for (var i = 0; i < lines.Length; i++)
         {
@@ -25,7 +32,5 @@ internal static class WordText
 
             run.Append(new Text(lines[i]) { Space = SpaceProcessingModeValues.Preserve });
         }
-
-        return run;
     }
 }

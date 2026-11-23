@@ -85,6 +85,29 @@ public sealed class VestfoldMeetingDocumentBuilderTests
     }
 
     [Fact]
+    public void A_line_break_in_a_field_stays_a_line_break()
+    {
+        using var document = Open(Build(Minutes with { Invited = "Kari\nOla" }));
+
+        var invited = Body(document).Elements<Paragraph>().Single(paragraph => paragraph.InnerText.StartsWith("Innkalt", StringComparison.Ordinal));
+
+        Assert.Equal(("InnkaltKariOla", 1), (invited.InnerText, invited.Descendants<Break>().Count()));
+    }
+
+    [Fact]
+    public void No_two_agenda_rows_or_paragraphs_share_a_paragraph_id()
+    {
+        using var document = Open(Build(Minutes));
+
+        var ids = Body(document).Descendants<TableRow>().Select(row => row.ParagraphId?.Value)
+            .Concat(Body(document).Descendants<Paragraph>().Select(paragraph => paragraph.ParagraphId?.Value))
+            .OfType<string>()
+            .ToList();
+
+        Assert.Equal(ids.Count, ids.Distinct().Count());
+    }
+
+    [Fact]
     public void The_page_stays_landscape()
     {
         using var document = Open(Build(Minutes));

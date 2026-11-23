@@ -4,7 +4,8 @@ namespace kisatsingen.Services.WordDocuments;
 
 // Flat rather than one type per kind: models fill a flat shape more reliably.
 // Which fields a kind takes is decided by DocumentBlockFields and enforced by
-// WordDocumentSpecValidator.
+// WordDocumentSpecValidator. Kind is nullable so a block sent without one is
+// refused instead of bound as the enum's default (Kicker).
 public sealed record DocumentBlockSpec(
     [property: Description(
         "The block's kind. Kicker (Simple only): a small line above the main heading, typically a date. " +
@@ -13,7 +14,7 @@ public sealed record DocumentBlockSpec(
         "Lead: a short introduction in larger type. Paragraph: body text. FactBox (Report only): a paragraph in a coloured fact box. " +
         "BulletList: a bulleted list. NumberedList: a numbered list; each starts at 1. " +
         "Table: a table with an optional header row. Caption: a caption for a table, placed under it. PageBreak: starts a new page.")]
-    DocumentBlockKind Kind,
+    DocumentBlockKind? Kind,
     [property: Description(
         "The block's text, used by every kind except the lists, Table and PageBreak. " +
         "One paragraph per block; make a new Paragraph block for a new paragraph.")]

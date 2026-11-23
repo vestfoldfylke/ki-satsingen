@@ -171,6 +171,16 @@ public sealed class VestfoldWordDocumentBuilderTests
     }
 
     [Fact]
+    public void Only_a_table_with_a_header_row_asks_for_first_row_styling_in_the_legacy_table_look()
+    {
+        using var document = Open(Build(Memo));
+
+        var looks = Body(document).Elements<Table>().Select(table => table.GetFirstChild<TableProperties>()!.GetFirstChild<TableLook>()!.Val?.Value);
+
+        Assert.Equal(["0420", "0400", "0400"], looks);
+    }
+
+    [Fact]
     public void Two_tables_in_a_row_are_kept_apart_by_a_paragraph()
     {
         using var document = Open(Build(Memo));
