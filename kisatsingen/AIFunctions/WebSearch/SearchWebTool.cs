@@ -39,7 +39,7 @@ internal static class SearchWebTool
     private const string OpenPageActionType = "open_page";
     private const string FindInPageActionType = "find_in_page";
 
-    private const string SitePrefix = "site:";
+    public const string SitePrefix = "site:";
 
     // What follows a host when an address carries more than the site: a path,
     // a query string, a fragment, a login, a port, or a path written with an

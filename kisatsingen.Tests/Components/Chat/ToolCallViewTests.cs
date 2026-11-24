@@ -146,34 +146,87 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
-    public void A_finished_search_is_titled_with_its_queries_and_lists_its_sources()
+    public void A_running_search_is_titled_with_the_query_asked()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: """{"query":"skoleskyss Vestfold"}""");
+
+        Assert.Equal("Søker etter «skoleskyss Vestfold» på nettet", view.Title);
+    }
+
+    [Fact]
+    public void A_search_limited_to_a_site_names_the_site_after_the_keywords()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: """{"query":"site:vestfoldfylke.no skoleskyss"}""");
+
+        Assert.Equal("Søker etter «skoleskyss» på vestfoldfylke.no", view.Title);
+    }
+
+    [Fact]
+    public void A_search_without_a_query_is_titled_as_a_search_on_the_web()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: "{}");
+
+        Assert.Equal("Søker på nettet", view.Title);
+    }
+
+    [Fact]
+    public void A_finished_search_lists_what_the_provider_searched_for_and_its_sources()
     {
         var view = Build("search_web", """
             {"queries":["skoleskyss Vestfold","skyssgrense"],"sources":[
                 {"url":"https://www.vestfoldfylke.no/skyss","title":"Skoleskyss"},
                 {"url":"https://lovdata.no/forskrift","title":null}],
              "contentNotice":"","content":""}
-            """);
+            """, arguments: SearchArguments);
 
         Assert.Equal(
-            ("Søkte etter «skoleskyss Vestfold», «skyssgrense»", "Skoleskyss – https://www.vestfoldfylke.no/skyss\nhttps://lovdata.no/forskrift"),
+            ("Søkte etter «skoleskyss» på nettet",
+                "Søkte etter:\nskoleskyss Vestfold\nskyssgrense\n\nKilder:\nSkoleskyss – https://www.vestfoldfylke.no/skyss\nhttps://lovdata.no/forskrift"),
             (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]
     public void A_search_without_sources_says_so()
     {
-        var view = Build("search_web", """{"queries":["skoleskyss"],"sources":[],"contentNotice":"","content":""}""");
+        var view = Build("search_web", """{"queries":["skoleskyss"],"sources":[],"contentNotice":"","content":""}""", arguments: SearchArguments);
 
-        Assert.Equal("Ingen kilder", view.UserFriendlyResult);
+        Assert.EndsWith("Kilder:\nIngen", view.UserFriendlyResult);
     }
 
     [Fact]
-    public void A_finished_search_whose_result_lacks_the_queries_falls_back_to_the_plain_title()
+    public void A_finished_search_whose_result_lacks_the_queries_falls_back_to_the_title_alone()
     {
-        var view = Build("search_web", """{"sources":[]}""");
+        var view = Build("search_web", """{"sources":[]}""", arguments: SearchArguments);
 
-        Assert.Equal(("Søkte på nettet", null), (view.Title, view.UserFriendlyResult));
+        Assert.Equal(("Søkte etter «skoleskyss» på nettet", null), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Theory]
+    [InlineData(SearchWebTexts.EmptyQuery, "Søket var tomt.")]
+    [InlineData(SearchWebTexts.WebAddressRefused, "Søket kan ikke inneholde nettadresser.")]
+    [InlineData(SearchWebTexts.NotAvailable, "Nettsøket var ikke tilgjengelig.")]
+    [InlineData(SearchWebTexts.NoResult, "Søket ga ingen treff.")]
+    public void A_refused_search_tells_the_user_why_in_words_of_its_own(string refusal, string reason)
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = refusal }), arguments: SearchArguments);
+
+        Assert.Equal(("Prøvde å søke etter «skoleskyss» på nettet", reason), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_refused_at_the_limit_tells_the_user_the_limit()
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.LimitReached(3) }), arguments: SearchArguments);
+
+        Assert.Equal("Det kan bare søkes 3 ganger per svar.", view.UserFriendlyResult);
+    }
+
+    [Fact]
+    public void A_search_refused_for_an_unknown_reason_gives_no_reason()
+    {
+        var view = Build("search_web", """{"error":"En melding som ikke finnes lenger."}""", arguments: SearchArguments);
+
+        Assert.Null(view.UserFriendlyResult);
     }
 
     [Fact]
@@ -183,6 +236,8 @@ public sealed class ToolCallViewTests
 
         Assert.Equal("Så hvilke bilder presentasjonen kan bruke (2 bilder)", view.Title);
     }
+
+    private const string SearchArguments = """{"query":"skoleskyss"}""";
 
     private const string PresentationArguments = """
         { "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Chapter", "title": "Innledning" } ] }
