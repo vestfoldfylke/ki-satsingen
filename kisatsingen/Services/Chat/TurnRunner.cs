@@ -368,10 +368,12 @@ internal sealed class TurnRunner
         {
             _logger.LogError(
                 ex,
-                "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}",
+                "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}, so {Usage} is missing from the usage totals. " +
+                "Check the exception and the database.",
                 attempt.Turn.Id,
                 row.ChatId,
-                attempt.Turn.Status);
+                attempt.Turn.Status,
+                usage);
         }
     }
 
@@ -408,9 +410,12 @@ internal sealed class TurnRunner
         {
             _logger.LogError(
                 ex,
-                "Could not save web search usage for turn {TurnId} in chat {ChatId}",
+                "Could not save web search usage for turn {TurnId} in chat {ChatId}, so {WebSearchCount} billed searches and {Usage} are missing from the usage totals. " +
+                "Check the exception and the database.",
                 attempt.Turn.Id,
-                row.ChatId);
+                row.ChatId,
+                quota.BilledSearches,
+                usage);
         }
     }
 

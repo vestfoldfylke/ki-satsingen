@@ -89,7 +89,13 @@ internal sealed class TurnAttachmentProcessor(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Could not save token usage for converting attachment {FileName} in chat {ChatId}.", attachment.FileName, chatId);
+            logger.LogError(
+                ex,
+                "Could not save token usage for converting attachment {FileName} in chat {ChatId}, so {Usage} is missing from the usage totals. " +
+                "Check the exception and the database.",
+                attachment.FileName,
+                chatId,
+                newRecord.Usage);
         }
     }
 
