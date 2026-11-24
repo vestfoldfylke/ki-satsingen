@@ -137,3 +137,13 @@ To upgrade Designsystemet, set the same exact version on all three `@digdir` pac
 - Replace template in `kisatsingen/Services/Presentations/Templates`
 - Run tests
 - Start ki-satsingen on your machine and make sure a newly created presentation is good
+
+#### Update templates for `CreateWordDocumentTool` and `CreateMeetingDocumentTool`
+
+- Replace the template in `kisatsingen/Services/WordDocuments/Templates`, keeping its file name:
+  - `vestfold-enkel-wordmal.dotx` (Simple)
+  - `vestfold_rapportmal.dotx` (Report: cover, table of contents, back page)
+  - `vestfold-moteinnkalling-referatmal.dotx` (meeting notice and minutes)
+- Make sure the style ids in `WordStyles` still exist in the templates, including the `FKListe` list style
+- Run tests; a template whose structure changed fails them with a message naming the class to update (`ReportLayout`, `MeetingForm`, `AgendaTable`, ...)
+- Start ki-satsingen on your machine and make sure newly created documents open in Word without a repair prompt

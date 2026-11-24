@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json;
+using kisatsingen.Services.GeneratedFiles;
 using kisatsingen.Services.Presentations;
 using kisatsingen.Services.Presentations.Pictures;
 using Microsoft.Extensions.AI;
@@ -93,7 +94,7 @@ internal static class CreatePresentationTool
             return Refuse(problems);
         }
 
-        return new PresentationCreatedResult(PresentationFileName.From(spec.Title), spec.Slides.Count, Notice);
+        return new PresentationCreatedResult(DownloadFileName.From(spec.Title, VestfoldPresentationBuilder.FileExtension, VestfoldPresentationBuilder.FallbackFileStem), spec.Slides.Count, Notice);
     }
 
     private static ToolError Refuse(IReadOnlyList<string> problems) =>

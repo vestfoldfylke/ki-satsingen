@@ -1,13 +1,13 @@
-using kisatsingen.Services.Presentations;
+using kisatsingen.Services.GeneratedFiles;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 
-namespace kisatsingen.Components.Presentation;
+namespace kisatsingen.Components.GeneratedFiles;
 
-public partial class PresentationDownloadButton : ComponentBase
+public partial class FileDownloadButton : ComponentBase
 {
     private const string BusyMessage = "Mange lager filer akkurat nå. Prøv igjen om litt.";
-    private const string BuildFailedMessage = "Presentasjonen kunne ikke lages på grunn av en feil i systemet, ikke i innholdet ditt. Si fra til brukerstøtte.";
+    private const string BuildFailedMessage = "Filen kunne ikke lages på grunn av en feil i systemet, ikke i innholdet ditt. Prøv igjen om litt.";
     private const string FailedMessage = "Filen kunne ikke lagres. Prøv igjen, eller last inn siden på nytt hvis det ikke går.";
 
     [Inject]
@@ -16,13 +16,13 @@ public partial class PresentationDownloadButton : ComponentBase
     // Scoped to the circuit, not this component: opening another chat disposes
     // this component, but the user is still here and the file should arrive.
     [Inject]
-    public required PresentationFileBuilder PresentationFileBuilder { get; set; }
+    public required GeneratedFileBuilder GeneratedFileBuilder { get; set; }
 
     [Inject]
-    public required ILogger<PresentationDownloadButton> Logger { get; set; }
+    public required ILogger<FileDownloadButton> Logger { get; set; }
 
     [Parameter, EditorRequired]
-    public required GeneratedPresentation Download { get; set; }
+    public required GeneratedFile Download { get; set; }
 
     private bool _isDownloading;
     private string? _downloadProblem;
@@ -39,27 +39,31 @@ public partial class PresentationDownloadButton : ComponentBase
 
         _isDownloading = true;
         _downloadProblem = null;
+
+        // Held for the whole download: the parameter can change while the build
+        // is awaited, and the name and type must stay those of the bytes built.
+        var download = Download;
         try
         {
-            switch (await PresentationFileBuilder.BuildAsync(Download.Spec))
+            switch (await GeneratedFileBuilder.BuildAsync(download))
             {
-                case PresentationBuildResult.Built built:
-                    await SaveAsync(Download.FileName, built.Content);
+                case FileBuildResult.Built built:
+                    await SaveAsync(download.FileName, GeneratedFileBuilder.ContentTypeOf(download), built.Content);
                     break;
-                case PresentationBuildResult.Busy:
-                    Logger.LogWarning("Presentation {FileName} not built: every build slot stayed taken for the whole wait", Download.FileName);
+                case FileBuildResult.Busy:
+                    Logger.LogWarning("File {FileName} not built: every build slot stayed taken for the whole wait", download.FileName);
                     _downloadProblem = BusyMessage;
                     break;
-                case PresentationBuildResult.Failed failed:
-                    Logger.LogError(failed.Error, "Presentation {FileName} could not be built; check that the template still matches SlideLayouts and PresentationTheme", Download.FileName);
+                case FileBuildResult.Failed failed:
+                    Logger.LogError(failed.Error, "File {FileName} could not be built", download.FileName);
                     _downloadProblem = BuildFailedMessage;
                     break;
             }
         }
-        catch (OperationCanceledException) when (PresentationFileBuilder.IsCancelled)
+        catch (OperationCanceledException) when (GeneratedFileBuilder.IsCancelled)
         {
             // The circuit is gone; there is no one to give the file to.
-            Logger.LogInformation("Presentation {FileName} not built since the operation was cancelled", Download.FileName);
+            Logger.LogInformation("File {FileName} not built since the operation was cancelled", download.FileName);
         }
         finally
         {
@@ -67,14 +71,14 @@ public partial class PresentationDownloadButton : ComponentBase
         }
     }
 
-    private async Task SaveAsync(string fileName, ArraySegment<byte> content)
+    private async Task SaveAsync(string fileName, string contentType, ArraySegment<byte> content)
     {
         // Blazor disposes the stream once it has sent it. It is disposed here
         // only where the transfer has ended or never began; see the catches.
         var stream = new DotNetStreamReference(new MemoryStream(content.Array!, content.Offset, content.Count, writable: false), leaveOpen: false);
         try
         {
-            await JS.InvokeVoidAsync("chatClient.downloadFile", fileName, VestfoldPresentationBuilder.ContentType, stream);
+            await JS.InvokeVoidAsync("chatClient.downloadFile", fileName, contentType, stream);
         }
         catch (JSDisconnectedException)
         {
@@ -85,7 +89,7 @@ public partial class PresentationDownloadButton : ComponentBase
         {
             // The browser's call has returned, so nothing is reading the stream.
             stream.Dispose();
-            Logger.LogWarning(ex, "The browser could not save the presentation {FileName}", fileName);
+            Logger.LogWarning(ex, "The browser could not save the file {FileName}", fileName);
             _downloadProblem = FailedMessage;
         }
         catch (OperationCanceledException ex)
@@ -95,7 +99,7 @@ public partial class PresentationDownloadButton : ComponentBase
             // reading it, and disposing it would cut the transfer off mid-file.
             // One the browser never claimed is disposed by Blazor itself, once
             // the default interop call timeout has passed.
-            Logger.LogWarning(ex, "Saving the presentation {FileName} timed out before the browser had it", fileName);
+            Logger.LogWarning(ex, "Saving the file {FileName} timed out before the browser had it", fileName);
             _downloadProblem = FailedMessage;
         }
     }
