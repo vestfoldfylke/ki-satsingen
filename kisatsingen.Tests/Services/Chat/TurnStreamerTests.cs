@@ -82,7 +82,7 @@ public sealed class TurnStreamerTests
         IAsyncEnumerable<ChatResponseUpdate> updates,
         CancellationToken ct = default)
     {
-        var builder = new TurnBuilder(Turn.Start("hei", ModelUnderTest, "be brief", []));
+        var builder = new TurnBuilder(Turn.Start("hei", ModelUnderTest, "be brief", [], isWebSearchAllowed: false));
         var channel = new ChatClientChannel(new LoggingJsRuntime(Log), NullLogger.Instance);
         var streamer = new TurnStreamer(channel, new RecordingMetricsService(), "test");
 

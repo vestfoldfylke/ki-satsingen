@@ -48,18 +48,25 @@ internal static class SearchWebTool
 
     private const int Ipv4DotCount = 3;
 
-    public static AIFunction Create(WebSearchModel model, WebSearchQuota quota, ILogger logger) =>
+    // Refuses every call while search is not allowed, before anything leaves.
+    public static AIFunction Create(WebSearchModel model, WebSearchQuota quota, bool isWebSearchAllowed, ILogger logger) =>
         ToolFunction.Create(Name, Description, (
             [Description("A few keywords, in Norwegian for Norwegian topics. site: limits the search to one site, such as site:lovdata.no. Not a web address. Never include personal data or confidential details, such as names, case numbers or internal figures; search for the topic instead, such as the law or rule involved.")] string query,
-            CancellationToken ct) => SearchAsync(model, quota, logger, query, ct));
+            CancellationToken ct) => SearchAsync(model, quota, isWebSearchAllowed, logger, query, ct));
 
     private static async Task<object> SearchAsync(
         WebSearchModel model,
         WebSearchQuota quota,
+        bool isWebSearchAllowed,
         ILogger logger,
         string? query,
         CancellationToken ct)
     {
+        if (!isWebSearchAllowed)
+        {
+            return new ToolError(SearchWebTexts.SearchIsOff);
+        }
+
         if (string.IsNullOrWhiteSpace(query))
         {
             return new ToolError(SearchWebTexts.EmptyQuery);

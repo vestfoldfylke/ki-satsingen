@@ -22,6 +22,10 @@ public sealed record Turn
 
     public required DateTimeOffset StartedAt { get; init; }
 
+    // Per turn, not per chat: the user can switch search on and off within a
+    // chat, and each turn keeps what applied when it was sent.
+    public bool IsWebSearchAllowed { get; init; }
+
     public IReadOnlyList<TurnSegment> Answer { get; init; } = [];
 
     // The files sent with the prompt, rendered into the attachment line.
@@ -36,7 +40,7 @@ public sealed record Turn
 
     // The attachments show as processing from send, so a turn that ends before
     // they settle still lists them, as interrupted.
-    public static Turn Start(string prompt, ChatModel model, string systemPrompt, IReadOnlyList<string> attachmentFileNames) => new()
+    public static Turn Start(string prompt, ChatModel model, string systemPrompt, IReadOnlyList<string> attachmentFileNames, bool isWebSearchAllowed) => new()
     {
         Id = Guid.NewGuid(),
         Prompt = prompt,
@@ -44,6 +48,7 @@ public sealed record Turn
         ModelKey = model.Key,
         ModelDisplayName = model.DisplayName,
         StartedAt = DateTimeOffset.UtcNow,
+        IsWebSearchAllowed = isWebSearchAllowed,
         Attachments = [.. attachmentFileNames.Select(TurnAttachment.Processing)]
     };
 

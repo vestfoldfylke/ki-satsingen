@@ -20,16 +20,20 @@ public sealed class SearchWebToolTests
     private readonly WebSearchQuota _quota = new("openai", "search-under-test");
     private readonly WarningCapture _logger = new();
 
-    private AIFunction Tool() =>
+    private AIFunction Tool(bool isWebSearchAllowed = true) =>
         SearchWebTool.Create(
             new WebSearchModel("openai", "search-under-test", _client, new ChatOptions()),
             _quota,
-            _logger);
+            isWebSearchAllowed: isWebSearchAllowed,
+            logger: _logger);
 
-    private async Task<string> SearchAsync(string? query, CancellationToken ct = default)
+    private async Task<string> SearchAsync(string? query, CancellationToken ct = default) =>
+        await SearchAsync(Tool(), query, ct);
+
+    private static async Task<string> SearchAsync(AIFunction tool, string? query, CancellationToken ct = default)
     {
         var arguments = new AIFunctionArguments { ["query"] = query is null ? null : JsonSerializer.SerializeToElement(query) };
-        return Assert.IsType<string>(await Tool().InvokeAsync(arguments, ct));
+        return Assert.IsType<string>(await tool.InvokeAsync(arguments, ct));
     }
 
     [Fact]
@@ -243,6 +247,14 @@ public sealed class SearchWebToolTests
         Assert.Equal(1, _client.CallCount);
     }
 
+    [Fact]
+    public async Task A_search_while_search_is_off_is_refused_without_searching()
+    {
+        var result = await SearchAsync(Tool(isWebSearchAllowed: false), "skoleskyss");
+
+        Assert.Equal(($$"""{"error":"{{SearchWebTexts.SearchIsOff}}"}""", 0), (result, _client.CallCount));
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("  ")]
@@ -329,7 +341,7 @@ public sealed class SearchWebToolTests
     {
         var factory = new SearchWebToolFactory(model: null, NullLogger<SearchWebToolFactory>.Instance);
 
-        Assert.Null(factory.StartTurn());
+        Assert.Null(factory.StartTurn(isWebSearchAllowed: true));
     }
 
     private static TextContent Text(string text, params CitationAnnotation[] citations) =>

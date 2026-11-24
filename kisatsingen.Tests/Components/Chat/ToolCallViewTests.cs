@@ -215,6 +215,14 @@ public sealed class ToolCallViewTests
     }
 
     [Fact]
+    public void A_search_refused_because_search_was_off_says_only_that()
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.SearchIsOff }), arguments: SearchArguments);
+
+        Assert.Equal(("Søkte ikke – nettsøk er av", null), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
     public void A_search_refused_at_the_limit_tells_the_user_the_limit()
     {
         var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.LimitReached(3) }), arguments: SearchArguments);

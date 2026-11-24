@@ -141,6 +141,9 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("InputTokens")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("IsWebSearchAllowed")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ModelKey")
                         .IsRequired()
                         .HasMaxLength(64)

@@ -106,6 +106,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     private static ToolCallText DescribeSearchWeb(ToolOutcome outcome, JsonElement? result, JsonElement arguments)
     {
         var searchedFor = DescribeSearchedFor(arguments);
+        var refusal = ReadAs<ToolError>(result)?.Error;
         return outcome switch
         {
             ToolOutcome.Running => new(Title: $"Søker {searchedFor}"),
@@ -115,7 +116,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
                     ? "Ingen"
                     : string.Join('\n', sources.Select(source => source.Title is { } title ? $"{title} – {source.Url}" : source.Url)))),
             ToolOutcome.Succeeded => new(Title: $"Søkte {searchedFor}"),
-            _ => new(Title: $"Prøvde å søke {searchedFor}", UserFriendlyResult: DescribeSearchRefusal(result))
+            ToolOutcome.Refused when refusal == SearchWebTexts.SearchIsOff => new(Title: "Søkte ikke – nettsøk er av"),
+            _ => new(Title: $"Prøvde å søke {searchedFor}", UserFriendlyResult: DescribeSearchRefusal(refusal))
         };
     }
 
@@ -141,8 +143,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     // The refusals are written for the model, so each is told to the user in
     // words of its own. A message not known here, such as one stored before a
     // text changed, shows no reason, and the raw data still has it.
-    private static string? DescribeSearchRefusal(JsonElement? result) =>
-        ReadAs<ToolError>(result)?.Error switch
+    private static string? DescribeSearchRefusal(string? refusal) =>
+        refusal switch
         {
             SearchWebTexts.EmptyQuery => "Søket var tomt.",
             SearchWebTexts.WebAddressRefused => "Søket kan ikke inneholde nettadresser.",

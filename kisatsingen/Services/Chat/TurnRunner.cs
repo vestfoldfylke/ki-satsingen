@@ -67,7 +67,8 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, _searchWebTools.StartTurn());
+        var webSearch = _searchWebTools.StartTurn(isWebSearchAllowed: input.Turn.IsWebSearchAllowed);
+        var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
         // Starts as Failed so an exception nothing classified lands in the alerted bucket.
@@ -298,9 +299,9 @@ internal sealed class TurnRunner
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
-        // Every turn when search is configured, unlike the file tools: any
-        // question may need it, and a tool list that stays the same keeps the
-        // prompt cache valid.
+        // Every turn when search is configured, on or off, unlike the file
+        // tools: any question may need it, and a tool list that stays the same
+        // keeps the prompt cache valid.
         if (webSearch is not null)
         {
             options.Tools = [.. options.Tools ?? [], webSearch.Tool];

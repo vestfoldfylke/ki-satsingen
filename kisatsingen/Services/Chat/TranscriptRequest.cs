@@ -1,4 +1,5 @@
 using System.Text.Json;
+using kisatsingen.AIFunctions.WebSearch;
 using Microsoft.Extensions.AI;
 using ChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
@@ -23,6 +24,9 @@ internal static class TranscriptRequest
     {
         var request = new List<ChatMessage>(turns.Count * 2);
 
+        // A new chat starts with search off.
+        var wasWebSearchAllowed = false;
+
         foreach (var turn in turns)
         {
             if (WasNeverSaved(turn))
@@ -30,8 +34,9 @@ internal static class TranscriptRequest
                 continue;
             }
 
-            request.Add(new ChatMessage(ChatRole.User, UserMessage(turn)));
+            request.Add(new ChatMessage(ChatRole.User, UserMessage(turn, wasWebSearchAllowed)));
             AppendAnswer(request, turn.Answer);
+            wasWebSearchAllowed = turn.IsWebSearchAllowed;
         }
 
         return request;
@@ -72,15 +77,23 @@ internal static class TranscriptRequest
         }
     }
 
-    private static string UserMessage(Turn turn)
+    private static string UserMessage(Turn turn, bool wasWebSearchAllowed)
     {
-        var attachmentLine = AttachmentLine.Render(turn.Attachments);
-        if (attachmentLine is null)
+        string?[] parts = [turn.Prompt, AttachmentLine.Render(turn.Attachments), WebSearchLine(turn.IsWebSearchAllowed, wasWebSearchAllowed)];
+        return string.Join("\n\n", parts.OfType<string>());
+    }
+
+    // Only on a change, so most messages carry none. Built from the stored
+    // turns, so a replayed message is the same on every send and the prompt
+    // cache holds.
+    private static string? WebSearchLine(bool isWebSearchAllowed, bool wasWebSearchAllowed)
+    {
+        if (isWebSearchAllowed == wasWebSearchAllowed)
         {
-            return turn.Prompt;
+            return null;
         }
 
-        return $"{turn.Prompt}\n\n{attachmentLine}";
+        return isWebSearchAllowed ? SearchWebTexts.TurnedOnLine : SearchWebTexts.TurnedOffLine;
     }
 
     // A turn stopped, rather than failed, before its row was written carries no

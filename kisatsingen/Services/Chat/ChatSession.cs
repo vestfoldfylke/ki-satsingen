@@ -111,6 +111,7 @@ public sealed class ChatSession : IAsyncDisposable
         _assistantRepository = assistantRepository;
         _timeProvider = timeProvider;
         _logger = logger;
+        IsWebSearchAvailable = searchWebTools.IsAvailable;
 
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
@@ -168,6 +169,24 @@ public sealed class ChatSession : IAsyncDisposable
         _selectedModel = model;
         Notify();
         return Task.CompletedTask;
+    }
+
+    public bool IsWebSearchAvailable { get; }
+
+    // Never on without a search model. Captured by SendAsync, so switching
+    // mid-stream only affects the next turn.
+    public bool IsWebSearchOn { get; private set; }
+
+    public void SetWebSearch(bool isOn)
+    {
+        var shouldBeOn = isOn && IsWebSearchAvailable;
+        if (shouldBeOn == IsWebSearchOn)
+        {
+            return;
+        }
+
+        IsWebSearchOn = shouldBeOn;
+        Notify();
     }
 
     // The one place the prompt for the next turn is built, so what is sent and
@@ -253,6 +272,7 @@ public sealed class ChatSession : IAsyncDisposable
 
         // Continuing a chat must not silently change who answers it.
         _selectedModel = FindLastModel() ?? _catalog.Default;
+        IsWebSearchOn = IsWebSearchAvailable && _turns.LastOrDefault() is { IsWebSearchAllowed: true };
 
         Notify();
     }
@@ -356,6 +376,7 @@ public sealed class ChatSession : IAsyncDisposable
         _assistantFiles = [];
         _assistantNameSnapshot = null;
         _selectedModel = _catalog.Default;
+        IsWebSearchOn = false;
 
         // Attached to the chat being left, not the one being opened.
         _attachments.Reset();
@@ -381,7 +402,7 @@ public sealed class ChatSession : IAsyncDisposable
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames);
+        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: IsWebSearchOn);
         var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ShouldOfferFileTools(turn));
 
         _turns.Add(turn);
