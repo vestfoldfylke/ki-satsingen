@@ -7,7 +7,7 @@ namespace kisatsingen.Components.GeneratedFiles;
 public partial class FileDownloadButton : ComponentBase
 {
     private const string BusyMessage = "Mange lager filer akkurat nå. Prøv igjen om litt.";
-    private const string BuildFailedMessage = "Filen kunne ikke lages på grunn av en feil i systemet, ikke i innholdet ditt. Si fra til brukerstøtte.";
+    private const string BuildFailedMessage = "Filen kunne ikke lages på grunn av en feil i systemet, ikke i innholdet ditt. Prøv igjen om litt.";
     private const string FailedMessage = "Filen kunne ikke lagres. Prøv igjen, eller last inn siden på nytt hvis det ikke går.";
 
     [Inject]
