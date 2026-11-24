@@ -55,7 +55,7 @@ public partial class FileDownloadButton : ComponentBase
                     _downloadProblem = BusyMessage;
                     break;
                 case FileBuildResult.Failed failed:
-                    Logger.LogError(failed.Error, "File {FileName} could not be built; check that its template still matches the builder (SlideLayouts and PresentationTheme, or WordStyles)", download.FileName);
+                    Logger.LogError(failed.Error, "File {FileName} could not be built", download.FileName);
                     _downloadProblem = BuildFailedMessage;
                     break;
             }

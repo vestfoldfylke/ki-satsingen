@@ -39,7 +39,7 @@ public sealed class VestfoldWordDocumentBuilder(WordTemplateFiles templateFiles,
         WordStyles.EnsurePresent(mainPart, spec.Template);
 
         var layout = spec.Template == WordDocumentTemplate.Report
-            ? ReportLayout.Prepare(mainPart, body, spec)
+            ? ReportLayout.Prepare(body, spec)
             : SimpleLayout.Prepare(body);
 
         ContentControls.FillTitleFields(mainPart, spec.Title);

@@ -22,6 +22,7 @@ internal static class CreateWordDocumentTool
         "With the Simple template, start with a Heading1 as the document's main heading, optionally after a Kicker with the date, followed by a short Lead. " +
         "With the Report template, the title, subtitle and date go on the cover, and the blocks start at the first chapter: use Heading2 for chapters, " +
         "Heading3 to Heading5 for subheadings, and FactBox for short fact boxes. " +
+        "Word numbers the Report's Heading2 to Heading4 itself, so leave numbers such as \"1.\" or \"2.1\" out of the heading text, even when the user's text has them. " +
         "Use BulletList and NumberedList for lists instead of typing \"-\" or \"1.\" in a Paragraph, and PageBreak instead of empty paragraphs. " +
         "Keep tables simple: one header row and plain rows, no merged cells. Write in the language of the user's text.";
 
@@ -46,7 +47,13 @@ internal static class CreateWordDocumentTool
             [Description("Report only: a short subtitle on the cover. Leave it out otherwise.")] string? subtitle = null,
             [Description("Report only: the date on the cover, as the user writes it, e.g. \"23.11.2026\". Leave it out when no date is given.")] string? date = null,
             [Description("Report only: a few sentences of extra information in the cover's text box. Leave it out otherwise.")] string? coverText = null) =>
-            Check(title, template, blocks, subtitle, date, coverText));
+            Check(
+                title: title,
+                template: template,
+                blocks: blocks,
+                subtitle: subtitle,
+                date: date,
+                coverText: coverText));
 
     // The arguments of a stored call, read the way the tool was given them. Null
     // when they are not a document this build can make, such as one stored
@@ -89,7 +96,13 @@ internal static class CreateWordDocumentTool
         }
 
         // OfType only narrows the type: no block is null past the check above.
-        var spec = new WordDocumentSpec(title ?? "", template, [.. (blocks ?? []).OfType<DocumentBlockSpec>()], subtitle, date, coverText);
+        var spec = new WordDocumentSpec(
+            Title: title ?? "",
+            Template: template,
+            Blocks: [.. (blocks ?? []).OfType<DocumentBlockSpec>()],
+            Subtitle: subtitle,
+            Date: date,
+            CoverText: coverText);
         var problems = WordDocumentSpecValidator.Validate(spec);
         if (problems.Count > 0)
         {

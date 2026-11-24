@@ -1,5 +1,4 @@
 using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 
 namespace kisatsingen.Services.WordDocuments;
@@ -14,7 +13,7 @@ internal static class ReportLayout
     private const string CoverPageGallery = "Cover Pages";
     private const string TableOfContentsGallery = "Table of Contents";
 
-    public static WordBodyLayout Prepare(MainDocumentPart mainPart, Body body, WordDocumentSpec spec)
+    public static WordBodyLayout Prepare(Body body, WordDocumentSpec spec)
     {
         var buildingBlocks = body.Elements<SdtBlock>().ToList();
         var cover = buildingBlocks.FirstOrDefault(block => GalleryOf(block) == CoverPageGallery)
@@ -31,7 +30,7 @@ internal static class ReportLayout
         RemoveBetween(sectionBreak, backPage);
 
         ReportCover.Fill(cover, spec);
-        ReportTableOfContents.Reset(tableOfContents, mainPart);
+        ReportTableOfContents.Reset(tableOfContents);
         ContentControls.RemoveGuidanceShapes(backPage);
 
         return new WordBodyLayout(backPage, contentSection);

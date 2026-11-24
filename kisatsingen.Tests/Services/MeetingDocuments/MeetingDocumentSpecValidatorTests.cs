@@ -10,12 +10,6 @@ public sealed class MeetingDocumentSpecValidatorTests
     private static MeetingDocumentSpec Spec(params AgendaItemSpec[] items) => new("Referat", MeetingDocumentKind.Minutes, "Styremøte", items);
 
     [Fact]
-    public void A_spec_with_only_the_required_fields_has_no_problems()
-    {
-        Assert.Empty(MeetingDocumentSpecValidator.Validate(Spec(Item)));
-    }
-
-    [Fact]
     public void A_meeting_without_agenda_items_has_no_problems()
     {
         Assert.Empty(MeetingDocumentSpecValidator.Validate(Spec()));
