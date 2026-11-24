@@ -7,8 +7,8 @@
             data-color="accent"
             data-icon="true"
             popovertarget="@PopoverId"
-            aria-label="Legg til vedlegg"
-            data-tooltip="Legg til vedlegg">
+            aria-label="@AddButtonLabel"
+            data-tooltip="@AddButtonLabel">
         <span class="material-symbols-outlined" aria-hidden="true">add</span>
     </button>
 
@@ -20,5 +20,34 @@
             IsDisabled="IsFilePickerDisabled"
             OnFilesSelected="RaiseFilesSelectedAsync"
         />
+
+        @if (IsWebSearchAvailable)
+        {
+            @* A label around the switch, so a click anywhere on the row toggles
+               the switch. *@
+            <label class="ds-button web-search-button" data-variant="tertiary" data-color="neutral">
+                <span class="web-search-text">
+                    <span class="web-search-heading">
+                        <span class="material-symbols-outlined" aria-hidden="true">language</span>
+                        <span id="@WebSearchNameId" class="ds-paragraph" data-size="sm">Nettsøk</span>
+                    </span>
+                    <span id="@WebSearchDescriptionId" class="ds-paragraph" data-size="xs">Søkeord sendes til OpenAI.</span>
+                    @* Switching mid-answer is allowed, so the busy line says the
+                       switch applies from the next message. *@
+                    @if (IsBusy)
+                    {
+                        <span id="@WebSearchBusyId" class="ds-paragraph" data-size="xs">Et svar genereres nå. Endringen gjelder fra neste melding.</span>
+                    }
+                </span>
+                <input class="ds-input"
+                       type="checkbox"
+                       role="switch"
+                       data-color="accent"
+                       checked="@IsWebSearchOn"
+                       aria-labelledby="@WebSearchNameId"
+                       aria-describedby="@(IsBusy ? $"{WebSearchDescriptionId} {WebSearchBusyId}" : WebSearchDescriptionId)"
+                       @onchange="RaiseWebSearchChangedAsync" />
+            </label>
+        }
     </div>
 </div>

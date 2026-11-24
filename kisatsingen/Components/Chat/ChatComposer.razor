@@ -14,6 +14,13 @@
         </div>
 
         <div class="chat-composer">
+            @* In view at every send while search is on, so the user knows where
+               search queries go before sending. *@
+            @if (Session.IsWebSearchOn)
+            {
+                <p class="ds-alert ds-paragraph" data-size="xs">Nettsøk er på. Søkeord sendes til OpenAI, så ikke skriv personopplysninger i denne chatten.</p>
+            }
+
             <ComposerAttachments Attachments="Attachments.All"
                                  Notice="@Attachments.SelectionNotice"
                                  OnRemove="Attachments.Remove" />
@@ -34,7 +41,11 @@
             <div class="chat-composer-actions">
                 <div class="composer-actions-left">
                     <ComposerAddMenu IsFilePickerDisabled="IsPickerDisabled"
-                                     OnFilesSelected="Attachments.AttachAsync" />
+                                     OnFilesSelected="Attachments.AttachAsync"
+                                     IsWebSearchAvailable="Session.IsWebSearchAvailable"
+                                     IsWebSearchOn="Session.IsWebSearchOn"
+                                     OnWebSearchChanged="Session.SetWebSearch"
+                                     IsBusy="Session.IsBusy" />
 
                     @if (Session.EstimatedContextTokens is { } contextTokens)
                     {

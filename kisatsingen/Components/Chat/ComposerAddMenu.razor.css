@@ -3,3 +3,26 @@
 .composer-add-menu {
     max-width: 20rem;
 }
+
+.web-search-button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    text-align: left;
+    width: 100%;
+}
+
+/* Spaced with the button's own gap, since these lines sit one level below
+   the button and would otherwise have none. */
+.web-search-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dsc-button-gap);
+}
+
+.web-search-heading {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
