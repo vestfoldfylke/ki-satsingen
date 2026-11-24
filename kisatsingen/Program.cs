@@ -13,8 +13,11 @@ using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Pipeline;
 using kisatsingen.Services.KnowledgeFiles.Reading;
+using kisatsingen.Services.GeneratedFiles;
+using kisatsingen.Services.MeetingDocuments;
 using kisatsingen.Services.Presentations;
 using kisatsingen.Services.Presentations.Pictures;
+using kisatsingen.Services.WordDocuments;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Server.Circuits;
@@ -239,16 +242,19 @@ builder.Services.AddSingleton(fileToolOptions);
 builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
 builder.Services.AddScoped<FileToolFactory>();
 
-// ─── Presentation tool ─────────────────────────────────
+// ─── Generated files (presentation and Word tools) ────
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PresentationTemplate>();
 // The same instance the static presentation tool validates against; see PictureCatalog.
 // An instance, not a factory, so a broken catalog stops the app at startup.
 builder.Services.AddSingleton(PictureCatalog.Embedded);
 builder.Services.AddSingleton<VestfoldPresentationBuilder>();
-builder.Services.AddSingleton(PresentationBuildLimiterOptions.Default);
-builder.Services.AddSingleton<PresentationBuildLimiter>();
-builder.Services.AddScoped<PresentationFileBuilder>();
+builder.Services.AddSingleton<WordTemplateFiles>();
+builder.Services.AddSingleton<VestfoldWordDocumentBuilder>();
+builder.Services.AddSingleton<VestfoldMeetingDocumentBuilder>();
+builder.Services.AddSingleton(FileBuildLimiterOptions.Default);
+builder.Services.AddSingleton<FileBuildLimiter>();
+builder.Services.AddScoped<GeneratedFileBuilder>();
 
 var app = builder.Build();
 

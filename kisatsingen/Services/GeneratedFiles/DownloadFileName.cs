@@ -1,19 +1,18 @@
 using System.Text;
 
-namespace kisatsingen.Services.Presentations;
+namespace kisatsingen.Services.GeneratedFiles;
 
-// The download's file name, from the presentation title. Characters a file
-// system or a Content-Disposition header could trip on become spaces.
-internal static class PresentationFileName
+// A download's file name, from the title the model gave the file. Characters a
+// file system or a Content-Disposition header could trip on become spaces.
+internal static class DownloadFileName
 {
-    public const string Extension = ".pptx";
-    public const string Fallback = "presentasjon" + Extension;
     public const int MaxStemLength = 100;
 
     private static readonly IReadOnlySet<char> InvalidCharacters =
         new HashSet<char>([.. Path.GetInvalidFileNameChars(), '<', '>', ':', '"', '/', '\\', '|', '?', '*']);
 
-    public static string From(string title)
+    // The fallback stem is used when nothing of the title is left.
+    public static string From(string title, string extension, string fallbackStem)
     {
         var builder = new StringBuilder(title.Length);
         foreach (var character in title)
@@ -26,6 +25,6 @@ internal static class PresentationFileName
             MaxStemLength)
             .TrimEnd('.', ' ');
 
-        return stem.Length == 0 ? Fallback : stem + Extension;
+        return (stem.Length == 0 ? fallbackStem : stem) + extension;
     }
 }

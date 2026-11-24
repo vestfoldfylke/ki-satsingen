@@ -1,4 +1,4 @@
-@using kisatsingen.Components.Presentation
+@using kisatsingen.Components.GeneratedFiles
 
 @if (View.Outcome is ToolOutcome.Running)
 {
@@ -36,6 +36,6 @@ else
     </details>
     @if (View.Download is { } download)
     {
-        <PresentationDownloadButton Download="download" />
+        <FileDownloadButton Download="download" />
     }
 }

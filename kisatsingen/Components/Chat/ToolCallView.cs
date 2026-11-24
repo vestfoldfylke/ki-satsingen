@@ -3,10 +3,12 @@ using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.AIFunctions.PresentationTools;
-using kisatsingen.Components.Presentation;
+using kisatsingen.AIFunctions.WordDocumentTools;
 using kisatsingen.Services.Chat;
+using kisatsingen.Services.GeneratedFiles;
 using static kisatsingen.AIFunctions.FileTools.FileToolResults;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
+using static kisatsingen.AIFunctions.WordDocumentTools.WordDocumentToolResults;
 
 namespace kisatsingen.Components.Chat;
 
@@ -23,7 +25,7 @@ internal enum ToolOutcome
 
 // A tool call as shown to the user. A result missing the fields a text needs,
 // such as one stored in an older shape, falls back to a text without them.
-internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, GeneratedPresentation? Download)
+internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, string Title, string? UserFriendlyResult, GeneratedFile? Download)
 {
     // Relaxed so æ, ø and å stay readable. Safe: Blazor HTML-encodes what it
     // renders, and this JSON never reaches a script.
@@ -68,7 +70,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, "A tool status with no outcome.")
     };
 
-    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null, GeneratedPresentation? Download = null);
+    private sealed record ToolCallText(string Title, string? UserFriendlyResult = null, GeneratedFile? Download = null);
 
     private static ToolCallText Describe(ToolCall toolCall, ToolOutcome outcome, JsonElement? result)
     {
@@ -86,6 +88,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             ReadFileTool.Name => DescribeReadFile(outcome, result),
             CreatePresentationTool.Name => DescribeCreatePresentation(outcome, result, toolCall.Arguments),
             ListPresentationPicturesTool.Name => DescribeListPresentationPictures(outcome, result),
+            CreateWordDocumentTool.Name => DescribeCreateWordDocument(outcome, result, toolCall.Arguments),
+            CreateMeetingDocumentTool.Name => DescribeCreateMeetingDocument(outcome, result, toolCall.Arguments),
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
@@ -146,9 +150,32 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         ToolOutcome.Succeeded when ReadAs<PresentationCreatedResult>(result) is { FileName: { } fileName } created
             && CreatePresentationTool.ReadArguments(arguments) is { } spec => new(
                 Title: $"Laget presentasjonen «{fileName}» ({created.SlideCount} lysbilder)",
-                Download: new GeneratedPresentation(fileName, spec)),
+                Download: new GeneratedFile.Presentation(fileName, spec)),
         ToolOutcome.Succeeded => new(Title: "Laget presentasjon"),
         _ => new(Title: "Prøvde å lage presentasjon")
+    };
+
+    // Built from the arguments like a presentation; see DescribeCreatePresentation.
+    private static ToolCallText DescribeCreateWordDocument(ToolOutcome outcome, JsonElement? result, JsonElement arguments) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Lager Word-dokument"),
+        ToolOutcome.Succeeded when ReadAs<WordDocumentCreatedResult>(result) is { FileName: { } fileName }
+            && CreateWordDocumentTool.ReadArguments(arguments) is { } spec => new(
+                Title: $"Laget Word-dokumentet «{fileName}»",
+                Download: new GeneratedFile.WordDocument(fileName, spec)),
+        ToolOutcome.Succeeded => new(Title: "Laget Word-dokument"),
+        _ => new(Title: "Prøvde å lage Word-dokument")
+    };
+
+    private static ToolCallText DescribeCreateMeetingDocument(ToolOutcome outcome, JsonElement? result, JsonElement arguments) => outcome switch
+    {
+        ToolOutcome.Running => new(Title: "Lager møtedokument"),
+        ToolOutcome.Succeeded when ReadAs<MeetingDocumentCreatedResult>(result) is { FileName: { } fileName }
+            && CreateMeetingDocumentTool.ReadArguments(arguments) is { } spec => new(
+                Title: $"Laget møtedokumentet «{fileName}»",
+                Download: new GeneratedFile.MeetingDocument(fileName, spec)),
+        ToolOutcome.Succeeded => new(Title: "Laget møtedokument"),
+        _ => new(Title: "Prøvde å lage møtedokument")
     };
 
     private static ToolCallText DescribeListPresentationPictures(ToolOutcome outcome, JsonElement? result) => outcome switch
