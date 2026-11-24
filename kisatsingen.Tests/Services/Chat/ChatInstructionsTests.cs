@@ -31,7 +31,7 @@ public sealed class ChatInstructionsTests
         Assert.Equal(
             ChatInstructions.Base +
             "\n\n## Instructions for the assistant \"Saksbehandler\"\n\n" + Wrapped("Svar kort og formelt.") +
-            "\n\n## Files\n\n" + ChatInstructions.AssistantFilesLine +
+            "\n\n## Knowledge files for the assistant\n\n" + ChatInstructions.AssistantFilesLine +
             "\n\n- rundskriv.md (fileId: 11111111-1111-1111-1111-111111111111)" +
             "\n- budsjett.md (fileId: 22222222-2222-2222-2222-222222222222)" +
             DateSection,
@@ -44,7 +44,7 @@ public sealed class ChatInstructionsTests
         var instructions = ChatInstructions.ForAssistant("Saksbehandler", null, files: [Circular], areBaseInstructionsDisabled: false, Today);
 
         Assert.Equal(
-            ChatInstructions.Base + "\n\n## Files\n\n" + ChatInstructions.AssistantFilesLine +
+            ChatInstructions.Base + "\n\n## Knowledge files for the assistant\n\n" + ChatInstructions.AssistantFilesLine +
             "\n\n- rundskriv.md (fileId: 11111111-1111-1111-1111-111111111111)" +
             DateSection,
             instructions);
@@ -57,7 +57,7 @@ public sealed class ChatInstructionsTests
 
         Assert.Equal(
             "## Instructions for the assistant \"Saksbehandler\"\n\n" + Wrapped("Svar kort og formelt.") +
-            "\n\n## Files\n\n" + ChatInstructions.AssistantFilesLine +
+            "\n\n## Knowledge files for the assistant\n\n" + ChatInstructions.AssistantFilesLine +
             "\n\n- rundskriv.md (fileId: 11111111-1111-1111-1111-111111111111)" +
             DateSection,
             instructions);
