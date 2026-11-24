@@ -17,7 +17,9 @@ internal static class CreateMeetingDocumentTool
 
     public const string Description =
         "Creates a Word file (.docx) on Vestfold fylkeskommune's template for meeting notices (møteinnkalling) and minutes (referat), and gives the user a download button. " +
-        "Use it when the user asks for a meeting notice, an agenda for a meeting, or minutes. " +
+        "Only use it when the user asks for a Word file, asks to download the text, or asks to change a meeting document you have made. " +
+        "If it is not clear that the user wants a file, for example when they ask for an agenda, write the text in the chat instead. " +
+        "If the user might want a Word file, offer to make one, and wait for the user to say yes. " +
         "The template is a form: fill the fields from the user's text, and leave out any field the text does not give; it stays blank for the user to fill in. " +
         "Never make up names, dates, decisions or deadlines. Write in the language of the user's text.";
 
