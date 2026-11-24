@@ -14,13 +14,6 @@
         </div>
 
         <div class="chat-composer">
-            @* In view at every send while search is on, so the user knows where
-               search queries go before sending. *@
-            @if (Session.IsWebSearchOn)
-            {
-                <p class="ds-alert ds-paragraph" data-size="xs">Nettsøk er på. Søkeord sendes til OpenAI, så ikke skriv personopplysninger i denne chatten.</p>
-            }
-
             <ComposerAttachments Attachments="Attachments.All"
                                  Notice="@Attachments.SelectionNotice"
                                  OnRemove="Attachments.Remove" />
@@ -33,9 +26,14 @@
             <div id="composer-paste-announcement" class="visually-hidden" aria-live="polite"></div>
             <ComposerDropZone />
 
+            @* Described by the footer's rule, which applies to everything typed
+               here: screen readers read it on focus, even while the footer shows
+               its other message. *@
             <textarea @ref="_textarea"
                       id="chat-textarea"
                       class="ds-input chat-textarea"
+                      aria-label="Melding"
+                      aria-describedby="chat-footer-rule-text"
                       placeholder="Spør om hva som helst..."></textarea>
 
             <div class="chat-composer-actions">
@@ -100,5 +98,14 @@
         </div>
     </div>
 
-    <p class="ds-paragraph chat-footer" data-size="xs" data-color="neutral">KI kan gjøre feil. Vurder alltid svarene kritisk.</p>
+    @* Static, so Blazor never touches the data-composer-has-text chat-composer.ts writes. *@
+    <p id="chat-footer" class="ds-paragraph chat-footer" data-size="xs" data-color="neutral">
+        <span class="chat-footer-message chat-footer-answer-reminder">KI kan gjøre feil. Vurder alltid svarene kritisk.</span>
+        @* The id on the text alone: a description from a hidden element includes
+           its hidden children, so the icon's ligature name would be read. *@
+        <span class="chat-footer-message chat-footer-rule">
+            <span class="material-symbols-outlined" aria-hidden="true">privacy_tip</span>
+            <span id="chat-footer-rule-text">Husk å ikke legge inn personopplysninger eller taushetsbelagt informasjon.</span>
+        </span>
+    </p>
 </div>

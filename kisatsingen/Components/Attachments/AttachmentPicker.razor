@@ -1,9 +1,12 @@
 @using kisatsingen.Services.Attachments
 
 <div>
-    <p id="@AlertId" class="ds-alert ds-paragraph attachment-picker-alert" data-size="xs">
-        @AttachmentPrivacyWarning.Text
-    </p>
+    @if (Warning is { } warning)
+    {
+        <p id="@WarningId" class="ds-alert ds-paragraph attachment-picker-warning" data-size="xs">
+            @warning
+        </p>
+    }
 
     @* A label rather than a button, so the browser opens the picker itself
        with no script. The input is visually hidden rather than display:none,
@@ -22,7 +25,7 @@
         <span id="@LimitsId" class="ds-paragraph" data-size="xs">@FileLimitsText</span>
         @* Named by the heading alone: the wrapping label would name it with
            the lines below too, which aria-describedby already reads. The
-           alert is included because tabbing straight to the input skips
+           warning is included because tabbing straight to the input skips
            over it. *@
         <InputFile
             class="visually-hidden"
@@ -30,7 +33,7 @@
             multiple
             accept="@AttachmentContentTypes.AcceptAttribute"
             aria-labelledby="@NameId"
-            aria-describedby="@($"{AlertId} {KindsId} {LimitsId}")"
+            aria-describedby="@DescriptionIds"
             disabled="@IsDisabled"
         />
     </label>

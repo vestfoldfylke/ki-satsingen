@@ -1,5 +1,6 @@
-// Composer behavior: Enter-to-send / Shift+Enter-for-newline, and the send
-// button's enabled state — both handled entirely client-side so a keystroke
+// Composer behavior: Enter-to-send / Shift+Enter-for-newline, the send
+// button's enabled state, and the footer message that follows whether there
+// is text to send — all handled entirely client-side so a keystroke
 // doesn't round-trip over SignalR just to ask "was that Enter" or "is this
 // still empty." The textarea is otherwise uncontrolled from Blazor's side;
 // its content only reaches the server once, at send (see takeComposerValue).
@@ -8,6 +9,7 @@ import { attachPastedImages } from './composer-paste.js';
 
 const SELECTOR_TEXTAREA = '#chat-textarea';
 const SELECTOR_SEND_BUTTON = '#composer-send-button';
+const SELECTOR_FOOTER = '#chat-footer';
 
 let textareaElement: HTMLTextAreaElement | null = null;
 let isBusy = false;
@@ -31,9 +33,20 @@ function updateSendButtonDisabled(): void {
     }
 }
 
-function onInput(): void {
-    isEmpty = (textareaElement?.value.trim().length ?? 0) === 0;
+// Single writer for the footer's `data-composer-has-text`: set while there is
+// text to send. Blazor never touches it past the footer's static markup.
+function updateFooter(): void {
+    document.querySelector<HTMLElement>(SELECTOR_FOOTER)?.toggleAttribute('data-composer-has-text', !isEmpty);
+}
+
+function setIsEmpty(isTextareaEmpty: boolean): void {
+    isEmpty = isTextareaEmpty;
     updateSendButtonDisabled();
+    updateFooter();
+}
+
+function onInput(): void {
+    setIsEmpty((textareaElement?.value.trim().length ?? 0) === 0);
 }
 
 function onKeyDown(e: KeyboardEvent): void {
@@ -61,8 +74,7 @@ export function initComposer(): void {
     // rather than dead — it keeps the module's cached isEmpty correct on day
     // one if that firstRender gate is ever loosened, instead of quietly going
     // stale again.
-    isEmpty = textarea.value.trim().length === 0;
-    updateSendButtonDisabled();
+    setIsEmpty(textarea.value.trim().length === 0);
 
     if (textarea === textareaElement) {
         return;
@@ -107,7 +119,6 @@ export function takeComposerValue(): string {
 
     const value = textareaElement.value;
     textareaElement.value = '';
-    isEmpty = true;
-    updateSendButtonDisabled();
+    setIsEmpty(true);
     return value;
 }

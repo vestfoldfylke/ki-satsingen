@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Components.Forms;
 
 namespace kisatsingen.Components.Attachments;
 
-// Selects files to attach, with the warning, the allowed types and the limits
-// beside the button.
+// Selects files to attach, with the allowed types, the limits and an optional
+// warning beside the button.
 public sealed partial class AttachmentPicker : ComponentBase
 {
     // Unique per instance, so two pickers can share a page.
@@ -24,10 +24,18 @@ public sealed partial class AttachmentPicker : ComponentBase
     [Parameter]
     public EventCallback<InputFileChangeEventArgs> OnFilesSelected { get; set; }
 
-    private string AlertId => $"{_idPrefix}-alert";
+    // Shown above the button and read with the input; null shows none.
+    [Parameter]
+    public string? Warning { get; set; }
+
+    private string WarningId => $"{_idPrefix}-warning";
     private string NameId => $"{_idPrefix}-name";
     private string KindsId => $"{_idPrefix}-kinds";
     private string LimitsId => $"{_idPrefix}-limits";
+
+    private string DescriptionIds => Warning is null
+        ? $"{KindsId} {LimitsId}"
+        : $"{WarningId} {KindsId} {LimitsId}";
 
     // The list is written to sit mid-sentence; here it starts the line.
     private static string FileKindsText { get; } = string.Concat(

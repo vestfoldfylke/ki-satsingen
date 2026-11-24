@@ -1,5 +1,5 @@
-/* A dropdown is as wide as its widest line, so the alert would otherwise
-   stretch it to the edge of the viewport before wrapping. */
+/* A dropdown is as wide as its widest line, so a long description would
+   otherwise stretch it to the edge of the viewport before wrapping. */
 .composer-add-menu {
     max-width: 20rem;
 }
