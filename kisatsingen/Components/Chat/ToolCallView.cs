@@ -148,6 +148,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         {
             SearchWebTexts.EmptyQuery => "Søket var tomt.",
             SearchWebTexts.WebAddressRefused => "Søket kan ikke inneholde nettadresser.",
+            SearchWebTexts.NationalIdentityNumberRefused => "Søket kan ikke inneholde fødselsnummer.",
             SearchWebTexts.NotAvailable => "Nettsøket var ikke tilgjengelig.",
             SearchWebTexts.NoResult => "Søket ga ingen treff.",
             { } error when error == SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn) =>

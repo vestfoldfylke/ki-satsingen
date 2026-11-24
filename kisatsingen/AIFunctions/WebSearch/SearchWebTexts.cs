@@ -19,6 +19,9 @@ internal static class SearchWebTexts
     public const string WebAddressRefused =
         "Søket kan ikke inneholde nettadresser. Søk med stikkord; bruk site: for å søke på ett nettsted, for eksempel site:lovdata.no.";
 
+    public const string NationalIdentityNumberRefused =
+        "Søket kan ikke inneholde fødselsnummer. Ikke søk etter privatpersoner; si fra til brukeren at nettsøk ikke kan brukes til personopplysninger.";
+
     public const string NotAvailable =
         "Nettsøket er ikke tilgjengelig akkurat nå. Si fra til brukeren, og svar at du ikke har søkt.";
 

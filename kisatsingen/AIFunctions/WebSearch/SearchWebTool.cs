@@ -3,6 +3,7 @@ using System.ClientModel.Primitives;
 using System.ComponentModel;
 using System.Globalization;
 using System.Net;
+using System.Net.Sockets;
 using System.Text.Json;
 using Microsoft.Extensions.AI;
 using OpenAI.Responses;
@@ -77,6 +78,11 @@ internal static class SearchWebTool
             return new ToolError(SearchWebTexts.WebAddressRefused);
         }
 
+        if (NationalIdentityNumber.IsIn(query))
+        {
+            return new ToolError(SearchWebTexts.NationalIdentityNumberRefused);
+        }
+
         if (!quota.TryStartSearch())
         {
             return new ToolError(SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn));
@@ -114,8 +120,9 @@ internal static class SearchWebTool
 
     // site: only narrows the search to one site, so what follows it is checked
     // like any other word. A host is a domain, which has a letter after a dot
-    // as in lovdata.no, or an IPv4 address with all three dots. Times, numbers
-    // and year spans stay allowed, such as kl.12:00, 1.000/mnd and 2025/2026.
+    // as in lovdata.no, an IPv4 address with all three dots, or an IPv6 address
+    // in brackets. Times, numbers and year spans stay allowed, such as
+    // kl.12:00, 1.000/mnd and 2025/2026.
     private static bool IsWebAddress(string word)
     {
         var address = word.StartsWith(SitePrefix, StringComparison.OrdinalIgnoreCase) ? word[SitePrefix.Length..] : word;
@@ -133,7 +140,33 @@ internal static class SearchWebTool
         var hasDomainDot = address.Split('.').Skip(1).Any(part => part.Length > 0 && char.IsLetter(part[0]));
         var host = address[..hostEnd];
         var isIpv4Host = host.Count(character => character == '.') == Ipv4DotCount && IPAddress.TryParse(host, out _);
-        return hasDomainDot || isIpv4Host;
+        return hasDomainDot || isIpv4Host || HasBracketedIpv6Host(address);
+    }
+
+    // Brackets, since that is how a web address writes an IPv6 host. Every
+    // pair in the word, so a login before the host, as in ola@[2001:db8::1],
+    // or an earlier pair that isn't an address can't hide it.
+    private static bool HasBracketedIpv6Host(string address)
+    {
+        var start = address.IndexOf('[');
+        while (start >= 0)
+        {
+            var end = address.IndexOf(']', start + 1);
+            if (end < 0)
+            {
+                return false;
+            }
+
+            if (IPAddress.TryParse(address[(start + 1)..end], out var ipAddress)
+                && ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return true;
+            }
+
+            start = address.IndexOf('[', end + 1);
+        }
+
+        return false;
     }
 
     // Only the provider call is caught, so a bug here still fails loudly. The

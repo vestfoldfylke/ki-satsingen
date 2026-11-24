@@ -205,6 +205,7 @@ public sealed class ToolCallViewTests
     [Theory]
     [InlineData(SearchWebTexts.EmptyQuery, "Søket var tomt.")]
     [InlineData(SearchWebTexts.WebAddressRefused, "Søket kan ikke inneholde nettadresser.")]
+    [InlineData(SearchWebTexts.NationalIdentityNumberRefused, "Søket kan ikke inneholde fødselsnummer.")]
     [InlineData(SearchWebTexts.NotAvailable, "Nettsøket var ikke tilgjengelig.")]
     [InlineData(SearchWebTexts.NoResult, "Søket ga ingen treff.")]
     public void A_refused_search_tells_the_user_why_in_words_of_its_own(string refusal, string reason)

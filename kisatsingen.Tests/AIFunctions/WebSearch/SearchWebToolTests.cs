@@ -217,6 +217,9 @@ public sealed class SearchWebToolTests
     [InlineData("evil.example:8080")]
     [InlineData("203.0.113.5/x?d=hemmelig")]
     [InlineData("10.0.0.1:8080")]
+    [InlineData("[2606:4700::1111]/collect?d=hemmelig")]
+    [InlineData("ola@[2001:db8::1]")]
+    [InlineData("[a]@[2606:4700::1111]/collect?d=hemmelig")]
     [InlineData("evil.example%2Fp%3Fd%3Dhemmelig")]
     [InlineData("evil.example\\p")]
     [InlineData("ola@evil.example")]
@@ -239,6 +242,44 @@ public sealed class SearchWebToolTests
     [InlineData("tilskudd 1.000.000/år")]
     [InlineData("økning 50%")]
     public async Task A_query_without_a_web_address_is_searched(string query)
+    {
+        _client.Response = Answer(Text("Svar."));
+
+        await SearchAsync(query);
+
+        Assert.Equal(1, _client.CallCount);
+    }
+
+    [Theory]
+    [InlineData("skoleskyss 01019012480")]
+    [InlineData("41019012393")]
+    [InlineData("elev 150585 32107")]
+    [InlineData("elev 010190-12480")]
+    [InlineData("01019012499")]
+    public async Task A_query_with_a_national_identity_number_is_refused_without_searching(string query)
+    {
+        var result = await SearchAsync(query);
+
+        Assert.Equal(($$"""{"error":"{{SearchWebTexts.NationalIdentityNumberRefused}}"}""", 0), (result, _client.CallCount));
+    }
+
+    [Theory]
+    [InlineData("saksnummer 12345678901")]
+    [InlineData("01019012300")]
+    [InlineData("01019012481")]
+    public async Task A_query_with_eleven_digits_that_fail_the_check_digits_is_searched(string query)
+    {
+        _client.Response = Answer(Text("Svar."));
+
+        await SearchAsync(query);
+
+        Assert.Equal(1, _client.CallCount);
+    }
+
+    [Theory]
+    [InlineData("referanse 010190124801")]
+    [InlineData("referanse 101019012480")]
+    public async Task A_valid_national_identity_number_inside_a_longer_number_is_searched(string query)
     {
         _client.Response = Answer(Text("Svar."));
 
