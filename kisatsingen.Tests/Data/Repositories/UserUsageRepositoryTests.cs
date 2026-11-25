@@ -36,7 +36,8 @@ public sealed class UserUsageRepositoryTests(PostgresFixture fixture) : IAsyncLi
         long? cachedInputTokens = null,
         long? reasoningTokens = null,
         UsageKind kind = UsageKind.ChatTurn,
-        TurnStatus? status = TurnStatus.Completed)
+        TurnStatus? status = TurnStatus.Completed,
+        int? webSearchCount = null)
     {
         await using var db = await Factory.CreateDbContextAsync();
         db.UsageRecords.Add(new UsageRecord
@@ -53,7 +54,8 @@ public sealed class UserUsageRepositoryTests(PostgresFixture fixture) : IAsyncLi
             EstimatedOutputTokens = estimatedOutputTokens,
             CachedInputTokens = cachedInputTokens,
             ReasoningTokens = reasoningTokens,
-            Status = status
+            Status = status,
+            WebSearchCount = webSearchCount
         });
         await db.SaveChangesAsync();
     }
@@ -97,6 +99,18 @@ public sealed class UserUsageRepositoryTests(PostgresFixture fixture) : IAsyncLi
         var totals = await Repo.GetTotalsAsync(UserId, since: null);
 
         Assert.Equal(1_800L, totals.TotalConversionTokens);
+    }
+
+    [Fact]
+    public async Task Totals_sum_the_web_searches_and_do_not_count_search_rows_as_turns()
+    {
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, kind: UsageKind.WebSearch, status: null, webSearchCount: 2);
+        await SeedRowAsync(UserId, DateTimeOffset.UtcNow, kind: UsageKind.WebSearch, status: null, webSearchCount: 3);
+
+        var totals = await Repo.GetTotalsAsync(UserId, since: null);
+
+        Assert.Equal((5L, 1), (totals.TotalWebSearches, totals.TurnCount));
     }
 
     // A conversion has no status to group by.

@@ -1,5 +1,6 @@
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services;
@@ -51,7 +52,8 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
     public FakeKnowledgeFileRepository KnowledgeFiles { get; } = new();
     public HoldingTextConverter TextConverter { get; } = new();
 
-    public ChatSessionHarness()
+    // Search is off unless a test is about it, as when it is not configured.
+    public ChatSessionHarness(WebSearchModel? webSearchModel = null)
     {
         Catalog = new FakeChatModelCatalog(Client);
         Manager = new ChatManager(Authentication, Repository, NullLogger<ChatManager>.Instance);
@@ -71,6 +73,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
             new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
+            new SearchWebToolFactory(webSearchModel, NullLogger<SearchWebToolFactory>.Instance),
             Assistants,
             Clock);
     }
@@ -378,8 +381,7 @@ internal sealed class FakeChatModelCatalog : IChatModelCatalog
         LongDescription = $"{displayName}, at length",
         Provider = "test",
         ModelId = $"{key}-wire-id",
-        ContextWindowTokens = 128_000,
-        IconName = "test-icon"
+        ContextWindowTokens = 128_000
     };
 }
 

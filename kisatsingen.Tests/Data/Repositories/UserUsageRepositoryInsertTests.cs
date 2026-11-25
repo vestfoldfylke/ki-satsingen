@@ -180,6 +180,28 @@ public sealed class UserUsageRepositoryInsertTests(PostgresFixture fixture) : IA
             (stored.Kind, stored.AssistantId, stored.ChatId, stored.TurnId, stored.Status, stored.Provider, stored.ModelId, stored.InputTokens, stored.OutputTokens));
     }
 
+    [Fact]
+    public async Task Stores_a_turn_s_web_searches_with_their_kind_and_search_count_and_no_status()
+    {
+        var turnId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        await InsertAsync(NewUsageRecord.ForWebSearch(
+            userId: UserId,
+            chatId: Guid.NewGuid(),
+            turnId: turnId,
+            assistantId: null,
+            provider: "OpenAI",
+            modelId: "gpt-6-luna",
+            usage: new MessageUsage(2_000, 400),
+            webSearchCount: 2));
+
+        await using var db = await Factory.CreateDbContextAsync();
+        var stored = await db.UsageRecords.SingleAsync();
+        Assert.Equal(
+            ("WebSearch", (Guid?)turnId, (TurnStatus?)null, (int?)2, 2000L, 400L),
+            (stored.Kind.ToString(), stored.TurnId, stored.Status, stored.WebSearchCount, stored.InputTokens, stored.OutputTokens));
+    }
+
     // The usage queries read every turn row's status back as a TurnStatus.
     [Fact]
     public async Task The_database_refuses_a_turn_row_without_a_status()
@@ -196,6 +218,36 @@ public sealed class UserUsageRepositoryInsertTests(PostgresFixture fixture) : IA
         });
 
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task The_database_refuses_a_web_search_row_without_a_count()
+    {
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveRowAsync(UsageKind.WebSearch, webSearchCount: null));
+    }
+
+    // The search total sums the count over every row, whatever its kind.
+    [Fact]
+    public async Task The_database_refuses_a_web_search_count_on_a_conversion_row()
+    {
+        await Assert.ThrowsAsync<DbUpdateException>(() => SaveRowAsync(UsageKind.KnowledgeFileConversion, webSearchCount: 2));
+    }
+
+    // Straight through the DbContext, since the factories never build these rows.
+    private async Task SaveRowAsync(UsageKind kind, int? webSearchCount)
+    {
+        await using var db = await Factory.CreateDbContextAsync();
+        db.UsageRecords.Add(new UsageRecord
+        {
+            Id = Guid.NewGuid(),
+            Kind = kind,
+            UserId = UserId,
+            Timestamp = DateTimeOffset.UtcNow,
+            Provider = "openai",
+            ModelId = "gpt-6-luna",
+            WebSearchCount = webSearchCount
+        });
+        await db.SaveChangesAsync();
     }
 
     // Persisted by name, like the status: the usage queries filter on it.

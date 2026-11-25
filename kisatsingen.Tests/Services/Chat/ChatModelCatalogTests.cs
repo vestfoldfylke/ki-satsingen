@@ -101,8 +101,7 @@ public sealed class ChatModelCatalogTests
                 LongDescription = "long",
                 Provider = "test",
                 ModelId = $"{key}-wire-id",
-                ContextWindowTokens = 1_000,
-                IconName = "icon"
+                ContextWindowTokens = 1_000
             },
             _ => client ?? new DisposalRecordingChatClient(),
             new ChatOptions());

@@ -40,7 +40,8 @@ public sealed class UserUsageRepository(IDbContextFactory<AppDbContext> factory)
             EstimatedOutputTokens = newRecord.Usage.EstimatedOutputTokens,
             CachedInputTokens = newRecord.Usage.CachedInputTokens,
             ReasoningTokens = newRecord.Usage.ReasoningTokens,
-            Status = newRecord.Status
+            Status = newRecord.Status,
+            WebSearchCount = newRecord.WebSearchCount
         });
 
         await db.SaveChangesAsync(ct);
@@ -63,6 +64,7 @@ public sealed class UserUsageRepository(IDbContextFactory<AppDbContext> factory)
                  COALESCE(SUM("CachedInputTokens"), 0)::bigint AS "TotalCachedInputTokens",
                  COALESCE(SUM("ReasoningTokens"), 0)::bigint AS "TotalReasoningTokens",
                  COALESCE(SUM(COALESCE("InputTokens", 0) + COALESCE("OutputTokens", 0)) FILTER (WHERE "Kind" = {KnowledgeFileConversionKind}), 0)::bigint AS "TotalConversionTokens",
+                 COALESCE(SUM("WebSearchCount"), 0)::bigint AS "TotalWebSearches",
                  (COUNT(*) FILTER (WHERE "Kind" = {ChatTurnKind}))::int AS "TurnCount"
              FROM "UsageRecords"
              WHERE ("UserId" = {userId})

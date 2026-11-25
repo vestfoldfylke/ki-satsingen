@@ -141,6 +141,9 @@ namespace kisatsingen.Migrations
                     b.Property<long?>("InputTokens")
                         .HasColumnType("bigint");
 
+                    b.Property<bool>("IsWebSearchAllowed")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("ModelKey")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -327,6 +330,9 @@ namespace kisatsingen.Migrations
                     b.Property<Guid>("UserId")
                         .HasColumnType("uuid");
 
+                    b.Property<int?>("WebSearchCount")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssistantId", "Timestamp")
@@ -337,6 +343,8 @@ namespace kisatsingen.Migrations
                     b.ToTable("UsageRecords", t =>
                         {
                             t.HasCheckConstraint("ck_usage_records_turn_has_status", "\"Kind\" <> 'ChatTurn' OR \"Status\" IS NOT NULL");
+
+                            t.HasCheckConstraint("ck_usage_records_web_search_has_count", "(\"Kind\" = 'WebSearch') = (\"WebSearchCount\" IS NOT NULL)");
                         });
                 });
 

@@ -71,6 +71,11 @@ Chats older than the specified retention given by `Retention` set in **DatabaseC
   "ImageConversion": {
     "MistralApiKey": "kijoij..."
   },
+  // Optional: without it the search_web tool is not offered, and a warning is
+  // logged at startup. Searches run through OpenAI, set in WebSearchModel.
+  "WebSearch": {
+    "OpenAIApiKey": "sk-proj-...."
+  },
   "ConnectionStrings": {
     "DefaultConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=kisatsingen_web_app;Password=kisatsingen_web_app_local_dev_pass;SSL Mode=Prefer;Trust Server Certificate=true",
     "MigrationConnection": "Host=localhost;Port=5432;Database=kisatsingen_dev_db;Username=local_user;Password=local_password;SSL Mode=Prefer;Trust Server Certificate=true"

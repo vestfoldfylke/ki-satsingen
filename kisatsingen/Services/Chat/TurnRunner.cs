@@ -1,4 +1,5 @@
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -31,6 +32,7 @@ internal sealed class TurnRunner
     private readonly IUserUsageRepository _userUsageRepository;
     private readonly TurnAttachmentProcessor _attachmentProcessor;
     private readonly FileToolFactory _fileTools;
+    private readonly SearchWebToolFactory _searchWebTools;
 
     public TurnRunner(
         IAuthenticationService authenticationService,
@@ -43,7 +45,8 @@ internal sealed class TurnRunner
         ILogger logger,
         IUserUsageRepository userUsageRepository,
         TurnAttachmentProcessor attachmentProcessor,
-        FileToolFactory fileTools)
+        FileToolFactory fileTools,
+        SearchWebToolFactory searchWebTools)
     {
         _authenticationService = authenticationService;
         _catalog = catalog;
@@ -56,6 +59,7 @@ internal sealed class TurnRunner
         _userUsageRepository = userUsageRepository;
         _attachmentProcessor = attachmentProcessor;
         _fileTools = fileTools;
+        _searchWebTools = searchWebTools;
     }
 
     // Throws only what the page must handle itself: an unauthenticated caller, an
@@ -63,7 +67,8 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved);
+        var webSearch = _searchWebTools.StartTurn(isWebSearchAllowed: input.Turn.IsWebSearchAllowed);
+        var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
         // Starts as Failed so an exception nothing classified lands in the alerted bucket.
@@ -120,7 +125,7 @@ internal sealed class TurnRunner
             await ProcessAttachmentsAsync(inserted, input.SentAttachments.All, builder, observer, cancellation.Token);
 
             stage = TurnStage.Generating;
-            await StreamAsync(inserted, input, builder, observer, cancellation.Token);
+            await StreamAsync(inserted, input, row.WebSearch, builder, observer, cancellation.Token);
 
             // CancellationToken.None: the answer is complete, so a stop or a switch of
             // chat during this one write must not store it as stopped.
@@ -170,6 +175,7 @@ internal sealed class TurnRunner
         }
 
         await InsertUsageRecordAsync(row, attempt, model);
+        await InsertWebSearchUsageRecordAsync(row, attempt);
 
         CountFailure(attempt);
     }
@@ -272,6 +278,7 @@ internal sealed class TurnRunner
     private Task StreamAsync(
         InsertedTurn inserted,
         TurnInput input,
+        TurnWebSearch? webSearch,
         TurnBuilder builder,
         TurnObserver observer,
         CancellationToken ct)
@@ -290,6 +297,13 @@ internal sealed class TurnRunner
         {
             var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, inserted.AssistantId);
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
+        }
+
+        // Added even when search is off, since changing the tools would
+        // invalidate the prompt cache. The tool refuses by itself while off.
+        if (webSearch is not null)
+        {
+            options.Tools = [.. options.Tools ?? [], webSearch.Tool];
         }
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);
@@ -354,10 +368,54 @@ internal sealed class TurnRunner
         {
             _logger.LogError(
                 ex,
-                "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}",
+                "Could not save token usage for turn {TurnId} in chat {ChatId} with status {Status}, so {Usage} is missing from the usage totals. " +
+                "Check the exception and the database.",
                 attempt.Turn.Id,
                 row.ChatId,
-                attempt.Turn.Status);
+                attempt.Turn.Status,
+                usage);
+        }
+    }
+
+    // One row for all the turn's searches, written on every ending like the
+    // turn's own row, so searches finished before a stop are recorded.
+    private async Task InsertWebSearchUsageRecordAsync(TurnRow row, TurnAttempt attempt)
+    {
+        if (row.WebSearch?.Quota is not { } quota)
+        {
+            return;
+        }
+
+        var usage = quota.Usage;
+        if (usage is null && quota.BilledSearches == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var userId = row.OwnerId ?? await _authenticationService.RequireUserObjectIdentifierAsync();
+            var newRecord = NewUsageRecord.ForWebSearch(
+                userId: userId,
+                chatId: row.ChatId,
+                turnId: attempt.Turn.Id,
+                assistantId: row.AssistantId,
+                provider: quota.Provider,
+                modelId: quota.ModelId,
+                usage: usage ?? new MessageUsage(InputTokens: null, OutputTokens: null),
+                webSearchCount: quota.BilledSearches);
+            await _userUsageRepository.InsertUsageRecordAsync(newRecord, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Could not save web search usage for turn {TurnId} in chat {ChatId}, so {WebSearchCount} billed searches and {Usage} are missing from the usage totals. " +
+                "Check the exception and the database.",
+                attempt.Turn.Id,
+                row.ChatId,
+                quota.BilledSearches,
+                usage);
         }
     }
 
@@ -373,7 +431,7 @@ internal sealed class TurnRunner
 
     // What is known of the turn's row so far; a turn that ends early may never
     // learn the rest.
-    private sealed class TurnRow(Guid chatId, Guid? assistantId, bool isChatSaved)
+    private sealed class TurnRow(Guid chatId, Guid? assistantId, bool isChatSaved, TurnWebSearch? webSearch)
     {
         public Guid ChatId { get; } = chatId;
 
@@ -381,6 +439,9 @@ internal sealed class TurnRunner
 
         // False for a new chat: it is saved with this turn.
         public bool IsChatSaved { get; } = isChatSaved;
+
+        // Null when search is not configured.
+        public TurnWebSearch? WebSearch { get; } = webSearch;
 
         // Null until sign-in is confirmed.
         public Guid? OwnerId { get; set; }

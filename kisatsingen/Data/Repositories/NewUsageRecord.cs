@@ -17,7 +17,8 @@ public sealed record NewUsageRecord
         string provider,
         string modelId,
         MessageUsage usage,
-        TurnStatus? status)
+        TurnStatus? status,
+        int? webSearchCount)
     {
         Kind = kind;
         UserId = userId;
@@ -28,6 +29,7 @@ public sealed record NewUsageRecord
         ModelId = modelId;
         Usage = usage;
         Status = status;
+        WebSearchCount = webSearchCount;
     }
 
     public UsageKind Kind { get; }
@@ -39,6 +41,7 @@ public sealed record NewUsageRecord
     public string ModelId { get; }
     public MessageUsage Usage { get; }
     public TurnStatus? Status { get; }
+    public int? WebSearchCount { get; }
 
     public static NewUsageRecord ForTurn(
         Guid userId,
@@ -58,7 +61,8 @@ public sealed record NewUsageRecord
             provider: provider,
             modelId: modelId,
             usage: usage,
-            status: status);
+            status: status,
+            webSearchCount: null);
 
     // assistantId is the chat's assistant, as on the turn's own row.
     public static NewUsageRecord ForChatFileConversion(Guid userId, Guid chatId, Guid turnId, Guid? assistantId, ConversionTokenUsage tokenUsage) =>
@@ -71,7 +75,8 @@ public sealed record NewUsageRecord
             provider: tokenUsage.Provider,
             modelId: tokenUsage.ModelId,
             usage: tokenUsage.Usage,
-            status: null);
+            status: null,
+            webSearchCount: null);
 
     public static NewUsageRecord ForAssistantFileConversion(Guid userId, Guid assistantId, ConversionTokenUsage tokenUsage) =>
         new(
@@ -83,5 +88,29 @@ public sealed record NewUsageRecord
             provider: tokenUsage.Provider,
             modelId: tokenUsage.ModelId,
             usage: tokenUsage.Usage,
-            status: null);
+            status: null,
+            webSearchCount: null);
+
+    // One row for all the searches in a turn, like the turn's own row sums all
+    // its model calls. assistantId is the chat's assistant.
+    public static NewUsageRecord ForWebSearch(
+        Guid userId,
+        Guid chatId,
+        Guid turnId,
+        Guid? assistantId,
+        string provider,
+        string modelId,
+        MessageUsage usage,
+        int webSearchCount) =>
+        new(
+            kind: UsageKind.WebSearch,
+            userId: userId,
+            chatId: chatId,
+            turnId: turnId,
+            assistantId: assistantId,
+            provider: provider,
+            modelId: modelId,
+            usage: usage,
+            status: null,
+            webSearchCount: webSearchCount);
 }

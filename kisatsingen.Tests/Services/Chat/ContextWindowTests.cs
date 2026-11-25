@@ -121,8 +121,7 @@ public sealed class ContextWindowTests
         LongDescription = "long",
         Provider = "test",
         ModelId = "wire-id",
-        ContextWindowTokens = contextWindowTokens,
-        IconName = "icon"
+        ContextWindowTokens = contextWindowTokens
     };
 }
 

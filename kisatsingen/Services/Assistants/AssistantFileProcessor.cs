@@ -84,7 +84,13 @@ internal sealed class AssistantFileProcessor(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Could not save token usage for converting file {FileName} for assistant {AssistantId}.", attachment.FileName, assistantId);
+            logger.LogError(
+                ex,
+                "Could not save token usage for converting file {FileName} for assistant {AssistantId}, so {Usage} is missing from the usage totals. " +
+                "Check the exception and the database.",
+                attachment.FileName,
+                assistantId,
+                newRecord.Usage);
         }
     }
 

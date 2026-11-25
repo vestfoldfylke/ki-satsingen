@@ -1,6 +1,7 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.GeneratedFiles;
@@ -12,7 +13,7 @@ namespace kisatsingen.Tests.Components.Chat;
 public sealed class ToolCallViewTests
 {
     public static TheoryData<string> ToolNamesTheChatOffers =>
-        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames]);
+        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames, .. SearchWebToolFactory.ToolNames]);
 
     [Fact]
     public void A_read_of_part_of_a_file_is_titled_with_the_lines_read_and_the_line_count()
@@ -140,9 +141,102 @@ public sealed class ToolCallViewTests
     [Fact]
     public void An_unknown_tool_is_named_in_its_title()
     {
-        var view = Build("search_web", "\"treff\"");
+        var view = Build("get_weather", "\"sol\"");
 
-        Assert.Equal("Brukte verktøyet search_web", view.Title);
+        Assert.Equal("Brukte verktøyet get_weather", view.Title);
+    }
+
+    [Fact]
+    public void A_running_search_is_titled_with_the_query_asked()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: """{"query":"skoleskyss Vestfold"}""");
+
+        Assert.Equal("Søker etter «skoleskyss Vestfold» på nettet", view.Title);
+    }
+
+    [Fact]
+    public void A_search_limited_to_a_site_names_the_site_after_the_keywords()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: """{"query":"site:vestfoldfylke.no skoleskyss"}""");
+
+        Assert.Equal("Søker etter «skoleskyss» på vestfoldfylke.no", view.Title);
+    }
+
+    [Fact]
+    public void A_search_without_a_query_is_titled_as_a_search_on_the_web()
+    {
+        var view = Build("search_web", result: null, ToolStatus.Running, arguments: "{}");
+
+        Assert.Equal("Søker på nettet", view.Title);
+    }
+
+    [Fact]
+    public void A_finished_search_lists_what_the_provider_searched_for_and_its_sources()
+    {
+        var view = Build("search_web", """
+            {"queries":["skoleskyss Vestfold","skyssgrense"],"sources":[
+                {"url":"https://www.vestfoldfylke.no/skyss","title":"Skoleskyss"},
+                {"url":"https://lovdata.no/forskrift","title":null}],
+             "contentNotice":"","content":""}
+            """, arguments: SearchArguments);
+
+        Assert.Equal(
+            ("Søkte etter «skoleskyss» på nettet",
+                "Søkte etter:\nskoleskyss Vestfold\nskyssgrense\n\nKilder:\nSkoleskyss – https://www.vestfoldfylke.no/skyss\nhttps://lovdata.no/forskrift"),
+            (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_without_sources_says_so()
+    {
+        var view = Build("search_web", """{"queries":["skoleskyss"],"sources":[],"contentNotice":"","content":""}""", arguments: SearchArguments);
+
+        Assert.EndsWith("Kilder:\nIngen", view.UserFriendlyResult);
+    }
+
+    [Fact]
+    public void A_finished_search_whose_result_lacks_the_queries_falls_back_to_the_title_alone()
+    {
+        var view = Build("search_web", """{"sources":[]}""", arguments: SearchArguments);
+
+        Assert.Equal(("Søkte etter «skoleskyss» på nettet", null), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Theory]
+    [InlineData(SearchWebTexts.EmptyQuery, "Søket var tomt.")]
+    [InlineData(SearchWebTexts.WebAddressRefused, "Søket kan ikke inneholde nettadresser.")]
+    [InlineData(SearchWebTexts.NationalIdentityNumberRefused, "Søket kan ikke inneholde fødselsnummer.")]
+    [InlineData(SearchWebTexts.NotAvailable, "Nettsøket var ikke tilgjengelig.")]
+    [InlineData(SearchWebTexts.NoResult, "Søket ga ingen treff.")]
+    public void A_refused_search_tells_the_user_why_in_words_of_its_own(string refusal, string reason)
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = refusal }), arguments: SearchArguments);
+
+        Assert.Equal(("Prøvde å søke etter «skoleskyss» på nettet", reason), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_refused_because_search_was_off_says_only_that()
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.SearchIsOff }), arguments: SearchArguments);
+
+        Assert.Equal(("Søkte ikke – nettsøk er av", null), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_refused_at_the_limit_tells_the_user_the_limit()
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.LimitReached(3) }), arguments: SearchArguments);
+
+        Assert.Equal("Det kan bare søkes 3 ganger per svar.", view.UserFriendlyResult);
+    }
+
+    [Fact]
+    public void A_search_refused_for_an_unknown_reason_gives_no_reason()
+    {
+        var view = Build("search_web", """{"error":"En melding som ikke finnes lenger."}""", arguments: SearchArguments);
+
+        Assert.Null(view.UserFriendlyResult);
     }
 
     [Fact]
@@ -152,6 +246,8 @@ public sealed class ToolCallViewTests
 
         Assert.Equal("Så hvilke bilder presentasjonen kan bruke (2 bilder)", view.Title);
     }
+
+    private const string SearchArguments = """{"query":"skoleskyss"}""";
 
     private const string PresentationArguments = """
         { "title": "Budsjett", "theme": "VannFjord", "slides": [ { "kind": "Chapter", "title": "Innledning" } ] }

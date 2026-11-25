@@ -3,11 +3,13 @@ using System.Text.Json;
 using kisatsingen.AIFunctions;
 using kisatsingen.AIFunctions.FileTools;
 using kisatsingen.AIFunctions.PresentationTools;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.AIFunctions.WordDocumentTools;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.GeneratedFiles;
 using static kisatsingen.AIFunctions.FileTools.FileToolResults;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
+using static kisatsingen.AIFunctions.WebSearch.SearchWebResults;
 using static kisatsingen.AIFunctions.WordDocumentTools.WordDocumentToolResults;
 
 namespace kisatsingen.Components.Chat;
@@ -34,6 +36,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
         WriteIndented = true,
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
+
+    private const string SearchQueryArgument = "query";
 
     public static ToolCallView Build(ToolCall toolCall)
     {
@@ -90,9 +94,67 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             ListPresentationPicturesTool.Name => DescribeListPresentationPictures(outcome, result),
             CreateWordDocumentTool.Name => DescribeCreateWordDocument(outcome, result, toolCall.Arguments),
             CreateMeetingDocumentTool.Name => DescribeCreateMeetingDocument(outcome, result, toolCall.Arguments),
+            SearchWebTool.Name => DescribeSearchWeb(outcome, result, toolCall.Arguments),
             _ => DescribeUnknownTool(toolCall.ToolName, outcome)
         };
     }
+
+    // Titled from the query the chat model asked, which is known while the
+    // search runs. The body shows what the provider searched for, which can
+    // differ, and the sources it cited, so the user sees what the answer is
+    // based on.
+    private static ToolCallText DescribeSearchWeb(ToolOutcome outcome, JsonElement? result, JsonElement arguments)
+    {
+        var searchedFor = DescribeSearchedFor(arguments);
+        var refusal = ReadAs<ToolError>(result)?.Error;
+        return outcome switch
+        {
+            ToolOutcome.Running => new(Title: $"Søker {searchedFor}"),
+            ToolOutcome.Succeeded when ReadAs<SearchWebResult>(result) is { Queries: { Count: > 0 } queries, Sources: { } sources } => new(
+                Title: $"Søkte {searchedFor}",
+                UserFriendlyResult: $"Søkte etter:\n{string.Join('\n', queries)}\n\nKilder:\n" + (sources.Count == 0
+                    ? "Ingen"
+                    : string.Join('\n', sources.Select(source => source.Title is { } title ? $"{title} – {source.Url}" : source.Url)))),
+            ToolOutcome.Succeeded => new(Title: $"Søkte {searchedFor}"),
+            ToolOutcome.Refused when refusal == SearchWebTexts.SearchIsOff => new(Title: "Søkte ikke – nettsøk er av"),
+            _ => new(Title: $"Prøvde å søke {searchedFor}", UserFriendlyResult: DescribeSearchRefusal(refusal))
+        };
+    }
+
+    private static string DescribeSearchedFor(JsonElement arguments)
+    {
+        var query = arguments.ValueKind == JsonValueKind.Object
+            && arguments.TryGetProperty(SearchQueryArgument, out var value)
+            && value.ValueKind == JsonValueKind.String
+                ? value.GetString() ?? ""
+                : "";
+
+        var words = query.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        var sites = words.Where(IsSite).Select(word => word[SearchWebTool.SitePrefix.Length..]).ToList();
+        var keywords = string.Join(' ', words.Where(word => !IsSite(word)));
+
+        var where = sites.Count == 0 ? "på nettet" : $"på {string.Join(" og ", sites)}";
+        return keywords.Length == 0 ? where : $"etter «{keywords}» {where}";
+    }
+
+    private static bool IsSite(string word) =>
+        word.Length > SearchWebTool.SitePrefix.Length && word.StartsWith(SearchWebTool.SitePrefix, StringComparison.OrdinalIgnoreCase);
+
+    // The refusals are written for the model, so each is told to the user in
+    // words of its own. A message not known here, such as one stored before a
+    // text changed, shows no reason, and the raw data still has it.
+    private static string? DescribeSearchRefusal(string? refusal) =>
+        refusal switch
+        {
+            SearchWebTexts.EmptyQuery => "Søket var tomt.",
+            SearchWebTexts.WebAddressRefused => "Søket kan ikke inneholde nettadresser.",
+            SearchWebTexts.NationalIdentityNumberRefused => "Søket kan ikke inneholde fødselsnummer.",
+            SearchWebTexts.NotAvailable => "Nettsøket var ikke tilgjengelig.",
+            SearchWebTexts.NoResult => "Søket ga ingen treff.",
+            { } error when error == SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn) =>
+                $"Det kan bare søkes {WebSearchQuota.MaxSearchWebCallsPerTurn} ganger per svar.",
+            _ => null
+        };
 
     private static ToolCallText DescribeListFiles(ToolOutcome outcome, JsonElement? result) => outcome switch
     {
