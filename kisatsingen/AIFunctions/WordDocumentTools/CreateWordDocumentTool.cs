@@ -16,7 +16,9 @@ internal static class CreateWordDocumentTool
 
     public const string Description =
         "Creates a Word file (.docx) in Vestfold fylkeskommune's official design from content blocks you write, and gives the user a download button. " +
-        "Use it when the user asks for a Word document, or for a document such as a memo (notat), letter, press release or report to download. " +
+        "Only use it when the user asks for a Word file, asks to download the text, or asks to change a Word file you have made. " +
+        "If it is not clear that the user wants a file, for example when they ask for a memo (notat), write the text in the chat instead. " +
+        "If the user might want a Word file, offer to make one, and wait for the user to say yes. " +
         "For a meeting notice (møteinnkalling) or minutes (referat), use " + CreateMeetingDocumentTool.Name + " instead. " +
         "Build the document from the user's own text: structure it and correct the language, but never add facts that are not in it. " +
         "With the Simple template, start with a Heading1 as the document's main heading, optionally after a Kicker with the date, followed by a short Lead. " +

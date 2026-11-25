@@ -17,7 +17,9 @@ internal static class CreatePresentationTool
 
     public const string Description =
         "Creates a PowerPoint file (.pptx) in Vestfold fylkeskommune's official design from slides you write, and gives the user a download button. " +
-        "Use it when the user asks for a presentation, slides or a PowerPoint, typically from text they paste. " +
+        "Only use it when the user asks you to make a presentation, slides or a PowerPoint file, or asks to change a presentation you have made. " +
+        "If it is not clear that the user wants a file, for example when they ask for an outline or feedback, answer in the chat instead. " +
+        "If the user might want a PowerPoint, offer to make one, and wait for the user to say yes. " +
         "Build the slides from the user's own text: shorten and structure it, but never add facts that are not in it. " +
         "Keep bullets to short phrases; prefer more slides over crowded ones. " +
         "Unless the user asks for something else, start with a Cover or CoverWithPicture slide; add an Agenda and Chapter dividers for longer material; end with a Closing slide when it fits. " +
