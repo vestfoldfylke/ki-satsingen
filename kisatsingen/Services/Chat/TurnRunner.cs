@@ -69,7 +69,7 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var webSearch = _searchWebTools.StartTurn(isWebSearchAllowed: input.Turn.IsWebSearchAllowed);
+        var webSearch = _searchWebTools.StartTurn(access: input.ToolDecision.WebSearchAccess);
         var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
@@ -314,8 +314,6 @@ internal sealed class TurnRunner
             toolList.AddRange(_knowledgeFileTools.Create(scope));
         }
 
-        // Added even when search is off, since changing the tools would
-        // invalidate the prompt cache. The tool refuses by itself while off.
         if (webSearch is not null)
         {
             toolList.Add(webSearch.Tool);

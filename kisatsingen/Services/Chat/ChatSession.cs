@@ -402,8 +402,9 @@ public sealed class ChatSession : IAsyncDisposable
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: IsWebSearchOn);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, DecideTools(turn));
+        var toolDecision = DecideTools(hasNewAttachments: sentAttachments.FileNames.Count > 0);
+        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: toolDecision.WebSearchAccess is WebSearchAccess.Allowed);
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, toolDecision);
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -448,14 +449,27 @@ public sealed class ChatSession : IAsyncDisposable
     }
 
     // The one place a turn's tools are decided.
-    private TurnToolDecision DecideTools(Turn newTurn) =>
-        new(ShouldOfferFileGenerationTools: true, ShouldOfferKnowledgeFileTools: ShouldOfferKnowledgeFileTools(newTurn));
+    private TurnToolDecision DecideTools(bool hasNewAttachments) =>
+        new(
+            ShouldOfferFileGenerationTools: true,
+            ShouldOfferKnowledgeFileTools: ShouldOfferKnowledgeFileTools(hasNewAttachments),
+            WebSearchAccess: DecideWebSearchAccess());
 
     // Without files, the tools would cost tokens and make the model call
     // list_files for nothing. Once a chat has used files, the tools stay: the
     // history still refers to them, and removing tools invalidates the cache.
-    private bool ShouldOfferKnowledgeFileTools(Turn newTurn) =>
-        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || newTurn.Attachments.Count > 0 || _turns.Any(HasUsedFiles);
+    private bool ShouldOfferKnowledgeFileTools(bool hasNewAttachments) =>
+        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || hasNewAttachments || _turns.Any(HasUsedFiles);
+
+    private WebSearchAccess DecideWebSearchAccess()
+    {
+        if (!IsWebSearchAvailable)
+        {
+            return WebSearchAccess.NotOffered;
+        }
+
+        return IsWebSearchOn ? WebSearchAccess.Allowed : WebSearchAccess.SwitchedOff;
+    }
 
     // An attachment counts once it became a file; one that failed asks for no tool.
     private static bool HasUsedFiles(Turn turn) =>

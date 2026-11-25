@@ -22,15 +22,16 @@ public sealed class SearchWebToolFactory
 
     internal bool IsAvailable => _model is not null;
 
-    // Null without a search model: the turn goes on without search.
-    internal TurnWebSearch? StartTurn(bool isWebSearchAllowed)
+    // Null when the turn isn't offered search, or there is no search model:
+    // the turn goes on without search.
+    internal TurnWebSearch? StartTurn(WebSearchAccess access)
     {
-        if (_model is null)
+        if (_model is null || access is WebSearchAccess.NotOffered)
         {
             return null;
         }
 
         var quota = new WebSearchQuota(provider: _model.Provider, modelId: _model.ModelId);
-        return new TurnWebSearch(SearchWebTool.Create(_model, quota, isWebSearchAllowed: isWebSearchAllowed, logger: _logger), quota);
+        return new TurnWebSearch(SearchWebTool.Create(_model, quota, isWebSearchAllowed: access is WebSearchAccess.Allowed, logger: _logger), quota);
     }
 }
