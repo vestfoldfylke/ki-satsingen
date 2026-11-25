@@ -15,7 +15,7 @@ namespace kisatsingen.Tests.Services.Chat;
 
 public sealed class ChatSessionAttachmentTests
 {
-    private static readonly string[] FileToolNames = ["list_files", "get_outline", "read_file"];
+    private static readonly string[] KnowledgeFileToolNames = ["list_files", "get_outline", "read_file"];
 
     private static byte[] MarkdownBytes(string text) => System.Text.Encoding.UTF8.GetBytes($"# {text}\n\nInnhold.\n");
 
@@ -298,7 +298,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hei");
 
-        Assert.Empty(harness.Client.LastToolNames.Intersect(FileToolNames));
+        Assert.Empty(harness.Client.LastToolNames.Intersect(KnowledgeFileToolNames));
     }
 
     [Fact]
@@ -309,10 +309,10 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva står i notatet?");
 
-        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
+        Assert.Equal(KnowledgeFileToolNames, harness.Client.LastToolNames.Intersect(KnowledgeFileToolNames));
     }
 
-    // Scoping inside the tools is tested in FileToolsTests; this is the wiring:
+    // Scoping inside the tools is tested in KnowledgeFileToolsTests; this is the wiring:
     // tools bound to another owner or chat would list nothing.
     [Fact]
     public async Task The_file_tools_the_model_gets_read_this_turns_owner_and_chat()
@@ -352,7 +352,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Og så?");
 
-        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
+        Assert.Equal(KnowledgeFileToolNames, harness.Client.LastToolNames.Intersect(KnowledgeFileToolNames));
     }
 
     // The stored turn still tells the model to read the file, so the tools stay.
@@ -385,7 +385,7 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Og så?");
 
-        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
+        Assert.Equal(KnowledgeFileToolNames, harness.Client.LastToolNames.Intersect(KnowledgeFileToolNames));
     }
 
     [Fact]
@@ -405,6 +405,6 @@ public sealed class ChatSessionAttachmentTests
 
         await harness.Session.SendAsync("Hva sto i notatet?");
 
-        Assert.Equal(FileToolNames, harness.Client.LastToolNames.Intersect(FileToolNames));
+        Assert.Equal(KnowledgeFileToolNames, harness.Client.LastToolNames.Intersect(KnowledgeFileToolNames));
     }
 }

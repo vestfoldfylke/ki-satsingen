@@ -37,7 +37,7 @@ file tools.
 7. **Reading.** The model reads a file with `read_file`: the whole file when
    it fits in one read, otherwise `get_outline` first to find the part to
    read. `list_files` shows every file with its summary and size.
-   (`AIFunctions/FileTools`)
+   (`AIFunctions/KnowledgeFileTools`)
 
 States of an attachment: Uploading → Ready → *(send)* Processing →
 **Available** (`fileId`) or **Unavailable** (reason).

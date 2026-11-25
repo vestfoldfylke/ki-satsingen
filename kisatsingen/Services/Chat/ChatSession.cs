@@ -1,4 +1,4 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
@@ -93,7 +93,7 @@ public sealed class ChatSession : IAsyncDisposable
         IKnowledgeFileRepository knowledgeFileRepository,
         IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
-        FileToolFactory fileTools,
+        KnowledgeFileToolFactory knowledgeFileTools,
         SearchWebToolFactory searchWebTools,
         IAssistantRepository assistantRepository,
         TimeProvider timeProvider)
@@ -116,7 +116,7 @@ public sealed class ChatSession : IAsyncDisposable
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
         var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userUsageRepository, logger);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, fileTools, searchWebTools);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, knowledgeFileTools, searchWebTools);
     }
 
     public Guid ChatId => _chatId;
@@ -403,7 +403,7 @@ public sealed class ChatSession : IAsyncDisposable
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
         var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: IsWebSearchOn);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ShouldOfferFileTools(turn));
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, DecideTools(turn));
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -447,16 +447,20 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
+    // The one place a turn's tools are decided.
+    private TurnToolDecision DecideTools(Turn newTurn) =>
+        new(ShouldOfferFileGenerationTools: true, ShouldOfferKnowledgeFileTools: ShouldOfferKnowledgeFileTools(newTurn));
+
     // Without files, the tools would cost tokens and make the model call
     // list_files for nothing. Once a chat has used files, the tools stay: the
     // history still refers to them, and removing tools invalidates the cache.
-    private bool ShouldOfferFileTools(Turn newTurn) =>
+    private bool ShouldOfferKnowledgeFileTools(Turn newTurn) =>
         _chatFiles.Count > 0 || _assistantFiles.Count > 0 || newTurn.Attachments.Count > 0 || _turns.Any(HasUsedFiles);
 
     // An attachment counts once it became a file; one that failed asks for no tool.
     private static bool HasUsedFiles(Turn turn) =>
         turn.Attachments.Any(attachment => attachment.FileId is not null)
-        || turn.Answer.OfType<ToolCall>().Any(toolCall => FileToolFactory.ToolNames.Contains(toolCall.ToolName));
+        || turn.Answer.OfType<ToolCall>().Any(toolCall => KnowledgeFileToolFactory.ToolNames.Contains(toolCall.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddChatFile(KnowledgeFileMetadata file)

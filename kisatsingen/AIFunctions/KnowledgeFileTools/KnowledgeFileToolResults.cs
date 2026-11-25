@@ -1,8 +1,8 @@
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // What the model receives, serialised in camelCase with null fields left out.
 // Model behaviour depends on these shapes, so they are pinned by tests.
-internal static class FileToolResults
+internal static class KnowledgeFileToolResults
 {
     public sealed record ListFilesResult(IReadOnlyList<ListedFile> Files);
 

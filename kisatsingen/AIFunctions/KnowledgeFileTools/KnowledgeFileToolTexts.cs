@@ -1,10 +1,10 @@
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // Everything the file tools say to the model beyond the file itself. Every
 // refusal names a way forward, so a wrong argument is never a dead end.
-internal static class FileToolTexts
+internal static class KnowledgeFileToolTexts
 {
     public const string FileNotFound =
         "Fant ikke filen. Den kan være slettet. Bruk list_files for å se filene som finnes nå, og si fra til brukeren hvis filen er borte.";

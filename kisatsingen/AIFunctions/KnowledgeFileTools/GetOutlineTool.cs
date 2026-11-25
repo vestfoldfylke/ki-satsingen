@@ -4,9 +4,9 @@ using System.Globalization;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.Extensions.AI;
-using static kisatsingen.AIFunctions.FileTools.FileToolResults;
+using static kisatsingen.AIFunctions.KnowledgeFileTools.KnowledgeFileToolResults;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 internal static class GetOutlineTool
 {
@@ -18,7 +18,7 @@ internal static class GetOutlineTool
     // Built from the options, so the model is told the default it will get.
     // The default is stated here rather than on the depth argument, whose
     // description must be a constant.
-    public static string Description(FileToolOptions options) => string.Create(
+    public static string Description(KnowledgeFileToolOptions options) => string.Create(
         CultureInfo.InvariantCulture,
         $"Returns the outline of a file: its headings and tables, each with the lines it covers, " +
         $"plus the file name, line count, estimated tokens and a note on how far to trust its text. " +
@@ -31,7 +31,7 @@ internal static class GetOutlineTool
 
     // fileId is a string, not a Guid, so a malformed id gets the same answer
     // as an unknown one, which points the model to list_files.
-    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, KnowledgeFileScope scope) =>
+    public static AIFunction Create(IKnowledgeFileReader reader, KnowledgeFileToolOptions options, KnowledgeFileScope scope) =>
         ToolFunction.Create(Name, Description(options), (
             [Description("The file's fileId, from the attachment line or list_files.")] string fileId,
             [Description("First line of the range to outline. Defaults to the first line."), Range(1, int.MaxValue)] int? startLine = null,
@@ -41,7 +41,7 @@ internal static class GetOutlineTool
 
     private static async Task<object> OutlineAsync(
         IKnowledgeFileReader reader,
-        FileToolOptions options,
+        KnowledgeFileToolOptions options,
         KnowledgeFileScope scope,
         string? fileIdText,
         int? requestedStartLine,
@@ -51,19 +51,19 @@ internal static class GetOutlineTool
     {
         if (!Guid.TryParse(fileIdText, out var fileId))
         {
-            return new ToolError(FileToolTexts.FileNotFound);
+            return new ToolError(KnowledgeFileToolTexts.FileNotFound);
         }
 
         var document = await reader.OpenFileAsync(scope, fileId, ct);
         if (document is null)
         {
-            return new ToolError(FileToolTexts.FileNotFound);
+            return new ToolError(KnowledgeFileToolTexts.FileNotFound);
         }
 
         // Stated in the schema, but the factory does not enforce it.
         if (depth is < 1 or > MaxDepth)
         {
-            return new ToolError(FileToolTexts.InvalidDepth);
+            return new ToolError(KnowledgeFileToolTexts.InvalidDepth);
         }
 
         var lineCount = document.Lines.Length;
@@ -82,7 +82,7 @@ internal static class GetOutlineTool
         string? continuation = null;
         if (selection.ContinueFromLine is int nextLine)
         {
-            continuation = FileToolTexts.OutlineContinuation(selection.Entries.Count, nextLine, endLine, shownDepth);
+            continuation = KnowledgeFileToolTexts.OutlineContinuation(selection.Entries.Count, nextLine, endLine, shownDepth);
         }
 
         return new GetOutlineResult(
@@ -90,7 +90,7 @@ internal static class GetOutlineTool
             file.FileName,
             lineCount,
             file.EstimatedTokenCount,
-            FileToolTexts.OriginNote(file.ContentOrigin),
+            KnowledgeFileToolTexts.OriginNote(file.ContentOrigin),
             [.. selection.Entries.Select(ToItem)],
             continuation);
     }

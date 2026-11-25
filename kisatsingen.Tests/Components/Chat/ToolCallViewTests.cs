@@ -1,6 +1,6 @@
 using System.Text.Json;
 using kisatsingen.AIFunctions;
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Components.Chat;
 using kisatsingen.Services.Chat;
@@ -13,7 +13,7 @@ namespace kisatsingen.Tests.Components.Chat;
 public sealed class ToolCallViewTests
 {
     public static TheoryData<string> ToolNamesTheChatOffers =>
-        new([.. ChatTools.All.Select(tool => tool.Name), .. FileToolFactory.ToolNames, .. SearchWebToolFactory.ToolNames]);
+        new([.. FileGenerationTools.All.Select(tool => tool.Name), .. KnowledgeFileToolFactory.ToolNames, .. SearchWebToolFactory.ToolNames]);
 
     [Fact]
     public void A_read_of_part_of_a_file_is_titled_with_the_lines_read_and_the_line_count()
@@ -34,7 +34,7 @@ public sealed class ToolCallViewTests
     [Fact]
     public void A_read_of_every_line_with_a_cut_line_is_not_titled_as_the_whole_file()
     {
-        var content = $"1\tKort.\n2\tLang{FileToolTexts.LineCutMarker(shownCharacters: 4, totalCharacters: 3_000)}";
+        var content = $"1\tKort.\n2\tLang{KnowledgeFileToolTexts.LineCutMarker(shownCharacters: 4, totalCharacters: 3_000)}";
         var result = JsonSerializer.Serialize(new { fileName = "notat.md", startLine = 1, endLine = 2, lineCount = 2, content });
 
         var view = Build("read_file", result);

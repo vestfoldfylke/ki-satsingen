@@ -149,7 +149,6 @@ internal static class ChatModelServiceCollectionExtensions
     internal static ChatOptions LunaOptions() =>
         new()
         {
-            Tools = [.. ChatTools.All],
             Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium, Output = ReasoningOutput.Full },
             RawRepresentationFactory = _ => new CreateResponseOptions
             {
@@ -167,7 +166,6 @@ internal static class ChatModelServiceCollectionExtensions
     internal static ChatOptions MistralOptions() =>
         new()
         {
-            Tools = [.. ChatTools.All],
             Reasoning = new ReasoningOptions { Effort = ReasoningEffort.Medium },
             RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
         };
@@ -179,7 +177,6 @@ internal static class ChatModelServiceCollectionExtensions
     internal static ChatOptions MistralSmallOptions() =>
         new()
         {
-            Tools = [.. ChatTools.All],
             Reasoning = new ReasoningOptions { Effort = ReasoningEffort.High },
             RawRepresentationFactory = _ => new CreateResponseOptions { StoredOutputEnabled = false },
         };

@@ -3,7 +3,7 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
 // One chat file, readable only through the scope it was given, so the contract
 // tests need no database.

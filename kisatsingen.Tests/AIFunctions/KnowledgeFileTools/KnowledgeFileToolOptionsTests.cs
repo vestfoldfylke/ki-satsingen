@@ -1,14 +1,14 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using Xunit;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
-public sealed class FileToolOptionsTests
+public sealed class KnowledgeFileToolOptionsTests
 {
     [Fact]
     public void The_defaults_are_valid()
     {
-        var exception = Record.Exception(() => new FileToolOptions().Validate());
+        var exception = Record.Exception(() => new KnowledgeFileToolOptions().Validate());
 
         Assert.Null(exception);
     }
@@ -20,7 +20,7 @@ public sealed class FileToolOptionsTests
     [InlineData(8_000, 2_000, 2, 0)]
     public void A_setting_that_is_not_positive_is_refused(int maxReadTokens, int maxLineCharacters, int defaultOutlineDepth, int maxOutlineEntries)
     {
-        var options = new FileToolOptions
+        var options = new KnowledgeFileToolOptions
         {
             MaxReadTokens = maxReadTokens,
             MaxLineCharacters = maxLineCharacters,
@@ -34,7 +34,7 @@ public sealed class FileToolOptionsTests
     [Fact]
     public void A_default_depth_deeper_than_markdowns_heading_levels_is_refused()
     {
-        var options = new FileToolOptions { DefaultOutlineDepth = GetOutlineTool.MaxDepth + 1 };
+        var options = new KnowledgeFileToolOptions { DefaultOutlineDepth = GetOutlineTool.MaxDepth + 1 };
 
         Assert.Throws<InvalidOperationException>(options.Validate);
     }
@@ -42,7 +42,7 @@ public sealed class FileToolOptionsTests
     [Fact]
     public void A_line_cap_that_could_fill_a_whole_read_is_refused()
     {
-        var options = new FileToolOptions { MaxReadTokens = 100, MaxLineCharacters = 2_000 };
+        var options = new KnowledgeFileToolOptions { MaxReadTokens = 100, MaxLineCharacters = 2_000 };
 
         Assert.Throws<InvalidOperationException>(options.Validate);
     }
