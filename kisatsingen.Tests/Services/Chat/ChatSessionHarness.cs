@@ -381,8 +381,7 @@ internal sealed class FakeChatModelCatalog : IChatModelCatalog
         LongDescription = $"{displayName}, at length",
         Provider = "test",
         ModelId = $"{key}-wire-id",
-        ContextWindowTokens = 128_000,
-        IconName = "test-icon"
+        ContextWindowTokens = 128_000
     };
 }
 

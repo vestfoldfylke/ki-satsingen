@@ -105,8 +105,7 @@ public sealed class TurnStreamerTests
         LongDescription = "long",
         Provider = "test",
         ModelId = "wire-id",
-        ContextWindowTokens = 128_000,
-        IconName = "icon"
+        ContextWindowTokens = 128_000
     };
 
     private sealed record Render(IReadOnlyList<TurnSegment> Answer);

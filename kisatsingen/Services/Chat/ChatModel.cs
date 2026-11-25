@@ -1,8 +1,8 @@
 namespace kisatsingen.Services.Chat;
 
 // Safe to render: holds no client, so the picker never touches a provider
-// connection (ChatModelRuntime has that). Named properties, because eight
-// positional literals at a registration site are unreadable.
+// connection (ChatModelRuntime has that). Named properties, because a row of
+// positional literals at a registration site is unreadable.
 public sealed record ChatModel
 {
     public required ChatModelKey Key { get; init; }
@@ -21,8 +21,6 @@ public sealed record ChatModel
     public required string ModelId { get; init; }
 
     public required int ContextWindowTokens { get; init; }
-
-    public required string IconName { get; init; }
 
     private const double FillingThresholdRatio = 0.8;
     private const double NearlyFullThresholdRatio = 0.9;

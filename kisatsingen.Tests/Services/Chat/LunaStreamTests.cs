@@ -22,8 +22,7 @@ public sealed class LunaStreamTests
         LongDescription = "long",
         Provider = "test",
         ModelId = ModelUnderTest,
-        ContextWindowTokens = 128_000,
-        IconName = "icon"
+        ContextWindowTokens = 128_000
     };
 
     // Usage is what the statistics and every user's cost are built from, and a

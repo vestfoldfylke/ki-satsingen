@@ -86,8 +86,7 @@ public sealed class ToolResultReplayTests
         LongDescription = "long",
         Provider = "test",
         ModelId = "wire-id",
-        ContextWindowTokens = 128_000,
-        IconName = "icon"
+        ContextWindowTokens = 128_000
     };
 
     private const string ResponsesResult =
