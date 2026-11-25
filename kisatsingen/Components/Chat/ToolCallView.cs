@@ -151,8 +151,8 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
             SearchWebTexts.NationalIdentityNumberRefused => "Søket kan ikke inneholde fødselsnummer.",
             SearchWebTexts.NotAvailable => "Nettsøket var ikke tilgjengelig.",
             SearchWebTexts.NoResult => "Søket ga ingen treff.",
-            { } error when error == SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn) =>
-                $"Det kan bare søkes {WebSearchQuota.MaxSearchesPerTurn} ganger per svar.",
+            { } error when error == SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn) =>
+                $"Det kan bare søkes {WebSearchQuota.MaxSearchWebCallsPerTurn} ganger per svar.",
             _ => null
         };
 

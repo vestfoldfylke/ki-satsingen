@@ -52,7 +52,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public void The_description_states_the_search_limit()
     {
-        Assert.Contains($"{WebSearchQuota.MaxSearchesPerTurn} searches", Tool().Description);
+        Assert.Contains($"{WebSearchQuota.MaxSearchWebCallsPerTurn} searches", Tool().Description);
     }
 
     // The query leaves for OpenAI and a search engine, and the query's own
@@ -310,7 +310,7 @@ public sealed class SearchWebToolTests
     public async Task A_search_over_the_limit_is_refused_without_searching()
     {
         _client.Response = Answer(Text("Svar."));
-        for (var search = 0; search < WebSearchQuota.MaxSearchesPerTurn; search++)
+        for (var search = 0; search < WebSearchQuota.MaxSearchWebCallsPerTurn; search++)
         {
             await SearchAsync("skoleskyss");
         }
@@ -318,7 +318,7 @@ public sealed class SearchWebToolTests
         var result = await SearchAsync("skoleskyss");
 
         Assert.Equal(
-            ($$"""{"error":"{{SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn)}}"}""", WebSearchQuota.MaxSearchesPerTurn),
+            ($$"""{"error":"{{SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn)}}"}""", WebSearchQuota.MaxSearchWebCallsPerTurn),
             (result, _client.CallCount));
     }
 
@@ -326,14 +326,14 @@ public sealed class SearchWebToolTests
     public async Task A_failed_search_counts_towards_the_limit()
     {
         _client.Failure = new HttpRequestException("Provider down.");
-        for (var search = 0; search < WebSearchQuota.MaxSearchesPerTurn; search++)
+        for (var search = 0; search < WebSearchQuota.MaxSearchWebCallsPerTurn; search++)
         {
             await SearchAsync("skoleskyss");
         }
 
         var result = await SearchAsync("skoleskyss");
 
-        Assert.Contains(SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn), result);
+        Assert.Contains(SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn), result);
     }
 
     [Fact]
