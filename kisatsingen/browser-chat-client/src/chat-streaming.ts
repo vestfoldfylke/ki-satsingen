@@ -172,8 +172,8 @@ function injectCodeBlockCopy(el: HTMLElement): void {
         button.dataset.icon = 'true';
         button.dataset.variant = 'tertiary';
         button.dataset.size = 'sm';
-        button.dataset.tooltip = 'Kopier';
-        button.setAttribute('aria-label', 'Kopier');
+        button.dataset.tooltip = 'Kopier kode';
+        button.setAttribute('aria-label', 'Kopier kode');
         button.innerHTML =
             '<span class="material-symbols-outlined icon-copy-confirm" aria-hidden="true">check</span>' +
             '<span class="material-symbols-outlined icon-copy" aria-hidden="true">content_copy</span>';
