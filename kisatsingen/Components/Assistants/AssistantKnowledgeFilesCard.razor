@@ -29,6 +29,7 @@
                             <div @ref="_menu" id="@MenuId" class="ds-dropdown assistant-files-menu" popover="auto" data-placement="bottom-end">
                                 <AttachmentPicker
                                     Label="Legg til filer"
+                                    Warning="@AttachmentPrivacyWarning.Text"
                                     IsDisabled="Uploads.IsUploading"
                                     OnFilesSelected="AddFilesAsync"
                                 />

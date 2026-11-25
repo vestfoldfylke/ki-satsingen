@@ -61,8 +61,49 @@
     transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
 }
 
+/* The rule on sharing while the composer has text to send
+   (data-composer-has-text, set by chat-composer.ts), the reminder about
+   answers otherwise. */
 .chat-footer {
+    display: grid;
     margin: 0;
     text-align: center;
     color: var(--ds-color-text-subtle);
+}
+
+/* Both messages in one cell, so the footer keeps the taller one's height
+   and the composer doesn't move when they swap. */
+.chat-footer-message {
+    grid-area: 1 / 1;
+    transition: opacity 150ms ease, visibility 150ms;
+}
+
+/* An icon and the normal text colour, so the rule reads as a different
+   message at a glance, against the subtle reminder about answers. */
+.chat-footer-rule {
+    color: var(--ds-color-text-default);
+}
+
+/* Inline with the text, so the icon stays before the first word and centres
+   with it when the rule wraps. */
+.chat-footer-rule .material-symbols-outlined {
+    font-size: 1.25em;
+    vertical-align: -0.2em;
+}
+
+.chat-footer-rule,
+.chat-footer[data-composer-has-text] .chat-footer-answer-reminder {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.chat-footer[data-composer-has-text] .chat-footer-rule {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-footer-message {
+        transition: none;
+    }
 }

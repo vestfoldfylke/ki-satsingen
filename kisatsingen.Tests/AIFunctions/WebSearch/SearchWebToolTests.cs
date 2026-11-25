@@ -20,16 +20,20 @@ public sealed class SearchWebToolTests
     private readonly WebSearchQuota _quota = new("openai", "search-under-test");
     private readonly WarningCapture _logger = new();
 
-    private AIFunction Tool() =>
+    private AIFunction Tool(bool isWebSearchAllowed = true) =>
         SearchWebTool.Create(
             new WebSearchModel("openai", "search-under-test", _client, new ChatOptions()),
             _quota,
-            _logger);
+            isWebSearchAllowed: isWebSearchAllowed,
+            logger: _logger);
 
-    private async Task<string> SearchAsync(string? query, CancellationToken ct = default)
+    private async Task<string> SearchAsync(string? query, CancellationToken ct = default) =>
+        await SearchAsync(Tool(), query, ct);
+
+    private static async Task<string> SearchAsync(AIFunction tool, string? query, CancellationToken ct = default)
     {
         var arguments = new AIFunctionArguments { ["query"] = query is null ? null : JsonSerializer.SerializeToElement(query) };
-        return Assert.IsType<string>(await Tool().InvokeAsync(arguments, ct));
+        return Assert.IsType<string>(await tool.InvokeAsync(arguments, ct));
     }
 
     [Fact]
@@ -48,7 +52,7 @@ public sealed class SearchWebToolTests
     [Fact]
     public void The_description_states_the_search_limit()
     {
-        Assert.Contains($"{WebSearchQuota.MaxSearchesPerTurn} searches", Tool().Description);
+        Assert.Contains($"{WebSearchQuota.MaxSearchWebCallsPerTurn} searches", Tool().Description);
     }
 
     // The query leaves for OpenAI and a search engine, and the query's own
@@ -213,6 +217,9 @@ public sealed class SearchWebToolTests
     [InlineData("evil.example:8080")]
     [InlineData("203.0.113.5/x?d=hemmelig")]
     [InlineData("10.0.0.1:8080")]
+    [InlineData("[2606:4700::1111]/collect?d=hemmelig")]
+    [InlineData("ola@[2001:db8::1]")]
+    [InlineData("[a]@[2606:4700::1111]/collect?d=hemmelig")]
     [InlineData("evil.example%2Fp%3Fd%3Dhemmelig")]
     [InlineData("evil.example\\p")]
     [InlineData("ola@evil.example")]
@@ -244,6 +251,52 @@ public sealed class SearchWebToolTests
     }
 
     [Theory]
+    [InlineData("skoleskyss 01019012480")]
+    [InlineData("41019012393")]
+    [InlineData("elev 150585 32107")]
+    [InlineData("elev 010190-12480")]
+    [InlineData("01019012499")]
+    public async Task A_query_with_a_national_identity_number_is_refused_without_searching(string query)
+    {
+        var result = await SearchAsync(query);
+
+        Assert.Equal(($$"""{"error":"{{SearchWebTexts.NationalIdentityNumberRefused}}"}""", 0), (result, _client.CallCount));
+    }
+
+    [Theory]
+    [InlineData("saksnummer 12345678901")]
+    [InlineData("01019012300")]
+    [InlineData("01019012481")]
+    public async Task A_query_with_eleven_digits_that_fail_the_check_digits_is_searched(string query)
+    {
+        _client.Response = Answer(Text("Svar."));
+
+        await SearchAsync(query);
+
+        Assert.Equal(1, _client.CallCount);
+    }
+
+    [Theory]
+    [InlineData("referanse 010190124801")]
+    [InlineData("referanse 101019012480")]
+    public async Task A_valid_national_identity_number_inside_a_longer_number_is_searched(string query)
+    {
+        _client.Response = Answer(Text("Svar."));
+
+        await SearchAsync(query);
+
+        Assert.Equal(1, _client.CallCount);
+    }
+
+    [Fact]
+    public async Task A_search_while_search_is_off_is_refused_without_searching()
+    {
+        var result = await SearchAsync(Tool(isWebSearchAllowed: false), "skoleskyss");
+
+        Assert.Equal(($$"""{"error":"{{SearchWebTexts.SearchIsOff}}"}""", 0), (result, _client.CallCount));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("  ")]
     public async Task An_empty_query_is_refused_without_searching(string? query)
@@ -257,7 +310,7 @@ public sealed class SearchWebToolTests
     public async Task A_search_over_the_limit_is_refused_without_searching()
     {
         _client.Response = Answer(Text("Svar."));
-        for (var search = 0; search < WebSearchQuota.MaxSearchesPerTurn; search++)
+        for (var search = 0; search < WebSearchQuota.MaxSearchWebCallsPerTurn; search++)
         {
             await SearchAsync("skoleskyss");
         }
@@ -265,7 +318,7 @@ public sealed class SearchWebToolTests
         var result = await SearchAsync("skoleskyss");
 
         Assert.Equal(
-            ($$"""{"error":"{{SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn)}}"}""", WebSearchQuota.MaxSearchesPerTurn),
+            ($$"""{"error":"{{SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn)}}"}""", WebSearchQuota.MaxSearchWebCallsPerTurn),
             (result, _client.CallCount));
     }
 
@@ -273,14 +326,14 @@ public sealed class SearchWebToolTests
     public async Task A_failed_search_counts_towards_the_limit()
     {
         _client.Failure = new HttpRequestException("Provider down.");
-        for (var search = 0; search < WebSearchQuota.MaxSearchesPerTurn; search++)
+        for (var search = 0; search < WebSearchQuota.MaxSearchWebCallsPerTurn; search++)
         {
             await SearchAsync("skoleskyss");
         }
 
         var result = await SearchAsync("skoleskyss");
 
-        Assert.Contains(SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchesPerTurn), result);
+        Assert.Contains(SearchWebTexts.LimitReached(WebSearchQuota.MaxSearchWebCallsPerTurn), result);
     }
 
     [Fact]
@@ -329,7 +382,7 @@ public sealed class SearchWebToolTests
     {
         var factory = new SearchWebToolFactory(model: null, NullLogger<SearchWebToolFactory>.Instance);
 
-        Assert.Null(factory.StartTurn());
+        Assert.Null(factory.StartTurn(isWebSearchAllowed: true));
     }
 
     private static TextContent Text(string text, params CitationAnnotation[] citations) =>

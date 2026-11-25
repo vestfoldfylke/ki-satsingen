@@ -1,4 +1,5 @@
 using System.Text.Json;
+using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Services.Chat;
 using Microsoft.Extensions.AI;
 using Xunit;
@@ -120,6 +121,40 @@ public sealed class TranscriptRequestTests
 
         var call = Assert.Single(request.SelectMany(message => message.Contents).OfType<FunctionCallContent>());
         Assert.Equal("vær", ((JsonElement)call.Arguments!["query"]!).GetString());
+    }
+
+    [Fact]
+    public void A_first_message_sent_with_search_on_tells_the_model_after_the_question()
+    {
+        var request = TranscriptRequest.Build([TurnWith("hei", Text(0, "hei selv")) with { IsWebSearchAllowed = true }]);
+
+        Assert.Equal($"hei\n\n{SearchWebTexts.TurnedOnLine}", request[0].Text);
+    }
+
+    [Fact]
+    public void A_message_sent_after_search_was_turned_off_tells_the_model()
+    {
+        var request = TranscriptRequest.Build(
+        [
+            TurnWith("hei", Text(0, "hei selv")) with { IsWebSearchAllowed = true },
+            TurnWith("igjen", Text(0, "ja"))
+        ]);
+
+        Assert.Equal($"igjen\n\n{SearchWebTexts.TurnedOffLine}", request[2].Text);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_message_sent_without_a_change_in_search_carries_no_line(bool isWebSearchAllowed)
+    {
+        var request = TranscriptRequest.Build(
+        [
+            TurnWith("hei", Text(0, "hei selv")) with { IsWebSearchAllowed = isWebSearchAllowed },
+            TurnWith("igjen", Text(0, "ja")) with { IsWebSearchAllowed = isWebSearchAllowed }
+        ]);
+
+        Assert.Equal("igjen", request[2].Text);
     }
 
     private static Turn TurnWith(string prompt, params TurnSegment[] answer) => new()

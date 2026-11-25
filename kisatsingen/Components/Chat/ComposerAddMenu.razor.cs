@@ -8,6 +8,9 @@ public sealed partial class ComposerAddMenu : ComponentBase
 {
     // Fixed: only one composer is ever on screen.
     private const string PopoverId = "composer-add-menu-dropdown";
+    private const string WebSearchNameId = "composer-web-search-name";
+    private const string WebSearchDescriptionId = "composer-web-search-description";
+    private const string WebSearchBusyId = "composer-web-search-busy";
 
     private ElementReference _popover;
 
@@ -22,6 +25,24 @@ public sealed partial class ComposerAddMenu : ComponentBase
 
     [Parameter]
     public EventCallback<InputFileChangeEventArgs> OnFilesSelected { get; set; }
+
+    [Parameter]
+    public bool IsWebSearchAvailable { get; set; }
+
+    [Parameter]
+    public bool IsWebSearchOn { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OnWebSearchChanged { get; set; }
+
+    [Parameter]
+    public bool IsBusy { get; set; }
+
+    // Names only what the menu holds: without search, only files.
+    private string AddButtonLabel => IsWebSearchAvailable ? "Legg til" : "Legg til vedlegg";
+
+    private Task RaiseWebSearchChangedAsync(ChangeEventArgs args) =>
+        OnWebSearchChanged.InvokeAsync(args.Value is true);
 
     // Selecting files is a click inside the popover, which popover="auto"
     // doesn't treat as a dismissal, so the menu would stay open over the upload.

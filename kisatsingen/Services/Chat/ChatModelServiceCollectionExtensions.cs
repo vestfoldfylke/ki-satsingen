@@ -24,40 +24,35 @@ internal static class ChatModelServiceCollectionExtensions
     private static readonly ChatModel MistralModel = new()
     {
         Key = ChatModelKeys.Mistral,
-        DisplayName = "Mistral Large",
-        ShortDescription = "Grundige svar, europeisk leverandør.",
+        DisplayName = "Mistral Large 4",
+        ShortDescription = "Til krevende oppgaver.",
         LongDescription =
-            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Resonnerer før den svarer, og holder styr på lange samtaler og store dokumenter.",
+            "Mistrals kraftigste modell. Velg den når oppgaven er sammensatt, har flere deler eller krever mye informasjon. Kan være mer enn du trenger til enkle spørsmål.",
         Provider = ModelProviders.Mistral,
         ModelId = "mistral-large-4",
-        ContextWindowTokens = 1_000_000,
-        IconName = "placeholder-eu"
+        ContextWindowTokens = 1_000_000
     };
 
     private static readonly ChatModel MistralSmallModel = new()
     {
         Key = ChatModelKeys.MistralSmall,
-        DisplayName = "Mistral Small",
-        ShortDescription = "Raske svar, europeisk leverandør.",
-        LongDescription =
-            "Kjører hos en europeisk leverandør, så arbeidet blir i EU. Mindre og raskere enn Mistral Large, god på oppsummering, omskriving og korte forklaringer.",
+        DisplayName = "Mistral Small 4",
+        ShortDescription = "Til rutineoppgaver og enkle spørsmål.",
+        LongDescription = "Mistrals mest effektive modell. Passer til skriving, spørsmål og annet rutinearbeid.",
         Provider = ModelProviders.Mistral,
         ModelId = "mistral-small-2603",
-        ContextWindowTokens = 256_000,
-        IconName = "placeholder-eu"
+        ContextWindowTokens = 256_000
     };
 
     private static readonly ChatModel OpenAIModel = new()
     {
         Key = ChatModelKeys.OpenAI,
         DisplayName = "GPT-6 Luna",
-        ShortDescription = "Til de vanskeligere oppgavene.",
-        LongDescription =
-            "Takler større oppgaver som må løses i flere steg, og holder styr på lange samtaler.",
+        ShortDescription = "God til det meste, også krevende oppgaver.",
+        LongDescription = "Til alt fra utkast, omskriving og oppsummering til sammensatte oppgaver med flere deler.",
         Provider = ModelProviders.OpenAI,
         ModelId = "gpt-6-luna",
-        ContextWindowTokens = 1_000_000,
-        IconName = "placeholder-code"
+        ContextWindowTokens = 1_000_000
     };
 
     public static IServiceCollection AddChatModels(this IServiceCollection services)

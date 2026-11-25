@@ -22,8 +22,7 @@ public sealed class LunaStreamTests
         LongDescription = "long",
         Provider = "test",
         ModelId = ModelUnderTest,
-        ContextWindowTokens = 128_000,
-        IconName = "icon"
+        ContextWindowTokens = 128_000
     };
 
     // Usage is what the statistics and every user's cost are built from, and a
@@ -65,7 +64,7 @@ public sealed class LunaStreamTests
             new Uri("https://provider.invalid/v1"),
             ModelUnderTest,
             new HttpClientPipelineTransport(new HttpClient(new StreamingHandler(stream))))(services);
-        var builder = new TurnBuilder(Turn.Start("hei", TurnModel, "be brief", []));
+        var builder = new TurnBuilder(Turn.Start("hei", TurnModel, "be brief", [], isWebSearchAllowed: false));
 
         await foreach (var update in client.GetStreamingResponseAsync("hei", ChatModelServiceCollectionExtensions.LunaOptions()))
         {

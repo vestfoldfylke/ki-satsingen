@@ -23,6 +23,7 @@ public sealed class ChatTurn
     public required string Prompt { get; init; }
     public required string SystemPrompt { get; init; }
     public required string ModelKey { get; init; }
+    public bool IsWebSearchAllowed { get; init; }
 
     public required string Status { get; init; }
     public string? FailedAt { get; init; }

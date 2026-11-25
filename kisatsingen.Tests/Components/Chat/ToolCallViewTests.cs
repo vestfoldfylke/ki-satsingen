@@ -205,6 +205,7 @@ public sealed class ToolCallViewTests
     [Theory]
     [InlineData(SearchWebTexts.EmptyQuery, "Søket var tomt.")]
     [InlineData(SearchWebTexts.WebAddressRefused, "Søket kan ikke inneholde nettadresser.")]
+    [InlineData(SearchWebTexts.NationalIdentityNumberRefused, "Søket kan ikke inneholde fødselsnummer.")]
     [InlineData(SearchWebTexts.NotAvailable, "Nettsøket var ikke tilgjengelig.")]
     [InlineData(SearchWebTexts.NoResult, "Søket ga ingen treff.")]
     public void A_refused_search_tells_the_user_why_in_words_of_its_own(string refusal, string reason)
@@ -212,6 +213,14 @@ public sealed class ToolCallViewTests
         var view = Build("search_web", JsonSerializer.Serialize(new { error = refusal }), arguments: SearchArguments);
 
         Assert.Equal(("Prøvde å søke etter «skoleskyss» på nettet", reason), (view.Title, view.UserFriendlyResult));
+    }
+
+    [Fact]
+    public void A_search_refused_because_search_was_off_says_only_that()
+    {
+        var view = Build("search_web", JsonSerializer.Serialize(new { error = SearchWebTexts.SearchIsOff }), arguments: SearchArguments);
+
+        Assert.Equal(("Søkte ikke – nettsøk er av", null), (view.Title, view.UserFriendlyResult));
     }
 
     [Fact]
