@@ -2,8 +2,8 @@ using Xunit;
 
 namespace kisatsingen.Tests.Services.Chat;
 
-// Which tools a turn is offered. Nothing else records it, so these tests are
-// the record.
+// Which tools a turn is offered is recorded nowhere else, so these tests are
+// its record.
 public sealed class ChatSessionToolsTests
 {
     [Fact]

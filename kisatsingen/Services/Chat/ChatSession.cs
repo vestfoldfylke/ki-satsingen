@@ -487,7 +487,7 @@ public sealed class ChatSession : IAsyncDisposable
     }
 
     // Null when the file is not one the open chat can reach: its own files and
-    // its assistant's, the same ones its file tools read.
+    // its assistant's, the same ones its knowledge file tools read.
     public async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
     {
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();

@@ -177,7 +177,7 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
-    public async Task A_new_chat_with_an_assistant_that_has_files_gets_the_file_tools()
+    public async Task A_new_chat_with_an_assistant_that_has_files_gets_the_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var assistant = NewAssistant();
@@ -203,7 +203,7 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
-    public async Task An_opened_chat_whose_assistant_has_files_gets_the_file_tools()
+    public async Task An_opened_chat_whose_assistant_has_files_gets_the_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var assistant = harness.Assistants.Store(NewAssistant());
@@ -216,7 +216,7 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
-    public async Task An_opened_chat_whose_assistant_is_no_longer_usable_gets_no_file_tools_for_its_files()
+    public async Task An_opened_chat_whose_assistant_is_no_longer_usable_gets_no_knowledge_file_tools_for_its_files()
     {
         await using var harness = new ChatSessionHarness();
         var assistant = harness.Assistants.Store(NewAssistant());
@@ -230,7 +230,7 @@ public sealed class ChatSessionAssistantTests
     }
 
     [Fact]
-    public async Task A_chat_gets_the_file_tools_once_its_assistant_has_its_first_file()
+    public async Task A_chat_gets_the_knowledge_file_tools_once_its_assistant_has_its_first_file()
     {
         await using var harness = new ChatSessionHarness();
         var assistant = NewAssistant();

@@ -292,7 +292,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task A_chat_without_files_gets_no_file_tools()
+    public async Task A_chat_without_files_gets_no_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
 
@@ -302,7 +302,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task The_first_attached_file_brings_the_file_tools_in_that_same_turn()
+    public async Task The_first_attached_file_brings_the_knowledge_file_tools_in_that_same_turn()
     {
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
@@ -315,7 +315,7 @@ public sealed class ChatSessionAttachmentTests
     // Scoping inside the tools is tested in KnowledgeFileToolsTests; this is the wiring:
     // tools bound to another owner or chat would list nothing.
     [Fact]
-    public async Task The_file_tools_the_model_gets_read_this_turns_owner_and_chat()
+    public async Task The_knowledge_file_tools_the_model_gets_read_this_turns_owner_and_chat()
     {
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
@@ -344,7 +344,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task A_file_saved_in_an_earlier_turn_keeps_the_file_tools_in_the_next_one()
+    public async Task A_file_saved_in_an_earlier_turn_keeps_the_knowledge_file_tools_in_the_next_one()
     {
         await using var harness = new ChatSessionHarness();
         await AttachAsync(harness, ("notat.md", MarkdownBytes("Notat")));
@@ -357,7 +357,7 @@ public sealed class ChatSessionAttachmentTests
 
     // The stored turn still tells the model to read the file, so the tools stay.
     [Fact]
-    public async Task A_reopened_chat_whose_files_were_all_deleted_keeps_the_file_tools()
+    public async Task A_reopened_chat_whose_files_were_all_deleted_keeps_the_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(new ChatEntity
@@ -389,7 +389,7 @@ public sealed class ChatSessionAttachmentTests
     }
 
     [Fact]
-    public async Task A_chat_that_already_has_files_gets_the_file_tools_without_a_new_attachment()
+    public async Task A_chat_that_already_has_files_gets_the_knowledge_file_tools_without_a_new_attachment()
     {
         await using var harness = new ChatSessionHarness();
         var chat = harness.Repository.Store(new ChatEntity

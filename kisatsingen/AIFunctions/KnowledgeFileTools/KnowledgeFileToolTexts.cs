@@ -2,8 +2,8 @@ using kisatsingen.Services.KnowledgeFiles.Conversion;
 
 namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
-// Everything the file tools say to the model beyond the file itself. Every
-// refusal names a way forward, so a wrong argument is never a dead end.
+// Everything the knowledge file tools say to the model beyond the file itself.
+// Every refusal names a way forward, so a wrong argument is never a dead end.
 internal static class KnowledgeFileToolTexts
 {
     public const string FileNotFound =

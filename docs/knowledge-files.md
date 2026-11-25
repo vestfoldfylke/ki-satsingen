@@ -2,7 +2,7 @@
 
 A file attached in the composer is turned into Markdown (or plaintext) when the message is
 sent and saved as a **knowledge file** in the chat. The model reads it with
-file tools.
+the knowledge file tools.
 
 ## Flow
 
