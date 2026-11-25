@@ -299,9 +299,8 @@ internal sealed class TurnRunner
             options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
         }
 
-        // Every turn when search is configured, on or off, unlike the file
-        // tools: any question may need it, and a tool list that stays the same
-        // keeps the prompt cache valid.
+        // Added even when search is off, since changing the tools would
+        // invalidate the prompt cache. The tool refuses by itself while off.
         if (webSearch is not null)
         {
             options.Tools = [.. options.Tools ?? [], webSearch.Tool];
