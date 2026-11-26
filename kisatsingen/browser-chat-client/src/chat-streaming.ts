@@ -52,6 +52,18 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('yaml', yaml);
 hljs.registerLanguage('yml', yaml);
 
+// Chat answers are not page titles, so headings stay small.
+// Sizes are Designsystemet's data-size scale.
+// Markitdown caps header level at 6
+const DS_HEADING_SIZES: Record<string, string> = {
+    h1: 'md',
+    h2: 'sm',
+    h3: 'xs',
+    h4: '2xs',
+    h5: '2xs',
+    h6: '2xs',
+};
+
 // No `highlight` callback: during streaming, code blocks emit plain
 // <pre><code class="language-xxx"> and hljs runs once against the finalized DOM
 // in renderInto({highlight: true}). Avoids re-highlighting every code block on
@@ -69,6 +81,71 @@ const md = new MarkdownIt({
 md.renderer.rules.image = (tokens, index) => {
     const altText = tokens[index]?.content.trim() ?? '';
     return md.utils.escapeHtml(altText ? `[Bilde: ${altText}]` : '[Bilde]');
+};
+
+// Markitdown outputs plain HTML tags, and doesn't apply Designsystemet classes
+// The renderer rules below add those classes (and data-size on headings)
+// to each block type we want styled.
+// https://github.com/markdown-it/markdown-it/blob/master/src/rules_block/
+md.renderer.rules.heading_open = (tokens, index, options, _env, self) => {
+    const headingElement = tokens[index];
+
+    if (!headingElement) throw new Error('heading_open is missing token (undefined)');
+
+    headingElement.attrJoin('class', 'ds-heading');
+    headingElement.attrSet('data-size', DS_HEADING_SIZES[headingElement.tag] ?? 'xs');
+
+    return self.renderToken(tokens, index, options);
+};
+
+md.renderer.rules.paragraph_open = (tokens, index, options, _env, self) => {
+    const paragraphElement = tokens[index];
+
+    if (!paragraphElement) throw new Error('paragraph_open is missing token (undefined)');
+
+    paragraphElement.attrJoin('class', 'ds-paragraph');
+
+    return self.renderToken(tokens, index, options);
+};
+
+md.renderer.rules.table_open = (tokens, index, options, _env, self) => {
+    const tableElement = tokens[index];
+
+    if (!tableElement) throw new Error('table_open is missing token (undefined)');
+
+    tableElement.attrJoin('class', 'ds-table');
+
+    return self.renderToken(tokens, index, options);
+};
+
+md.renderer.rules.ordered_list_open = (tokens, index, options, _env, self) => {
+    const orderedListElement = tokens[index];
+
+    if (!orderedListElement) throw new Error('ordered_list_open is missing token (undefined)');
+
+    orderedListElement.attrJoin('class', 'ds-list');
+
+    return self.renderToken(tokens, index, options);
+};
+
+md.renderer.rules.bullet_list_open = (tokens, index, options, _env, self) => {
+    const bulletListElement = tokens[index];
+
+    if (!bulletListElement) throw new Error('bullet_list_open is missing token (undefined)');
+
+    bulletListElement.attrJoin('class', 'ds-list');
+
+    return self.renderToken(tokens, index, options);
+};
+
+md.renderer.rules.link_open = (tokens, index, options, _env, self) => {
+    const linkElement = tokens[index];
+
+    if (!linkElement) throw new Error('link_open is missing token (undefined)');
+
+    linkElement.attrJoin('class', 'ds-link');
+
+    return self.renderToken(tokens, index, options);
 };
 
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
