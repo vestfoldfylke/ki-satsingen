@@ -1,0 +1,22 @@
+/* The heading on the left, editing to the right. */
+.assistant-tools-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--ds-size-2);
+}
+
+/* Each tool beside its status, the statuses aligned in a column. A tool's
+   name wraps when space runs short, at high zoom for one, rather than
+   widening the card. */
+.assistant-tools-list {
+    display: grid;
+    grid-template-columns: minmax(0, max-content) max-content;
+    align-items: center;
+    gap: var(--ds-size-2) var(--ds-size-4);
+    margin: 0;
+}
+
+.assistant-tools-list dd {
+    margin: 0;
+}
