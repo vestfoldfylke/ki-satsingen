@@ -73,7 +73,7 @@ md.renderer.rules.image = (tokens, index) => {
 
 // Chat answers are not page titles, so headings stay small.
 // Sizes are Designsystemet's data-size scale.
-// Markitdown caps header level at 6
+// markdown-it caps header level at 6
 const DS_HEADING_SIZES: Record<string, string> = {
     h1: 'md',
     h2: 'sm',
@@ -83,7 +83,7 @@ const DS_HEADING_SIZES: Record<string, string> = {
     h6: '2xs',
 };
 
-// Markitdown outputs plain HTML tags, and doesn't apply Designsystemet classes
+// Markdown-it outputs plain HTML tags, and doesn't apply Designsystemet classes
 // The renderer rules below add those classes (and data-size on headings)
 // to each block type we want styled.
 // https://github.com/markdown-it/markdown-it/blob/master/src/rules_block/
