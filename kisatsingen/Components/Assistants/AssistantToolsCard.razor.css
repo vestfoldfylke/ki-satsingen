@@ -14,7 +14,6 @@
     grid-template-columns: minmax(0, max-content) max-content;
     align-items: center;
     gap: var(--ds-size-2) var(--ds-size-4);
-    margin: 0;
 }
 
 .assistant-tools-list dd {
