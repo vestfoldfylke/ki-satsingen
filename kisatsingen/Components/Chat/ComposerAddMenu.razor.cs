@@ -11,6 +11,7 @@ public sealed partial class ComposerAddMenu : ComponentBase
     private const string WebSearchNameId = "composer-web-search-name";
     private const string WebSearchDescriptionId = "composer-web-search-description";
     private const string WebSearchBusyId = "composer-web-search-busy";
+    private const string WebSearchAssistantNoteId = "composer-web-search-assistant-note";
 
     private ElementReference _popover;
 
@@ -30,7 +31,10 @@ public sealed partial class ComposerAddMenu : ComponentBase
     public bool IsWebSearchAvailable { get; set; }
 
     [Parameter]
-    public bool IsWebSearchOn { get; set; }
+    public bool IsWebSearchAllowed { get; set; }
+
+    [Parameter]
+    public bool IsWebSearchDecidedByAssistant { get; set; }
 
     [Parameter]
     public EventCallback<bool> OnWebSearchChanged { get; set; }
@@ -40,6 +44,11 @@ public sealed partial class ComposerAddMenu : ComponentBase
 
     // Names only what the menu holds: without search, only files.
     private string AddButtonLabel => IsWebSearchAvailable ? "Legg til" : "Legg til vedlegg";
+
+    private string WebSearchDescriptionIds =>
+        IsWebSearchDecidedByAssistant ? $"{WebSearchDescriptionId} {WebSearchAssistantNoteId}"
+        : IsBusy ? $"{WebSearchDescriptionId} {WebSearchBusyId}"
+        : WebSearchDescriptionId;
 
     private Task RaiseWebSearchChangedAsync(ChangeEventArgs args) =>
         OnWebSearchChanged.InvokeAsync(args.Value is true);

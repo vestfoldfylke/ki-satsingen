@@ -119,6 +119,40 @@ public sealed class ChatSessionWebSearchTests
     }
 
     [Fact]
+    public async Task The_switch_in_a_plain_chat_is_the_users_to_change()
+    {
+        await using var harness = HarnessWithSearch();
+
+        harness.Session.SetWebSearch(isOn: true);
+
+        Assert.Equal((true, false), (harness.Session.IsWebSearchAllowed, harness.Session.IsWebSearchDecidedByAssistant));
+    }
+
+    // The switch set the other way, so a switch that leaked through would show.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task The_switch_in_an_assistant_chat_shows_the_assistants_setting(bool isWebSearchEnabled)
+    {
+        await using var harness = HarnessWithSearch();
+        await harness.Session.StartNewAssistantChatAsync(AssistantWithWebSearch(isWebSearchEnabled), assistantFiles: []);
+
+        harness.Session.SetWebSearch(isOn: !isWebSearchEnabled);
+
+        Assert.Equal(isWebSearchEnabled, harness.Session.IsWebSearchAllowed);
+    }
+
+    [Fact]
+    public async Task The_switch_in_an_assistant_chat_is_decided_by_the_assistant()
+    {
+        await using var harness = HarnessWithSearch();
+
+        await harness.Session.StartNewAssistantChatAsync(AssistantWithWebSearch(isWebSearchEnabled: true), assistantFiles: []);
+
+        Assert.True(harness.Session.IsWebSearchDecidedByAssistant);
+    }
+
+    [Fact]
     public async Task A_turn_that_searched_writes_one_web_search_row_with_the_search_model_its_tokens_and_its_searches()
     {
         await using var harness = HarnessWithSearch();
@@ -168,6 +202,15 @@ public sealed class ChatSessionWebSearchTests
 
         yield return new ChatResponseUpdate(ChatRole.Assistant, "Hei.");
     }
+
+    private static Assistant AssistantWithWebSearch(bool isWebSearchEnabled) => new()
+    {
+        Id = Guid.NewGuid(),
+        OwnerId = ChatSessionHarness.OwnerUnderTest,
+        Name = "Saksbehandler",
+        Visibility = AssistantVisibility.Private,
+        IsWebSearchEnabled = isWebSearchEnabled
+    };
 
     private static ChatEntity ChatWithTurns(params bool[] isWebSearchAllowedPerTurn) => new()
     {

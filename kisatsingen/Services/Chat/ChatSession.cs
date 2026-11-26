@@ -173,9 +173,15 @@ public sealed class ChatSession : IAsyncDisposable
 
     public bool IsWebSearchAvailable { get; }
 
-    // Never on without a search model. Captured by SendAsync, so switching
-    // mid-stream only affects the next turn.
+    // The user's switch in plain chat. Never on without a search model.
+    // Captured by SendAsync, so switching mid-stream only affects the next turn.
     public bool IsWebSearchOn { get; private set; }
+
+    // Whether the next turn may search: the switch in plain chat, the
+    // assistant's setting in an assistant chat.
+    public bool IsWebSearchAllowed => DecideWebSearchAccess() is WebSearchAccess.Allowed;
+
+    public bool IsWebSearchDecidedByAssistant => _assistant is not null;
 
     public void SetWebSearch(bool isOn)
     {
