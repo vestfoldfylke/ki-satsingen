@@ -135,16 +135,6 @@ md.renderer.rules.bullet_list_open = (tokens, index, options, _env, self) => {
     return self.renderToken(tokens, index, options);
 };
 
-md.renderer.rules.link_open = (tokens, index, options, _env, self) => {
-    const linkElement = tokens[index];
-
-    if (!linkElement) throw new Error('link_open is missing token (undefined)');
-
-    linkElement.attrJoin('class', 'ds-link');
-
-    return self.renderToken(tokens, index, options);
-};
-
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
 // model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
 // linking those as before.
@@ -163,11 +153,17 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
 
     // The raw attribute: node.href would turn a relative link into a full URL.
     const href = node.getAttribute('href');
-    if (href === null || MAIL_OR_PHONE_LINK.test(href)) {
+    if (href === null) {
+        return;
+    }
+
+    if (MAIL_OR_PHONE_LINK.test(href)) {
+        node.classList.add('ds-link');
         return;
     }
 
     if (WEB_LINK.test(href)) {
+        node.classList.add('ds-link');
         node.setAttribute('target', '_blank');
         node.setAttribute('rel', 'noopener noreferrer');
         return;
