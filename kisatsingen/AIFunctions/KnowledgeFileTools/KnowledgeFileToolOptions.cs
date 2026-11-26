@@ -1,10 +1,10 @@
 using kisatsingen.Services;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // Not read from configuration: these shape what the model sees through the
 // tools, and the tools are tested with them. Tests override them.
-public sealed class FileToolOptions
+public sealed class KnowledgeFileToolOptions
 {
     // Capped by tokens rather than lines: one line can hold a whole paragraph,
     // so a line cap would not bound what a read costs.
@@ -25,7 +25,7 @@ public sealed class FileToolOptions
         if (MaxReadTokens <= 0 || MaxLineCharacters <= 0 || DefaultOutlineDepth <= 0 || MaxOutlineEntries <= 0)
         {
             throw new InvalidOperationException(
-                $"Every {nameof(FileToolOptions)} value must be positive. Fix the defaults in {nameof(FileToolOptions)}.");
+                $"Every {nameof(KnowledgeFileToolOptions)} value must be positive. Fix the defaults in {nameof(KnowledgeFileToolOptions)}.");
         }
 
         if (DefaultOutlineDepth > GetOutlineTool.MaxDepth)

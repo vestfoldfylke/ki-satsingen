@@ -1,7 +1,7 @@
 using kisatsingen.Services;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // Content is the lines numbered like `cat -n`, the form models already know
 // from reading code. ContinueFromLine is set when the cap cut the range short.
@@ -62,6 +62,6 @@ internal static class LineWindow
         }
 
         var kept = TextTruncation.Prefix(line, maxLineCharacters);
-        return kept + FileToolTexts.LineCutMarker(kept.Length, line.Length);
+        return kept + KnowledgeFileToolTexts.LineCutMarker(kept.Length, line.Length);
     }
 }

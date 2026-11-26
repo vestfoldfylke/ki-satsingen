@@ -1,9 +1,9 @@
 using kisatsingen.Data.Entities;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.Extensions.AI;
-using static kisatsingen.AIFunctions.FileTools.FileToolResults;
+using static kisatsingen.AIFunctions.KnowledgeFileTools.KnowledgeFileToolResults;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 internal static class ListFilesTool
 {
@@ -39,5 +39,5 @@ internal static class ListFilesTool
         file.LineCount,
         file.EstimatedTokenCount,
         file.Summary,
-        FileToolTexts.OriginNote(file.ContentOrigin));
+        KnowledgeFileToolTexts.OriginNote(file.ContentOrigin));
 }

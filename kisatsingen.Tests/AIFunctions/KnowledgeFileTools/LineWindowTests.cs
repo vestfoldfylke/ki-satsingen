@@ -1,8 +1,8 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 using Xunit;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
 public sealed class LineWindowTests
 {
@@ -59,7 +59,7 @@ public sealed class LineWindowTests
     {
         var window = Read(new string('a', 25), startLine: 1, endLine: 1, maxLineCharacters: 10);
 
-        Assert.Equal("1\t" + new string('a', 10) + FileToolTexts.LineCutMarker(10, 25), window.Content);
+        Assert.Equal("1\t" + new string('a', 10) + KnowledgeFileToolTexts.LineCutMarker(10, 25), window.Content);
     }
 
     [Fact]

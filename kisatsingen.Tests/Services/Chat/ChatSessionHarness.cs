@@ -1,5 +1,4 @@
-using kisatsingen.AIFunctions;
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
@@ -72,7 +71,7 @@ internal sealed class ChatSessionHarness : IAsyncDisposable
             KnowledgeFiles,
             new KnowledgeFileReader(KnowledgeFiles),
             CreatePipeline(),
-            new FileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new FileToolOptions()),
+            new KnowledgeFileToolFactory(new KnowledgeFileReader(KnowledgeFiles), new KnowledgeFileToolOptions()),
             new SearchWebToolFactory(webSearchModel, NullLogger<SearchWebToolFactory>.Instance),
             Assistants,
             Clock);
@@ -349,7 +348,7 @@ internal sealed class FakeChatModelCatalog : IChatModelCatalog
         _models = [Model(DefaultKey, "Fast"), Model(AlternativeKey, "Large")];
         _runtimes = _models.ToDictionary(
             model => model.Key,
-            model => new ChatModelRuntime(model, client, new ChatOptions { Tools = [.. ChatTools.All] }));
+            model => new ChatModelRuntime(model, client, new ChatOptions()));
 
         Default = _models[0];
     }

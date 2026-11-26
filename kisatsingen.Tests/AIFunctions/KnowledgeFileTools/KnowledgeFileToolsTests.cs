@@ -1,5 +1,5 @@
 using System.Text.Json;
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
@@ -10,12 +10,12 @@ using kisatsingen.Tests.Data.Repositories;
 using Microsoft.Extensions.AI;
 using Xunit;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
 // The tools against files saved through the real save path, so line numbers,
 // scope and ownership are what production would see.
 [Collection(PostgresCollection.Name)]
-public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class KnowledgeFileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private static readonly Guid OwnerId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid OtherOwnerId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -54,7 +54,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
         var result = await InvokeAsync(OwnerId, chatId, "list_files", []);
 
         var file = Assert.Single(result.GetProperty("files").EnumerateArray());
-        Assert.Equal(FileToolTexts.OriginNote(ContentOrigin.ImageDescription), file.GetProperty("originNote").GetString());
+        Assert.Equal(KnowledgeFileToolTexts.OriginNote(ContentOrigin.ImageDescription), file.GetProperty("originNote").GetString());
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 
         var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
-        Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
+        Assert.Equal(KnowledgeFileToolTexts.FileNotFound, result.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 
         var result = await InvokeAsync(OwnerId, theirChatId, "get_outline", new() { ["fileId"] = fileId.ToString() });
 
-        Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
+        Assert.Equal(KnowledgeFileToolTexts.FileNotFound, result.GetProperty("error").GetString());
     }
 
     [Fact]
@@ -163,7 +163,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 
         var result = await InvokeAsync(OwnerId, chatId, "read_file", new() { ["fileId"] = fileId.ToString(), ["startLine"] = 1, ["endLine"] = 3 });
 
-        Assert.Equal(FileToolTexts.FileNotFound, result.GetProperty("error").GetString());
+        Assert.Equal(KnowledgeFileToolTexts.FileNotFound, result.GetProperty("error").GetString());
     }
 
     private async Task<Guid> CreateChatAsync(Guid ownerId) =>
@@ -189,7 +189,7 @@ public sealed class FileToolsTests(PostgresFixture fixture) : IAsyncLifetime
 
     private async Task<JsonElement> InvokeAsync(KnowledgeFileScope scope, string toolName, AIFunctionArguments arguments)
     {
-        var tools = new FileToolFactory(new KnowledgeFileReader(Files), new FileToolOptions()).Create(scope);
+        var tools = new KnowledgeFileToolFactory(new KnowledgeFileReader(Files), new KnowledgeFileToolOptions()).Create(scope);
         var tool = tools.Cast<AIFunction>().Single(tool => tool.Name == toolName);
         var json = Assert.IsType<string>(await tool.InvokeAsync(arguments));
 

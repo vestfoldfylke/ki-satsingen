@@ -1,6 +1,6 @@
 using kisatsingen.Services.KnowledgeFiles.Documents;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // ContinueFromLine is set when the entry cap cut the selection short.
 internal sealed record OutlineSelectionResult(IReadOnlyList<OutlineEntry> Entries, int? ContinueFromLine);

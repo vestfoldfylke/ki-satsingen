@@ -1,4 +1,4 @@
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 // The factory states minimum 1 in the schema but does not enforce it, so a
 // line number below 1 is caught here.
@@ -12,17 +12,17 @@ internal static class LineRange
     {
         if (startLine < 1 || endLine < 1)
         {
-            return FileToolTexts.InvalidLineNumber;
+            return KnowledgeFileToolTexts.InvalidLineNumber;
         }
 
         if (startLine > lineCount)
         {
-            return FileToolTexts.StartPastLastLine(lineCount);
+            return KnowledgeFileToolTexts.StartPastLastLine(lineCount);
         }
 
         if (endLine < startLine)
         {
-            return FileToolTexts.EndBeforeStart;
+            return KnowledgeFileToolTexts.EndBeforeStart;
         }
 
         return null;

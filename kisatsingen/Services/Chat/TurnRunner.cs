@@ -1,10 +1,12 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
 using kisatsingen.Data.Repositories;
 using kisatsingen.Services.Attachments;
 using kisatsingen.Services.KnowledgeFiles.Reading;
+using Microsoft.Extensions.AI;
 using Vestfold.Extensions.Metrics.Services;
 
 namespace kisatsingen.Services.Chat;
@@ -31,7 +33,7 @@ internal sealed class TurnRunner
     private readonly ILogger _logger;
     private readonly IUserUsageRepository _userUsageRepository;
     private readonly TurnAttachmentProcessor _attachmentProcessor;
-    private readonly FileToolFactory _fileTools;
+    private readonly KnowledgeFileToolFactory _knowledgeFileTools;
     private readonly SearchWebToolFactory _searchWebTools;
 
     public TurnRunner(
@@ -45,7 +47,7 @@ internal sealed class TurnRunner
         ILogger logger,
         IUserUsageRepository userUsageRepository,
         TurnAttachmentProcessor attachmentProcessor,
-        FileToolFactory fileTools,
+        KnowledgeFileToolFactory knowledgeFileTools,
         SearchWebToolFactory searchWebTools)
     {
         _authenticationService = authenticationService;
@@ -58,7 +60,7 @@ internal sealed class TurnRunner
         _logger = logger;
         _userUsageRepository = userUsageRepository;
         _attachmentProcessor = attachmentProcessor;
-        _fileTools = fileTools;
+        _knowledgeFileTools = knowledgeFileTools;
         _searchWebTools = searchWebTools;
     }
 
@@ -67,7 +69,7 @@ internal sealed class TurnRunner
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
         var model = input.Model;
-        var webSearch = _searchWebTools.StartTurn(isWebSearchAllowed: input.Turn.IsWebSearchAllowed);
+        var webSearch = _searchWebTools.StartTurn(access: input.ToolDecision.WebSearchAccess);
         var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
 
         // Counted once, in the finally, so every send lands on exactly one outcome.
@@ -292,21 +294,32 @@ internal sealed class TurnRunner
         // The snapshot the turn is stored with, so the record can't drift from what was sent.
         var options = runtime.CreateOptions();
         options.Instructions = turn.SystemPrompt;
-
-        if (input.ShouldOfferFileTools)
-        {
-            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, inserted.AssistantId);
-            options.Tools = [.. options.Tools ?? [], .. _fileTools.Create(scope)];
-        }
-
-        // Added even when search is off, since changing the tools would
-        // invalidate the prompt cache. The tool refuses by itself while off.
-        if (webSearch is not null)
-        {
-            options.Tools = [.. options.Tools ?? [], webSearch.Tool];
-        }
+        options.Tools = BuildToolList(input.ToolDecision, inserted, webSearch);
 
         return _streamer.StreamAsync(runtime.Client, messages, options, builder, () => observer.Changed(builder.Snapshot()), ct);
+    }
+
+    private List<AITool> BuildToolList(TurnToolDecision decision, InsertedTurn inserted, TurnWebSearch? webSearch)
+    {
+        var toolList = new List<AITool>();
+
+        if (decision.ShouldOfferFileGenerationTools)
+        {
+            toolList.AddRange(FileGenerationTools.All);
+        }
+
+        if (decision.ShouldOfferKnowledgeFileTools)
+        {
+            var scope = new KnowledgeFileScope(inserted.OwnerId, inserted.ChatId, inserted.AssistantId);
+            toolList.AddRange(_knowledgeFileTools.Create(scope));
+        }
+
+        if (webSearch is not null)
+        {
+            toolList.Add(webSearch.Tool);
+        }
+
+        return toolList;
     }
 
     private async Task SaveAsync(InsertedTurn inserted, Turn ended, CancellationToken ct)

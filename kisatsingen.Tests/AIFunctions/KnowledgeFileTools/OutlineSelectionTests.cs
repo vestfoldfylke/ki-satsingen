@@ -1,8 +1,8 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.Services.KnowledgeFiles.Documents;
 using Xunit;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
 public sealed class OutlineSelectionTests
 {

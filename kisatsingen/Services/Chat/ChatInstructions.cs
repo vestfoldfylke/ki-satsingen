@@ -61,7 +61,7 @@ internal static class ChatInstructions
 
     public static string ForPlainChat(DateOnly today) => Base + "\n\n" + PlainChatInstructions + "\n\n" + DateSection(today);
 
-    // Tells the model why it has the file tools when nothing was attached in the chat.
+    // Tells the model why it has the knowledge file tools when nothing was attached in the chat.
     internal const string AssistantFilesLine =
         "The assistant has the knowledge files below. Use list_files to see each file's summary and size when you need to choose between them. " +
         "Before you answer about their content, read what the question needs with read_file. " +
