@@ -451,7 +451,7 @@ public sealed class ChatSession : IAsyncDisposable
     // The one place a turn's tools are decided.
     private TurnToolDecision DecideTools(bool hasNewAttachments) =>
         new(
-            ShouldOfferFileGenerationTools: true,
+            ShouldOfferFileGenerationTools: _assistant is null || _assistant.IsFileGenerationEnabled,
             ShouldOfferKnowledgeFileTools: ShouldOfferKnowledgeFileTools(hasNewAttachments),
             WebSearchAccess: DecideWebSearchAccess());
 
@@ -466,6 +466,12 @@ public sealed class ChatSession : IAsyncDisposable
         if (!IsWebSearchAvailable)
         {
             return WebSearchAccess.NotOffered;
+        }
+
+        // In an assistant chat the assistant's setting decides, not the switch.
+        if (_assistant is { } assistant)
+        {
+            return assistant.IsWebSearchEnabled ? WebSearchAccess.Allowed : WebSearchAccess.NotOffered;
         }
 
         return IsWebSearchOn ? WebSearchAccess.Allowed : WebSearchAccess.SwitchedOff;

@@ -85,6 +85,21 @@ public sealed class AssistantRepository(IDbContextFactory<AppDbContext> factory)
         return updatedCount > 0;
     }
 
+    public async Task<bool> UpdateAssistantToolsAsync(Guid userId, Guid assistantId, bool isFileGenerationEnabled, bool isWebSearchEnabled, CancellationToken ct = default)
+    {
+        await using var db = await factory.CreateDbContextAsync(ct);
+
+        var updatedCount = await db.Assistants
+            .Where(AssistantAccess.UsableBy(userId))
+            .Where(a => a.Id == assistantId)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.IsFileGenerationEnabled, isFileGenerationEnabled)
+                .SetProperty(a => a.IsWebSearchEnabled, isWebSearchEnabled)
+                .SetProperty(a => a.UpdatedAt, DateTimeOffset.UtcNow), ct);
+
+        return updatedCount > 0;
+    }
+
     public async Task<bool> DeleteAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default)
     {
         await using var db = await factory.CreateDbContextAsync(ct);

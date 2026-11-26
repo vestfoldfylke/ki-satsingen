@@ -23,6 +23,11 @@ public sealed class Assistant
 
     public bool AreBaseInstructionsDisabled { get; init; }
 
+    // The tools an owner chooses; each is off until the owner turns it on.
+    public bool IsFileGenerationEnabled { get; init; }
+
+    public bool IsWebSearchEnabled { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }

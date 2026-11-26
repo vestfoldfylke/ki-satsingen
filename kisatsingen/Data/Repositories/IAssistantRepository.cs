@@ -18,9 +18,9 @@ public interface IAssistantRepository
 
     Task<IReadOnlyList<AssistantSummary>> ListAssistantsAsync(Guid userId, CancellationToken ct = default);
 
-    // The details and the instructions are saved apart, so saving one never
-    // overwrites a change someone else made to the other. Both return false
-    // when the assistant is gone or the user may not use it.
+    // The details, the instructions and the tools are saved apart, so saving
+    // one never overwrites a change someone else made to another. Each returns
+    // false when the assistant is gone or the user may not use it.
 
     // Visibility has no default here: one would quietly unshare an assistant.
     Task<bool> UpdateAssistantDetailsAsync(Guid userId, Guid assistantId, string name, string? description, AssistantVisibility visibility, CancellationToken ct = default);
@@ -28,6 +28,8 @@ public interface IAssistantRepository
     // Blank clears them. Whether the user may disable the base instructions is
     // not checked here.
     Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, bool areBaseInstructionsDisabled, CancellationToken ct = default);
+
+    Task<bool> UpdateAssistantToolsAsync(Guid userId, Guid assistantId, bool isFileGenerationEnabled, bool isWebSearchEnabled, CancellationToken ct = default);
 
     // Knowledge files cascade; chats survive with AssistantId nulled.
     Task<bool> DeleteAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default);
