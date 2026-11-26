@@ -52,18 +52,6 @@ hljs.registerLanguage('xml', xml);
 hljs.registerLanguage('yaml', yaml);
 hljs.registerLanguage('yml', yaml);
 
-// Chat answers are not page titles, so headings stay small.
-// Sizes are Designsystemet's data-size scale.
-// Markitdown caps header level at 6
-const DS_HEADING_SIZES: Record<string, string> = {
-    h1: 'md',
-    h2: 'sm',
-    h3: 'xs',
-    h4: '2xs',
-    h5: '2xs',
-    h6: '2xs',
-};
-
 // No `highlight` callback: during streaming, code blocks emit plain
 // <pre><code class="language-xxx"> and hljs runs once against the finalized DOM
 // in renderInto({highlight: true}). Avoids re-highlighting every code block on
@@ -81,6 +69,18 @@ const md = new MarkdownIt({
 md.renderer.rules.image = (tokens, index) => {
     const altText = tokens[index]?.content.trim() ?? '';
     return md.utils.escapeHtml(altText ? `[Bilde: ${altText}]` : '[Bilde]');
+};
+
+// Chat answers are not page titles, so headings stay small.
+// Sizes are Designsystemet's data-size scale.
+// Markitdown caps header level at 6
+const DS_HEADING_SIZES: Record<string, string> = {
+    h1: 'md',
+    h2: 'sm',
+    h3: 'xs',
+    h4: '2xs',
+    h5: '2xs',
+    h6: '2xs',
 };
 
 // Markitdown outputs plain HTML tags, and doesn't apply Designsystemet classes
