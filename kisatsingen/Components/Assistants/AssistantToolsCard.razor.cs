@@ -10,7 +10,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 
 namespace kisatsingen.Components.Assistants;
 
-// The tools an assistant's owner chooses: shown to everyone who can use it,
+// The tools an assistant has: shown to everyone who can use it,
 // edited in a dialog when CanEditAssistant allows. Saving checks the policy
 // again, since a dialog that was allowed when it rendered may no longer be.
 public sealed partial class AssistantToolsCard : ComponentBase
@@ -51,7 +51,6 @@ public sealed partial class AssistantToolsCard : ComponentBase
 
     private static string DescribeSetting(bool isEnabled) => isEnabled ? "På" : "Av";
 
-    // Off is a choice, not an error, so neutral rather than a warning colour.
     private static string ChooseSettingColor(bool isEnabled) => isEnabled ? "success" : "neutral";
 
     // Both settings, search too while its checkbox is hidden, since saving
