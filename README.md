@@ -147,3 +147,5 @@ To upgrade Designsystemet, set the same exact version on all three `@digdir` pac
 - Make sure the style ids in `WordStyles` still exist in the templates, including the `FKListe` list style
 - Run tests; a template whose structure changed fails them with a message naming the class to update (`ReportLayout`, `MeetingForm`, `AgendaTable`, ...)
 - Start ki-satsingen on your machine and make sure newly created documents open in Word without a repair prompt
+
+Be nice
