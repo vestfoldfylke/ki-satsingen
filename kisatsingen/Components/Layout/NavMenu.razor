@@ -27,7 +27,7 @@
                     <a href="/" data-color="neutral">vfKI</a>
                 </div>
                 <a
-                    class="ds-button nav-primary-button"
+                    class="ds-button ds-focus--inset nav-primary-button"
                     href="/new"
                     data-variant="tertiary"
                     data-color="accent"
@@ -36,7 +36,7 @@
                     Ny samtale
                 </a>
                 <a
-                    class="ds-button nav-primary-button"
+                    class="ds-button ds-focus--inset nav-primary-button"
                     href="/assistants"
                     data-variant="tertiary"
                     data-color="accent"
@@ -48,7 +48,7 @@
 
             <button
                 type="button"
-                class="ds-button sidebar-panel-close"
+                class="ds-button ds-focus--inset sidebar-panel-close"
                 data-variant="tertiary"
                 data-size="sm"
                 data-icon="true"
@@ -63,7 +63,7 @@
         <aside class="chat-list" aria-label="Samtaler">
             <h2 class="ds-heading chat-list-header" data-size="xs">
                 <button type="button"
-                        class="ds-button nav-primary-button"
+                        class="ds-button ds-focus--inset nav-primary-button"
                         data-variant="tertiary"
                         aria-expanded="@_chatsOpen.ToString().ToLowerInvariant()"
                         aria-controls="chat-list-content"
@@ -78,10 +78,10 @@
             <div id="chat-list-content" class="chat-list-scroll">
                 @if (_chatsOpen)
                 {
-                    <ChatListItems MaxListedChats="15" TooltipTitleLengthThreshold="20"/>
+                    <NavChatList/>
 
                     <a
-                        class="ds-button nav-primary-button"
+                        class="ds-button ds-focus--inset nav-primary-button"
                         href="/chats"
                         data-variant="tertiary"
                         data-color="accent"
@@ -98,7 +98,7 @@
                     <hr aria-hidden="true" class="ds-divider" />
                     <div class="user-menu-item">
                         <button
-                            class="ds-button user-menu-button"
+                            class="ds-button ds-focus--inset user-menu-button"
                             type="button"
                             data-variant="tertiary"
                             data-color="neutral"

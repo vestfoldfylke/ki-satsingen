@@ -89,9 +89,10 @@ pre, code {
     contain-intrinsic-size: auto 2rem;
 }
 
-/* Scrolling happens in .content and in the chat log - not in html */
+/* Scrolling happens in .content and in the chat log - not in html. Both axes, so a tooltip
+   or popover that does not fit beside its anchor is cut off instead of scrolling the page sideways. */
 html {
-    overflow-y: clip;
+    overflow: clip;
 }
 
 /* No padding: each page owns its spacing, so a page can reach the edges (the
