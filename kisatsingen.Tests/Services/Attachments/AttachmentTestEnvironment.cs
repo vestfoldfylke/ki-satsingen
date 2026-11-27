@@ -36,7 +36,7 @@ internal sealed class AttachmentTestEnvironment : IDisposable
     public ChatAttachments CreateChatAttachments(IAuthenticationService authentication, IMetricsService? metricsService = null)
     {
         var metrics = CreateMetrics(metricsService ?? Metrics);
-        return new(authentication, CreateUploader(metrics), Quota, metrics);
+        return new(authentication, CreateUploader(metrics), Quota, metrics, NullLogger<ChatAttachments>.Instance);
     }
 
     private AttachmentUploader CreateUploader(AttachmentMetrics metrics) =>

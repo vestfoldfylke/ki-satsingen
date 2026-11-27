@@ -13,7 +13,8 @@ public sealed class ChatAttachments(
     IAuthenticationService authenticationService,
     AttachmentUploader uploader,
     AttachmentQuota quota,
-    AttachmentMetrics metrics) : IDisposable
+    AttachmentMetrics metrics,
+    ILogger<ChatAttachments> logger) : IDisposable
 {
     private readonly List<ComposerAttachment> _attachments = [];
 
@@ -36,6 +37,10 @@ public sealed class ChatAttachments(
         // Checked before GetMultipleFiles, which throws above its limit.
         if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
         {
+            logger.LogInformation(
+                "Refused a selection of {FileCount} chat attachments: more than {MaxFilesPerSelection} files",
+                selection.FileCount,
+                AttachmentOptions.MaxFilesPerSelection);
             SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection).Message;
             Changed?.Invoke();
             return;
@@ -76,14 +81,20 @@ public sealed class ChatAttachments(
             Changed?.Invoke();
         }
 
-        // Counted here, from the final status, so no way of refusing a file can
-        // be missed; from the selection's own list, since a reset or the
-        // circuit closing can empty _attachments meanwhile.
+        // Counted and logged here, from the final status, so no way of refusing
+        // a file can be missed; from the selection's own list, since a reset or
+        // the circuit closing can empty _attachments meanwhile.
         foreach (var attachment in selectedAttachments)
         {
             if (attachment.Rejection is UploadRejection rejection)
             {
                 metrics.CountRejected(rejection);
+                logger.LogInformation(
+                    "Refused chat attachment {FileName} ({DeclaredSizeBytes} bytes) as {RejectionKey}: {RejectionReason}",
+                    attachment.FileName,
+                    attachment.DeclaredSizeBytes,
+                    rejection.Key,
+                    rejection.Message);
             }
         }
     }

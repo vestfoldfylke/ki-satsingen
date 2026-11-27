@@ -61,6 +61,11 @@ public sealed class AssistantFileUploads(
         // Checked before GetMultipleFiles, which throws above its limit.
         if (selection.FileCount > AttachmentOptions.MaxFilesPerSelection)
         {
+            logger.LogInformation(
+                "Refused a selection of {FileCount} files for assistant {AssistantId}: more than {MaxFilesPerSelection} files",
+                selection.FileCount,
+                assistantId,
+                AttachmentOptions.MaxFilesPerSelection);
             SelectionNotice = UploadRejections.TooManyInSelection(AttachmentOptions.MaxFilesPerSelection).Message;
             Changed?.Invoke();
             return;
@@ -68,7 +73,7 @@ public sealed class AssistantFileUploads(
 
         SelectionNotice = null;
         _uploads.RemoveAll(upload => upload.Status == AssistantFileUploadStatus.Rejected);
-        var waiting = ListSelection(selection, savedFileCount);
+        var waiting = ListSelection(assistantId, selection, savedFileCount);
         Changed?.Invoke();
 
         // One at a time: they share the circuit's connection, so in parallel
@@ -114,6 +119,7 @@ public sealed class AssistantFileUploads(
     // All listed up front, so the whole selection shows at once and a file
     // that is not acceptable is refused before any bytes move.
     private List<(AssistantFileUpload Upload, IBrowserFile File, AttachmentType Type)> ListSelection(
+        Guid assistantId,
         InputFileChangeEventArgs selection,
         int savedFileCount)
     {
@@ -128,10 +134,10 @@ public sealed class AssistantFileUploads(
             switch (uploader.Check(fileName, file.Size))
             {
                 case UploadCheck.Rejected rejected:
-                    Reject(upload, rejected.Reason);
+                    Reject(assistantId, upload, rejected.Reason);
                     break;
                 case UploadCheck.Accepted when waiting.Count >= roomLeft:
-                    upload.MarkRejected(KnowledgeFileSaveRejections.AssistantFull);
+                    MarkRejected(assistantId, upload, KnowledgeFileSaveRejections.AssistantFull);
                     break;
                 case UploadCheck.Accepted accepted:
                     waiting.Add((upload, file, accepted.Type));
@@ -161,7 +167,7 @@ public sealed class AssistantFileUploads(
         switch (outcome)
         {
             case UploadOutcome.Rejected rejected:
-                Reject(upload, rejected.Reason);
+                Reject(assistantId, upload, rejected.Reason);
                 return;
             case UploadOutcome.Stored stored:
                 upload.MarkProcessing();
@@ -186,7 +192,7 @@ public sealed class AssistantFileUploads(
         switch (result)
         {
             case AssistantFileResult.Rejected rejected:
-                upload.MarkRejected(rejected.Reason);
+                MarkRejected(assistantId, upload, rejected.Reason);
                 return;
             case AssistantFileResult.Saved saved:
                 await onFileSaved(saved.File);
@@ -229,10 +235,22 @@ public sealed class AssistantFileUploads(
     }
 
     // Every refusal from the upload stack goes through here, so none is left uncounted.
-    private void Reject(AssistantFileUpload upload, UploadRejection rejection)
+    private void Reject(Guid assistantId, AssistantFileUpload upload, UploadRejection rejection)
     {
-        upload.MarkRejected(rejection.Message);
+        MarkRejected(assistantId, upload, rejection.Message);
         metrics.CountRejected(rejection);
+    }
+
+    // Every refusal goes through here, so none is left unlogged.
+    private void MarkRejected(Guid assistantId, AssistantFileUpload upload, string reason)
+    {
+        upload.MarkRejected(reason);
+        logger.LogInformation(
+            "Refused file {FileName} ({DeclaredSizeBytes} bytes) for assistant {AssistantId}: {RejectionReason}",
+            upload.FileName,
+            upload.DeclaredSizeBytes,
+            assistantId,
+            reason);
     }
 
     private async Task<Guid> EnsureUserIdAsync() =>
