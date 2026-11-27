@@ -2,7 +2,7 @@ using kisatsingen.Data.Entities;
 
 namespace kisatsingen.Services.KnowledgeFiles.Reading;
 
-// Every read the file tools make goes through here.
+// Every read the knowledge file tools make goes through here.
 public interface IKnowledgeFileReader
 {
     // Empty when the chat is not the user's.

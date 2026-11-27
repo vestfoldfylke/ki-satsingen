@@ -33,8 +33,17 @@
                     </span>
                     <span id="@WebSearchDescriptionId" class="ds-paragraph" data-size="xs">Lar KI søke på nettet når svaret trenger det.</span>
                     @* Switching mid-answer is allowed, so the busy line says the
-                       switch applies from the next message. *@
-                    @if (IsBusy)
+                       switch applies from the next message. A switch the
+                       assistant decides can't be switched, so it says that
+                       instead. *@
+                    @if (IsWebSearchDecidedByAssistant)
+                    {
+                        <span id="@WebSearchAssistantNoteId" class="ds-paragraph web-search-assistant-note" data-size="xs">
+                            <span class="material-symbols-outlined" aria-hidden="true">lock</span>
+                            Nettsøk styres av assistenten.
+                        </span>
+                    }
+                    else if (IsBusy)
                     {
                         <span id="@WebSearchBusyId" class="ds-paragraph" data-size="xs">Et svar genereres nå. Endringen gjelder fra neste melding.</span>
                     }
@@ -43,9 +52,10 @@
                        type="checkbox"
                        role="switch"
                        data-color="accent"
-                       checked="@IsWebSearchOn"
+                       checked="@IsWebSearchAllowed"
+                       disabled="@IsWebSearchDecidedByAssistant"
                        aria-labelledby="@WebSearchNameId"
-                       aria-describedby="@(IsBusy ? $"{WebSearchDescriptionId} {WebSearchBusyId}" : WebSearchDescriptionId)"
+                       aria-describedby="@WebSearchDescriptionIds"
                        @onchange="RaiseWebSearchChangedAsync" />
             </label>
         }

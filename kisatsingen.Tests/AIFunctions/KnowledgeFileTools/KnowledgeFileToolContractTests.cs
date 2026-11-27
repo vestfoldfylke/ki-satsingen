@@ -1,20 +1,20 @@
 using System.Globalization;
 using System.Text.Json;
 using kisatsingen.AIFunctions;
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.Services.KnowledgeFiles.Conversion;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
-namespace kisatsingen.Tests.AIFunctions.FileTools;
+namespace kisatsingen.Tests.AIFunctions.KnowledgeFileTools;
 
 // What the code promises the model: tool names, arguments and result shapes,
 // pinned in full. Wording is not pinned, so it can be tuned freely; texts are
 // compared through their constants, and descriptions only have to exist and
 // state the configured limits.
-public sealed class FileToolContractTests
+public sealed class KnowledgeFileToolContractTests
 {
     private static readonly KnowledgeFileScope Scope = new(
         UserId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
@@ -23,8 +23,8 @@ public sealed class FileToolContractTests
     private static readonly Guid FileId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private const string Markdown = "# Notat\n\nHei.\n";
 
-    private static IReadOnlyList<AIFunction> Tools(ContentOrigin? origin = ContentOrigin.TextFile, FileToolOptions? options = null) =>
-        [.. new FileToolFactory(new FakeKnowledgeFileReader(Scope, FileId, Markdown, origin), options ?? new FileToolOptions())
+    private static IReadOnlyList<AIFunction> Tools(ContentOrigin? origin = ContentOrigin.TextFile, KnowledgeFileToolOptions? options = null) =>
+        [.. new KnowledgeFileToolFactory(new FakeKnowledgeFileReader(Scope, FileId, Markdown, origin), options ?? new KnowledgeFileToolOptions())
             .Create(Scope)
             .Cast<AIFunction>()];
 
@@ -87,7 +87,7 @@ public sealed class FileToolContractTests
     [Fact]
     public void The_tool_names_are_the_names_of_the_tools_made()
     {
-        Assert.Equal(Tools().Select(tool => tool.Name).ToHashSet(), FileToolFactory.ToolNames);
+        Assert.Equal(Tools().Select(tool => tool.Name).ToHashSet(), KnowledgeFileToolFactory.ToolNames);
     }
 
     // Wording is free to change; what the code relies on is that every tool and
@@ -106,7 +106,7 @@ public sealed class FileToolContractTests
     [Fact]
     public void The_descriptions_state_the_configured_read_cap_and_outline_depth()
     {
-        var options = new FileToolOptions { MaxReadTokens = 1234, DefaultOutlineDepth = 5 };
+        var options = new KnowledgeFileToolOptions { MaxReadTokens = 1234, DefaultOutlineDepth = 5 };
 
         var tools = Tools(options: options);
 
@@ -154,7 +154,7 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 1), ("endLine", 3)));
 
         Assert.Equal(
-            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","startLine":1,"endLine":3,"lineCount":3,"contentNotice":"{{FileToolTexts.ContentNotice}}","content":"1\t# Notat\n2\t\n3\tHei."}""",
+            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","startLine":1,"endLine":3,"lineCount":3,"contentNotice":"{{KnowledgeFileToolTexts.ContentNotice}}","content":"1\t# Notat\n2\t\n3\tHei."}""",
             result);
     }
 
@@ -162,12 +162,12 @@ public sealed class FileToolContractTests
     public async Task The_read_file_result_for_a_file_too_large_for_one_read_is_pinned()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 9_000);
-        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
 
         Assert.Equal(
-            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","lineCount":3,"estimatedTokens":9000,"continuation":"{{FileToolTexts.ReadTooLarge(9_000)}}"}""",
+            $$"""{"fileId":"11111111-1111-1111-1111-111111111111","fileName":"notat.md","lineCount":3,"estimatedTokens":9000,"continuation":"{{KnowledgeFileToolTexts.ReadTooLarge(9_000)}}"}""",
             result);
     }
 
@@ -176,7 +176,7 @@ public sealed class FileToolContractTests
     public async Task A_range_of_a_file_too_large_for_one_read_is_read()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 9_000);
-        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { MaxReadTokens = 8_000 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("startLine", 2), ("endLine", 3)));
 
@@ -187,11 +187,11 @@ public sealed class FileToolContractTests
     public async Task A_file_within_the_limit_whose_lines_still_do_not_fit_is_read_in_part()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre", estimatedTokenCount: 1);
-        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
 
-        Assert.Contains(FileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
+        Assert.Contains(KnowledgeFileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
     }
 
     [Fact]
@@ -216,7 +216,7 @@ public sealed class FileToolContractTests
         var result = await InvokeAsync("read_file", Arguments(("fileId", Guid.NewGuid().ToString()), ("startLine", 1), ("endLine", 3)));
 
         Assert.Equal(
-            $$"""{"error":"{{FileToolTexts.FileNotFound}}"}""",
+            $$"""{"error":"{{KnowledgeFileToolTexts.FileNotFound}}"}""",
             result);
     }
 
@@ -225,7 +225,7 @@ public sealed class FileToolContractTests
     {
         var result = await InvokeAsync("list_files", Arguments(), origin: null);
 
-        Assert.Contains($"\"originNote\":\"{FileToolTexts.OriginNote(null)}\"", result);
+        Assert.Contains($"\"originNote\":\"{KnowledgeFileToolTexts.OriginNote(null)}\"", result);
     }
 
     [Theory]
@@ -235,7 +235,7 @@ public sealed class FileToolContractTests
     {
         var result = await InvokeAsync("get_outline", Arguments(("fileId", fileId)));
 
-        Assert.Contains(FileToolTexts.FileNotFound, result);
+        Assert.Contains(KnowledgeFileToolTexts.FileNotFound, result);
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public sealed class FileToolContractTests
 
         var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", start), ("endLine", 3)));
 
-        Assert.Contains(FileToolTexts.InvalidLineNumber, result);
+        Assert.Contains(KnowledgeFileToolTexts.InvalidLineNumber, result);
     }
 
     [Theory]
@@ -287,7 +287,7 @@ public sealed class FileToolContractTests
     {
         var result = await InvokeAsync("read_file", Arguments(("fileId", FileId.ToString()), ("startLine", 3), ("endLine", 1)));
 
-        Assert.Contains(FileToolTexts.EndBeforeStart, result);
+        Assert.Contains(KnowledgeFileToolTexts.EndBeforeStart, result);
     }
 
     [Fact]
@@ -295,29 +295,29 @@ public sealed class FileToolContractTests
     {
         var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("startLine", 10)));
 
-        Assert.Contains(FileToolTexts.StartPastLastLine(3), result);
+        Assert.Contains(KnowledgeFileToolTexts.StartPastLastLine(3), result);
     }
 
     [Fact]
     public async Task A_capped_outline_names_every_argument_of_the_next_call_including_the_defaults()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "# A\n# B\n# C");
-        var tool = new FileToolFactory(reader, new FileToolOptions { MaxOutlineEntries = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { MaxOutlineEntries = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString())));
 
-        Assert.Contains(FileToolTexts.OutlineContinuation(shownCount: 1, nextLine: 2, endLine: 3, depth: 2), Assert.IsType<string>(result));
+        Assert.Contains(KnowledgeFileToolTexts.OutlineContinuation(shownCount: 1, nextLine: 2, endLine: 3, depth: 2), Assert.IsType<string>(result));
     }
 
     [Fact]
     public async Task A_cut_read_names_the_next_start_and_the_end_clamped_to_the_file()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "en\nto\ntre");
-        var tool = new FileToolFactory(reader, new FileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { MaxReadTokens = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "read_file");
 
         var result = await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()), ("startLine", 1), ("endLine", 50)));
 
-        Assert.Contains(FileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
+        Assert.Contains(KnowledgeFileToolTexts.ReadContinuation(nextLine: 2, endLine: 3), Assert.IsType<string>(result));
     }
 
     [Theory]
@@ -327,14 +327,14 @@ public sealed class FileToolContractTests
     {
         var result = await InvokeAsync("get_outline", Arguments(("fileId", FileId.ToString()), ("depth", depth)));
 
-        Assert.Contains(FileToolTexts.InvalidDepth, result);
+        Assert.Contains(KnowledgeFileToolTexts.InvalidDepth, result);
     }
 
     [Fact]
     public async Task An_outline_without_a_depth_shows_the_configured_default_depth()
     {
         var reader = new FakeKnowledgeFileReader(Scope, FileId, "# A\n## B\n");
-        var tool = new FileToolFactory(reader, new FileToolOptions { DefaultOutlineDepth = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
+        var tool = new KnowledgeFileToolFactory(reader, new KnowledgeFileToolOptions { DefaultOutlineDepth = 1 }).Create(Scope).Cast<AIFunction>().Single(tool => tool.Name == "get_outline");
 
         var result = Assert.IsType<string>(await tool.InvokeAsync(Arguments(("fileId", FileId.ToString()))));
 

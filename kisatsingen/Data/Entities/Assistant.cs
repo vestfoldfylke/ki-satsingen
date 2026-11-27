@@ -23,6 +23,10 @@ public sealed class Assistant
 
     public bool AreBaseInstructionsDisabled { get; init; }
 
+    public bool IsFileGenerationEnabled { get; init; }
+
+    public bool IsWebSearchEnabled { get; init; }
+
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset UpdatedAt { get; init; }
 }

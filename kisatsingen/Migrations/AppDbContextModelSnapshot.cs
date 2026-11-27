@@ -43,6 +43,12 @@ namespace kisatsingen.Migrations
                     b.Property<string>("Instructions")
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsFileGenerationEnabled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsWebSearchEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)

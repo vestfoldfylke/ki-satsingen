@@ -2,7 +2,7 @@
 
 A file attached in the composer is turned into Markdown (or plaintext) when the message is
 sent and saved as a **knowledge file** in the chat. The model reads it with
-file tools.
+the knowledge file tools.
 
 ## Flow
 
@@ -37,7 +37,7 @@ file tools.
 7. **Reading.** The model reads a file with `read_file`: the whole file when
    it fits in one read, otherwise `get_outline` first to find the part to
    read. `list_files` shows every file with its summary and size.
-   (`AIFunctions/FileTools`)
+   (`AIFunctions/KnowledgeFileTools`)
 
 States of an attachment: Uploading → Ready → *(send)* Processing →
 **Available** (`fileId`) or **Unavailable** (reason).

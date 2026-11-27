@@ -23,6 +23,7 @@ import { initChatLog } from './chat-scroll.js';
 import { hidePopover, initComposer, setComposerBusy, setComposerUploading, takeComposerValue } from './chat-composer.js';
 import { markComposerSelectionRead } from './composer-file-input.js';
 import './composer-drop.js';
+import './sidebar-panel.js';
 import { showPlainText } from './file-viewer.js';
 import { downloadFile } from './file-download.js';
 
@@ -153,7 +154,6 @@ interface StreamState {
 
 const streamStates = new Map<string, StreamState>();
 const COPIED_FEEDBACK_MS = 1200;
-const COPY_ICON_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
 function markCopied(button: HTMLElement): void {
     button.classList.add('is-copied');
@@ -211,9 +211,15 @@ function injectCodeBlockCopy(el: HTMLElement): void {
 
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'chat-code-copy';
-        button.setAttribute('aria-label', 'Copy code');
-        button.innerHTML = COPY_ICON_SVG;
+        button.className = 'ds-button chat-code-copy';
+        button.dataset.icon = 'true';
+        button.dataset.variant = 'tertiary';
+        button.dataset.size = 'sm';
+        button.dataset.tooltip = 'Kopier kode';
+        button.setAttribute('aria-label', 'Kopier kode');
+        button.innerHTML =
+            '<span class="material-symbols-outlined icon-copy-confirm" aria-hidden="true">check</span>' +
+            '<span class="material-symbols-outlined icon-copy" aria-hidden="true">content_copy</span>';
         button.addEventListener('click', () => {
             const code = pre.querySelector('code');
             copyPlainTextToClipboard(code?.textContent ?? '', button);

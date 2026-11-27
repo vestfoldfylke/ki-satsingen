@@ -155,6 +155,27 @@ public sealed class AssistantRepositoryTests(PostgresFixture fixture) : IAsyncLi
     }
 
     [Fact]
+    public async Task CreateAssistantAsync_creates_the_assistant_without_tools()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
+
+        var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
+        Assert.Equal((false, false), (stored?.IsFileGenerationEnabled, stored?.IsWebSearchEnabled));
+    }
+
+    // Different values, so swapping the two settings would fail.
+    [Fact]
+    public async Task UpdateAssistantToolsAsync_stores_each_tool_setting()
+    {
+        var assistant = await Repo.CreateAssistantAsync(OwnerId, "Saksbehandler", null);
+
+        await Repo.UpdateAssistantToolsAsync(OwnerId, assistant.Id, isFileGenerationEnabled: false, isWebSearchEnabled: true);
+
+        var stored = await Repo.GetAssistantAsync(OwnerId, assistant.Id);
+        Assert.Equal((false, true), (stored?.IsFileGenerationEnabled, stored?.IsWebSearchEnabled));
+    }
+
+    [Fact]
     public async Task ListAssistantsAsync_returns_the_users_own_and_organization_wide_assistants_but_not_another_owners_private_ones()
     {
         await Repo.CreateAssistantAsync(OwnerId, "Mine", null);

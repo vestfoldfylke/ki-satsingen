@@ -3,9 +3,9 @@ using System.ComponentModel.DataAnnotations;
 using System.Globalization;
 using kisatsingen.Services.KnowledgeFiles.Reading;
 using Microsoft.Extensions.AI;
-using static kisatsingen.AIFunctions.FileTools.FileToolResults;
+using static kisatsingen.AIFunctions.KnowledgeFileTools.KnowledgeFileToolResults;
 
-namespace kisatsingen.AIFunctions.FileTools;
+namespace kisatsingen.AIFunctions.KnowledgeFileTools;
 
 internal static class ReadFileTool
 {
@@ -15,7 +15,7 @@ internal static class ReadFileTool
     // The rules for reading files live here, not in the base instructions: this
     // description is sent whenever there are files, also when an assistant has
     // the base instructions turned off.
-    public static string Description(FileToolOptions options) => string.Create(
+    public static string Description(KnowledgeFileToolOptions options) => string.Create(
         CultureInfo.InvariantCulture,
         $"Reads a file and returns its lines numbered, with the file's line count and a note on how far to trust its text. " +
         $"Leave out startLine and endLine to read the whole file: a file that fits in one call, about {options.MaxReadTokens} tokens, is returned in full, " +
@@ -31,7 +31,7 @@ internal static class ReadFileTool
 
     // fileId is a string, not a Guid, so a malformed id gets the same answer
     // as an unknown one, which points the model to list_files.
-    public static AIFunction Create(IKnowledgeFileReader reader, FileToolOptions options, KnowledgeFileScope scope) =>
+    public static AIFunction Create(IKnowledgeFileReader reader, KnowledgeFileToolOptions options, KnowledgeFileScope scope) =>
         ToolFunction.Create(Name, Description(options), (
             [Description("The file's fileId, from the attachment line or list_files.")] string fileId,
             [Description("First line to read, counted from 1. Leave out, with endLine, to read the whole file."), Range(1, int.MaxValue)] int? startLine = null,
@@ -40,7 +40,7 @@ internal static class ReadFileTool
 
     private static async Task<object> ReadAsync(
         IKnowledgeFileReader reader,
-        FileToolOptions options,
+        KnowledgeFileToolOptions options,
         KnowledgeFileScope scope,
         string? fileIdText,
         int? requestedStartLine,
@@ -49,13 +49,13 @@ internal static class ReadFileTool
     {
         if (!Guid.TryParse(fileIdText, out var fileId))
         {
-            return new ToolError(FileToolTexts.FileNotFound);
+            return new ToolError(KnowledgeFileToolTexts.FileNotFound);
         }
 
         var document = await reader.OpenFileAsync(scope, fileId, ct);
         if (document is null)
         {
-            return new ToolError(FileToolTexts.FileNotFound);
+            return new ToolError(KnowledgeFileToolTexts.FileNotFound);
         }
 
         var file = document.File;
@@ -71,7 +71,7 @@ internal static class ReadFileTool
                 file.FileName,
                 lineCount,
                 file.EstimatedTokenCount,
-                FileToolTexts.ReadTooLarge(file.EstimatedTokenCount));
+                KnowledgeFileToolTexts.ReadTooLarge(file.EstimatedTokenCount));
         }
 
         var startLine = requestedStartLine ?? 1;
@@ -87,7 +87,7 @@ internal static class ReadFileTool
         string? continuation = null;
         if (window.ContinueFromLine is int nextLine)
         {
-            continuation = FileToolTexts.ReadContinuation(nextLine, window.RangeEndLine);
+            continuation = KnowledgeFileToolTexts.ReadContinuation(nextLine, window.RangeEndLine);
         }
 
         return new ReadFileResult(
@@ -96,9 +96,9 @@ internal static class ReadFileTool
             window.StartLine,
             window.EndLine,
             lineCount,
-            FileToolTexts.OriginNote(file.ContentOrigin),
+            KnowledgeFileToolTexts.OriginNote(file.ContentOrigin),
             continuation,
-            FileToolTexts.ContentNotice,
+            KnowledgeFileToolTexts.ContentNotice,
             window.Content);
     }
 }

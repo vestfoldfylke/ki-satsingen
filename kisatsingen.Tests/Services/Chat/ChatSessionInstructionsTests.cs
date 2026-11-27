@@ -65,15 +65,4 @@ public sealed class ChatSessionInstructionsTests
 
         Assert.DoesNotContain(harness.Client.LastMessages, message => message.Role == ChatRole.System);
     }
-
-    // Losing the tools while cloning would cost capability silently, not fail.
-    [Fact]
-    public async Task Cloning_the_options_per_turn_keeps_the_tools()
-    {
-        await using var harness = new ChatSessionHarness();
-
-        await harness.Session.SendAsync("hei");
-
-        Assert.NotEmpty(harness.Client.LastOptions?.Tools ?? []);
-    }
 }

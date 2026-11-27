@@ -1,0 +1,12 @@
+.chat-options-button {
+    --dsc-button-size: 2.1rem;
+}
+
+.chat-options-button:hover {
+    background-color: var(--ds-color-border-subtle);
+}
+
+.chat-options-button > span.material-symbols-outlined {
+    font-size: 1.4rem;
+    color: var(--ds-color-text-default);
+}

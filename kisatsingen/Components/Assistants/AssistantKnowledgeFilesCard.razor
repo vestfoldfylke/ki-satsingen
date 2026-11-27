@@ -42,20 +42,23 @@
 
         @if (Files.Count > 0)
         {
-            <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
-                <Authorized>
-                    <KnowledgeFileList
-                        Files="Files"
-                        OnOpenRequested="ShowFile"
-                        ViewerDialogId="@ViewerDialogId"
-                        DeleteDialogId="@DeleteDialogId"
-                        OnDeleteRequested="file => _deleteDialog?.Load(file)"
-                    />
-                </Authorized>
-                <NotAuthorized>
-                    <KnowledgeFileList Files="Files" OnOpenRequested="ShowFile" ViewerDialogId="@ViewerDialogId" />
-                </NotAuthorized>
-            </AuthorizeView>
+            @* Wrapped, so the list gets Designsystemet's card spacing. *@
+            <div>
+                <AuthorizeView Policy="@AuthorizationPolicies.CanEditAssistant" Resource="Assistant" Context="editAuthenticationState">
+                    <Authorized>
+                        <KnowledgeFileList
+                            Files="Files"
+                            OnOpenRequested="ShowFile"
+                            ViewerDialogId="@ViewerDialogId"
+                            DeleteDialogId="@DeleteDialogId"
+                            OnDeleteRequested="file => _deleteDialog?.Load(file)"
+                        />
+                    </Authorized>
+                    <NotAuthorized>
+                        <KnowledgeFileList Files="Files" OnOpenRequested="ShowFile" ViewerDialogId="@ViewerDialogId" />
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
         }
         else if (Uploads.All.Count == 0)
         {

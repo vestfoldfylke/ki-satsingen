@@ -328,6 +328,41 @@ public sealed class ChatRepositoryTests(PostgresFixture fixture) : IAsyncLifetim
     }
 
     [Fact]
+    public async Task ListChatsAsync_leaves_out_chats_that_belong_to_a_different_owner()
+    {
+        var own = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "mine", assistantId: null);
+        await Repo.CreateChatAsync(OtherOwnerId, Guid.NewGuid(), "theirs", assistantId: null);
+
+        var chats = await Repo.ListChatsAsync(OwnerId);
+
+        Assert.Equal([own.Id], chats.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task RenameChatAsync_leaves_the_title_unchanged_when_the_chat_belongs_to_a_different_owner()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
+
+        var isRenamed = await Repo.RenameChatAsync(OtherOwnerId, chat.Id, "taken over");
+
+        await using var db = await Factory.CreateDbContextAsync();
+        Assert.False(isRenamed);
+        Assert.Equal("hello", (await db.Chats.SingleAsync(c => c.Id == chat.Id)).Title);
+    }
+
+    [Fact]
+    public async Task DeleteChatAsync_keeps_the_chat_when_it_belongs_to_a_different_owner()
+    {
+        var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);
+
+        var isDeleted = await Repo.DeleteChatAsync(OtherOwnerId, chat.Id);
+
+        await using var db = await Factory.CreateDbContextAsync();
+        Assert.False(isDeleted);
+        Assert.True(await db.Chats.AnyAsync(c => c.Id == chat.Id));
+    }
+
+    [Fact]
     public async Task InsertTurnAsync_writes_nothing_when_the_chat_belongs_to_a_different_owner()
     {
         var chat = await Repo.CreateChatAsync(OwnerId, Guid.NewGuid(), "hello", assistantId: null);

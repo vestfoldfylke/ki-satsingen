@@ -13,12 +13,27 @@
     width: 100%;
 }
 
+/* A disabled switch leaves its row looking clickable, and Designsystemet's
+   unavailable look for the row fades the text too far to read. So the row
+   only stops looking clickable, and the text stays as it is. */
+.web-search-button:has(input:disabled) {
+    cursor: not-allowed;
+    background: var(--dsc-button-background);
+}
+
 /* Spaced with the button's own gap, since these lines sit one level below
    the button and would otherwise have none. */
 .web-search-text {
     display: flex;
     flex-direction: column;
     gap: var(--dsc-button-gap);
+}
+
+/* Inline with the text, so the icon stays before the first word and centres
+   with it when the line wraps. */
+.web-search-assistant-note .material-symbols-outlined {
+    font-size: 1.25em;
+    vertical-align: -0.2em;
 }
 
 .web-search-heading {

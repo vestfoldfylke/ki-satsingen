@@ -1,13 +1,13 @@
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using kisatsingen.AIFunctions;
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.PresentationTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.AIFunctions.WordDocumentTools;
 using kisatsingen.Services.Chat;
 using kisatsingen.Services.GeneratedFiles;
-using static kisatsingen.AIFunctions.FileTools.FileToolResults;
+using static kisatsingen.AIFunctions.KnowledgeFileTools.KnowledgeFileToolResults;
 using static kisatsingen.AIFunctions.PresentationTools.PresentationToolResults;
 using static kisatsingen.AIFunctions.WebSearch.SearchWebResults;
 using static kisatsingen.AIFunctions.WordDocumentTools.WordDocumentToolResults;
@@ -194,7 +194,7 @@ internal sealed record ToolCallView(ToolCall ToolCall, ToolOutcome Outcome, stri
     // when every line came back uncut.
     private static string ReadTitle(string fileName, ReadFileResult read, string content)
     {
-        var hasCutLines = content.Contains(FileToolTexts.LineCutMarkerStart, StringComparison.Ordinal);
+        var hasCutLines = content.Contains(KnowledgeFileToolTexts.LineCutMarkerStart, StringComparison.Ordinal);
         if (read.StartLine == 1 && read.EndLine == read.LineCount && !hasCutLines)
         {
             return $"Leste hele «{fileName}»";

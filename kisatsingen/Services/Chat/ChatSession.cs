@@ -1,4 +1,4 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Constants;
 using kisatsingen.Data.Entities;
@@ -93,7 +93,7 @@ public sealed class ChatSession : IAsyncDisposable
         IKnowledgeFileRepository knowledgeFileRepository,
         IKnowledgeFileReader knowledgeFileReader,
         KnowledgeFilePipeline knowledgeFilePipeline,
-        FileToolFactory fileTools,
+        KnowledgeFileToolFactory knowledgeFileTools,
         SearchWebToolFactory searchWebTools,
         IAssistantRepository assistantRepository,
         TimeProvider timeProvider)
@@ -116,7 +116,7 @@ public sealed class ChatSession : IAsyncDisposable
         _channel = new ChatClientChannel(js, logger);
         var streamer = new TurnStreamer(_channel, metrics, MetricPrefix);
         var attachmentProcessor = new TurnAttachmentProcessor(knowledgeFilePipeline, knowledgeFileRepository, userUsageRepository, logger);
-        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, fileTools, searchWebTools);
+        _runner = new TurnRunner(authenticationService, catalog, repo, chatManager, metrics, streamer, MetricPrefix, logger, userUsageRepository, attachmentProcessor, knowledgeFileTools, searchWebTools);
     }
 
     public Guid ChatId => _chatId;
@@ -173,9 +173,15 @@ public sealed class ChatSession : IAsyncDisposable
 
     public bool IsWebSearchAvailable { get; }
 
-    // Never on without a search model. Captured by SendAsync, so switching
-    // mid-stream only affects the next turn.
+    // The user's switch in plain chat. Never on without a search model.
+    // Captured by SendAsync, so switching mid-stream only affects the next turn.
     public bool IsWebSearchOn { get; private set; }
+
+    // Whether the next turn may search: the switch in plain chat, the
+    // assistant's setting in an assistant chat.
+    public bool IsWebSearchAllowed => DecideWebSearchAccess() is WebSearchAccess.Allowed;
+
+    public bool IsWebSearchDecidedByAssistant => _assistant is not null;
 
     public void SetWebSearch(bool isOn)
     {
@@ -402,8 +408,9 @@ public sealed class ChatSession : IAsyncDisposable
         // A turn that started on one model must finish on it.
         var model = _selectedModel;
         using var sentAttachments = _attachments.TakeReady();
-        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: IsWebSearchOn);
-        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, ShouldOfferFileTools(turn));
+        var toolDecision = DecideTools(hasNewAttachments: sentAttachments.FileNames.Count > 0);
+        var turn = Turn.Start(text.Trim(), model, SystemPrompt, sentAttachments.FileNames, isWebSearchAllowed: toolDecision.WebSearchAccess is WebSearchAccess.Allowed);
+        var input = new TurnInput(turn, _chatId, IsChatSaved: _chatState == ChatState.Saved, AssistantId: _assistant?.Id, [.. _turns], model, sentAttachments, toolDecision);
 
         _turns.Add(turn);
         _liveTurnId = turn.Id;
@@ -447,16 +454,39 @@ public sealed class ChatSession : IAsyncDisposable
         }
     }
 
+    // The one place a turn's tools are decided.
+    private TurnToolDecision DecideTools(bool hasNewAttachments) =>
+        new(
+            ShouldOfferFileGenerationTools: _assistant is null || _assistant.IsFileGenerationEnabled,
+            ShouldOfferKnowledgeFileTools: ShouldOfferKnowledgeFileTools(hasNewAttachments),
+            WebSearchAccess: DecideWebSearchAccess());
+
     // Without files, the tools would cost tokens and make the model call
     // list_files for nothing. Once a chat has used files, the tools stay: the
     // history still refers to them, and removing tools invalidates the cache.
-    private bool ShouldOfferFileTools(Turn newTurn) =>
-        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || newTurn.Attachments.Count > 0 || _turns.Any(HasUsedFiles);
+    private bool ShouldOfferKnowledgeFileTools(bool hasNewAttachments) =>
+        _chatFiles.Count > 0 || _assistantFiles.Count > 0 || hasNewAttachments || _turns.Any(HasUsedFiles);
+
+    private WebSearchAccess DecideWebSearchAccess()
+    {
+        if (!IsWebSearchAvailable)
+        {
+            return WebSearchAccess.NotOffered;
+        }
+
+        // In an assistant chat the assistant's setting decides, not the switch.
+        if (_assistant is { } assistant)
+        {
+            return assistant.IsWebSearchEnabled ? WebSearchAccess.Allowed : WebSearchAccess.NotOffered;
+        }
+
+        return IsWebSearchOn ? WebSearchAccess.Allowed : WebSearchAccess.SwitchedOff;
+    }
 
     // An attachment counts once it became a file; one that failed asks for no tool.
     private static bool HasUsedFiles(Turn turn) =>
         turn.Attachments.Any(attachment => attachment.FileId is not null)
-        || turn.Answer.OfType<ToolCall>().Any(toolCall => FileToolFactory.ToolNames.Contains(toolCall.ToolName));
+        || turn.Answer.OfType<ToolCall>().Any(toolCall => KnowledgeFileToolFactory.ToolNames.Contains(toolCall.ToolName));
 
     // By id, since a turn reports a file it reused, which may already be listed.
     private void AddChatFile(KnowledgeFileMetadata file)
@@ -483,7 +513,7 @@ public sealed class ChatSession : IAsyncDisposable
     }
 
     // Null when the file is not one the open chat can reach: its own files and
-    // its assistant's, the same ones its file tools read.
+    // its assistant's, the same ones its knowledge file tools read.
     public async Task<KnowledgeFileText?> ReadFileTextAsync(Guid fileId, CancellationToken ct)
     {
         var userObjectId = await _authenticationService.RequireUserObjectIdentifierAsync();

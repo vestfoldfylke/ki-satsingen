@@ -382,7 +382,7 @@ public sealed class SearchWebToolTests
     {
         var factory = new SearchWebToolFactory(model: null, NullLogger<SearchWebToolFactory>.Instance);
 
-        Assert.Null(factory.StartTurn(isWebSearchAllowed: true));
+        Assert.Null(factory.StartTurn(access: WebSearchAccess.Allowed));
     }
 
     private static TextContent Text(string text, params CitationAnnotation[] citations) =>

@@ -1,4 +1,4 @@
-using kisatsingen.AIFunctions.FileTools;
+using kisatsingen.AIFunctions.KnowledgeFileTools;
 using kisatsingen.AIFunctions.WebSearch;
 using kisatsingen.Authorization;
 using kisatsingen.Components;
@@ -235,13 +235,13 @@ builder.Services.AddScoped<AssistantFileUploads>();
 // ─── Knowledge-file pipeline ───────────────────────────
 builder.Services.AddKnowledgeFilePipeline(builder.Configuration, maxKnowledgeFileTokens);
 
-// ─── File tools ────────────────────────────────────────
-var fileToolOptions = new FileToolOptions();
-fileToolOptions.Validate();
+// ─── Knowledge file tools ──────────────────────────────
+var knowledgeFileToolOptions = new KnowledgeFileToolOptions();
+knowledgeFileToolOptions.Validate();
 
-builder.Services.AddSingleton(fileToolOptions);
+builder.Services.AddSingleton(knowledgeFileToolOptions);
 builder.Services.AddScoped<IKnowledgeFileReader, KnowledgeFileReader>();
-builder.Services.AddScoped<FileToolFactory>();
+builder.Services.AddScoped<KnowledgeFileToolFactory>();
 
 // ─── Web search tool ───────────────────────────────────
 var webSearchModel = WebSearchModel.FromConfiguration(builder.Configuration);

@@ -115,7 +115,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     }
 
     [Fact]
-    public async Task After_a_turn_reused_a_file_another_tab_saved_the_next_turn_gets_the_file_tools()
+    public async Task After_a_turn_reused_a_file_another_tab_saved_the_next_turn_gets_the_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         await harness.Session.SendAsync("Hei");
@@ -188,7 +188,7 @@ public sealed class ChatSessionKnowledgeFilesTests
 
     // Saved elsewhere, so no turn in this chat attached or read the file.
     [Fact]
-    public async Task After_the_last_file_is_deleted_a_chat_that_never_used_it_has_no_file_tools()
+    public async Task After_the_last_file_is_deleted_a_chat_that_never_used_it_has_no_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
@@ -202,7 +202,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     }
 
     [Fact]
-    public async Task After_the_last_file_is_deleted_the_next_turn_keeps_the_file_tools_an_earlier_turn_called()
+    public async Task After_the_last_file_is_deleted_the_next_turn_keeps_the_knowledge_file_tools_an_earlier_turn_called()
     {
         await using var harness = new ChatSessionHarness();
         var chat = StoreChat(harness);
@@ -218,7 +218,7 @@ public sealed class ChatSessionKnowledgeFilesTests
     }
 
     [Fact]
-    public async Task A_turn_whose_only_attachment_failed_leaves_the_next_turn_without_file_tools()
+    public async Task A_turn_whose_only_attachment_failed_leaves_the_next_turn_without_knowledge_file_tools()
     {
         await using var harness = new ChatSessionHarness();
         harness.KnowledgeFiles.FileNamesThatFailToSave.Add("tapt.md");
