@@ -113,12 +113,17 @@ html {
 }
 
 .assistant-markdown, .knowledge-file-viewer-reading {
-    > :is(h1, h2, h3, h4, h5, h6, time) {
+    > :is(h1, h2, h3, h4, h5, h6) {
         margin-block: var(--ds-size-7) var(--ds-size-4);
     }
 
-    > :is(p, ul, ol, table, pre, blockquote) {
+    > :is(p, ul, ol, table, pre, blockquote, .chat-code-block) {
         margin-block: var(--ds-size-4);
+    }
+
+    /* Paragraphs inside a list item or blockquote, which the rule above does not reach. */
+    p + p {
+        margin-top: var(--ds-size-4);
     }
 }
 
