@@ -73,7 +73,10 @@ md.renderer.rules.image = (tokens, index) => {
 
 // Chat answers are not page titles, so headings stay small.
 // Sizes are Designsystemet's data-size scale.
-const DS_HEADING_SIZES: Record<string, string> = {
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+type DsSize = '2xs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+
+const DS_HEADING_SIZES: Record<HeadingTag, DsSize> = {
     h1: 'md',
     h2: 'sm',
     h3: 'xs',
@@ -84,14 +87,14 @@ const DS_HEADING_SIZES: Record<string, string> = {
 
 // add designsystemet classes and data-size to rendered blocks for consistent styling
 // https://github.com/markdown-it/markdown-it/blob/master/src/rules_block/
-function styleRendererRule(className: string, sizes?: Record<string, string>): RendererRule {
+function styleRendererRule(className: string, sizes?: Record<HeadingTag, DsSize>): RendererRule {
     return (tokens, index, options, _env, self) => {
         const openingTag = tokens[index];
         if (!openingTag) throw new Error(`${className} is missing token at index ${index} (undefined)`);
 
         openingTag.attrJoin('class', className);
         if (sizes) {
-            openingTag.attrSet('data-size', sizes[openingTag.tag] ?? 'xs');
+            openingTag.attrSet('data-size', sizes[openingTag.tag as HeadingTag] ?? 'xs');
         }
 
         return self.renderToken(tokens, index, options);
