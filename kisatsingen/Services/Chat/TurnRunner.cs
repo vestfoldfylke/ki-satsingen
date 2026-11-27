@@ -179,7 +179,6 @@ internal sealed class TurnRunner
     private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
     {
         LogFailure(row, attempt);
-        LogEnded(row, attempt, model);
 
         if (attempt.ShouldSaveTurn)
         {
@@ -189,6 +188,7 @@ internal sealed class TurnRunner
         await InsertUsageRecordAsync(row, attempt, model);
         await InsertWebSearchUsageRecordAsync(row, attempt);
 
+        LogEnded(row, attempt, model);
         CountFailure(attempt);
     }
 
