@@ -111,8 +111,8 @@ html {
     padding: 2rem;
 }
 
-.assistant-markdown {
-    > :is(h1, h2, h3, h4, h5, h6) {
+.assistant-markdown, .knowledge-file-viewer-reading {
+    > :is(h1, h2, h3, h4, h5, h6, time) {
         margin-block: var(--ds-size-7) var(--ds-size-4);
     }
 
