@@ -1,0 +1,28 @@
+.about-page {
+    max-width: 50rem;
+    margin-inline: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-8);
+}
+
+.about-page-header {
+    text-align: center;
+}
+
+.about-page-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-size-4);
+}
+
+/* gap handles the spacing now, so turn off the built-in margins */
+.about-page-header > *,
+.about-page-section > *,
+.about-page .ds-divider {
+    margin: 0;
+}
+
+.about-page .ds-list li + li {
+    margin-block-start: var(--ds-size-2);
+}
