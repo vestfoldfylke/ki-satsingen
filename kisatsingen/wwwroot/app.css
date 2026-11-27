@@ -128,6 +128,13 @@ html {
     font-size: var(--ds-body-sm-font-size);
 }
 
+/* Touch-only devices: a tooltip would only show after the tap, so it is not displayed at all */
+@media (any-hover: none) {
+    .ds-tooltip {
+        display: none;
+    }
+}
+
 /* Designsystemet's fields add no space between each other. Global because
    EditForm renders the <form> as a child component, which scoped CSS cannot
    reach. */
