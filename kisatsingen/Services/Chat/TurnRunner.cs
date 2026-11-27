@@ -96,7 +96,7 @@ internal sealed class TurnRunner
         }
         finally
         {
-            CountSend(outcome, servedModelId ?? model.ModelId, model.Key);
+            CountSend(outcome, servedModelId ?? model.ModelId, model.Provider);
         }
     }
 
@@ -434,12 +434,12 @@ internal sealed class TurnRunner
 
     // One place builds the labels because Prometheus fixes a metric's label names
     // on first use and throws if a later call differs.
-    private void CountSend(TurnOutcome outcome, string? modelId, ChatModelKey modelKey) =>
+    private void CountSend(TurnOutcome outcome, string? modelId, string provider) =>
         _metrics.Count(
             $"{_metricPrefix}_send_total",
             "Chat send attempts, by outcome",
             (MetricConstants.MetricsModelLabelName, modelId ?? MetricConstants.MetricsModelUnknownLabelValue),
-            (MetricConstants.MetricsModelKeyLabelName, modelKey.Value),
+            (MetricConstants.MetricsProviderLabelName, provider),
             (MetricConstants.MetricsResultLabelName, TurnOutcomeMetric.LabelValue(outcome)));
 
     // What is known of the turn's row so far; a turn that ends early may never
