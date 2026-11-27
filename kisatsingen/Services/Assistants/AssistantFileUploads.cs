@@ -46,13 +46,13 @@ public sealed class AssistantFileUploads(
 
     // Whether the user may edit the assistant (CanEditAssistant) is authorized
     // before this is called. savedFileCount is how many files the assistant
-    // has, for the room left; onFileSaved runs after each save, before the
-    // file leaves All.
+    // has, for the room left; onFileSaved runs with each saved file, before
+    // it leaves All.
     public async Task AddAsync(
         Guid assistantId,
         InputFileChangeEventArgs selection,
         int savedFileCount,
-        Func<Task> onFileSaved)
+        Func<KnowledgeFileMetadata, Task> onFileSaved)
     {
         // This selection's own, so a reset stops it but not the next one.
         var ct = _cancellation.Token;
@@ -149,7 +149,7 @@ public sealed class AssistantFileUploads(
         AssistantFileUpload upload,
         IBrowserFile file,
         AttachmentType type,
-        Func<Task> onFileSaved,
+        Func<KnowledgeFileMetadata, Task> onFileSaved,
         CancellationToken ct)
     {
         // A reset during the previous file's onFileSaved, which takes no
@@ -179,7 +179,7 @@ public sealed class AssistantFileUploads(
         Guid assistantId,
         AssistantFileUpload upload,
         ReadyAttachment attachment,
-        Func<Task> onFileSaved,
+        Func<KnowledgeFileMetadata, Task> onFileSaved,
         CancellationToken ct)
     {
         var result = await _processor.ProcessAsync(userId, assistantId, attachment, ct);
@@ -188,8 +188,8 @@ public sealed class AssistantFileUploads(
             case AssistantFileResult.Rejected rejected:
                 upload.MarkRejected(rejected.Reason);
                 return;
-            case AssistantFileResult.Saved:
-                await onFileSaved();
+            case AssistantFileResult.Saved saved:
+                await onFileSaved(saved.File);
                 _uploads.Remove(upload);
                 return;
             default:

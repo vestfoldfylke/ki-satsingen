@@ -27,6 +27,9 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
     [Inject]
     public required IAuthorizationService AuthorizationService { get; init; }
 
+    [Inject]
+    public required ILogger<AssistantInstructionsCard> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -78,6 +81,19 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
             _isNotFound = true;
             return;
         }
+
+        // The length only: the instructions themselves stay out of the logs.
+        Logger.LogInformation(
+            "User {UserId} changed the instructions of {Visibility} assistant {AssistantId} owned by {OwnerId} (by owner: {IsOwner}): length {PreviousInstructionsLength} to {InstructionsLength}, base instructions disabled {PreviousAreBaseInstructionsDisabled} to {AreBaseInstructionsDisabled}",
+            userId,
+            Assistant.Visibility,
+            Assistant.Id,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId,
+            Assistant.Instructions?.Length ?? 0,
+            Form.Instructions?.Length ?? 0,
+            Assistant.AreBaseInstructionsDisabled,
+            areBaseInstructionsDisabled);
 
         _dialog?.Close();
         await OnChanged.InvokeAsync();

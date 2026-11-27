@@ -27,6 +27,9 @@ public sealed partial class AssistantToolsCard : ComponentBase
     [Inject]
     public required SearchWebToolFactory SearchWebTools { get; init; }
 
+    [Inject]
+    public required ILogger<AssistantToolsCard> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -86,6 +89,18 @@ public sealed partial class AssistantToolsCard : ComponentBase
             _isNotFound = true;
             return;
         }
+
+        Logger.LogInformation(
+            "User {UserId} changed the tools of {Visibility} assistant {AssistantId} owned by {OwnerId} (by owner: {IsOwner}): file generation {PreviousIsFileGenerationEnabled} to {IsFileGenerationEnabled}, web search {PreviousIsWebSearchEnabled} to {IsWebSearchEnabled}",
+            userId,
+            Assistant.Visibility,
+            Assistant.Id,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId,
+            Assistant.IsFileGenerationEnabled,
+            Form.IsFileGenerationEnabled,
+            Assistant.IsWebSearchEnabled,
+            Form.IsWebSearchEnabled);
 
         _dialog?.Close();
         await OnChanged.InvokeAsync();

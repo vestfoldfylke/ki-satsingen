@@ -28,6 +28,9 @@ public sealed partial class DeleteAssistantDialog : ComponentBase
     [Inject]
     public required NavigationManager Navigation { get; init; }
 
+    [Inject]
+    public required ILogger<DeleteAssistantDialog> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -55,6 +58,15 @@ public sealed partial class DeleteAssistantDialog : ComponentBase
             _isNotFound = true;
             return;
         }
+
+        Logger.LogInformation(
+            "User {UserId} deleted {Visibility} assistant {AssistantId} named {AssistantName} owned by {OwnerId} (by owner: {IsOwner})",
+            userId,
+            Assistant.Visibility,
+            Assistant.Id,
+            Assistant.Name,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId);
 
         Navigation.NavigateTo(AssistantsPath);
     }
