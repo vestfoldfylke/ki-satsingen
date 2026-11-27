@@ -14,7 +14,7 @@
 // Streaming skips hljs on purpose: re-highlighting every code block on every
 // token is O(n²) in response length. hljs and copy buttons run once on commit.
 
-import MarkdownIt from 'markdown-it';
+import MarkdownIt, { RendererRule } from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import './code-theme.css';
@@ -84,56 +84,25 @@ const DS_HEADING_SIZES: Record<string, string> = {
 
 // add designsystemet classes and data-size to rendered blocks for consistent styling
 // https://github.com/markdown-it/markdown-it/blob/master/src/rules_block/
-md.renderer.rules.heading_open = (tokens, index, options, _env, self) => {
-    const headingElement = tokens[index];
+function styleRendererRule(className: string, sizes?: Record<string, string>): RendererRule {
+    return (tokens, index, options, _env, self) => {
+        const openingTag = tokens[index];
+        if (!openingTag) throw new Error(`${className} is missing token at index ${index} (undefined)`);
 
-    if (!headingElement) throw new Error('heading_open is missing token (undefined)');
+        openingTag.attrJoin('class', className);
+        if (sizes) {
+            openingTag.attrSet('data-size', sizes[openingTag.tag] ?? 'xs');
+        }
 
-    headingElement.attrJoin('class', 'ds-heading');
-    headingElement.attrSet('data-size', DS_HEADING_SIZES[headingElement.tag] ?? 'xs');
+        return self.renderToken(tokens, index, options);
+    };
+}
 
-    return self.renderToken(tokens, index, options);
-};
-
-md.renderer.rules.paragraph_open = (tokens, index, options, _env, self) => {
-    const paragraphElement = tokens[index];
-
-    if (!paragraphElement) throw new Error('paragraph_open is missing token (undefined)');
-
-    paragraphElement.attrJoin('class', 'ds-paragraph');
-
-    return self.renderToken(tokens, index, options);
-};
-
-md.renderer.rules.table_open = (tokens, index, options, _env, self) => {
-    const tableElement = tokens[index];
-
-    if (!tableElement) throw new Error('table_open is missing token (undefined)');
-
-    tableElement.attrJoin('class', 'ds-table');
-
-    return self.renderToken(tokens, index, options);
-};
-
-md.renderer.rules.ordered_list_open = (tokens, index, options, _env, self) => {
-    const orderedListElement = tokens[index];
-
-    if (!orderedListElement) throw new Error('ordered_list_open is missing token (undefined)');
-
-    orderedListElement.attrJoin('class', 'ds-list');
-
-    return self.renderToken(tokens, index, options);
-};
-
-md.renderer.rules.bullet_list_open = (tokens, index, options, _env, self) => {
-    const bulletListElement = tokens[index];
-
-    if (!bulletListElement) throw new Error('bullet_list_open is missing token (undefined)');
-
-    bulletListElement.attrJoin('class', 'ds-list');
-
-    return self.renderToken(tokens, index, options);
-};
+md.renderer.rules.heading_open = styleRendererRule('ds-heading', DS_HEADING_SIZES);
+md.renderer.rules.paragraph_open = styleRendererRule('ds-paragraph');
+md.renderer.rules.table_open = styleRendererRule('ds-table');
+md.renderer.rules.ordered_list_open = styleRendererRule('ds-list');
+md.renderer.rules.bullet_list_open = styleRendererRule('ds-list');
 
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
 // model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
