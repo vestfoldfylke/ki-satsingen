@@ -10,5 +10,7 @@ internal enum WebSearchAccess
     // user know that search can be turned on.
     SwitchedOff,
 
+    // The tool may search. Not named for the switch: more than the switch can
+    // allow it.
     Allowed,
 }

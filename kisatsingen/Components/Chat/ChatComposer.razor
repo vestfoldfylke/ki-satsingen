@@ -41,7 +41,8 @@
                     <ComposerAddMenu IsFilePickerDisabled="IsPickerDisabled"
                                      OnFilesSelected="Attachments.AttachAsync"
                                      IsWebSearchAvailable="Session.IsWebSearchAvailable"
-                                     IsWebSearchOn="Session.IsWebSearchOn"
+                                     IsWebSearchAllowed="Session.IsWebSearchAllowed"
+                                     IsWebSearchDecidedByAssistant="Session.IsWebSearchDecidedByAssistant"
                                      OnWebSearchChanged="Session.SetWebSearch"
                                      IsBusy="Session.IsBusy" />
 
@@ -101,8 +102,9 @@
     @* Static, so Blazor never touches the data-composer-has-text chat-composer.ts writes. *@
     <p id="chat-footer" class="ds-paragraph chat-footer" data-size="xs" data-color="neutral">
         <span class="chat-footer-message chat-footer-answer-reminder">KI kan gjøre feil. Vurder alltid svarene kritisk.</span>
-        @* The id on the text alone: a description from a hidden element includes
-           its hidden children, so the icon's ligature name would be read. *@
+        @* The id on the text alone: the rule is hidden while the composer is
+           empty, and a description taken from a hidden element includes its
+           hidden children, so the icon's text ("privacy_tip") would be read too. *@
         <span class="chat-footer-message chat-footer-rule">
             <span class="material-symbols-outlined" aria-hidden="true">privacy_tip</span>
             <span id="chat-footer-rule-text">Husk å ikke legge inn personopplysninger eller taushetsbelagt informasjon.</span>

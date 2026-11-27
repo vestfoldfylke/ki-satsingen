@@ -33,6 +33,9 @@ internal sealed class FakeAssistantRepository : IAssistantRepository
     public Task<bool> UpdateAssistantInstructionsAsync(Guid userId, Guid assistantId, string? instructions, bool areBaseInstructionsDisabled, CancellationToken ct = default) =>
         throw new NotSupportedException("The chat tests only read assistants; use Store to change one.");
 
+    public Task<bool> UpdateAssistantToolsAsync(Guid userId, Guid assistantId, bool isFileGenerationEnabled, bool isWebSearchEnabled, CancellationToken ct = default) =>
+        throw new NotSupportedException("The chat tests only read assistants; use Store to change one.");
+
     public Task<bool> DeleteAssistantAsync(Guid userId, Guid assistantId, CancellationToken ct = default) =>
         throw new NotSupportedException("The chat tests only read assistants; use RemoveAccess to lose one.");
 }
