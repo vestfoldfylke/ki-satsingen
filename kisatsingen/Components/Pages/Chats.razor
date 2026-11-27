@@ -11,5 +11,67 @@
         </div>
     </div>
 
-    <ChatListItems HasDetailedView="true" />
+    @if (Manager.Entries.Count == 0)
+    {
+        <p class="ds-paragraph chats-empty">Ingen samtaler enda</p>
+    }
+    else
+    {
+        var utcNow = DateTimeOffset.UtcNow;
+
+        <ul class="ds-list--unstyled chats-list" data-color="neutral">
+            @foreach (var entry in Manager.Entries)
+            {
+                <li @key="entry.Id">
+                    <div class="chats-row">
+                        <a
+                            class="ds-focus--inset chats-link"
+                            href="@($"/chat/{entry.Id}")"
+                            data-tooltip="@(entry.Title.Length > TooltipTitleLengthThreshold ? entry.Title : null)"
+                        >
+                            <span class="material-symbols-outlined chats-bullet" aria-hidden="true">
+                                @(entry.AssistantId is not null ? "smart_toy" : "fiber_manual_record")
+                            </span>
+                            @if (entry.AssistantId is not null)
+                            {
+                                <span class="ds-sr-only">Assistent: </span>
+                            }
+
+                            <span class="chats-text">
+                                <span class="chats-title">@entry.Title</span>
+                                @if (DescribeUpcomingDeletion(entry, utcNow) is { } upcomingDeletion)
+                                {
+                                    <span class="chats-expiry">@upcomingDeletion</span>
+                                }
+                            </span>
+
+                            <span class="ds-paragraph chats-date" data-size="sm">
+                                <NorwegianDate Value="entry.UpdatedAt" />
+                            </span>
+                        </a>
+                        <div class="chats-options">
+                            <ChatOptionsMenu
+                                Entry="entry"
+                                RenameDialogId="@RenameChatDialogId"
+                                DeleteDialogId="@DeleteChatDialogId"
+                                OnRenameRequested="chat => _renameDialog?.Load(chat)"
+                                OnDeleteRequested="chat => _deleteDialog?.Load(chat)"
+                            />
+                        </div>
+                    </div>
+
+                    <hr aria-hidden="true" class="ds-divider chats-divider"/>
+                </li>
+            }
+        </ul>
+    }
 </div>
+
+<RenameChatDialog
+    @ref="_renameDialog"
+    Id="@RenameChatDialogId"
+/>
+<DeleteChatDialog
+    @ref="_deleteDialog"
+    Id="@DeleteChatDialogId"
+/>

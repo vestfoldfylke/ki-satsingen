@@ -1,0 +1,51 @@
+@if (Manager.Entries.Count == 0)
+{
+    <p class="ds-paragraph nav-chat-list-empty">Ingen samtaler enda</p>
+}
+else
+{
+    <ul class="ds-list--unstyled" data-color="neutral">
+        @foreach (var entry in ListedChats)
+        {
+            var hasTooltip = entry.Title.Length > TooltipTitleLengthThreshold;
+
+            <li @key="entry.Id" class="nav-chat-row">
+                @* aria-label matches the tooltip, so the title is not read twice. The key rebuilds the link
+                   when a rename adds or removes the tooltip; patching it would let the tooltip script strip the aria attributes. *@
+                <a
+                    @key="hasTooltip"
+                    class="ds-focus--inset nav-chat-link"
+                    href="@ChatPath(entry)"
+                    aria-current="@(IsViewing(entry) ? "page" : null)"
+                    aria-label="@entry.Title"
+                    aria-description="@(entry.AssistantId is not null ? "Assistent" : null)"
+                    data-tooltip="@(hasTooltip ? entry.Title : null)"
+                    data-placement="right"
+                >
+                    <span class="material-symbols-outlined nav-chat-bullet" aria-hidden="true">
+                        @(entry.AssistantId is not null ? "smart_toy" : "fiber_manual_record")
+                    </span>
+                    <span class="nav-chat-title">@entry.Title</span>
+                </a>
+                <div class="nav-chat-options">
+                    <ChatOptionsMenu
+                        Entry="entry"
+                        RenameDialogId="@RenameChatDialogId"
+                        DeleteDialogId="@DeleteChatDialogId"
+                        OnRenameRequested="chat => _renameDialog?.Load(chat)"
+                        OnDeleteRequested="chat => _deleteDialog?.Load(chat)"
+                    />
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+<RenameChatDialog
+    @ref="_renameDialog"
+    Id="@RenameChatDialogId"
+/>
+<DeleteChatDialog
+    @ref="_deleteDialog"
+    Id="@DeleteChatDialogId"
+/>

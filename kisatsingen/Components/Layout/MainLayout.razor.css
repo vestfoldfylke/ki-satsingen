@@ -17,7 +17,7 @@ main {
     min-width: 0;
 }
 
-@media (min-width: 641px) {
+@media (width > 640px) {
     .page {
         flex-direction: row;
     }
@@ -34,7 +34,7 @@ main {
     }
 }
 
-@media (max-width: 640px) {
+@media (width <= 640px) {
     .sidebar {
         height: 0;
     }
