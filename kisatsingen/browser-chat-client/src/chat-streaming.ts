@@ -14,7 +14,7 @@
 // Streaming skips hljs on purpose: re-highlighting every code block on every
 // token is O(n²) in response length. hljs and copy buttons run once on commit.
 
-import MarkdownIt from 'markdown-it';
+import MarkdownIt, { type RendererRule } from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import './code-theme.css';
@@ -72,6 +72,42 @@ md.renderer.rules.image = (tokens, index) => {
     return md.utils.escapeHtml(altText ? `[Bilde: ${altText}]` : '[Bilde]');
 };
 
+// Chat answers are not page titles, so headings stay small.
+// Sizes are Designsystemet's data-size scale.
+type HeadingTag = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6';
+type DsSize = '2xs' | 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+
+const DS_HEADING_SIZES: Record<HeadingTag, DsSize> = {
+    h1: 'md',
+    h2: 'sm',
+    h3: 'xs',
+    h4: '2xs',
+    h5: '2xs',
+    h6: '2xs',
+};
+
+// add designsystemet classes and data-size to rendered blocks for consistent styling
+// https://github.com/markdown-it/markdown-it/blob/master/src/rules_block/
+function styleRendererRule(className: string, sizes?: Record<HeadingTag, DsSize>): RendererRule {
+    return (tokens, index, options, _env, self) => {
+        const openingTag = tokens[index];
+        if (!openingTag) throw new Error(`${className} is missing token at index ${index} (undefined)`);
+
+        openingTag.attrJoin('class', className);
+        if (sizes) {
+            openingTag.attrSet('data-size', sizes[openingTag.tag as HeadingTag] ?? 'xs');
+        }
+
+        return self.renderToken(tokens, index, options);
+    };
+}
+
+md.renderer.rules.heading_open = styleRendererRule('ds-heading', DS_HEADING_SIZES);
+md.renderer.rules.paragraph_open = styleRendererRule('ds-paragraph');
+md.renderer.rules.table_open = styleRendererRule('ds-table');
+md.renderer.rules.ordered_list_open = styleRendererRule('ds-list');
+md.renderer.rules.bullet_list_open = styleRendererRule('ds-list');
+
 // linkify-it 6 (markdown-it 15) only links URLs with a scheme by default. The
 // model often writes addresses as "www.vestfoldfylke.no" or "udir.no", so keep
 // linking those as before.
@@ -90,11 +126,17 @@ DOMPurify.addHook('afterSanitizeAttributes', node => {
 
     // The raw attribute: node.href would turn a relative link into a full URL.
     const href = node.getAttribute('href');
-    if (href === null || MAIL_OR_PHONE_LINK.test(href)) {
+    if (href === null) {
+        return;
+    }
+
+    if (MAIL_OR_PHONE_LINK.test(href)) {
+        node.classList.add('ds-link');
         return;
     }
 
     if (WEB_LINK.test(href)) {
+        node.classList.add('ds-link');
         node.setAttribute('target', '_blank');
         node.setAttribute('rel', 'noopener noreferrer');
         return;
