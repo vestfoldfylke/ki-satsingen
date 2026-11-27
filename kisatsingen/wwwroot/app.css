@@ -189,6 +189,12 @@ pre > code {
     overflow-x: auto;
 }
 
+/* Codeblocks that doesn't include a language gets the class .language-text.
+   In such cases we don't want any scroll */
+pre > .language-text {
+    white-space: pre-wrap;
+}
+
 /* An unbroken identifier or URL would otherwise push past the chat column. */
 :not(pre) > code {
     overflow-wrap: anywhere;
