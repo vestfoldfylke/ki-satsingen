@@ -23,6 +23,9 @@ internal sealed record TurnObserver(
 // the turn never finished.
 internal sealed class TurnRunner
 {
+    private const string TurnIdPropertyName = "TurnId";
+    private const string ChatIdPropertyName = "ChatId";
+
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatModelCatalog _catalog;
     private readonly IChatRepository _repo;
@@ -68,6 +71,12 @@ internal sealed class TurnRunner
     // allocation failure, and a metrics failure, surfaced rather than swallowed.
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
+        using var logScope = _logger.BeginScope(new Dictionary<string, object?>
+        {
+            [TurnIdPropertyName] = input.Turn.Id,
+            [ChatIdPropertyName] = input.ChatId,
+        });
+
         var model = input.Model;
         var webSearch = _searchWebTools.StartTurn(access: input.ToolDecision.WebSearchAccess);
         var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
