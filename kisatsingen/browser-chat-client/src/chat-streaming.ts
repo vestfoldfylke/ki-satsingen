@@ -14,7 +14,7 @@
 // Streaming skips hljs on purpose: re-highlighting every code block on every
 // token is O(n²) in response length. hljs and copy buttons run once on commit.
 
-import MarkdownIt, { RendererRule } from 'markdown-it';
+import MarkdownIt, { type RendererRule } from 'markdown-it';
 import DOMPurify from 'dompurify';
 import hljs from 'highlight.js/lib/core';
 import './code-theme.css';
