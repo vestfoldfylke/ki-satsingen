@@ -179,6 +179,7 @@ internal sealed class TurnRunner
     private async Task FinishAttemptAsync(TurnRow row, TurnAttempt attempt, ChatModel model)
     {
         LogFailure(row, attempt);
+        LogEnded(row, attempt, model);
 
         if (attempt.ShouldSaveTurn)
         {
@@ -197,6 +198,34 @@ internal sealed class TurnRunner
         {
             _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
         }
+    }
+
+    // One line for every ending, so the logs show what users do and not only what
+    // fails. Tool names only: a call's arguments carry what the user asked.
+    private void LogEnded(TurnRow row, TurnAttempt attempt, ChatModel model)
+    {
+        var turn = attempt.Turn;
+        var toolCalls = turn.Answer.OfType<ToolCall>().ToList();
+        var usage = turn.Metadata?.Usage;
+
+        _logger.LogInformation(
+            "Chat turn ended as {Status} (failed stage: {FailedAt}) on model {ModelKey} with assistant {AssistantId}: " +
+            "{AttachmentCount} attachments ({UnavailableAttachmentCount} unavailable), tools {ToolNames} ({FailedToolCallCount} failed), " +
+            "web search allowed {IsWebSearchAllowed}, {DurationMs} ms ({TimeToFirstTokenMs} ms to first token), " +
+            "{InputTokens} input and {OutputTokens} output tokens",
+            turn.Status,
+            turn.FailedAt,
+            model.Key.Value,
+            row.AssistantId,
+            turn.Attachments.Count,
+            turn.Attachments.Count(attachment => attachment.UnavailableReason is not null),
+            toolCalls.Select(toolCall => toolCall.ToolName).ToArray(),
+            toolCalls.Count(toolCall => toolCall.Status == ToolStatus.Failed),
+            turn.IsWebSearchAllowed,
+            turn.Metadata?.DurationMs,
+            turn.Metadata?.TimeToFirstTokenMs,
+            usage?.CombinedInputTokens,
+            usage?.CombinedOutputTokens);
     }
 
     private void CountFailure(TurnAttempt attempt)
