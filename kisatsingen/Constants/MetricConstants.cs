@@ -5,11 +5,11 @@ public static class MetricConstants
     // Names follow https://prometheus.io/docs/practices/naming/
     public static string MetricsAppPrefix => "kiweb";
 
-    public static string MetricsModelLabelName => "model";
-
     // Stable, unlike model, which changes whenever a provider rolls a dated build.
     // Group dashboards by this one.
-    public static string MetricsModelKeyLabelName => "model_key";
+    public static string MetricsProviderLabelName => "provider";
+
+    public static string MetricsModelLabelName => "model";
 
     // A turn that ended before a response came back.
     public static string MetricsModelUnknownLabelValue => "unknown";
