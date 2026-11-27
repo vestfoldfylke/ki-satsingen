@@ -191,7 +191,8 @@ pre > code {
 
 /* Codeblocks that doesn't include a language gets the class .language-text.
    In such cases we don't want any scroll */
-pre > .language-text {
+pre > .language-text,
+pre > .language-markdown {
     white-space: pre-wrap;
 }
 
