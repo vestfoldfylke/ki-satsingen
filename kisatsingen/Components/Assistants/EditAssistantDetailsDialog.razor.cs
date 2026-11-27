@@ -87,7 +87,7 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
             Assistant.OwnerId,
             Assistant.OwnerId == userId,
             Assistant.Name,
-            Form.Name,
+            Form.Name.Trim(),
             Assistant.Visibility,
             Form.Visibility);
 

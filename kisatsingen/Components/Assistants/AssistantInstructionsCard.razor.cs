@@ -91,7 +91,7 @@ public sealed partial class AssistantInstructionsCard : ComponentBase
             Assistant.OwnerId,
             Assistant.OwnerId == userId,
             Assistant.Instructions?.Length ?? 0,
-            Form.Instructions?.Length ?? 0,
+            Form.Instructions?.Trim().Length ?? 0,
             Assistant.AreBaseInstructionsDisabled,
             areBaseInstructionsDisabled);
 
