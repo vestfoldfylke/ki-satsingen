@@ -46,6 +46,13 @@
                                      OnWebSearchChanged="Session.SetWebSearch"
                                      IsBusy="Session.IsBusy" />
 
+                    @* Seen before sending, since the + menu that changes search is
+                       closed while the user writes. *@
+                    @if (Session.IsWebSearchAllowed)
+                    {
+                        <span class="material-symbols-outlined" role="img" aria-label="Nettsøk er på" data-tooltip="Nettsøk er på" data-placement="bottom">travel_explore</span>
+                    }
+
                     @if (Session.EstimatedContextTokens is { } contextTokens)
                     {
                         <ContextUsagePopover Model="Session.SelectedModel"
