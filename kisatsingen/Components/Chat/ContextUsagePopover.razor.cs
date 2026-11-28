@@ -34,7 +34,4 @@ public sealed partial class ContextUsagePopover : ComponentBase
         ContextFillLevel.Filling => "warning",
         _ => "primary",
     };
-
-    // The colour alone says nothing to a screen reader.
-    private string TriggerLabel => $"Kontekstvindu: {StatusText}. Vis detaljer.";
 }
