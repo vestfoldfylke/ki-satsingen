@@ -212,7 +212,7 @@ internal sealed class TurnRunner
             "Chat turn ended as {Status} (failed stage: {FailedAt}) on model {ModelKey} with assistant {AssistantId}: " +
             "{AttachmentCount} attachments ({UnavailableAttachmentCount} unavailable), tools {ToolNames} ({FailedToolCallCount} failed), " +
             "web search allowed {IsWebSearchAllowed}, {DurationMs} ms ({TimeToFirstTokenMs} ms to first token), " +
-            "{InputTokens} input and {OutputTokens} output tokens",
+            "{InputTokens} input and {OutputTokens} output tokens, finish reason {FinishReason}",
             turn.Status,
             turn.FailedAt,
             model.Key.Value,
@@ -225,7 +225,8 @@ internal sealed class TurnRunner
             turn.Metadata?.DurationMs,
             turn.Metadata?.TimeToFirstTokenMs,
             usage?.CombinedInputTokens,
-            usage?.CombinedOutputTokens);
+            usage?.CombinedOutputTokens,
+            turn.Metadata?.FinishReason);
     }
 
     private void CountFailure(TurnAttempt attempt)
