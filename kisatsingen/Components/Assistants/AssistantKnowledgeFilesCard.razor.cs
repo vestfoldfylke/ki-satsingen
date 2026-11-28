@@ -92,7 +92,23 @@ public sealed partial class AssistantKnowledgeFilesCard : ComponentBase, IDispos
         }
 
         _refusal = null;
-        await Uploads.AddAsync(Assistant.Id, selection, savedFileCount: Files.Count, onFileSaved: OnChanged.InvokeAsync);
+        await Uploads.AddAsync(Assistant.Id, selection, savedFileCount: Files.Count, onFileSaved: OnFileSavedAsync);
+    }
+
+    private async Task OnFileSavedAsync(KnowledgeFileMetadata file)
+    {
+        var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
+        Logger.LogInformation(
+            "User {UserId} added file {FileId} named {FileName} to {Visibility} assistant {AssistantId} owned by {OwnerId} (by owner: {IsOwner})",
+            userId,
+            file.Id,
+            file.FileName,
+            Assistant.Visibility,
+            Assistant.Id,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId);
+
+        await OnChanged.InvokeAsync();
     }
 
     // Selecting files is a click inside the menu, which popover="auto" doesn't

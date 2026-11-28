@@ -72,6 +72,13 @@ internal sealed class TurnAttachmentProcessor(
             case KnowledgeFilePipelineResult.Completed completed:
                 return await SaveAsync(ownerId, chatId, attachment, completed.File);
             case KnowledgeFilePipelineResult.Rejected rejected:
+                logger.LogInformation(
+                    "Refused chat attachment {FileName} ({ContentType}, {SizeBytes} bytes) in chat {ChatId} while processing: {RejectionReason}",
+                    attachment.FileName,
+                    attachment.Type.ContentType,
+                    attachment.SizeBytes,
+                    chatId,
+                    rejected.Reason);
                 return new TurnAttachmentResult.Unavailable(rejected.Reason);
             default:
                 throw new UnreachableException($"The pipeline returned {result.GetType().Name}, which the attachment processor does not handle. Handle it here.");
@@ -120,6 +127,13 @@ internal sealed class TurnAttachmentProcessor(
             case KnowledgeFileSaveResult.Saved saved:
                 return new TurnAttachmentResult.Available(saved.File);
             case KnowledgeFileSaveResult.Rejected rejected:
+                logger.LogInformation(
+                    "Refused chat attachment {FileName} ({ContentType}, {SizeBytes} bytes) in chat {ChatId} while saving: {RejectionReason}",
+                    attachment.FileName,
+                    attachment.Type.ContentType,
+                    attachment.SizeBytes,
+                    chatId,
+                    rejected.Reason);
                 return new TurnAttachmentResult.Unavailable(rejected.Reason);
             default:
                 throw new UnreachableException($"Saving returned {saveResult.GetType().Name}, which the attachment processor does not handle. Handle it here.");

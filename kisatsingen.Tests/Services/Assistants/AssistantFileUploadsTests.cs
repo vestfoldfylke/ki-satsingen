@@ -50,8 +50,8 @@ public sealed class AssistantFileUploadsTests : IDisposable
             maxEstimatedTokens: 1_000_000,
             NullLogger<KnowledgeFilePipeline>.Instance);
 
-    private Task AddAsync(IBrowserFile[] files, int savedFileCount = 0, Func<Task>? onFileSaved = null) =>
-        _uploads.AddAsync(AssistantId, new InputFileChangeEventArgs(files), savedFileCount, onFileSaved ?? (() => Task.CompletedTask));
+    private Task AddAsync(IBrowserFile[] files, int savedFileCount = 0, Func<KnowledgeFileMetadata, Task>? onFileSaved = null) =>
+        _uploads.AddAsync(AssistantId, new InputFileChangeEventArgs(files), savedFileCount, onFileSaved ?? (_ => Task.CompletedTask));
 
     private static FakeBrowserFile TextFile(string name) => new(name, UploadBytes.Text);
 
@@ -72,7 +72,7 @@ public sealed class AssistantFileUploadsTests : IDisposable
 
         await AddAsync(
             [TextFile("a.md"), TextFile("b.md")],
-            onFileSaved: () =>
+            onFileSaved: _ =>
             {
                 savedCountAtEachReport.Add(_repository.Saved.Count);
                 return Task.CompletedTask;
@@ -80,6 +80,22 @@ public sealed class AssistantFileUploadsTests : IDisposable
 
         Assert.Equal([1, 2], savedCountAtEachReport);
         Assert.Empty(_uploads.All);
+    }
+
+    [Fact]
+    public async Task Each_saved_file_is_reported_with_its_saved_metadata()
+    {
+        var reportedFileNames = new List<string>();
+
+        await AddAsync(
+            [TextFile("a.md"), TextFile("b.md")],
+            onFileSaved: file =>
+            {
+                reportedFileNames.Add(file.FileName);
+                return Task.CompletedTask;
+            });
+
+        Assert.Equal(["a.md", "b.md"], reportedFileNames);
     }
 
     [Fact]
@@ -236,7 +252,7 @@ public sealed class AssistantFileUploadsTests : IDisposable
 
         await AddAsync(
             [TextFile("notat.md")],
-            onFileSaved: () =>
+            onFileSaved: _ =>
             {
                 listedCountWhileReloading = _uploads.All.Count;
                 return Task.CompletedTask;
@@ -269,7 +285,7 @@ public sealed class AssistantFileUploadsTests : IDisposable
 
         await AddAsync(
             [TextFile("a.md"), TextFile("b.md", onOpened: () => isLaterFileOpened = true)],
-            onFileSaved: () =>
+            onFileSaved: _ =>
             {
                 _uploads.Reset();
                 return Task.CompletedTask;

@@ -215,6 +215,7 @@ builder.Services.AddRadzenComponents();
 builder.Services.AddScoped<ChatManager>();
 builder.Services.AddScoped<ChatSession>();
 builder.Services.AddScoped<CircuitHandler, BlazorCircuitObserver>();
+builder.Services.AddScoped<CircuitHandler, UserLogScopeCircuitHandler>();
 
 // ─── Attachments ───────────────────────────────────────
 // Defaults live in AttachmentOptions; the section overrides them.

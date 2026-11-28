@@ -25,6 +25,9 @@ public sealed partial class NewAssistantDialog : ComponentBase
     [Inject]
     public required IAuthorizationService AuthorizationService { get; init; }
 
+    [Inject]
+    public required ILogger<NewAssistantDialog> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -56,6 +59,12 @@ public sealed partial class NewAssistantDialog : ComponentBase
 
         var userId = await AuthenticationService.RequireUserObjectIdentifierAsync();
         var assistant = await AssistantRepository.CreateAssistantAsync(userId, Form.Name, Form.Description, Form.Visibility);
+        Logger.LogInformation(
+            "User {UserId} created assistant {AssistantId} named {AssistantName} as {Visibility}",
+            userId,
+            assistant.Id,
+            assistant.Name,
+            assistant.Visibility);
 
         _dialog?.Close();
         await OnCreated.InvokeAsync(assistant.Id);

@@ -23,6 +23,9 @@ internal sealed record TurnObserver(
 // the turn never finished.
 internal sealed class TurnRunner
 {
+    private const string TurnIdPropertyName = "TurnId";
+    private const string ChatIdPropertyName = "ChatId";
+
     private readonly IAuthenticationService _authenticationService;
     private readonly IChatModelCatalog _catalog;
     private readonly IChatRepository _repo;
@@ -68,6 +71,12 @@ internal sealed class TurnRunner
     // allocation failure, and a metrics failure, surfaced rather than swallowed.
     public async Task<Turn> RunAsync(TurnInput input, TurnCancellation cancellation, TurnObserver observer)
     {
+        using var logScope = _logger.BeginScope(new Dictionary<string, object?>
+        {
+            [TurnIdPropertyName] = input.Turn.Id,
+            [ChatIdPropertyName] = input.ChatId,
+        });
+
         var model = input.Model;
         var webSearch = _searchWebTools.StartTurn(access: input.ToolDecision.WebSearchAccess);
         var row = new TurnRow(input.ChatId, input.AssistantId, input.IsChatSaved, webSearch);
@@ -179,6 +188,7 @@ internal sealed class TurnRunner
         await InsertUsageRecordAsync(row, attempt, model);
         await InsertWebSearchUsageRecordAsync(row, attempt);
 
+        LogEnded(row, attempt, model);
         CountFailure(attempt);
     }
 
@@ -188,6 +198,35 @@ internal sealed class TurnRunner
         {
             _logger.LogError(error, "Chat turn failed during {Stage} for chat {ChatId}", stage, row.ChatId);
         }
+    }
+
+    // One line for every ending, so the logs show what users do and not only what
+    // fails. Tool names only: a call's arguments carry what the user asked.
+    private void LogEnded(TurnRow row, TurnAttempt attempt, ChatModel model)
+    {
+        var turn = attempt.Turn;
+        var toolCalls = turn.Answer.OfType<ToolCall>().ToList();
+        var usage = turn.Metadata?.Usage;
+
+        _logger.LogInformation(
+            "Chat turn ended as {Status} (failed stage: {FailedAt}) on model {ModelKey} with assistant {AssistantId}: " +
+            "{AttachmentCount} attachments ({UnavailableAttachmentCount} unavailable), tools {ToolNames} ({FailedToolCallCount} failed), " +
+            "web search allowed {IsWebSearchAllowed}, {DurationMs} ms ({TimeToFirstTokenMs} ms to first token), " +
+            "{InputTokens} input and {OutputTokens} output tokens, finish reason {FinishReason}",
+            turn.Status,
+            turn.FailedAt,
+            model.Key.Value,
+            row.AssistantId,
+            turn.Attachments.Count,
+            turn.Attachments.Count(attachment => attachment.UnavailableReason is not null),
+            toolCalls.Select(toolCall => toolCall.ToolName).ToArray(),
+            toolCalls.Count(toolCall => toolCall.Status == ToolStatus.Failed),
+            turn.IsWebSearchAllowed,
+            turn.Metadata?.DurationMs,
+            turn.Metadata?.TimeToFirstTokenMs,
+            usage?.CombinedInputTokens,
+            usage?.CombinedOutputTokens,
+            turn.Metadata?.FinishReason);
     }
 
     private void CountFailure(TurnAttempt attempt)

@@ -57,7 +57,10 @@ public sealed partial class DeleteChatDialog : ComponentBase
 
         try
         {
-            await Manager.DeleteAsync(chat.Id, CancellationToken.None);
+            if (await Manager.DeleteAsync(chat.Id, CancellationToken.None))
+            {
+                Logger.LogInformation("User deleted chat {ChatId}", chat.Id);
+            }
         }
         catch (Exception ex)
         {

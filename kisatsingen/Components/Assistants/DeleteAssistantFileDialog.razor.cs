@@ -24,6 +24,9 @@ public sealed partial class DeleteAssistantFileDialog : ComponentBase
     [Inject]
     public required IAuthorizationService AuthorizationService { get; init; }
 
+    [Inject]
+    public required ILogger<DeleteAssistantFileDialog> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -71,6 +74,16 @@ public sealed partial class DeleteAssistantFileDialog : ComponentBase
             await OnDeleted.InvokeAsync();
             return;
         }
+
+        Logger.LogInformation(
+            "User {UserId} deleted file {FileId} named {FileName} from {Visibility} assistant {AssistantId} owned by {OwnerId} (by owner: {IsOwner})",
+            userId,
+            file.Id,
+            file.FileName,
+            Assistant.Visibility,
+            Assistant.Id,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId);
 
         _dialog?.Close();
         await OnDeleted.InvokeAsync();

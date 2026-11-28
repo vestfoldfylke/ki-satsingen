@@ -25,6 +25,9 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
     [Inject]
     public required IAuthorizationService AuthorizationService { get; init; }
 
+    [Inject]
+    public required ILogger<EditAssistantDetailsDialog> Logger { get; init; }
+
     [CascadingParameter]
     public required Task<AuthenticationState> AuthenticationState { get; set; }
 
@@ -76,6 +79,17 @@ public sealed partial class EditAssistantDetailsDialog : ComponentBase
             _isNotFound = true;
             return;
         }
+
+        Logger.LogInformation(
+            "User {UserId} changed the details of assistant {AssistantId} owned by {OwnerId} (by owner: {IsOwner}): name {PreviousAssistantName} to {AssistantName}, visibility {PreviousVisibility} to {Visibility}",
+            userId,
+            Assistant.Id,
+            Assistant.OwnerId,
+            Assistant.OwnerId == userId,
+            Assistant.Name,
+            Form.Name.Trim(),
+            Assistant.Visibility,
+            Form.Visibility);
 
         _dialog?.Close();
         await OnChanged.InvokeAsync();
