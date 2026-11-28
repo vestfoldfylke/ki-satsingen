@@ -47,10 +47,11 @@
                                      IsBusy="Session.IsBusy" />
 
                     @* Seen before sending, since the + menu that changes search is
-                       closed while the user writes. *@
+                       closed while the user writes. Focusable, so keyboard users
+                       get its tooltip too. *@
                     @if (Session.IsWebSearchAllowed)
                     {
-                        <span class="material-symbols-outlined" role="img" aria-label="Nettsøk er på" data-tooltip="Nettsøk er på" data-placement="bottom">travel_explore</span>
+                        <span class="material-symbols-outlined" role="img" tabindex="0" aria-label="Nettsøk er på" data-tooltip="Nettsøk er på" data-placement="bottom">travel_explore</span>
                     }
 
                     @if (Session.EstimatedContextTokens is { } contextTokens)
@@ -84,6 +85,7 @@
                                 data-icon="true"
                                 aria-label="Stopp generering"
                                 data-tooltip="Stopp generering"
+                                data-placement="bottom"
                                 @onclick="Session.Cancel">
                             <span class="material-symbols-outlined" aria-hidden="true">stop</span>
                         </button>
@@ -97,6 +99,7 @@
                             type="button"
                             aria-label="Send melding"
                             data-tooltip="Send melding"
+                            data-placement="bottom"
                             disabled
                             @onclick="SendAsync">
                         <span class="material-symbols-outlined" aria-hidden="true">arrow_upward</span>
